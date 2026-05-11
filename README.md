@@ -4,7 +4,7 @@ A growing kit of open-source product leadership skills from the [*Mission Built*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-By [H. Michael Nichols](https://www.linkedin.com/in/hmichaelnichols) · Read the book at [missionbuilt.io](https://missionbuilt.io)
+By [Mike Nichols](https://www.linkedin.com/in/hmikenichols) · Read the book at [missionbuilt.io](https://missionbuilt.io)
 
 ---
 
