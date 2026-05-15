@@ -1,1 +1,19 @@
-warmup/SKILL-DESIGN.md
+# Dependencies
+node_modules/
+.npm/
+
+# Wrangler
+.wrangler/
+.dev.vars
+
+# Build output
+dist/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
