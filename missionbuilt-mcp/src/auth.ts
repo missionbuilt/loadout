@@ -146,7 +146,6 @@ async function handleAuthorize(request: Request, env: AuthEnv): Promise<Response
     responseType:        oauthReqInfo.responseType,
     resource:            oauthReqInfo.resource,
   };
-  console.log('storing oauthReqInfo:', JSON.stringify(serializable));
   await env.OAUTH_KV.put(`pending_auth:${stateKey}`, JSON.stringify(serializable), {
     expirationTtl: 300,
   });
@@ -222,10 +221,11 @@ async function handleGoogleCallback(request: Request, env: AuthEnv): Promise<Res
     sub: userInfo.id,
   };
 
-  console.log('completeAuthorization oauthReqInfo:', JSON.stringify(oauthReqInfo));
+  // completeAuthorization expects `request` to be the parsed AuthRequest
+  // (oauthReqInfo), NOT the HTTP Request object. The library destructures
+  // clientId and redirectUri directly from options.request.
   const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
-    request,
-    oauthReqInfo,
+    request: oauthReqInfo,
     userId: userInfo.id,
     metadata: { label: userInfo.name ?? userInfo.email },
     scope: oauthReqInfo.scope,
