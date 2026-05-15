@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.0 -->
+<!-- warmup-engine: v0.3.1 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -109,7 +109,7 @@
     font-size: 10px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
     margin-bottom: 18px;
     flex-wrap: wrap;
   }
@@ -174,14 +174,14 @@
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
   }
   #brief-ts {
     font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-dim);
   }
   .masthead-tags {
     display: flex; align-items: center; gap: 8px;
@@ -244,7 +244,7 @@
     font-size: 10.5px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
     margin-top: 3px;
   }
 
@@ -272,7 +272,7 @@
     font-size: 9px;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
     margin-bottom: 7px;
   }
   .stat-val {
@@ -307,7 +307,7 @@
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
     text-decoration: none;
     padding: 13px 22px 11px 0;
     margin-right: 18px;
@@ -364,7 +364,7 @@
     font-style: italic;
     font-weight: 300;
     font-size: 14px;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
     text-transform: none;
     letter-spacing: 0;
   }
@@ -1592,16 +1592,16 @@ window.WARMUP_DATA = {
   ],
   "safety": {
     "domains": [
-      {"domain": "cisa.gov", "verdict": "0 / 90 engines"},
-      {"domain": "nvd.nist.gov", "verdict": "0 / 90 engines"},
-      {"domain": "crowdstrike.com", "verdict": "0 / 90 engines"},
-      {"domain": "microsoft.com", "verdict": "0 / 90 engines"},
-      {"domain": "elastic.co", "verdict": "0 / 90 engines"},
-      {"domain": "unit42.paloaltonetworks.com", "verdict": "0 / 90 engines"},
-      {"domain": "wiz.io", "verdict": "0 / 90 engines"},
-      {"domain": "crn.com", "verdict": "0 / 90 engines"},
-      {"domain": "scmagazine.com", "verdict": "0 / 90 engines"},
-      {"domain": "linkedin.com", "verdict": "0 / 90 engines"}
+      {"domain": "cisa.gov", "verdict": "ALLOWLISTED"},
+      {"domain": "nvd.nist.gov", "verdict": "ALLOWLISTED"},
+      {"domain": "crowdstrike.com", "verdict": "ALLOWLISTED"},
+      {"domain": "microsoft.com", "verdict": "ALLOWLISTED"},
+      {"domain": "elastic.co", "verdict": "ALLOWLISTED"},
+      {"domain": "unit42.paloaltonetworks.com", "verdict": "ALLOWLISTED"},
+      {"domain": "wiz.io", "verdict": "ALLOWLISTED"},
+      {"domain": "crn.com", "verdict": "ALLOWLISTED"},
+      {"domain": "scmagazine.com", "verdict": "ALLOWLISTED"},
+      {"domain": "linkedin.com", "verdict": "ALLOWLISTED"}
     ],
     "totalUrls": 10,
     "flagged": 0,
@@ -2676,38 +2676,38 @@ btn.textContent = 'Loading…';
       const pdfTzNm = pdfPart(timeFmt, 'timeZoneName') || tz;
       const timeStr = `${pdfH}:${pdfM} ${pdfTzNm}`;
 
-      // ─── Masthead (PR-board chalk: centered title + double rule) ───
-      // Top eyebrow row (mono, date centered + company/mode right)
-      const editionRight = `${WARMUP_CONFIG.company || ''} . ${WARMUP_CONFIG.mode ? WARMUP_CONFIG.mode + ' MODE' : ''}`.replace(/^\s*\.\s*|\s*\.\s*$/g,'');
-      const mainDateStr = (WARMUP_CONFIG.reportDate || dateStr);
-      const centerDate = mainDateStr.toUpperCase();
-      const cdW = tw(centerDate, 7.5, 'mono');
-      T(centerDate, (PW - cdW) / 2, curY, 7.5, 'mono', 0.42);
-      const erW = tw(editionRight.toUpperCase(), 7.5, 'mono');
-      T(editionRight.toUpperCase(), PW - MR - erW, curY, 7.5, 'mono', 0.42);
-      curY -= 30;
-      // Centered THE WARMUP + brand square — chalk-board scale
+      // ─── Masthead — Morning Edition: title → subheader → greeting → double rule ───
+      const editionCompany = (WARMUP_CONFIG.company || '').toUpperCase();
+      const editionMode    = WARMUP_CONFIG.mode ? WARMUP_CONFIG.mode.toUpperCase() + ' MODE' : '';
+      const mainDateStr    = (WARMUP_CONFIG.reportDate || dateStr).toUpperCase();
+      // "THE WARMUP ." — centered large Helvetica-Bold + oxblood brand square
       const titleStr = 'THE WARMUP';
-      const titleSz = 38;
-      const titleW = tw(titleStr, titleSz, 'bold');
-      const sqGap = 14, sqSz = 13;
+      const titleSz  = 38;
+      const titleW   = tw(titleStr, titleSz, 'bold');
+      const sqGap = 12, sqSz = 12;
       const groupW = titleW + sqGap + sqSz;
       const titleX = (PW - groupW) / 2;
-      T(titleStr, titleX, curY, titleSz, 'bold', 0.06);
-      RECT(titleX + titleW + sqGap, curY + 2, sqSz, sqSz, 0.541, 0.125, 0.090);
-      curY -= 14;
-      // Greeting (right-aligned italic) if name configured — humanising touch
+      T(titleStr, titleX, curY, titleSz, 'bold', 0.05);
+      RECT(titleX + titleW + sqGap, curY + 1, sqSz, sqSz, 0.541, 0.125, 0.090);
+      curY -= 12;
+      // Subheader: Company · Mode · Date · Time — one centered line, compact mono
+      const subParts = [editionCompany, editionMode, mainDateStr, timeStr].filter(Boolean);
+      const subLine = subParts.join('  ·  ');
+      const subW = tw(subLine, 8, 'mono');
+      T(subLine, (PW - subW) / 2, curY, 8, 'mono', 0.20);
+      curY -= 16;
+      // Greeting (right-aligned italic) if name configured
       if (WARMUP_CONFIG.name) {
         const h = now.getHours();
         const sal = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
         const greeting = `${sal}, ${WARMUP_CONFIG.name}.`;
-        T(greeting, PW - MR - tw(greeting, 10, 'italic'), curY, 10, 'italic', 0.32);
-        curY -= 14;
+        T(greeting, PW - MR - tw(greeting, 10, 'italic'), curY, 10, 'italic', 0.25);
+        curY -= 16;
       } else {
         curY -= 8;
       }
       // Double rule (two parallel lines, 2pt apart)
-      HR(ML, curY, PW-MR, 1, 0.1); HR(ML, curY - 3, PW-MR, 0.4, 0.1); curY -= 28;
+      HR(ML, curY, PW-MR, 1.2, 0.08); HR(ML, curY - 3.5, PW-MR, 0.4, 0.08); curY -= 28;
 
       // Sections
       document.querySelectorAll('.section[id]').forEach((section, sIdx) => {
@@ -2732,26 +2732,22 @@ btn.textContent = 'Loading…';
         }
 
         need(60);
-        // Centered kicker (mono, oxblood) with bullet decorators
+        // Section heading — left-aligned newspaper column style
+        // Kicker: small oxblood mono tag left-aligned
         if (kicker) {
-          const kT = kicker.toUpperCase();
-          const decor = '. ' + kT + ' .';
-          const kW = tw(decor, 7.5, 'mono');
-          ops.push(`0.541 0.125 0.090 g BT /F3 7.5 Tf 1 0 0 1 ${((PW - kW) / 2).toFixed(1)} ${curY.toFixed(1)} Tm (${esc(decor)}) Tj ET 0 g`);
-          curY -= 16;
+          ops.push(`0.541 0.125 0.090 g BT /F3 7.5 Tf 1 0 0 1 ${ML.toFixed(1)} ${curY.toFixed(1)} Tm (${esc('. ' + kicker.toUpperCase() + ' .')}) Tj ET 0 g`);
+          curY -= 13;
         }
-        // Centered heading (Oswald → Helvetica-Bold)
-        const headSz = 22;
-        const headW = tw(heading.toUpperCase(), headSz, 'bold');
-        T(heading.toUpperCase(), (PW - headW) / 2, curY, headSz, 'bold', 0.08);
-        curY -= 8;
+        // Heading: left-aligned Helvetica-Bold 14pt, near-black
+        T(heading.toUpperCase(), ML, curY, 14, 'bold', 0.06);
+        curY -= 6;
+        // Sub-deck: left-aligned italic, darker gray
         if (sub) {
-          const subW = tw(sub, 9, 'italic');
-          T(sub, (PW - subW) / 2, curY, 9, 'italic', 0.4);
-          curY -= 12;
+          const subLines = wrap(sub, 8.5, 'italic', TW);
+          for (const line of subLines) { T(line, ML, curY, 8.5, 'italic', 0.22); curY -= 12; }
         }
         // Section rule
-        HR(ML, curY, PW-MR, 0.4, 0.75); curY -= 22;
+        HR(ML, curY, PW-MR, 0.5, 0.70); curY -= 20;
 
         // Render items — first is lead (larger), rest are regular
         const itemsArr = Array.from(sectionItems);
@@ -3068,11 +3064,17 @@ btn.textContent = 'Loading…';
           fnTime = tf.format(now).replace(/[:\s]/g, '-').replace('--', '-');
           fnTz   = tz.replace(/\//g, '-').replace(/_/g, '');
         } catch (e) { /* ignore timezone formatting errors */ }
-        const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').slice(0, 12);
+        const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
         const modeAliases = { 'Product Leader': 'pl', 'CISO': 'ciso', 'Custom': 'custom' };
         const modeRaw = WARMUP_CONFIG.mode || '';
         const mode = modeAliases[modeRaw] || modeRaw.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
-        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${fnDate ? '-' + fnDate : ''}${fnTime ? '-' + fnTime : ''}${fnTz ? '-' + fnTz : ''}.pdf`;
+        // ISO date YYYY-MM-DD in user's timezone — sortable, unambiguous, no time or tz suffix
+        let isoDate = '';
+        try {
+          const isoFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz });
+          isoDate = isoFmt.format(now); // "2026-05-15"
+        } catch (e) { isoDate = fnDate.replace(/[^0-9\-]/g, '') || ''; }
+        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}.pdf`;
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);

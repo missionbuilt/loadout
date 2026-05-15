@@ -514,6 +514,8 @@ A URL is either verified safe or it does not appear in the report.
 After all batches complete, output in chat:
 *"🔒 Running link safety verification on [N] URLs..."*
 
+**Safety check is a Step 2 action — not a render-time assumption.** The `safety.domains` array in WARMUP_DATA must be built from the checks actually performed during this fetch phase. Do not copy verdicts from a previous run, do not assume all sources are clean, and do not fill in the array during synthesis or render. Every domain that appears in `safety.domains` must have been checked in Step 2 of this run. Verdict values: `"ALLOWLISTED"` (Step A match, no external call), `"CLEAN"` (Step B URLScan.io explicitly clean). Anything else is flagged and excluded.
+
 **If a batch returns nothing:** mark those sources "no signal today." Do not invent content. A quiet source is reported honestly.
 
 **Source prioritization:** Tier 1 and Tier 2 sources are fetched first and given the most depth. Tier 3 and Tier 4 are supplemental. If you run out of capacity, deprioritize Tier 3 and Tier 4 before cutting Tier 1 or 2.
@@ -661,7 +663,12 @@ Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered onl
     {"nm": "NSA Advisories", "dom": "nsa.gov", "dot": "d1", "ct": "—", "status": "quiet"}
   ],
   "safety": {
-    "domains": [{"domain": "cisa.gov", "verdict": "0 / 90 engines"}],
+    // domains: ONE entry per active source. Populated from Step 2 checks — never fabricated.
+    // verdict values:
+    //   "ALLOWLISTED"   — domain matched the Step A allowlist (no external call made)
+    //   "CLEAN"         — domain passed URLScan.io Step B check (explicitly clean verdict)
+    // Flagged domains do NOT appear here — they go in flagged_urls and are excluded from the brief.
+    "domains": [{"domain": "cisa.gov", "verdict": "ALLOWLISTED"}],
     // INTEGRITY RULE: domains.length MUST equal the number of active sources exactly.
     "totalUrls": 12,
     "flagged": 0,
