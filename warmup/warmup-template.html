@@ -1,0 +1,2587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Warmup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --color-bg:          #171513;
+    --color-panel:       #1f1c19;
+    --color-rule:        #2a2622;
+    --color-rule-soft:   #2e2b27;
+    --color-chalk:       #f0ead9;
+    --color-chalk-dim:   #ccc5b5;
+    --color-chalk-faint: #9e9688;
+    --color-blood:       #c8281e;
+    --color-blood-dim:   #5e1e1c;
+    --color-army:        #92a844;
+    --color-army-dim:    #4a5527;
+    --color-steel:       #7a7873;
+    --font-display: 'Oswald', 'Archivo Narrow', Arial, sans-serif;
+    --font-serif:   'Merriweather', Georgia, serif;
+    --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+  }
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none !important;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--color-bg);
+    color: var(--color-chalk);
+    font-family: var(--font-serif);
+    font-size: 18px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--color-chalk); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--color-chalk-faint); }
+  a:hover { color: var(--color-blood); text-decoration-color: var(--color-blood); }
+  ::selection { background: var(--color-blood-dim); color: var(--color-chalk); }
+  :focus-visible { outline: 2px solid var(--color-blood); outline-offset: 2px; }
+  /* ── SKIP NAV ── */
+  .skip-nav {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    background: var(--color-blood);
+    color: var(--color-chalk);
+    padding: 8px 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    z-index: 9999;
+    transition: top 0s;
+  }
+  .skip-nav:focus { top: 0; }
+
+
+  /* ── MASTHEAD ── */
+  .masthead {
+    background: var(--color-panel);
+    border-bottom: 1px solid var(--color-rule);
+    padding: 22px 56px;
+  }
+  .masthead-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 32px;
+  }
+  .masthead-left { flex-shrink: 0; }
+  .masthead-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    text-align: right;
+  }
+  .masthead-title { display: flex; align-items: center; gap: 9px; line-height: 1; }
+  .masthead-title h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    line-height: 1;
+  }
+  .brand-sq { display: inline-block; width: 8px; height: 8px; background: var(--color-blood); flex-shrink: 0; }
+  .masthead-date { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+  .masthead-tags { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .mdate {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--color-chalk-dim);
+    text-transform: uppercase;
+  }
+  .pill {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 9px;
+    background: var(--color-army);
+    color: var(--color-chalk);
+    border: none;
+  }
+
+  /* ── WELCOME LINE ── */
+  .welcome-line {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--color-chalk-dim);
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  /* ── DAILY QUOTE ── */
+  .daily-quote { text-align: right; }
+  .quote-text {
+    display: block;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--color-chalk-dim);
+    line-height: 1.55;
+  }
+  .quote-attr {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    margin-top: 3px;
+  }
+
+  /* ── SIGNAL BAR ── */
+  .signal-bar {
+    border-top: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-rule);
+    padding: 12px 56px;
+    display: flex;
+  }
+  .stat-cell { flex: 1; padding-right: 24px; margin-right: 24px; border-right: 1px solid var(--color-rule); }
+  .stat-cell:last-child { border-right: none; margin-right: 0; padding-right: 0; }
+  .stat-key {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--color-chalk);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .stat-val {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--color-chalk);
+    line-height: 1;
+  }
+
+  /* ── SECTION NAV ── */
+  .section-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-rule);
+    padding: 0 56px;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .nav-item {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    text-decoration: none;
+    padding: 11px 20px 11px 0;
+    margin-right: 20px;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.12s;
+  }
+  .nav-item:hover { color: var(--color-chalk-dim); text-decoration: none; }
+  .nav-item.active { color: var(--color-chalk); text-decoration: none; border-bottom-color: var(--color-blood); }
+
+  /* ── BODY ── */
+  .body { padding: 0 56px 56px; }
+
+  /* ── SECTIONS ── */
+  .section { padding-top: 36px; scroll-margin-top: 48px; }
+  .s-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .s-eyebrow .accent {
+    display: block;
+    width: 8px;
+    height: 8px;
+    background: var(--color-blood);
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .s-rule { border: none; border-top: 1px solid var(--color-rule); margin-bottom: 20px; }
+
+  /* ── ITEM DATE ── */
+  .item-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0 10px;
+  }
+  .item-date-cal {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+  }
+  .item-date-dot { color: var(--color-rule-soft); font-size: 12px; }
+  .item-date-rel {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-army);
+    background: rgba(146,168,68,0.1);
+    padding: 2px 7px;
+  }
+
+  /* ── ITEMS ── */
+  .item { padding: 16px 0; border-bottom: 1px dashed var(--color-rule-soft); }
+  .item:last-child { border-bottom: none; }
+  .item-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 7px; }
+  .dot { font-size: 13px; line-height: 1; font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Symbola', Arial, sans-serif; }
+  .d1 { color: var(--color-blood); }
+  .d2 { color: var(--color-chalk-dim); }
+  .d3 { color: var(--color-chalk-faint); }
+  .d4 { color: var(--color-army); }
+  .src {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--color-chalk);
+    text-transform: uppercase;
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    display: inline-block;
+  }
+  .t-cve   { background: var(--color-army);  color: var(--color-bg); }
+  .t-mitre { background: var(--color-blood); color: #f5ede0; }
+  .t-type  { background: var(--color-panel); color: var(--color-chalk-dim); border: 1px solid var(--color-rule-soft); }
+  .t-alert { background: var(--color-blood); color: #f5ede0; letter-spacing: 0.12em; }
+  .item-hl {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 21px;
+    color: var(--color-chalk);
+    line-height: 1.25;
+    margin-bottom: 8px;
+  }
+  .item-hl a { text-decoration: none; color: var(--color-chalk); }
+  .item-hl a:hover { color: var(--color-blood); }
+  .item-sum {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    color: var(--color-chalk-dim);
+    line-height: 1.7;
+  }
+
+  /* ── SOURCES PANEL ── */
+  .src-panel {
+    padding-top: 44px;
+    border-top: 1px solid var(--color-rule);
+    margin-top: 44px;
+    scroll-margin-top: 48px;
+  }
+  .src-group-lbl {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--color-chalk-dim);
+    text-transform: uppercase;
+    margin: 22px 0 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .src-group-lbl:first-of-type { margin-top: 0; }
+  .src-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .src-row:last-child { border-bottom: none; }
+  .src-row:nth-child(odd) { background: var(--color-panel); }
+  .src-nm {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-chalk);
+    min-width: 210px;
+  }
+  .src-dom {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-chalk-dim);
+    flex: 1;
+  }
+  .src-ct {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-chalk-dim);
+    min-width: 55px;
+    text-align: right;
+  }
+  .src-st {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    min-width: 55px;
+    text-align: right;
+  }
+  .st-a { color: var(--color-army); }
+  .st-q { color: var(--color-chalk-faint); }
+
+  /* ── SECTION NOTE ── */
+  .s-note {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--color-chalk-dim);
+    text-transform: uppercase;
+    padding: 0 0 14px;
+    border-bottom: 1px dashed var(--color-rule-soft);
+  }
+
+  /* ── FOOTER ── */
+  .footer { padding: 28px 56px 44px; border-top: 1px solid var(--color-rule); margin-top: 44px; }
+  .footer-txt {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    color: var(--color-chalk-faint);
+    text-transform: uppercase;
+  }
+  .f-sq { display: inline-block; width: 6px; height: 6px; background: var(--color-blood); margin: 0 4px; vertical-align: middle; position: relative; top: -1px; }
+
+  /* ── BRIEF TIMESTAMP ── */
+  #brief-ts {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--color-chalk-dim);
+    text-transform: uppercase;
+  }
+
+  /* ── DEEP DIVE BUTTON ── */
+  .deep-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 11px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    background: var(--color-panel);
+    border: 1px solid var(--color-rule-soft);
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .deep-btn::before {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 4px 0 4px 7px;
+    border-color: transparent transparent transparent var(--color-blood);
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .deep-btn:hover {
+    color: var(--color-chalk);
+    border-color: var(--color-blood);
+  }
+  .deep-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  /* ── DEEP DIVE RESULT ── */
+  .deep-result {
+    display: none;
+    margin-top: 14px;
+    padding: 16px 20px;
+    border-left: 2px solid var(--color-blood);
+    background: var(--color-panel);
+    font-family: var(--font-serif);
+    font-size: 18px;
+    color: var(--color-chalk-dim);
+    line-height: 1.75;
+    white-space: normal;
+  }
+  .deep-result.visible { display: block; }
+  .deep-result-src-link {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    text-decoration: none;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .deep-result-src-link:hover { color: var(--color-chalk); text-decoration: none; }
+  .deep-result-src-link .src-arrow { color: var(--color-blood); margin-right: 4px; }
+  /* ── QUIET SOURCES COLLAPSIBLE ── */
+  .src-quiet-group {
+    border-top: 1px solid var(--color-rule-soft);
+    margin-top: 0;
+  }
+  .src-quiet-toggle {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    padding: 7px 10px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+  }
+  .src-quiet-toggle::-webkit-details-marker { display: none; }
+  .src-quiet-toggle::before {
+    content: '▸';
+    font-size: 10px;
+    transition: transform 0.15s;
+    color: var(--color-steel);
+  }
+  details[open] > .src-quiet-toggle::before { transform: rotate(90deg); }
+  .src-quiet-toggle:hover { color: var(--color-chalk-dim); }
+  .src-quiet-rows .src-row { opacity: 0.55; }
+  .deep-result-close {
+    display: block;
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .deep-result-close:hover { color: var(--color-chalk-dim); }
+  .deep-result h4, .deep-result h5 {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    margin: 18px 0 6px;
+  }
+  .deep-result h4:first-of-type, .deep-result h5:first-of-type { margin-top: 0; }
+  .deep-result p { margin: 0 0 12px; }
+  .deep-result ul { margin: 4px 0 12px 20px; padding: 0; }
+  .deep-result li { margin-bottom: 6px; font-size: 18px; line-height: 1.65; }
+  .deep-result strong { color: var(--color-chalk); font-weight: 700; }
+  .src a { color: inherit; text-decoration: none; }
+  .src a:hover { color: var(--color-chalk); }
+
+  /* ── CONFIGURE BUTTON ── */
+  .btn-configure {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    background: none;
+    border: 1px solid var(--color-rule-soft);
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+  }
+  .btn-configure:hover { color: var(--color-chalk); border-color: var(--color-blood); }
+  .pill { cursor: pointer; }
+
+  /* ── SECTION TOGGLE (Done / Expand) ── */
+  .section-toggle {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    background: none;
+    border: 1px solid var(--color-rule-soft);
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+  }
+  .section-toggle:hover { color: var(--color-chalk); border-color: var(--color-steel); }
+  .section-toggle.is-done { color: var(--color-army); border-color: var(--color-army-dim); }
+  .section-toggle.is-done:hover { color: var(--color-chalk); border-color: var(--color-steel); }
+
+  /* ── SECTION COUNT BADGE (visible when collapsed) ── */
+  .section-count {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--color-chalk-faint);
+    margin-left: 10px;
+  }
+
+  /* ── COLLAPSED (Done) SECTION STATE ── */
+  .section.is-done { padding-top: 20px; }
+  .section.is-done .s-eyebrow { color: var(--color-chalk-faint); margin-bottom: 8px; }
+  .section.is-done .s-eyebrow .accent { background: var(--color-steel); }
+  .section.is-done .section-count { display: inline; }
+  .section.is-done .s-rule,
+  .section.is-done .s-note,
+  .section.is-done .item-meta,
+  .section.is-done .item-date,
+  .section.is-done .item-sum,
+  .section.is-done .deep-btn,
+  .section.is-done .deep-result,
+  .section.is-done .back-to-top { display: none !important; }
+  .section.is-done .item {
+    padding: 4px 0;
+    border-bottom: none;
+  }
+  .section.is-done .item-hl {
+    font-size: 15px;
+    margin-bottom: 0;
+    color: var(--color-chalk-faint);
+  }
+  .section.is-done .item-hl a { color: var(--color-chalk-faint); }
+  .section.is-done .item-hl a:hover { color: var(--color-chalk-dim); }
+
+  /* ── NAV DONE STATE ── */
+  .nav-item.nav-done {
+    color: var(--color-chalk-faint);
+    opacity: 0.6;
+  }
+  .nav-item.nav-done::after {
+    content: ' ✓';
+    color: var(--color-army);
+    font-size: 10px;
+  }
+  .back-to-top { display: none; }
+
+  /* ── PROFILE OVERLAY ── */
+  .profile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(23,21,19,0.92);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 200;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 60px;
+  }
+  .profile-overlay.visible { display: flex; }
+  .profile-card {
+    position: relative;
+    background: var(--color-panel);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-top: 2px solid var(--color-blood);
+    border-radius: 4px;
+    padding: 36px 44px 40px 44px;
+    width: 700px;
+    max-width: 94vw;
+    max-height: 88vh;
+    overflow-y: auto;
+  }
+  .profile-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--color-chalk-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+  .profile-close-btn:hover { color: var(--color-chalk); }
+  .profile-card-title {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .profile-field {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 9px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+  }
+  .profile-key {
+    width: 110px;
+    flex-shrink: 0;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+  }
+  .profile-val { color: var(--color-chalk); }
+  .profile-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .profile-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 18px;
+    background: var(--color-bg);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .profile-action-btn:hover { border-color: rgba(200,40,30,0.45); background: rgba(200,40,30,0.05); }
+  .action-icon { font-size: 20px; color: var(--color-blood); line-height: 1; }
+  .action-label {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+  }
+  .action-desc {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--color-chalk-dim);
+    line-height: 1.4;
+  }
+  .profile-next-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0 20px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .profile-next-step.active {
+    border-color: rgba(200,40,30,0.35);
+    background: rgba(200,40,30,0.06);
+  }
+  .profile-next-icon {
+    font-size: 14px;
+    color: var(--color-blood);
+    flex-shrink: 0;
+    margin-top: 1px;
+    transition: transform 0.2s;
+  }
+  .profile-next-step.active .profile-next-icon { transform: translateX(2px); }
+  #profile-next-text {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    line-height: 1.6;
+  }
+  .profile-chat-section {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .profile-chat-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    margin-bottom: 14px;
+  }
+  .profile-example-chip {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    color: var(--color-chalk-dim);
+    background: var(--color-bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 3px;
+    padding: 12px 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+    line-height: 1.4;
+  }
+  .profile-example-chip::before { content: '"'; color: var(--color-blood); margin-right: 2px; }
+  .profile-example-chip::after  { content: '"'; color: var(--color-blood); margin-left:  2px; }
+  .profile-example-chip:hover { color: var(--color-chalk); border-color: rgba(200,40,30,0.5); background: rgba(200,40,30,0.08); }
+  .profile-more-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 4px 0 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+  .profile-more-toggle:hover { color: var(--color-chalk); }
+  .profile-more-toggle .toggle-caret { font-size: 11px; transition: transform 0.15s; }
+  .profile-more-toggle.open .toggle-caret { transform: rotate(180deg); }
+  .profile-secondary-examples {
+    display: none;
+    flex-direction: column;
+    gap: 7px;
+    margin-bottom: 16px;
+  }
+  .profile-secondary-examples.visible { display: flex; }
+  .profile-hint {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    line-height: 1.6;
+    margin-top: 6px;
+  }
+  .profile-current-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-rule);
+    cursor: pointer;
+    user-select: none;
+  }
+  .profile-current-toggle-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    transition: color 0.12s;
+  }
+  .profile-current-caret {
+    font-size: 12px;
+    color: var(--color-chalk-dim);
+    transition: color 0.12s, transform 0.15s;
+  }
+  .profile-current-toggle:hover .profile-current-toggle-label,
+  .profile-current-toggle:hover .profile-current-caret { color: var(--color-chalk); }
+  .profile-fields-wrap { padding-top: 12px; }
+
+  /* ── MASTHEAD CONTROLS ROW ── */
+  .masthead-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  /* ── SAVE PDF BUTTON ── */
+  .btn-save-pdf {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-chalk-dim);
+    background: none;
+    border: 1px solid var(--color-rule-soft);
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    flex-shrink: 0;
+  }
+  .btn-save-pdf:hover { color: var(--color-chalk); border-color: var(--color-blood); }
+
+  /* ── SAVE PDF MODAL — same pattern as Configure ── */
+  @keyframes btn-confirm {
+    0%   { border-color: var(--color-blood); color: var(--color-chalk); background: rgba(200,40,30,0.12); transform: scale(0.96); }
+    60%  { border-color: var(--color-blood); color: var(--color-chalk); background: rgba(200,40,30,0.07); transform: scale(1.01); }
+    100% { border-color: var(--color-rule-soft); color: var(--color-chalk-dim); background: none; transform: scale(1); }
+  }
+  .save-modal-btns {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .save-modal-btn {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--color-rule-soft);
+    color: var(--color-chalk-dim);
+    transition: color 0.12s, border-color 0.12s;
+    text-align: center;
+  }
+  .save-modal-btn:hover { color: var(--color-chalk); border-color: var(--color-chalk-faint); }
+  .save-modal-btn.btn-clicked { animation: btn-confirm 0.45s ease-out forwards; pointer-events: none; }
+  .save-modal-btn .smb-icon { display: block; font-size: 22px; margin-bottom: 8px; }
+  .save-modal-btn .smb-label { display: block; margin-bottom: 4px; }
+  .save-modal-btn .smb-desc { display: block; font-size: 10px; letter-spacing: 0.08em; color: var(--color-chalk-faint); text-transform: none; font-weight: 400; }
+  .save-modal-note {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    text-align: center;
+  }
+
+  /* ── FOOTER SKILL NOTE ── */
+  .footer-skill-note {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-rule);
+  }
+  .footer-skill-body {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--color-chalk-dim);
+    line-height: 1.7;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .footer-skill-link {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-army);
+    text-decoration: none;
+  }
+  .footer-skill-link:hover { color: var(--color-chalk); text-decoration: none; }
+
+  /* ── PRINT / PDF STYLES ── */
+  .pdf-running-footer { display: none; } /* hidden on screen */
+
+  @media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* Hide interactive chrome — dark theme carries through by default */
+    .masthead-controls, .profile-overlay,
+    #section-nav, .section-toggle, .section-hidden-msg,
+    .back-to-top, .deep-btn, .deep-result-close { display: none !important; }
+
+    /* Layout */
+    .masthead { padding: 16px 32px; }
+    .body { padding: 0 32px 72px; }
+    .section { page-break-inside: auto; }
+    .item { page-break-inside: avoid; }
+    .src-panel { page-break-before: always; }
+
+    /* Deep dives: show if expanded, never show buttons */
+    .deep-result { display: none !important; }
+    .deep-result.visible { display: block !important; }
+    body.print-no-dives .deep-result { display: none !important; }
+
+    /* Per-page running footer */
+    .pdf-running-footer {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 5px 32px;
+      border-top: 1px solid var(--color-rule);
+      background: var(--color-bg);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--color-chalk-faint);
+      align-items: center;
+      gap: 10px;
+    }
+    .pdf-running-footer .prf-sep { opacity: 0.35; }
+    .pdf-running-footer .prf-page { margin-left: auto; }
+    .pdf-running-footer .prf-page::after { content: "p. " counter(page); }
+
+    /* ── LIGHT PDF OVERRIDES (opt-in via body.print-light) ── */
+    body.print-light { background: #fff !important; color: #1a1a1a !important; }
+    body.print-light .masthead { background: #f4f2ee !important; border-bottom: 1px solid #ccc !important; }
+    body.print-light .masthead-title h1 { color: #1a1a1a !important; }
+    body.print-light .brand-sq { background: #c8281e !important; }
+    body.print-light .mdate, body.print-light #brief-ts { color: #555 !important; }
+    body.print-light .pill { background: #92a844 !important; color: #fff !important; }
+    body.print-light .welcome-line, body.print-light .quote-text { color: #555 !important; }
+    body.print-light .quote-attr { color: #777 !important; }
+    body.print-light .signal-bar { border-color: #ccc !important; }
+    body.print-light .stat-key { color: #555 !important; }
+    body.print-light .stat-val { color: #1a1a1a !important; }
+    body.print-light .stat-cell { border-color: #ccc !important; }
+    body.print-light .s-eyebrow { color: #1a1a1a !important; }
+    body.print-light .s-eyebrow .accent { background: #c8281e !important; }
+    body.print-light .s-rule { border-color: #ccc !important; }
+    body.print-light .item { border-bottom-color: #ccc !important; }
+    body.print-light .dot.d1 { color: #c8281e !important; }
+    body.print-light .dot.d2, body.print-light .dot.d3, body.print-light .dot.d4 { color: #555 !important; }
+    body.print-light .src { color: #333 !important; }
+    body.print-light .src a { color: #333 !important; text-decoration: none; }
+    body.print-light .tag { color: #333 !important; background: #ece8df !important; border-color: #aaa !important; }
+    body.print-light .t-mitre, body.print-light .t-alert { background: #f0d0ce !important; color: #7a1a18 !important; }
+    body.print-light .t-cve { background: #e8edcc !important; color: #3a4a1a !important; }
+    body.print-light .item-hl { color: #1a1a1a !important; }
+    body.print-light .item-hl a { color: #1a1a1a !important; text-decoration: none; }
+    body.print-light .item-date-cal { color: #555 !important; }
+    body.print-light .item-date-dot { color: #ccc !important; }
+    body.print-light .item-date-rel { background: #e8edcc !important; color: #3a4a1a !important; }
+    body.print-light .item-sum { color: #333 !important; }
+    body.print-light .deep-result.visible { background: #f4f2ee !important; border-left: 2px solid #c8281e !important; }
+    body.print-light .deep-result h4, body.print-light .deep-result h5 { color: #1a1a1a !important; }
+    body.print-light .deep-result p, body.print-light .deep-result li { color: #333 !important; }
+    body.print-light .deep-result strong { color: #1a1a1a !important; }
+    body.print-light .deep-result-src-link { color: #555 !important; border-bottom-color: #ccc !important; }
+    body.print-light .src-panel { border-top-color: #ccc !important; }
+    body.print-light .src-group-lbl { color: #555 !important; border-bottom-color: #ccc !important; }
+    body.print-light .src-row { border-bottom-color: #ddd !important; }
+    body.print-light .src-row:nth-child(odd) { background: #f8f8f6 !important; }
+    body.print-light .src-nm { color: #1a1a1a !important; }
+    body.print-light .src-dom, body.print-light .src-ct { color: #555 !important; }
+    body.print-light .st-a { color: #5a7a20 !important; }
+    body.print-light .st-q { color: #999 !important; }
+    body.print-light .footer { border-top-color: #ccc !important; }
+    body.print-light .footer-txt { color: #888 !important; }
+    body.print-light .f-sq { background: #c8281e !important; }
+    body.print-light .footer-skill-note { border-top-color: #ccc !important; }
+    body.print-light .footer-skill-body { color: #888 !important; }
+    body.print-light .footer-skill-link { color: #5a7a20 !important; }
+    body.print-light .s-note { color: #555 !important; border-bottom-color: #ccc !important; }
+    body.print-light .pdf-running-footer { background: #fff !important; color: #888 !important; border-top-color: #ccc !important; }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 720px) {
+    .masthead, .signal-bar, .section-nav, .body, .footer { padding-left: 20px; padding-right: 20px; }
+    .signal-bar { flex-wrap: wrap; gap: 14px; }
+    .stat-cell { border-right: none; margin-right: 0; padding-right: 0; flex: 0 0 calc(50% - 7px); }
+    .src-nm { min-width: 140px; }
+    .src-dom { display: none; }
+  }
+
+  /* ── LINK SAFETY BADGE ── */
+  .scan-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-army);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+    border-bottom: 1px solid var(--color-army-dim);
+    padding-bottom: 1px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .scan-badge:hover { color: var(--color-chalk); border-color: var(--color-chalk-faint); }
+  .scan-badge .scan-mark { font-size: 12px; }
+  .scan-badge .scan-count { color: var(--color-chalk-dim); }
+
+  /* ── LINK SAFETY PANEL ── */
+  .safety-panel {
+    border-top: 1px solid var(--color-rule);
+    padding: 48px 56px 0;
+    margin: 0;
+  }
+  .safety-panel .s-eyebrow { margin-bottom: 6px; }
+  .safety-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    margin-bottom: 24px;
+  }
+  .safety-meta .safety-ok {
+    color: var(--color-army);
+    margin-right: 10px;
+  }
+  .safety-domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 0;
+    border-top: 1px solid var(--color-rule-soft);
+    margin-bottom: 32px;
+  }
+  .safety-domain-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-rule-soft);
+    padding-right: 16px;
+    min-width: 0;
+  }
+  .safety-chk {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-army);
+    flex-shrink: 0;
+    width: 14px;
+    text-align: center;
+  }
+  .safety-dom {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-chalk-dim);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .safety-verdict {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--color-chalk-faint);
+    text-align: right;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .safety-url-ct {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--color-army-dim);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .safety-disclaimer {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--color-chalk-faint);
+    border-top: 1px solid var(--color-rule-soft);
+    padding-top: 20px;
+    margin-bottom: 0;
+  }
+  .safety-disclaimer strong {
+    font-weight: 700;
+    color: var(--color-chalk-dim);
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Print: hide safety panel */
+  @media print {
+    .scan-badge, .safety-panel { display: none !important; }
+  }
+</style>
+</head>
+
+<script id="warmup-data">
+// ══════════════════════════════════════════════════════════════════════════════
+// WARMUP_DATA — THE ONLY SECTION THAT CHANGES PER REPORT
+// ══════════════════════════════════════════════════════════════════════════════
+// This is the canonical engine template. When generating a new brief, Claude
+// replaces ONLY this script block. All engine code below (renderer, PDF builder,
+// deep dive, modal, sort, etc.) is shared and must not be modified per-report.
+//
+// REQUIRED fields (all reports):
+//   config.name, config.mode, config.company, config.sector
+//   config.reportDate, config.updated, config.lastRun, config.dateRange
+//   config.sourcesActive, config.sourcesQuiet, config.showQuote
+//   sections[] — array of section objects (id, label, note, items[])
+//   sources[]  — array of source objects (nm, dom, dot, ct, status)
+//   safety     — { domains[], totalUrls, flagged, scannedAt }
+//
+// OPTIONAL fields (rendered as '—' when absent):
+//   config.region, config.timezone, config.vendors, config.interests
+//   config.pdfTheme ("dark"|"light"), dates ({headline_keyword: "YYYY-MM-DD"})
+//
+// ITEM SCHEMA (each item in sections[].items):
+//   dot: "d1"|"d2"|"d3"|"d4"   (tier color)
+//   src: string                 (source display name)
+//   tags: [{cls: "", text: ""}] (tag pills — cls can be "" or a modifier class)
+//   url: string                 (article URL)
+//   hl: string                  (headline — shown as linked h3)
+//   body: string                (1–2 sentence summary)
+//   date: "YYYY-MM-DD"          (used for date display and chronological sort)
+//
+// SOURCE SCHEMA (each entry in sources[]):
+//   nm: string        (display name)
+//   dom: string       (domain, e.g. "elastic.co")
+//   dot: "d1"-"d4"   (tier)
+//   ct: string        (article count, e.g. "2 items" or "—")
+//   status: "active"|"quiet"
+//
+// SAFETY SCHEMA:
+//   domains: [{domain: string, verdict: string}]  — one per ACTIVE source only
+//   totalUrls: number   — must equal number of active sources (safety.domains.length)
+//   flagged: number     — always 0 for clean reports
+//   scannedAt: string   — human-readable scan timestamp
+// ══════════════════════════════════════════════════════════════════════════════
+window.WARMUP_DATA = {
+  "config": {
+    "name": "Your Name",
+    "mode": "Product Leader",
+    "company": "Your Company",
+    "sector": "Your Sector · Subsector",
+    "region": "Your Region",
+    "vendors": "Vendor A, Vendor B, Vendor C",
+    "interests": "",
+    "timezone": "UTC",
+    "pdfTheme": "dark",
+    "reportDate": "May 14, 2026",
+    "updated": "May 14, 2026",
+    "lastRun": "2026-05-14",
+    "dateRange": "May 7 – May 14, 2026",
+    "sourcesActive": 0,
+    "sourcesQuiet": 0,
+    "showQuote": true
+  },
+  "sections": [
+    {
+      "id": "example-section",
+      "label": "Example Section",
+      "note": null,
+      "items": [
+        {
+          "dot": "d1",
+          "src": "Source Name",
+          "tags": [{"cls": "", "text": "Tag"}],
+          "url": "https://example.com/article",
+          "hl": "Example headline goes here",
+          "body": "One to two sentence summary of the article. Focused, factual, intelligence-grade.",
+          "date": "2026-05-14"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {"nm": "Source Name", "dom": "example.com", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "Quiet Source", "dom": "quiet.com", "dot": "d2", "ct": "—", "status": "quiet"}
+  ],
+  "safety": {
+    "domains": [
+      {"domain": "example.com", "verdict": "Clean — allowlist verified"}
+    ],
+    "totalUrls": 1,
+    "flagged": 0,
+    "scannedAt": "May 14, 2026 · 09:00 ET"
+  }
+};
+</script>
+<body>
+<a href="#main-content" class="skip-nav">Skip to main content</a>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-left">
+      <div class="masthead-title">
+        <h1>The Warmup</h1>
+        <div class="brand-sq"></div>
+      </div>
+      <div class="masthead-date">
+        <span class="mdate" id="mdate">Thu · 14 May 2026</span>
+        <span id="brief-ts"></span>
+        <a href="#link-safety" class="scan-badge" aria-label="Link safety report — 1 link scanned clean"><span class="scan-mark" aria-hidden="true">✓</span> <span>1 link scanned</span> <span class="scan-count">· 0 flagged</span></a>
+      </div>
+      <div class="masthead-tags">
+        <button type="button" class="pill" id="pill-trigger" aria-label="Open configuration — mode">Mode</button>
+        <button type="button" class="pill" id="pill-trigger2" aria-label="Open configuration — sector">Your Sector</button>
+        <button type="button" class="pill" id="pill-trigger3" aria-label="Open configuration — company">Your Company</button>
+      </div>
+    </div>
+    <div id="masthead-right" class="masthead-right">
+      <div class="masthead-controls">
+        <button type="button" class="btn-configure" id="btn-configure"><span aria-hidden="true">⚙</span> Configure</button>
+        <button type="button" class="btn-save-pdf" id="btn-save-pdf"><span aria-hidden="true">⎙</span> Save PDF</button>
+      </div><!-- /masthead-controls -->
+      <div id="welcome-line" class="welcome-line" style="display:none"></div>
+      <div id="daily-quote" class="daily-quote" style="display:none"></div>
+    </div>
+  </div>
+</header>
+
+<!-- SIGNAL BAR -->
+<div class="signal-bar" role="region" aria-label="Brief statistics">
+  <div class="stat-cell">
+    <span class="stat-key">Sources Active</span>
+    <span class="stat-val" id="stat-sources-active">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-key">Items</span>
+    <span class="stat-val" id="stat-items">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-key">Sections</span>
+    <span class="stat-val" id="stat-sections">—</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-key">Quiet Today</span>
+    <span class="stat-val" id="stat-quiet">—</span>
+  </div>
+</div>
+
+<!-- SECTION NAV -->
+<nav class="section-nav" id="section-nav" aria-label="Brief sections">
+  <a href="#company"     class="nav-item active">Company Intel</a>
+  <a href="#competitors" class="nav-item">Competitor Intel</a>
+  <a href="#ai"          class="nav-item">AI in Product</a>
+  <a href="#funding"     class="nav-item">Funding &amp; M&amp;A</a>
+  <a href="#threat"      class="nav-item">Threat Landscape</a>
+  <a href="#sources"     class="nav-item">Sources</a>
+</nav>
+
+<!-- BODY -->
+<main class="body" id="main-content">
+  <!-- Content rendered dynamically by WARMUP_DATA renderer -->
+</main>
+
+
+<!-- FOOTER -->
+<footer class="footer">
+  <p class="footer-txt">
+    <a href="https://missionbuilt.io" target="_blank" rel="noopener" style="color:var(--color-chalk-dim);text-decoration:none;">Mission<span class="f-sq"></span>Built</a> &nbsp;·&nbsp; The Warmup &nbsp;·&nbsp; <span id="footer-date"></span> &nbsp;·&nbsp; <span id="footer-company"></span> &nbsp;·&nbsp; <span id="footer-mode"></span>
+  </p>
+  <p class="footer-txt" style="margin-top:6px;color:var(--color-chalk-faint);">
+    <a href="https://github.com/missionbuilt/loadout/blob/main/LICENSE" target="_blank" rel="noopener" style="color:var(--color-chalk-faint);text-decoration:none;">MIT License</a> &nbsp;·&nbsp; <a href="https://github.com/missionbuilt/loadout" target="_blank" rel="noopener" style="color:var(--color-chalk-faint);text-decoration:none;">github.com/missionbuilt/loadout</a>
+  </p>
+</footer>
+
+<!-- PDF RUNNING FOOTER (visible only in print, one per page) -->
+<div class="pdf-running-footer" aria-hidden="true">
+  <span>Mission<span style="display:inline-block;width:4px;height:4px;background:var(--color-blood);vertical-align:middle;margin:0 3px;"></span>Built</span>
+  <span class="prf-sep">·</span>
+  <span>The Warmup</span>
+  <span class="prf-sep">·</span>
+  <span id="prf-company"></span>
+  <span class="prf-sep">·</span>
+  <span>MIT License · github.com/missionbuilt/loadout</span>
+  <span class="prf-page"></span>
+</div>
+
+<script>
+  // ── WARMUP CONFIG ──
+  // Config is populated from WARMUP_DATA — see <script id="warmup-data"> above
+  const WARMUP_CONFIG = window.WARMUP_DATA.config;
+
+
+  // ── WARMUP RENDERER (reads WARMUP_DATA, populates DOM before other scripts) ──
+  try { (function() {
+    const D = window.WARMUP_DATA;
+    if (!D) return;
+    const DOT = {d1:'●', d2:'◉', d3:'○', d4:'◈'};
+    // ── Dynamically build section structure, nav, pills, scan badge ──
+    var _main = document.getElementById('main-content');
+    if (_main) {
+      _main.innerHTML = '';
+      D.sections.forEach(function(sec) {
+        var el = document.createElement('section');
+        el.className = 'section'; el.id = sec.id;
+        _main.appendChild(el);
+      });
+      var _src = document.createElement('div');
+      _src.className = 'src-panel'; _src.id = 'sources';
+      _main.appendChild(_src);
+      var _safety = document.createElement('section');
+      _safety.className = 'section'; _safety.id = 'link-safety';
+      _main.appendChild(_safety);
+    }
+
+    var _nav = document.getElementById('section-nav');
+    if (_nav) {
+      _nav.innerHTML = D.sections.map(function(sec, i) {
+        return '<a href="#' + sec.id + '" class="nav-item' + (i === 0 ? ' active' : '') + '">' + sec.label + '</a>';
+      }).join('\n  ') + '\n  <a href="#sources" class="nav-item">Sources</a>';
+    }
+
+    var _cfg = D.config;
+    var _p1 = document.getElementById('pill-trigger');
+    var _p2 = document.getElementById('pill-trigger2');
+    var _p3 = document.getElementById('pill-trigger3');
+    if (_p1) { _p1.textContent = _cfg.mode; _p1.setAttribute('aria-label', 'Open configuration — ' + _cfg.mode + ' mode'); }
+    if (_p2) { _p2.textContent = _cfg.sector; _p2.setAttribute('aria-label', 'Open configuration — ' + _cfg.sector); }
+    if (_p3) { var _regionAbbr = { 'United States': 'US', 'United Kingdom': 'UK', 'European Union': 'EU', 'Canada': 'CA', 'Australia': 'AU' }; var _co = (_cfg.company || '') + (_cfg.region ? ' · ' + (_regionAbbr[_cfg.region] || _cfg.region) : ''); _p3.textContent = _co; _p3.setAttribute('aria-label', 'Open configuration — ' + (_cfg.company || '')); }
+
+    var _badge = document.querySelector('.scan-badge');
+    if (_badge && D.safety) {
+      var _total = D.safety.totalUrls || 0;
+      var _flagged = D.safety.flagged || 0;
+      _badge.setAttribute('aria-label', 'Link safety report — ' + _total + ' links scanned clean');
+      var _spans = _badge.querySelectorAll('span');
+      if (_spans[1]) _spans[1].textContent = _total + ' links scanned';
+      if (_spans[2]) _spans[2].textContent = '· ' + _flagged + ' flagged';
+    }
+
+    var _prfCo = document.getElementById('prf-company');
+    if (_prfCo) _prfCo.textContent = _cfg.company || '';
+
+    // Footer
+    var _fDate = document.getElementById('footer-date');
+    var _fCo = document.getElementById('footer-company');
+    var _fMode = document.getElementById('footer-mode');
+    if (_fDate) _fDate.textContent = _cfg.updated || '';
+    if (_fCo) _fCo.textContent = _cfg.company || '';
+    if (_fMode) _fMode.textContent = _cfg.mode ? _cfg.mode + ' Mode' : '';
+
+    // Signal bar
+    var _totalItems = D.sections.reduce(function(n,s){ return n + s.items.length; }, 0);
+    var _nActive = (D.sources || []).filter(function(s){ return s.status === 'active'; }).length;
+    var _nQuiet  = (D.sources || []).filter(function(s){ return s.status === 'quiet'; }).length;
+    var _sActive = document.getElementById('stat-sources-active');
+    var _sItems  = document.getElementById('stat-items');
+    var _sSecs   = document.getElementById('stat-sections');
+    var _sQuiet  = document.getElementById('stat-quiet');
+    if (_sActive) _sActive.textContent = _nActive;
+    if (_sItems)  _sItems.textContent  = _totalItems;
+    if (_sSecs)   _sSecs.textContent   = D.sections.length;
+    if (_sQuiet)  _sQuiet.textContent  = _nQuiet;
+
+    // ── INTEGRITY CHECK: safety.domains must equal active sources ──
+    (function() {
+      var _nSafetyDoms = (D.safety && D.safety.domains) ? D.safety.domains.length : 0;
+      if (_nSafetyDoms !== _nActive) {
+        console.error('[Warmup] Integrity check FAILED: safety.domains (' + _nSafetyDoms +
+          ') != active sources (' + _nActive + '). Scan count must match active sources only.');
+      }
+    })();
+
+
+
+    // Render sections
+    D.sections.forEach(function(sec) {
+      const el = document.getElementById(sec.id);
+      if (!el) return;
+      const note = sec.note
+        ? '<p class="s-note">' + sec.note + '</p>'
+        : '';
+      const items = sec.items.map(function(item) {
+        const tags = (item.tags || []).map(function(t) {
+          return '<span class="tag ' + t.cls + '">' + t.text + '</span>';
+        }).join('');
+        var _dateHtml = '';
+        if (item.date) {
+          var _pd = new Date(item.date + 'T12:00:00Z');
+          var _now = new Date();
+          var _diff = Math.round((_now - _pd) / 86400000);
+          var _rel = _diff <= 0 ? 'Today' : _diff === 1 ? '1 day ago' : _diff + ' days ago';
+          var _cal = _pd.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'});
+          _dateHtml = '<div class="item-date">' +
+            '<span class="item-date-cal">' + _cal + '</span>' +
+            '<span class="item-date-dot">·</span>' +
+            '<span class="item-date-rel">' + _rel + '</span>' +
+            '</div>';
+        }
+        return '<div class="item"' + (item.date ? ' data-date="' + item.date + '"' : '') + '>' +
+          '<div class="item-meta">' +
+            '<span class="dot ' + item.dot + '" aria-hidden="true">' + DOT[item.dot] + '</span>' +
+            '<span class="src">' + item.src + '</span>' +
+            tags +
+          '</div>' +
+          _dateHtml +
+          '<h3 class="item-hl"><a href="' + item.url + '">' + item.hl + '</a></h3>' +
+          '<p class="item-sum">' + item.body + '</p>' +
+          '</div>';
+      }).join('');
+      el.innerHTML =
+        '<h2 class="s-eyebrow"><span class="accent" aria-hidden="true"></span>&nbsp;' + sec.label + '</h2>' +
+        note +
+        '<hr class="s-rule">' +
+        items;
+    });
+
+    // Render sources panel
+    var srcPanel = document.getElementById('sources');
+    if (srcPanel && D.sources) {
+      var tiers = [
+        {key:'d1', label:'Tier 1 — Authoritative'},
+        {key:'d2', label:'Tier 2 — Research'},
+        {key:'d3', label:'Tier 3 — News'},
+        {key:'d4', label:'Tier 4 — Vendor &amp; Market Intel'}
+      ];
+      function srcRow(s) {
+        var st = s.status === 'active' ? 'a' : 'q';
+        var stLabel = s.status === 'active' ? 'Active' : 'Quiet';
+        return '<div class="src-row">' +
+          '<span class="dot ' + s.dot + '" aria-hidden="true">' + DOT[s.dot] + '</span>' +
+          '<span class="src-nm">' + s.nm + '</span>' +
+          '<span class="src-dom">' + s.dom + '</span>' +
+          '<span class="src-ct">' + s.ct + '</span>' +
+          '<span class="src-st st-' + st + '">' + stLabel + '</span>' +
+          '</div>';
+      }
+      var srcHtml = '<h2 class="s-eyebrow"><span class="accent" aria-hidden="true"></span>&nbsp;Sources Used Today</h2><hr class="s-rule">';
+      tiers.forEach(function(tier) {
+        var active = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'active'; });
+        var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'quiet';  });
+        if (!active.length && !quiet.length) return;
+        srcHtml += '<p class="src-group-lbl">' + tier.label + '</p>';
+        active.forEach(function(s) { srcHtml += srcRow(s); });
+        if (quiet.length) {
+          srcHtml +=
+            '<details class="src-quiet-group">' +
+              '<summary class="src-quiet-toggle">' +
+                quiet.length + ' quiet source' + (quiet.length > 1 ? 's' : '') +
+              '</summary>' +
+              '<div class="src-quiet-rows">' +
+                quiet.map(srcRow).join('') +
+              '</div>' +
+            '</details>';
+        }
+      });
+      srcPanel.innerHTML = srcHtml;
+    }
+
+    // Render safety panel
+    var safetyPanel = document.getElementById('link-safety');
+    if (safetyPanel && D.safety) {
+      var sf = D.safety;
+      // Count article URLs per domain so we can annotate sources with >1 URL
+      var _urlsPerDomain = {};
+      (D.sections || []).forEach(function(sec) {
+        (sec.items || []).forEach(function(item) {
+          if (item.url) {
+            try {
+              var _host = new URL(item.url).hostname.replace(/^www\./, '');
+              _urlsPerDomain[_host] = (_urlsPerDomain[_host] || 0) + 1;
+            } catch(e) {}
+          }
+        });
+      });
+      var domainRows = sf.domains.map(function(d) {
+        var _verdict = (d.verdict || '').split(/\s*[—–]\s*/)[0].trim();
+        var _cnt = _urlsPerDomain[d.domain] || 0;
+        var _cntHtml = _cnt > 1 ? '<span class="safety-url-ct">' + _cnt + ' urls</span>' : '';
+        return '<div class="safety-domain-row">' +
+          '<span class="safety-chk" aria-label="Clean">✓</span>' +
+          '<span class="safety-dom">' + d.domain + '</span>' +
+          _cntHtml +
+          '<span class="safety-verdict">' + _verdict + '</span>' +
+          '</div>';
+      }).join('');
+      safetyPanel.innerHTML =
+        '<h2 class="s-eyebrow"><span class="accent" aria-hidden="true"></span>&nbsp;Link Safety Verification</h2>' +
+        '<p class="safety-meta"><span class="safety-ok">✓ All clear</span> Report compiled &amp; links scanned · ' + sf.scannedAt + ' · ' +
+        sf.domains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + sf.flagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
+        '<div class="safety-domain-grid">' + domainRows + '</div>' +
+        '<p class="safety-disclaimer"><strong>How this works</strong> Link safety is verified at report generation time using a two-tier approach. First, each domain is checked against a curated allowlist of authoritative sources — government agencies, established security vendors, and major news organizations. Domains on the allowlist are verified instantly with no external call. Second, any domain not on the allowlist is queried against URLScan.io\'s public API, which returns community scan results and a maliciousness verdict. No API key is required, and no URL data is transmitted beyond the domain name.</p>' +
+        '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Scan timing</strong> These results reflect conditions at the moment the brief was generated. A clean result means the domain wasn\'t flagged then — not a live guarantee. Pages change, redirects get added, domains get reused. Treat this as a quick signal, not a substitute for your own judgment on anything sensitive.</p>' +
+        '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Open source</strong> The Warmup is a free, open-source skill built on Claude. Link scanning is included as a convenience feature — a fast first pass, not a security audit. Source code and documentation are at github.com/missionbuilt/loadout under the MIT License.</p>';
+    }
+    // ── Re-initialize scroll-spy with dynamically built elements ──
+    (function() {
+      var _secs = document.querySelectorAll('.section[id], .src-panel[id]');
+      var _links = document.querySelectorAll('.nav-item');
+      var _obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            _links.forEach(function(l) { l.classList.remove('active'); });
+            var _a = document.querySelector('.nav-item[href="#' + entry.target.id + '"]');
+            if (_a) _a.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-10% 0px -80% 0px' });
+      _secs.forEach(function(s) { _obs.observe(s); });
+      _links.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          var t = document.querySelector(link.getAttribute('href'));
+          if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    })();
+
+  })(); } catch(e) { console.error('[Warmup:Renderer]', e); }
+
+
+  // ── TIMEZONE-AWARE TIMESTAMPS ──
+  try { (function () { // try-catch: isolated — failure here must not block Save PDF
+    const now = new Date();
+    const tz  = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+    // Robust timezone formatter — falls back to UTC on invalid tz string
+    function tzFmt(opts) {
+      try { return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: tz }); }
+      catch(e) { return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' }); }
+    }
+    function parts(fmt) { return fmt.formatToParts(now); }
+    function part(fmt, type) { return (parts(fmt).find(p => p.type === type) || {}).value || ''; }
+
+    // Masthead date: "Thu · 14 May 2026"
+    const mdateEl = document.getElementById('mdate');
+    if (mdateEl) {
+      const f = tzFmt({ weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+      const day = part(f, 'weekday'), d = part(f, 'day'), mo = part(f, 'month'), yr = part(f, 'year');
+      mdateEl.textContent = `${day} · ${d} ${mo} ${yr}`;
+    }
+
+    // Brief timestamp: "· 09:42 ET"
+    const tsEl = document.getElementById('brief-ts');
+    if (tsEl) {
+      const f = tzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
+      let h = part(f, 'hour'); if (h === '24') h = '00'; // midnight normalisation
+      const m  = part(f, 'minute');
+      const tzName = part(f, 'timeZoneName') || tz;
+      tsEl.textContent = `· ${h}:${m} ${tzName}`;
+      tsEl.title = `Brief generated ${tzFmt({ dateStyle: 'full', timeStyle: 'long' }).format(now)}`;
+    }
+  })(); } catch(e) { console.error('[Warmup:Timestamps]', e); }
+
+  // ── WELCOME GREETING + DAILY QUOTE ──
+  try { (function () {
+    const quotes = [
+      { text: "Security is always excessive until it's not enough.", attr: "Robbie Sinclair" },
+      { text: "Every battle is won before it is fought.", attr: "Sun Tzu" },
+      { text: "It always seems impossible until it's done.", attr: "Nelson Mandela" },
+      { text: "Power concedes nothing without a demand. It never did and it never will.", attr: "Frederick Douglass" },
+      { text: "Not everything that is faced can be changed, but nothing can be changed until it is faced.", attr: "James Baldwin" },
+      { text: "You gain strength, courage, and confidence by every experience in which you really stop to look fear in the face.", attr: "Eleanor Roosevelt" },
+      { text: "The impediment to action advances action. What stands in the way becomes the way.", attr: "Marcus Aurelius" },
+      { text: "A champion is defined not by their wins but by how they can recover when they fall.", attr: "Serena Williams" },
+      { text: "In order to rise from its own ashes, a Phoenix first must burn.", attr: "Octavia Butler" },
+      { text: "There are no secrets to success. It is the result of preparation, hard work, and learning from failure.", attr: "Colin Powell" },
+      { text: "The most common way people give up their power is by thinking they don't have any.", attr: "Alice Walker" },
+      { text: "If you have some power, then your job is to empower somebody else.", attr: "Toni Morrison" },
+      { text: "People will forget what you said, people will forget what you did, but people will never forget how you made them feel.", attr: "Maya Angelou" },
+      { text: "I am no longer accepting the things I cannot change. I am changing the things I cannot accept.", attr: "Angela Davis" },
+      { text: "The most difficult thing is the decision to act. The rest is merely tenacity.", attr: "Amelia Earhart" },
+      { text: "Simplicity is the ultimate sophistication.", attr: "Leonardo da Vinci" },
+    ];
+
+    if (WARMUP_CONFIG.name) {
+      const el = document.getElementById('welcome-line');
+      const h = new Date().getHours();
+      const salutation = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+      el.textContent = `${salutation}, ${WARMUP_CONFIG.name}.`;
+      el.style.display = 'block';
+    }
+
+    if (WARMUP_CONFIG.showQuote) {
+      const el = document.getElementById('daily-quote');
+      const idx = Math.floor(Date.now() / 86400000) % quotes.length;
+      const q = quotes[idx];
+      el.innerHTML =
+        `<span class="quote-text">"${q.text}"</span>` +
+        `<span class="quote-attr">— ${q.attr}</span>`;
+      el.style.display = 'block';
+    }
+  })(); } catch(e) { console.error('[Warmup:Greeting]', e); }
+
+  // ── PROFILE CARD ──
+  try { (function () {
+    const overlay = document.createElement('div');
+    overlay.className = 'profile-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'profile-dialog-title');
+
+    const fields = [
+      ['Mode',        WARMUP_CONFIG.mode        || '—'],
+      ['Sector',      WARMUP_CONFIG.sector       || '—'],
+      ['Company',     WARMUP_CONFIG.company      || '—'],
+      ['Region',      WARMUP_CONFIG.region       || '—'],
+      ['Vendors',     Array.isArray(WARMUP_CONFIG.vendors)   ? WARMUP_CONFIG.vendors.join(', ')   : (WARMUP_CONFIG.vendors   || '—')],
+      ['Interests',   Array.isArray(WARMUP_CONFIG.interests) ? WARMUP_CONFIG.interests.join(', ') : (WARMUP_CONFIG.interests || '—')],
+      ['Name',        WARMUP_CONFIG.name || '(not set)'],
+      ['Welcome',     WARMUP_CONFIG.name ? 'On' : 'Off'],
+      ['Daily Quote', WARMUP_CONFIG.showQuote ? 'On' : 'Off'],
+      ['Timezone',    WARMUP_CONFIG.timezone || 'UTC'],
+      ['Sources',     `${WARMUP_CONFIG.sourcesActive || 0} active · ${WARMUP_CONFIG.sourcesQuiet || 0} quiet`],
+    ];
+
+    const _modeExamples = {
+      'CISO': [
+        `Add Dark Reading or BleepingComputer as a source`,
+        `I need more threat intel — track ransomware groups in my interests`,
+        `Track Microsoft Patch Tuesday in every brief`,
+        `Add a KEV-only section — just CISA Known Exploited Vulnerabilities`,
+        `My vendor stack changed — update vendors to [your list]`,
+        `Add zero-day watchlist coverage for my top 3 vendors`,
+        `Focus more on adversary TTPs and MITRE ATT&CK coverage`,
+        `Run the warmup back 2 weeks — I was out last week`,
+        `Set my timezone to Eastern Time`,
+        `Turn off the daily quote`,
+        `Show me everything I can customize`,
+      ],
+      'Product Leader': [
+        `Add Product Hunt to my sources`,
+        `Track analyst coverage — add Gartner and Forrester to my sources`,
+        `I want earnings signal for my top 3 competitors every brief`,
+        `My competitors changed — update vendors to [your list]`,
+        `Add more AI developer tooling coverage to my brief`,
+        `Add a pricing intelligence section — track competitor pricing moves`,
+        `I want G2 and Capterra review trends in my brief`,
+        `Run the warmup back 2 weeks — I was out last week`,
+        `Set my timezone to Eastern Time`,
+        `Turn off the daily quote`,
+        `Show me everything I can customize`,
+      ],
+      '_default': [
+        `Run the warmup back 2 weeks — I was out last week`,
+        `Run warmup since May 1`,
+        `Go back 30 days on this run`,
+        `Always show me the last 14 days`,
+        `Set my name to [your name] for a personal greeting`,
+        `Set my timezone to Eastern Time`,
+        `I'm in Denver — set my timezone`,
+        `Turn off the daily quote`,
+        `Turn off the welcome greeting`,
+        `Change my sector to Healthcare`,
+        `Update my special interests to Formula 1 and the Pittsburgh Steelers`,
+        `Switch my company to Nike`,
+        `Add Dark Reading as a source`,
+        `Show me everything I can customize`,
+      ],
+    };
+    const secondaryExamples = _modeExamples[WARMUP_CONFIG.mode] || _modeExamples['_default'];
+
+    const sq = `<span style="display:inline-block;width:9px;height:9px;background:var(--color-blood);flex-shrink:0;vertical-align:middle;position:relative;top:-1px;"></span>`;
+
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.innerHTML =
+      `<button type="button" class="profile-close-btn" id="profile-close-btn" aria-label="Close configuration panel">✕</button>` +
+      `<div class="profile-card-title" id="profile-dialog-title">${sq}&nbsp; Warmup Config</div>` +
+      `<div class="profile-action-row">
+        <button type="button" class="profile-action-btn" data-prompt="Walk me through refining this brief — I want to update my config, adjust my focus, or change my sources">
+          <span class="action-icon">✎</span>
+          <span class="action-label">Refine This Brief</span>
+          <span class="action-desc">Update settings, sources, or focus for the current report</span>
+        </button>
+        <button type="button" class="profile-action-btn" data-prompt="Help me start a completely new Warmup brief from scratch — new persona, company, or focus area">
+          <span class="action-icon">↺</span>
+          <span class="action-label">Start Fresh</span>
+          <span class="action-desc">New persona, company, or sector from the ground up</span>
+        </button>
+      </div>` +
+      `<div class="profile-next-step" id="profile-next-step">
+        <span class="profile-next-icon">→</span>
+        <span id="profile-next-text">Copy a prompt above, then paste it into chat to apply the change.</span>
+      </div>` +
+      `<div class="profile-chat-section">
+        <span class="profile-chat-label">Or say something specific in chat:</span>
+        <button type="button" class="profile-more-toggle" id="profile-more-toggle" aria-expanded="false">
+          <span class="toggle-caret" aria-hidden="true">▾</span> Show examples
+        </button>
+        <div class="profile-secondary-examples" id="profile-secondary-examples">
+          ${secondaryExamples.map(e =>
+            `<button type="button" class="profile-example-chip" data-prompt="${e}">${e}</button>`
+          ).join('')}
+        </div>
+        <p class="profile-hint">Changes are saved to WARMUP.md and take effect on your next brief. Say "run warmup" in chat to regenerate.</p>
+      </div>` +
+      `<div class="profile-current-toggle" id="profile-current-toggle">
+        <span class="profile-current-toggle-label">Current config</span>
+        <span class="profile-current-caret">▾</span>
+      </div>
+      <div class="profile-fields-wrap" id="profile-fields-wrap" style="display:none">
+        ${fields.map(([k, v]) =>
+          `<div class="profile-field"><span class="profile-key">${k}</span><span class="profile-val">${v}</span></div>`
+        ).join('')}
+      </div>`;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    let _profileTrigger = null;
+    function openProfile(e) { _profileTrigger = e && e.currentTarget ? e.currentTarget : document.activeElement; overlay.classList.add('visible'); setTimeout(() => { const closeBtn = card.querySelector('#profile-close-btn'); if (closeBtn) closeBtn.focus(); }, 50); }
+    function closeProfile() {
+      overlay.classList.remove('visible');
+      card.querySelector('#profile-secondary-examples').classList.remove('visible');
+      card.querySelector('#profile-more-toggle').classList.remove('open');
+      card.querySelector('#profile-more-toggle').setAttribute('aria-expanded', 'false');
+      card.querySelector('#profile-fields-wrap').style.display = 'none';
+      card.querySelector('.profile-current-caret').textContent = '▾';
+      if (_profileTrigger && _profileTrigger.focus) _profileTrigger.focus();
+      _profileTrigger = null;
+    }
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeProfile(); });
+    card.querySelector('#profile-close-btn').addEventListener('click', closeProfile);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('visible')) { e.stopPropagation(); closeProfile(); } });
+
+    card.querySelector('#profile-current-toggle').addEventListener('click', () => {
+      const wrap = card.querySelector('#profile-fields-wrap');
+      const caret = card.querySelector('.profile-current-caret');
+      const open = wrap.style.display !== 'none';
+      wrap.style.display = open ? 'none' : 'block';
+      caret.textContent = open ? '▾' : '▴';
+    });
+
+    const nextText = card.querySelector('#profile-next-text');
+    card.querySelectorAll('.profile-action-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const prompt = btn.dataset.prompt;
+        const label = btn.querySelector('.action-label');
+        const prev = label.textContent;
+        try { navigator.clipboard.writeText(prompt).catch(() => {}); } catch(e) {}
+        label.textContent = '✓ Copied';
+        card.querySelector('#profile-next-step').classList.add('active');
+        nextText.textContent = '✓ Prompt copied — paste it into chat to apply.';
+        setTimeout(() => {
+          label.textContent = prev;
+          nextText.textContent = 'Copy a prompt above, then paste it into chat to apply the change.';
+          card.querySelector('#profile-next-step').classList.remove('active');
+        }, 4000);
+      });
+    });
+
+    card.querySelector('#profile-more-toggle').addEventListener('click', function() {
+      const sec = card.querySelector('#profile-secondary-examples');
+      const open = sec.classList.toggle('visible');
+      this.classList.toggle('open', open);
+      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    card.querySelectorAll('.profile-example-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const prompt = chip.dataset.prompt;
+        const prev = chip.textContent;
+        try {
+          navigator.clipboard.writeText(prompt).then(() => {
+            chip.textContent = '✓ Copied';
+            setTimeout(() => { chip.textContent = prev; }, 2000);
+          }).catch(() => {
+            chip.textContent = '✓ Copied';
+            setTimeout(() => { chip.textContent = prev; }, 2000);
+          });
+        } catch(e) {
+          chip.textContent = '✓ Copied';
+          setTimeout(() => { chip.textContent = prev; }, 2000);
+        }
+      });
+    });
+
+    document.getElementById('btn-configure').addEventListener('click', openProfile);
+    document.querySelectorAll('.pill').forEach(p => p.addEventListener('click', openProfile));
+  })(); } catch(e) { console.error('[Warmup:ProfileCard]', e); }
+
+  // ── SECTION COLLAPSE (Done / Expand) ──
+  try { (function () {
+    // Build a map of section id → nav link for done-state syncing
+    const navMap = {};
+    document.querySelectorAll('.nav-item').forEach(link => {
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) navMap[href.slice(1)] = link;
+    });
+
+    document.querySelectorAll('.section').forEach(section => {
+      const eyebrow = section.querySelector('.s-eyebrow');
+      if (!eyebrow) return;
+
+      const itemCount = section.querySelectorAll(':scope > .item').length;
+
+      // Item count badge — visible only when collapsed
+      const countLabel = document.createElement('span');
+      countLabel.className = 'section-count';
+      countLabel.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+      eyebrow.appendChild(countLabel);
+
+      // Done / Expand toggle button
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'section-toggle';
+      btn.textContent = 'Done';
+      btn.setAttribute('aria-expanded', 'true');
+      btn.setAttribute('aria-controls', section.id);
+      eyebrow.appendChild(btn);
+
+      let done = false;
+      btn.addEventListener('click', () => {
+        done = !done;
+        section.classList.toggle('is-done', done);
+        btn.textContent = done ? 'Expand' : 'Done';
+        btn.classList.toggle('is-done', done);
+        btn.setAttribute('aria-expanded', done ? 'false' : 'true');
+        // Sync nav item done state
+        const navLink = navMap[section.id];
+        if (navLink) navLink.classList.toggle('nav-done', done);
+      });
+
+      // Clicking the eyebrow text area also expands if already done
+      eyebrow.addEventListener('click', e => {
+        if (e.target === btn || e.target === countLabel) return;
+        if (done) btn.click();
+      });
+    });
+  })(); } catch(e) { console.error('[Warmup:SectionCollapse]', e); }
+
+
+  // ── ARTICLE DATES & SORT ──
+  try { (function () {
+    const DATES = window.WARMUP_DATA.dates || {};
+
+    const TODAY = new Date();
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function relTime(dateStr) {
+      const days = Math.round((TODAY - new Date(dateStr + 'T12:00:00Z')) / 86400000);
+      if (days <= 0)  return 'Today';
+      if (days === 1) return 'Yesterday';
+      if (days < 7)   return `${days} days ago`;
+      if (days < 14)  return '1 week ago';
+      if (days < 21)  return '2 weeks ago';
+      if (days < 28)  return '3 weeks ago';
+      if (days < 60)  return '1 month ago';
+      return `${Math.floor(days / 30)} months ago`;
+    }
+
+    function fmtDate(ds) {
+      const d = new Date(ds + 'T12:00:00Z');
+      return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+    }
+
+    document.querySelectorAll('.item').forEach(item => {
+      const hlEl = item.querySelector('.item-hl');
+      if (!hlEl) return;
+      const hl = hlEl.textContent.trim();
+      let ds = null;
+      for (const [k, v] of Object.entries(DATES)) {
+        if (hl.includes(k)) { ds = v; break; }
+      }
+      if (!ds) return;
+      item.dataset.date = ds;
+      const el = document.createElement('div');
+      el.className = 'item-date';
+      el.innerHTML =
+        `<span class="item-date-cal">${fmtDate(ds)}</span>` +
+        `<span class="item-date-dot">·</span>` +
+        `<span class="item-date-rel">${relTime(ds)}</span>`;
+      hlEl.after(el);
+    });
+
+    document.querySelectorAll('.section').forEach(section => {
+      const items = Array.from(section.querySelectorAll(':scope > .item'));
+      if (items.length < 2) return;
+      items.sort((a, b) => (b.dataset.date || '').localeCompare(a.dataset.date || ''));
+      const rule = section.querySelector('.s-rule');
+      const anchor = rule ? rule.nextSibling : null;
+      items.forEach(item => {
+        if (anchor) section.insertBefore(item, anchor);
+        else section.appendChild(item);
+      });
+    });
+  })(); } catch(e) { console.error('[Warmup:DateSort]', e); }
+
+  // ── MARKDOWN RENDERER ──
+  function renderMd(text) {
+    let html = text
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/^#{1,6}\s+(.+)$/gm, (_, t) => `<h5>${t}</h5>`)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^[-*•]\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, m => `<ul>${m}</ul>`)
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    return `<p>${html}</p>`;
+  }
+
+  // ── DEEP DIVE BUTTONS ──
+  try { document.querySelectorAll('.item').forEach(item => {
+    const hlEl = item.querySelector('.item-hl');
+    if (!hlEl) return;
+    const linkEl = hlEl.querySelector('a');
+    const headline = hlEl.textContent.trim();
+    const url = linkEl ? linkEl.href : '';
+    const srcEl = item.querySelector('.src');
+    const source = srcEl ? srcEl.textContent.trim() : '';
+
+    if (url && srcEl) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = srcEl.textContent;
+      srcEl.textContent = '';
+      srcEl.appendChild(a);
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'deep-btn';
+    btn.textContent = 'Deep Dive';
+
+    const resultDiv = document.createElement('div');
+    resultDiv.className = 'deep-result';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'deep-result-close';
+    closeBtn.textContent = '✕ Close';
+    closeBtn.addEventListener('click', () => {
+      resultDiv.classList.remove('visible');
+      btn.textContent = 'Deep Dive';
+    });
+
+    btn.addEventListener('click', async function(e) {
+      e.stopPropagation();
+
+      if (resultDiv.classList.contains('visible')) {
+        resultDiv.classList.remove('visible');
+        btn.textContent = 'Deep Dive';
+        return;
+      }
+
+            // Guard: askClaude only available inside the Cowork artifact renderer
+      if (!window.cowork || typeof window.cowork.askClaude !== 'function') {
+        resultDiv.innerHTML = `<strong style="color:var(--color-steel)">Deep Dive requires the Cowork app.</strong><br><span style="color:var(--color-chalk-faint);font-size:13px">Open this brief via the Cowork artifact viewer to enable AI-powered deep dives.</span>`;
+        resultDiv.appendChild(closeBtn);
+        resultDiv.classList.add('visible');
+        btn.textContent = 'Deep Dive';
+        return;
+      }
+
+btn.textContent = 'Loading…';
+      btn.disabled = true;
+
+      const sumEl2 = item.querySelector('.item-sum');
+      const summaryText = sumEl2 ? sumEl2.textContent.trim() : '';
+      const context = `Headline: ${headline}\nSource: ${source}\nURL: ${url}\nSummary: ${summaryText}`;
+
+      try {
+        const _cfg = window.WARMUP_DATA.config || {};
+        const _mode = (_cfg.mode || '').toLowerCase();
+        const _role = _mode.includes('ciso') ? 'CISO and security leader'
+                    : _mode.includes('product') ? 'product leader and GM'
+                    : 'senior business leader';
+        const _actions = _mode.includes('ciso')
+          ? 'ACTIONS (3 concrete steps for a security leader, next 30 days): detection engineering, vendor/procurement, or team guidance'
+          : 'ACTIONS (3 concrete steps for a product leader, next 30 days): roadmap, GTM, or competitive response';
+        const result = await window.cowork.askClaude(
+          `You are a ${_role} at ${_cfg.company || 'your company'} (${_cfg.sector || 'enterprise technology'}). Give a deep dive covering: WHAT HAPPENED (key facts, 2–3 sentences), COMPETITIVE IMPACT (what this means for ${_cfg.company || 'your company'}'s market position), PRODUCT ANGLE (roadmap or go-to-market implications), ${_actions}. Be direct and specific.`,
+          [context]
+        );
+        let text = result;
+        if (typeof result === 'object' && result !== null) {
+          text = result.text || result.content || result.response || result.message
+            || (Array.isArray(result) ? result.join('\n') : JSON.stringify(result, null, 2));
+        }
+        const srcHeader = document.createElement('a');
+        srcHeader.className = 'deep-result-src-link';
+        srcHeader.href = url || '#';
+        srcHeader.target = '_blank';
+        srcHeader.rel = 'noopener';
+        srcHeader.innerHTML = `<span class="src-arrow">↗</span>${source || 'Source'} — Deep Dive`;
+        resultDiv.innerHTML = renderMd(String(text));
+        resultDiv.prepend(srcHeader);
+        resultDiv.appendChild(closeBtn);
+        resultDiv.classList.add('visible');
+        btn.textContent = 'Deep Dive ✓';
+      } catch (err) {
+        const msg = err instanceof Error ? err.message
+          : (typeof err === 'string' ? err : JSON.stringify(err));
+        const _safeMsg = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        resultDiv.innerHTML = `<strong style="color:var(--color-blood)">Error:</strong> ${_safeMsg}`;
+        resultDiv.appendChild(closeBtn);
+        resultDiv.classList.add('visible');
+        btn.textContent = 'Deep Dive';
+      }
+      btn.disabled = false;
+    });
+
+    const sumEl = item.querySelector('.item-sum');
+    if (sumEl) {
+      sumEl.after(resultDiv);
+      sumEl.after(btn);
+    } else {
+      item.appendChild(btn);
+      item.appendChild(resultDiv);
+    }
+  }); } catch(e) { console.error('[Warmup:DeepDive]', e); }
+  // ── SAVE PDF MODAL ──
+  try { (function () {
+    const btn = document.getElementById('btn-save-pdf');
+    if (!btn) return;
+
+    if (WARMUP_CONFIG.pdfTheme === 'light') document.body.classList.add('print-light');
+    const prfCompany = document.getElementById('prf-company');
+    if (prfCompany && WARMUP_CONFIG.company) prfCompany.textContent = WARMUP_CONFIG.company;
+
+    // ── Zero-dependency text PDF builder ──
+    // Generates valid PDF/1.4 bytes directly — no CDN, no canvas, no dialogs.
+    // Output: selectable text, Helvetica, A4.
+    function buildBriefPDF(withDives) {
+      const PW = 595.28, PH = 841.89; // A4 in points
+      const ML = 54, MR = 54, MT = 62, MB = 54;
+      const TW = PW - ML - MR;
+
+      // ── Font metrics (AFM widths, 1/1000 em) ──
+      // F1: Times-Roman  F2: Helvetica-Bold  F3: Courier  F4: Times-Italic  F5: Helvetica
+      const HW = { // Helvetica (F2 base, F5)
+        ' ':278,'!':278,'"':355,'#':556,'$':556,'%':889,'&':667,"'":222,
+        '(':333,')':333,'*':389,'+':584,',':278,'-':333,'.':278,'/':278,
+        '0':556,'1':556,'2':556,'3':556,'4':556,'5':556,'6':556,'7':556,
+        '8':556,'9':556,':':278,';':278,'<':584,'=':584,'>':584,'?':556,
+        '@':1015,'A':667,'B':667,'C':722,'D':722,'E':667,'F':611,'G':778,
+        'H':722,'I':278,'J':500,'K':667,'L':556,'M':833,'N':722,'O':778,
+        'P':667,'Q':778,'R':722,'S':667,'T':611,'U':722,'V':667,'W':944,
+        'X':667,'Y':667,'Z':611,'[':278,'\\':278,']':278,'^':469,'_':556,
+        'a':556,'b':556,'c':500,'d':556,'e':556,'f':278,'g':556,'h':556,
+        'i':222,'j':222,'k':500,'l':222,'m':833,'n':556,'o':556,'p':556,
+        'q':556,'r':333,'s':500,'t':278,'u':556,'v':500,'w':722,'x':500,
+        'y':500,'z':500,'{':334,'|':260,'}':334,'~':584
+      };
+      const TRW = { // Times-Roman / Times-Italic (F1, F4)
+        ' ':250,'!':333,'"':408,'#':500,'$':500,'%':833,'&':778,"'":333,
+        '(':333,')':333,'*':500,'+':564,',':250,'-':333,'.':250,'/':278,
+        '0':500,'1':500,'2':500,'3':500,'4':500,'5':500,'6':500,'7':500,
+        '8':500,'9':500,':':278,';':278,'<':564,'=':564,'>':564,'?':444,
+        '@':921,'A':722,'B':667,'C':667,'D':722,'E':611,'F':556,'G':722,
+        'H':722,'I':333,'J':389,'K':722,'L':611,'M':889,'N':722,'O':722,
+        'P':556,'Q':722,'R':667,'S':556,'T':611,'U':722,'V':722,'W':944,
+        'X':722,'Y':722,'Z':611,'[':333,'\\':278,']':333,'^':469,'_':500,
+        'a':444,'b':500,'c':444,'d':500,'e':444,'f':278,'g':500,'h':500,
+        'i':278,'j':278,'k':500,'l':278,'m':778,'n':500,'o':500,'p':500,
+        'q':500,'r':333,'s':389,'t':278,'u':500,'v':500,'w':722,'x':500,
+        'y':500,'z':444,'{':480,'|':200,'}':480,'~':541
+      };
+      // font: 'serif'|false → F1(TRW)  'bold'|true → F2(HW*1.1)  'mono' → F3(600)  'italic' → F4(TRW)  'sans' → F5(HW)
+      function cw(c, sz, font) {
+        if (font === 'mono') return 600 / 1000 * sz;
+        const tbl = (font === 'bold' || font === true) ? HW
+                  : (font === 'sans') ? HW : TRW;
+        const mult = (font === 'bold' || font === true) ? 1.1 : 1;
+        return (tbl[c] || 500) * mult / 1000 * sz;
+      }
+      function tw(s, sz, font) { let w=0; for(const c of s) w += cw(c,sz,font); return w; }
+
+      function wrap(s, sz, font, maxW) {
+        const words = s.split(' ');
+        const lines = []; let cur = '';
+        for (const wd of words) {
+          const t = cur ? cur + ' ' + wd : wd;
+          if (tw(t, sz, font) <= maxW) { cur = t; }
+          else { if (cur) lines.push(cur); cur = wd; }
+        }
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [''];
+      }
+
+      // Sanitize to WinAnsiEncoding (Latin-1 safe)
+      function clean(s) {
+        return (s || '')
+          .replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+          .replace(/–/g, '-').replace(/—/g, '--').replace(/…/g, '...')
+          .replace(/·/g, ' . ').replace(/ /g, ' ')
+          .replace(/[^\x20-\xFF]/g, '?');
+      }
+
+      // URL escape for PDF /URI strings (parens must be balanced or escaped)
+      function escUrl(u) {
+        return (u || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+      }
+
+      // PDF string escape
+      function esc(s) {
+        return [...clean(s)].map(c => {
+          if (c === '(') return '\\(';
+          if (c === ')') return '\\)';
+          if (c === '\\') return '\\\\';
+          const n = c.charCodeAt(0);
+          if (n > 127) return '\\' + n.toString(8).padStart(3,'0');
+          return c;
+        }).join('');
+      }
+
+      // PDF page ops
+      const pages = [];
+      const annotations = []; // {pageIndex, x1, y1, x2, y2, url}
+      let ops = [], curY = PH - MT, pageNum = 1;
+
+      // Text at absolute position — font: 'serif'|'bold'|'mono'|'italic'|'sans'
+      function T(text, x, y, sz, font, gray, linkUrl) {
+        const fMap = { serif: '/F1', bold: '/F2', mono: '/F3', italic: '/F4', sans: '/F5' };
+        const f = fMap[font] || (font === true ? '/F2' : '/F1');
+        const gv = gray !== undefined ? gray : 0;
+        const gOp = `${gv.toFixed(3)} g`;
+        ops.push(`${gOp} BT ${f} ${sz} Tf 1 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)} Tm (${esc(text)}) Tj ET`);
+        if (linkUrl) {
+          annotations.push({
+            pageIndex: pages.length,
+            x1: x, y1: y - sz * 0.25,
+            x2: x + tw(text, sz, font), y2: y + sz * 0.85,
+            url: linkUrl
+          });
+        }
+      }
+      // Horizontal rule
+      function HR(x1, y, x2, w, gray) {
+        ops.push(`${(gray||0).toFixed(3)} G ${(w||0.5).toFixed(1)} w ${x1.toFixed(1)} ${y.toFixed(1)} m ${x2.toFixed(1)} ${y.toFixed(1)} l S 0 G`);
+      }
+      // Filled rectangle — for accent squares, etc.
+      function RECT(x, y, w, h, r, g, b) {
+        ops.push(`${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} rg ${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f 0 0 0 rg`);
+      }
+
+      function addFooter() {
+        const fy = MB + 4;
+        const mbText = 'Mission Built';
+        const restText = `  .  missionbuilt.io/loadout/warmup  .  MIT License  .  p. ${pageNum}`;
+        HR(ML, MB+14, PW-MR, 0.3, 0.78);
+        T(mbText, ML, fy, 7, 'mono', 0.55, 'https://missionbuilt.io/loadout/warmup');
+        const mbW = tw(mbText, 7, 'mono');
+        ops.push(`0.600 g BT /F3 7 Tf 1 0 0 1 ${(ML+mbW).toFixed(1)} ${fy.toFixed(1)} Tm (${esc(restText)}) Tj ET`);
+      }
+
+      function newPage() {
+        if (ops.length > 0) { addFooter(); pages.push(ops.join('\n')); }
+        ops = []; curY = PH - MT; pageNum++;
+      }
+
+      function need(h) {
+        if (curY - h < MB + 28) { newPage(); return true; }
+        return false;
+      }
+
+      // ── Render content ──
+      const now = new Date();
+      const tz  = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      function pdfTzFmt(opts) {
+        try { return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: tz }); }
+        catch(e) { return new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' }); }
+      }
+      function pdfPart(fmt, type) { return (fmt.formatToParts(now).find(p => p.type === type) || {}).value || ''; }
+      const dateFmt = pdfTzFmt({ day: 'numeric', month: 'short', year: 'numeric' });
+      const dateStr = `${pdfPart(dateFmt,'day')} ${pdfPart(dateFmt,'month')} ${pdfPart(dateFmt,'year')}`;
+      const timeFmt = pdfTzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
+      let   pdfH    = pdfPart(timeFmt, 'hour'); if (pdfH === '24') pdfH = '00';
+      const pdfM    = pdfPart(timeFmt, 'minute');
+      const pdfTzNm = pdfPart(timeFmt, 'timeZoneName') || tz;
+      const timeStr = `${pdfH}:${pdfM} ${pdfTzNm}`;
+
+      // Masthead
+      T('THE WARMUP', ML, curY, 20, 'bold', 0.07); curY -= 17;
+      T(`${WARMUP_CONFIG.company}   .   ${WARMUP_CONFIG.mode} Mode   .   ${dateStr}   .   ${timeStr}`, ML, curY, 9, 'sans', 0.4);
+      // Welcome greeting — right-aligned italic serif, shown when name is configured
+      if (WARMUP_CONFIG.name) {
+        const h = now.getHours();
+        const sal = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+        const greeting = `${sal}, ${WARMUP_CONFIG.name}.`;
+        T(greeting, PW - MR - tw(greeting, 9, 'italic'), curY, 9, 'italic', 0.38);
+      }
+      curY -= 14;
+      HR(ML, curY, PW-MR, 1.5, 0.1); curY -= 26;
+
+      // Sections
+      document.querySelectorAll('.section[id]').forEach(section => {
+        // Skip sections with no article items (e.g. link-safety panel)
+        const sectionItems = section.querySelectorAll(':scope > .item');
+        if (sectionItems.length === 0) return;
+
+        const eyebrowEl = section.querySelector('.s-eyebrow');
+        let heading = '';
+        if (eyebrowEl) {
+          // Clone and strip dynamic UI chrome (toggle button, count badge) before reading text
+          const tmp = eyebrowEl.cloneNode(true);
+          tmp.querySelectorAll('button, .section-count').forEach(b => b.remove());
+          heading = clean(tmp.textContent.replace(/\s+/g, ' ').trim());
+        }
+
+        need(50);
+        // Oxblood accent square + section heading (matches HTML .accent element)
+        RECT(ML, curY - 1, 6, 8, 0.784, 0.157, 0.118);
+        T(heading.toUpperCase(), ML + 10, curY, 9.5, 'bold', 0.1); curY -= 8;
+        HR(ML, curY, PW-MR, 0.5, 0.78); curY -= 20;
+
+        sectionItems.forEach(item => {
+          const hlEl  = item.querySelector('.item-hl');
+          if (!hlEl) return;
+          const sumEl = item.querySelector('.item-sum');
+          const srcEl = item.querySelector('.src');
+          const calEl = item.querySelector('.item-date-cal');
+          const relEl = item.querySelector('.item-date-rel');
+
+          const hlLink   = hlEl ? hlEl.querySelector('a') : null;
+          const articleUrl = hlLink ? hlLink.href : '';
+          const headline = clean(hlEl.textContent.trim());
+          const summary  = clean(sumEl ? sumEl.textContent.replace(/\s+/g,' ').trim() : '');
+          const source   = clean(srcEl ? srcEl.textContent.trim() : '').toUpperCase();
+          const date     = clean([calEl && calEl.textContent.trim(), relEl && relEl.textContent.trim()].filter(Boolean).join('  .  ')).toUpperCase();
+
+          const deepEl   = item.querySelector('.deep-result');
+          const hasDive  = withDives && deepEl && deepEl.classList.contains('visible');
+
+          need(50);
+
+          // Source + date meta row (Courier, matching JetBrains Mono on site)
+          const meta = [source, date].filter(Boolean).join('     ');
+          if (meta) { T(meta, ML, curY, 7.5, 'mono', 0.42); curY -= 15; }
+
+          // Headline — Helvetica-Bold (matches Oswald on site), links to article
+          const hlLines = wrap(headline, 12.5, 'bold', TW);
+          for (const line of hlLines) {
+            need(18); T(line, ML, curY, 12.5, 'bold', 0.07, articleUrl || undefined); curY -= 17;
+          }
+          curY -= 7;
+
+          // Summary — Times-Roman (matches Merriweather on site)
+          if (summary) {
+            const sumLines = wrap(summary, 9.5, 'serif', TW);
+            for (const line of sumLines) {
+              need(14); T(line, ML, curY, 9.5, 'serif', 0.13); curY -= 14;
+            }
+          }
+
+          // Deep dive content (oxblood left bar, structured serif body)
+          if (hasDive) {
+            curY -= 5;
+            // Clone and strip UI chrome (source link header + close button)
+            const diveClone = deepEl.cloneNode(true);
+            diveClone.querySelectorAll('.deep-result-src-link, .deep-result-close').forEach(el => el.remove());
+
+            // DOM walk preserving headings, paragraphs, list items in order
+            const diveItems = [];
+            function walkDive(node) {
+              if (node.nodeType !== 1) return;
+              const tag = node.tagName.toLowerCase();
+              if (tag === 'h4' || tag === 'h5') {
+                const t = clean(node.textContent.replace(/\s+/g,' ').trim());
+                if (t) diveItems.push({ text: t, bold: true });
+              } else if (tag === 'p') {
+                const t = clean(node.textContent.replace(/\s+/g,' ').trim());
+                if (t) diveItems.push({ text: t, bold: false });
+              } else if (tag === 'ul') {
+                node.querySelectorAll(':scope > li').forEach(li => {
+                  const t = '- ' + clean(li.textContent.replace(/\s+/g,' ').trim());
+                  if (t.length > 2) diveItems.push({ text: t, bold: false });
+                });
+              } else {
+                Array.from(node.childNodes).forEach(walkDive);
+              }
+            }
+            Array.from(diveClone.childNodes).forEach(walkDive);
+
+            // Fallback: plain text if no structured elements found
+            if (diveItems.length === 0) {
+              const t = clean(diveClone.textContent.replace(/\s+/g,' ').trim());
+              if (t) diveItems.push({ text: t, bold: false });
+            }
+
+            for (const item of diveItems) {
+              const sz = item.bold ? 8.5 : 9;
+              const font = item.bold ? 'bold' : 'serif';
+              const gray = item.bold ? 0.1 : 0.25;
+              const lines = wrap(item.text, sz, font, TW - 14);
+              for (const line of lines) {
+                need(14);
+                ops.push(`0.784 0.157 0.118 RG 1.5 w ${ML.toFixed(1)} ${(curY+10).toFixed(1)} m ${ML.toFixed(1)} ${(curY).toFixed(1)} l S 0 G`);
+                T(line, ML+14, curY, sz, font, gray);
+                curY -= 13;
+              }
+              if (item.bold) curY -= 3; // extra space after headings
+            }
+            curY -= 4;
+          }
+
+          curY -= 20; // item gap
+        });
+        curY -= 14; // section gap
+      });
+
+      // ── Sources panel ──
+      const srcPanel = document.getElementById('sources');
+      if (srcPanel) {
+        need(50);
+        RECT(ML, curY - 1, 6, 8, 0.784, 0.157, 0.118);
+        T('SOURCES USED TODAY', ML + 10, curY, 9.5, 'bold', 0.1); curY -= 8;
+        HR(ML, curY, PW-MR, 0.5, 0.78); curY -= 16;
+
+        srcPanel.querySelectorAll('.src-group-lbl, .src-row').forEach(el => {
+          if (el.classList.contains('src-group-lbl')) {
+            need(20); curY -= 4;
+            T(clean(el.textContent).toUpperCase(), ML, curY, 7.5, 'mono', 0.42); curY -= 11;
+            HR(ML, curY + 1, PW-MR, 0.3, 0.85); curY -= 7;
+          } else if (el.classList.contains('src-row')) {
+            need(14);
+            const nmEl = el.querySelector('.src-nm');
+            const domEl = el.querySelector('.src-dom');
+            const ctEl  = el.querySelector('.src-ct');
+            const stEl  = el.querySelector('.src-st');
+            const nmTxt  = clean(nmEl  ? nmEl.textContent.trim()  : '');
+            const domTxt = clean(domEl ? domEl.textContent.trim() : '');
+            const ctTxt  = clean(ctEl  ? ctEl.textContent.trim()  : '');
+            const stTxt  = clean(stEl  ? stEl.textContent.trim()  : '');
+            const stGray = stEl && stEl.classList.contains('st-a') ? 0.35 : 0.60;
+            const stW    = tw(stTxt, 7.5, 'mono');
+            const ctW    = tw(ctTxt, 7.5, 'mono');
+            T(nmTxt,  ML,                                        curY, 7.5, 'mono', 0.15);
+            T(domTxt, ML + 165,                                  curY, 7,   'mono', 0.50);
+            T(ctTxt,  PW - MR - stW - ctW - 20,                 curY, 7.5, 'mono', 0.42);
+            T(stTxt,  PW - MR - stW,                             curY, 7.5, 'mono', stGray);
+            curY -= 13;
+          }
+        });
+        curY -= 14;
+      }
+
+      // ── Closing colophon ──
+      // Flow directly after last content — no forced anchor
+      HR(ML, curY, PW-MR, 0.5, 0.75); curY -= 18;
+      const col1 = 'This is a static export. The live version fetches real-time intelligence from active sources, runs deep dive analysis on demand, and delivers a fresh brief every morning -- tailored to your sector, company, and tracked vendors.';
+      const col2 = 'Run The Warmup as a skill for the full experience: adaptive lookback windows, personalized sourcing, and a brief that updates itself each time you ask.';
+      for (const line of wrap(col1, 9, 'serif', TW)) { need(14); T(line, ML, curY, 9, 'serif', 0.35); curY -= 13; }
+      curY -= 5;
+      for (const line of wrap(col2, 9, 'serif', TW)) { need(14); T(line, ML, curY, 9, 'serif', 0.35); curY -= 13; }
+      curY -= 10;
+      need(30);
+      T('-> missionbuilt.io/loadout/warmup', ML, curY, 9, 'bold', 0.13, 'https://missionbuilt.io/loadout/warmup'); curY -= 18;
+      // MIT License and github — Courier, each linked separately
+      const mitText = 'MIT License';
+      const ghText  = '  .  github.com/missionbuilt/loadout';
+      T(mitText, ML, curY, 7.5, 'mono', 0.55, 'https://github.com/missionbuilt/loadout/blob/main/LICENSE');
+      T(ghText, ML + tw(mitText, 7.5, 'mono'), curY, 7.5, 'mono', 0.55, 'https://github.com/missionbuilt/loadout');
+      curY -= 12;
+
+      // Finalize last page
+      if (ops.length > 0) { addFooter(); pages.push(ops.join('\n')); }
+
+      // ── Assemble PDF bytes ──
+      const enc = s => new TextEncoder().encode(s);
+      const parts = []; let off = 0;
+      const xo = {};
+
+      function wb(data) {
+        const b = typeof data === 'string' ? enc(data) : data;
+        parts.push(b); off += b.length;
+      }
+      function obj(n, dict, stream) {
+        xo[n] = off;
+        if (stream !== undefined) {
+          const sb = enc(stream);
+          wb(`${n} 0 obj\n<< /Length ${sb.length} >>\nstream\n`);
+          wb(stream);
+          wb('\nendstream\nendobj\n');
+        } else {
+          wb(`${n} 0 obj\n${dict}\nendobj\n`);
+        }
+      }
+
+      wb('%PDF-1.4\n%\x80\x80\x80\n');
+
+      const N = pages.length;
+      // Objects: 1=Catalog 2=Pages 3=F1 4=F2 5=F3 6=F4 7=F5  8..=page dicts  8+N..=streams  8+2N..=annots
+      const PB = 8; // page base object number
+      const kidsStr = pages.map((_,i) => `${PB+i} 0 R`).join(' ');
+      obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+      obj(2, `<< /Type /Pages /Kids [${kidsStr}] /Count ${N} >>`);
+      obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman      /Encoding /WinAnsiEncoding >>');
+      obj(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold   /Encoding /WinAnsiEncoding >>');
+      obj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier          /Encoding /WinAnsiEncoding >>');
+      obj(6, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic     /Encoding /WinAnsiEncoding >>');
+      obj(7, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica        /Encoding /WinAnsiEncoding >>');
+
+      // Pre-assign annotation object IDs (after page dicts + content streams)
+      const annotBaseId = PB + N * 2;
+      const pageAnnotIds = {};
+      annotations.forEach((ann, idx) => {
+        const annotId = annotBaseId + idx;
+        if (!pageAnnotIds[ann.pageIndex]) pageAnnotIds[ann.pageIndex] = [];
+        pageAnnotIds[ann.pageIndex].push(annotId);
+      });
+
+      // Page dictionaries (with /Annots where applicable)
+      const fontRes = '/Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R /F5 7 0 R >>';
+      for (let i = 0; i < N; i++) {
+        const annIds = pageAnnotIds[i];
+        const annotsStr = annIds ? ` /Annots [${annIds.map(id => `${id} 0 R`).join(' ')}]` : '';
+        obj(PB+i, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW.toFixed(2)} ${PH.toFixed(2)}] /Contents ${PB+N+i} 0 R /Resources << ${fontRes} >>${annotsStr}>>`);
+      }
+      // Content streams
+      for (let i = 0; i < N; i++) {
+        obj(PB+N+i, null, pages[i]);
+      }
+      // Link annotation objects
+      annotations.forEach((ann, idx) => {
+        obj(annotBaseId + idx, `<< /Type /Annot /Subtype /Link /Rect [${ann.x1.toFixed(2)} ${ann.y1.toFixed(2)} ${ann.x2.toFixed(2)} ${ann.y2.toFixed(2)}] /Border [0 0 0] /A << /S /URI /URI (${escUrl(ann.url)}) >> >>`);
+      });
+
+      // Cross-reference table
+      const xrefPos = off;
+      const totalObjs = 7 + N * 2 + annotations.length;
+      wb(`xref\n0 ${totalObjs+1}\n0000000000 65535 f \n`);
+      for (let i = 1; i <= totalObjs; i++) {
+        wb(`${String(xo[i]||0).padStart(10,'0')} 00000 n \n`);
+      }
+      wb(`trailer\n<< /Size ${totalObjs+1} /Root 1 0 R >>\nstartxref\n${xrefPos}\n%%EOF`);
+
+      const total = parts.reduce((s,b) => s+b.length, 0);
+      const out = new Uint8Array(total);
+      let pos = 0;
+      for (const b of parts) { out.set(b, pos); pos += b.length; }
+      return out;
+    }
+
+    // ── Save modal (same pattern as Configure) ──
+    const sq = `<span style="display:inline-block;width:9px;height:9px;background:var(--color-blood);flex-shrink:0;vertical-align:middle;position:relative;top:-1px;"></span>`;
+    const overlay = document.createElement('div');
+    overlay.className = 'profile-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'save-dialog-title');
+
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.style.maxWidth = '480px';
+    card.innerHTML =
+      `<button type="button" class="profile-close-btn" id="save-close-btn" aria-label="Close save panel">✕</button>` +
+      `<div class="profile-card-title" id="save-dialog-title">${sq}&nbsp; Save PDF</div>` +
+      `<div class="save-modal-btns">
+        <button type="button" class="save-modal-btn" id="pdf-with-dives">
+          <span class="smb-icon" aria-hidden="true">⎙</span>
+          <span class="smb-label">With Deep Dives</span>
+          <span class="smb-desc">Includes any analysis panels you've already opened</span>
+        </button>
+        <button type="button" class="save-modal-btn" id="pdf-without-dives">
+          <span class="smb-icon" aria-hidden="true">⎙</span>
+          <span class="smb-label">Articles Only</span>
+          <span class="smb-desc">Headlines, summaries, and sources — no deep dives</span>
+        </button>
+      </div>` +
+      `<div class="save-modal-note">Saves what's currently on screen</div>`;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    let _saveTrigger = null;
+    function openSave() { _saveTrigger = document.activeElement; overlay.classList.add('visible'); setTimeout(() => card.querySelector('#save-close-btn').focus(), 50); }
+    function closeSave() { overlay.classList.remove('visible'); if (_saveTrigger && _saveTrigger.focus) _saveTrigger.focus(); _saveTrigger = null; }
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeSave(); });
+    card.querySelector('#save-close-btn').addEventListener('click', closeSave);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('visible')) { e.stopPropagation(); closeSave(); } });
+
+    btn.addEventListener('click', openSave);
+
+    // ── Trigger download ──
+    async function doSave(withDives) {
+      closeSave();
+      const origText = btn.textContent;
+      btn.textContent = '⏳ Compiling…';
+      btn.disabled = true;
+      await new Promise(r => setTimeout(r, 30));
+
+      try {
+        const pdfBytes = buildBriefPDF(withDives);
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        const now  = new Date();
+        const tz   = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        let fnDate = '', fnTime = '', fnTz = '';
+        try {
+          const df = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: tz });
+          const tf = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz });
+          fnDate = df.format(now).replace(/ /g, '-');
+          fnTime = tf.format(now).replace(/[:\s]/g, '-').replace('--', '-');
+          fnTz   = tz.replace(/\//g, '-').replace(/_/g, '');
+        } catch (e) { /* ignore timezone formatting errors */ }
+        const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').slice(0, 12);
+        const modeAliases = { 'Product Leader': 'pl', 'CISO': 'ciso', 'Custom': 'custom' };
+        const modeRaw = WARMUP_CONFIG.mode || '';
+        const mode = modeAliases[modeRaw] || modeRaw.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
+        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${fnDate ? '-' + fnDate : ''}${fnTime ? '-' + fnTime : ''}${fnTz ? '-' + fnTz : ''}.pdf`;
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('PDF build failed:', err);
+        btn.textContent = '✗ Failed';
+        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+        return;
+      }
+      btn.textContent = '✓ Saved';
+      setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 1800);
+    }
+    function animateThenSave(btnEl, withDives) {
+      btnEl.classList.add('btn-clicked');
+      btnEl.addEventListener('animationend', () => {
+        btnEl.classList.remove('btn-clicked');
+        doSave(withDives);
+      }, { once: true });
+    }
+    card.querySelector('#pdf-with-dives').addEventListener('click',    function() { animateThenSave(this, true);  });
+    card.querySelector('#pdf-without-dives').addEventListener('click', function() { animateThenSave(this, false); });
+
+  })(); } catch(e) { console.error('[Warmup:SavePDF]', e); }
+</script>
+
+</body>
+</html>
