@@ -398,6 +398,28 @@ The user can always override the window at run time with natural language:
 *"warmup — go back since last Tuesday"*, *"include last week"*, etc.
 When they do, use that window directly and skip the computation above.
 
+### Step 1b — Artifact and engine check (before any searches)
+
+Run this step immediately after computing the lookback window and **before** starting any fetch queries. Front-loading this check means the engine shell is in context before searches begin — so synthesis and render are a single pass with no re-fetching.
+
+Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returned.
+
+**If `the-warmup` does not exist → first run:**
+- Call `warmup_get_template` now. The returned HTML is the full engine shell.
+- Hold it in context — you will inject `WARMUP_DATA` into it after synthesis (Step 4).
+- Proceed to Step 2.
+
+**If `the-warmup` exists → daily run:**
+- Note the `html_path` from the response.
+- Read the artifact's current HTML from that `html_path`.
+- Look for `<!-- warmup-engine: ENGINE_VERSION -->` near the top of the file.
+- Compare it to the engine version shown at the top of the `warmup_run` response.
+  - **Version matches:** You do not need to fetch the template. The existing artifact HTML is your base — you will replace only its `<script id="warmup-data">` block after synthesis (Step 4).
+  - **Version missing or mismatch:** Call `warmup_get_template` now. Hold the returned engine shell — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
+
+Output this single line in chat, then proceed to Step 2:
+*"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
+
 ### Step 2 — Fetch phase
 
 Before starting any searches, output this line in chat:
@@ -547,24 +569,21 @@ The Warmup renders inside the Cowork artifact pane — this is what makes Deep D
 
 The user's only download option is the **Save PDF** button inside the artifact. That is intentional and sufficient.
 
-**Determining first run vs. daily run:**
+**Inject and render (Step 1b already determined the base HTML):**
 
-Call `list_artifacts` first. Check whether an artifact with id `the-warmup` is returned.
+By the time you reach this step, Step 1b has already:
+- Called `list_artifacts` and determined first run vs. daily run.
+- For **daily runs with a version match:** the existing artifact HTML is your base.
+- For **first runs or engine version mismatches:** `warmup_get_template` was already called and the engine shell is in context.
 
-- **If `the-warmup` exists → daily run.** Follow the standard daily run steps below.
-- **If `the-warmup` does not exist → first run.** Follow the first run steps below.
+**Do not call `list_artifacts` or `warmup_get_template` again here.**
+
+1. Take the base HTML from Step 1b — either the existing artifact or the fetched engine shell.
+2. Find the `<script id="warmup-data">` block and replace it with the generated `WARMUP_DATA` for this run. Touch nothing else in the HTML.
+3. Write the result to `warmup-artifact.html` in the workspace folder.
+4. Call `create_artifact` (first run) or `update_artifact` (daily run or engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
-
-**Standard daily run (artifact already exists):**
-
-1. Call `list_artifacts` — confirm `the-warmup` exists and note its `html_path`.
-2. Read the artifact's current HTML from the `html_path` returned.
-3. **Engine version check:** Look for `<!-- warmup-engine: ENGINE_VERSION -->` near the top of the artifact HTML. Compare it to the engine version returned by `warmup_run` (shown at the top of this response as `Engine version: X.X.X`).
-   - **Version matches:** Replace ONLY the `<script id="warmup-data">` block. Do not touch anything else.
-   - **Version missing or mismatch:** The engine is out of date. Call `warmup_get_template`. The text returned by that tool IS the full HTML engine — do not modify its structure. Replace only the `<script id="warmup-data">` block inside it with the generated WARMUP_DATA. Write the result to `warmup-artifact.html` and call `update_artifact`. This propagates engine fixes to existing users automatically.
-4. Write the modified HTML to `warmup-artifact.html` in the workspace folder.
-5. Call `update_artifact` with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered only when the version marker changes.
 
@@ -660,14 +679,13 @@ Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered onl
 
 **`scanTime` is the single timestamp source.** Write it once as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). The renderer uses it in the masthead, the Generated cell in the signal bar, the link-safety scanned-at line, and the PDF masthead. Do not write separate timestamp values anywhere else.
 
-**First run (no artifact exists yet):**
+**On engine bugs:**
+1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
+2. Apply the same fix to the active `warmup-artifact.html`.
+3. Call `update_artifact` to push the fix into the live artifact.
+4. The fix propagates to all future reports automatically because new reports start from the template.
 
-1. Call `warmup_get_template` — this returns the full canonical HTML engine as a text string. The text returned IS the complete artifact HTML. Do NOT build from scratch. Do NOT read a local file. Do NOT restructure or rewrite the HTML.
-2. Take the returned HTML exactly as-is. Find the `<script id="warmup-data">` block inside it and replace it with the generated `WARMUP_DATA` for this run. Touch nothing else.
-3. Write the result to `warmup-artifact.html` in the workspace folder.
-4. Call `create_artifact` with `id: "the-warmup"` and `html_path` pointing to the written file.
-
-This guarantees the report has all current engine fixes, the isolated try-catch error boundaries, the correct PDF builder, and the mode-aware deep dive prompt. Building from scratch risks diverging from the canonical engine and re-introducing fixed bugs.
+**Never build the artifact HTML from scratch.** Always start from the engine shell returned by `warmup_get_template`. Building from scratch risks re-introducing fixed bugs and diverging from the canonical engine.
 
 ### Step 5 — Summary line
 
