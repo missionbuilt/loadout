@@ -28,7 +28,7 @@ A spotter in powerlifting watches your form, catches the bar if something breaks
 
 A daily intelligence brief for the first coffee. Know what moved before you open your inbox.
 
-Two modes: **CISO Mode** loads a curated source suite — CISA advisories, the KEV catalog, MITRE ATT&CK, Tier 1 threat intel vendors, and sector-specific sources for Healthcare, Financial Services, Energy, Government, and Manufacturing/OT. **Product Leader Mode** covers competitor moves, AI model releases, market funding, key voices to track, and the analyst and news sources that matter for your vertical. **Custom Mode** lets you describe your interests in plain language and builds a source suite from scratch.
+Three modes: **CISO Mode** loads a curated source suite — CISA advisories, the KEV catalog, MITRE ATT&CK, Tier 1 threat intel vendors, and sector-specific sources for Healthcare, Financial Services, Energy, Government, and Manufacturing/OT. **Product Leader Mode** covers competitor moves, AI model releases, market funding, key voices to track, and the analyst and news sources that matter for your vertical. **Custom Mode** lets you describe your interests in plain language and builds a source suite from scratch.
 
 Every brief renders as a live HTML artifact — charcoal background, oxblood accents, instrument-panel typography. It reads like a field document, not a dashboard. Your config lives in a plain `WARMUP.md` at your project root — readable, editable, yours. See `WARMUP.example.md` at the repo root for the full schema.
 

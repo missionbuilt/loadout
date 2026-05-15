@@ -31,7 +31,7 @@ it came from.
 
 ---
 
-## Two modes
+## Three modes
 
 ### CISO Mode
 
@@ -52,6 +52,27 @@ Each brief covers five sections:
   Substantive research only, not vendor marketing.
 - **Industry Intel** — M&A, product launches, leadership changes, regulatory
   moves (SEC, HIPAA, DORA, CMMC). Flagged by type.
+- **Social Signal** — High-signal community discussion, clearly labeled
+  as unverified. Omitted when there is nothing worth your time.
+
+### Product Leader Mode
+
+Built for product managers, CPOs, and product-oriented executives. Tell the
+Warmup your product area, vertical, and build type and it loads a source
+suite tuned for competitive and market intelligence: competitor newsrooms,
+analyst firms (Gartner, Forrester, CB Insights), AI model release trackers,
+funding and M&A feeds, and the voices worth following in your space.
+
+Each brief covers five sections:
+
+- **Company Intel** — News, earnings, product launches, and leadership moves
+  from your own org. SEC filings flagged when relevant.
+- **Competitor Moves** — Product announcements, pricing changes, hiring
+  signals, and positioning shifts from your named competitor set.
+- **AI & Tooling** — Model releases, capability updates, and developer
+  tooling changes relevant to your roadmap.
+- **Market & Funding** — VC rounds, M&A, analyst reports, and regulatory
+  moves in your vertical.
 - **Social Signal** — High-signal community discussion, clearly labeled
   as unverified. Omitted when there is nothing worth your time.
 
