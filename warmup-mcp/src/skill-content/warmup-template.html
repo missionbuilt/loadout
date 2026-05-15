@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.1.0 -->
+<!-- warmup-engine: v0.2.0 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Warmup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: dark;
@@ -96,6 +96,24 @@
     color: var(--color-chalk);
     line-height: 1;
   }
+  /* ── MASTHEAD EYEBROW (alignment-review recommended) ── */
+  .masthead-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-blood);
+    margin-bottom: 10px;
+    line-height: 1;
+  }
+  .masthead-eyebrow .bars {
+    color: var(--color-blood);
+    margin: 0 8px;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+  body.no-masthead-eyb .masthead-eyebrow { display: none; }
   .brand-sq { display: inline-block; width: 8px; height: 8px; background: var(--color-blood); flex-shrink: 0; }
   .masthead-date { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
   .masthead-tags { display: flex; align-items: center; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
@@ -219,7 +237,7 @@
     margin-bottom: 10px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .s-eyebrow .accent {
     display: block;
@@ -229,6 +247,57 @@
     flex-shrink: 0;
     align-self: center;
   }
+  /* ── EYEBROW VARIATIONS ── */
+  .s-eyebrow .eb-bars {
+    color: var(--color-blood);
+    letter-spacing: 0.04em;
+    font-weight: 700;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .s-eyebrow .eb-num {
+    color: var(--color-chalk-faint);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .s-eyebrow .eb-label { flex-shrink: 0; white-space: nowrap; }
+  .s-eyebrow .eb-bars { white-space: nowrap; }
+  .masthead-title h1 { white-space: nowrap; }
+  .masthead-eyebrow { white-space: nowrap; }
+  /* Quote/welcome on the right shouldn't push the title to wrap */
+  .masthead-right { max-width: 38%; min-width: 200px; }
+  @media (max-width: 980px) {
+    .masthead-right { max-width: 50%; }
+  }
+  .s-eyebrow .eb-count {
+    margin-left: auto;
+    color: var(--color-chalk-faint);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    flex-shrink: 0;
+  }
+  /* Default eyebrow rendering = bracketed (alignment-review recommended) */
+  .s-eyebrow .accent,
+  .s-eyebrow .eb-num { display: none; }
+  body.eyb-original .s-eyebrow .accent { display: block; }
+  body.eyb-original .s-eyebrow .eb-bars,
+  body.eyb-original .s-eyebrow .eb-num,
+  body.eyb-original .s-eyebrow .eb-count { display: none; }
+  body.eyb-bracketed .s-eyebrow .eb-bars { display: inline; }
+  body.eyb-bracketed .s-eyebrow .eb-count { display: none; }
+  body.eyb-numbered .s-eyebrow .eb-num,
+  body.eyb-numbered .s-eyebrow .eb-count { display: inline; }
+  body.eyb-numbered .s-eyebrow .eb-bars.eb-tail { display: none; }
+  body.eyb-numbered .s-eyebrow .eb-bars.eb-lead {
+    letter-spacing: 0.06em;
+    color: var(--color-blood);
+  }
+  /* Section header gets a stronger top rule in numbered mode */
+  body.eyb-numbered .section { padding-top: 44px; }
+  body.eyb-numbered .s-rule { border-top: 2px solid var(--color-rule); }
   .s-rule { border: none; border-top: 1px solid var(--color-rule); margin-bottom: 20px; }
 
   /* ── ITEM DATE ── */
@@ -298,10 +367,13 @@
   .item-hl a:hover { color: var(--color-blood); }
   .item-sum {
     font-family: var(--font-serif);
-    font-size: 18px;
+    font-size: var(--sum-size, 16px);
     color: var(--color-chalk-dim);
-    line-height: 1.7;
+    line-height: var(--sum-lh, 1.7);
   }
+  body.sum-15 { --sum-size: 15px; --sum-lh: 1.65; }
+  body.sum-16 { --sum-size: 16px; --sum-lh: 1.7; }
+  body.sum-18 { --sum-size: 18px; --sum-lh: 1.7; }
 
   /* ── SOURCES PANEL ── */
   .src-panel {
@@ -1152,105 +1224,209 @@
 </head>
 
 <script id="warmup-data">
-// ══════════════════════════════════════════════════════════════════════════════
-// WARMUP_DATA — THE ONLY SECTION THAT CHANGES PER REPORT
-// ══════════════════════════════════════════════════════════════════════════════
-// This is the canonical engine template. When generating a new brief, Claude
-// replaces ONLY this script block. All engine code below (renderer, PDF builder,
-// deep dive, modal, sort, etc.) is shared and must not be modified per-report.
-//
-// REQUIRED fields (all reports):
-//   config.name, config.mode, config.company, config.sector
-//   config.reportDate, config.updated, config.lastRun, config.dateRange
-//   config.sourcesActive, config.sourcesQuiet, config.showQuote
-//   sections[] — array of section objects (id, label, note, items[])
-//   sources[]  — array of source objects (nm, dom, dot, ct, status)
-//   safety     — { domains[], totalUrls, flagged, scannedAt }
-//
-// OPTIONAL fields (rendered as '—' when absent):
-//   config.region, config.timezone, config.vendors, config.interests
-//   config.pdfTheme ("dark"|"light"), dates ({headline_keyword: "YYYY-MM-DD"})
-//
-// ITEM SCHEMA (each item in sections[].items):
-//   dot: "d1"|"d2"|"d3"|"d4"   (tier color)
-//   src: string                 (source display name)
-//   tags: [{cls: "", text: ""}] (tag pills — cls can be "" or a modifier class)
-//   url: string                 (article URL)
-//   hl: string                  (headline — shown as linked h3)
-//   body: string                (1–2 sentence summary)
-//   date: "YYYY-MM-DD"          (used for date display and chronological sort)
-//
-// SOURCE SCHEMA (each entry in sources[]):
-//   nm: string        (display name)
-//   dom: string       (domain, e.g. "elastic.co")
-//   dot: "d1"-"d4"   (tier)
-//   ct: string        (article count, e.g. "2 items" or "—")
-//   status: "active"|"quiet"
-//
-// SAFETY SCHEMA:
-//   domains: [{domain: string, verdict: string}]  — one per ACTIVE source only
-//   totalUrls: number   — must equal number of active sources (safety.domains.length)
-//   flagged: number     — always 0 for clean reports
-//   scannedAt: string   — human-readable scan timestamp
-// ══════════════════════════════════════════════════════════════════════════════
 window.WARMUP_DATA = {
   "config": {
-    "name": "Your Name",
-    "mode": "Product Leader",
-    "company": "Your Company",
-    "sector": "Your Sector · Subsector",
-    "region": "Your Region",
-    "vendors": "Vendor A, Vendor B, Vendor C",
+    "name": "Mike",
+    "mode": "CISO",
+    "company": "Elastic",
+    "sector": "Cybersecurity · SIEM / Observability",
+    "region": "United States",
+    "vendors": "CrowdStrike, Palo Alto, Splunk, Microsoft Sentinel",
     "interests": "",
-    "timezone": "UTC",
+    "timezone": "ET",
     "pdfTheme": "dark",
-    "reportDate": "May 14, 2026",
-    "updated": "May 14, 2026",
+    "reportDate": "Thu, May 15, 2026",
+    "updated": "15 May 2026",
     "lastRun": "2026-05-14",
-    "dateRange": "May 7 – May 14, 2026",
-    "sourcesActive": 0,
-    "sourcesQuiet": 0,
-    "showQuote": true
+    "dateRange": "May 8 – May 15, 2026",
+    "sourcesActive": 12,
+    "sourcesQuiet": 4,
+    "showQuote": true,
+    "scanTime": "06:14 ET",
+    "totalLinks": 18
   },
   "sections": [
     {
-      "id": "example-section",
-      "label": "Example Section",
+      "id": "threat",
+      "label": "Threat Landscape",
       "note": null,
       "items": [
         {
           "dot": "d1",
-          "src": "Source Name",
-          "tags": [{"cls": "", "text": "Tag"}],
-          "url": "https://example.com/article",
-          "hl": "Example headline goes here",
-          "body": "One to two sentence summary of the article. Focused, factual, intelligence-grade.",
+          "src": "CISA",
+          "tags": [{"cls": "t-alert", "text": "KEV ADDED"}, {"cls": "t-mitre", "text": "T1190"}],
+          "url": "https://cisa.gov/known-exploited-vulnerabilities",
+          "hl": "CISA adds Ivanti EPMM vulnerability to Known Exploited Vulnerabilities catalog",
+          "body": "CISA added CVE-2025-4427 and CVE-2025-4428 to the KEV catalog, affecting Ivanti Endpoint Manager Mobile. Federal agencies are required to patch by June 4. Active exploitation confirmed in the wild targeting government and healthcare sectors.",
+          "date": "2026-05-14"
+        },
+        {
+          "dot": "d1",
+          "src": "CrowdStrike Intelligence",
+          "tags": [{"cls": "t-mitre", "text": "T1078"}, {"cls": "t-mitre", "text": "T1486"}],
+          "url": "https://crowdstrike.com/blog",
+          "hl": "SCATTERED SPIDER resurfaces with updated ransomware TTPs targeting financial services",
+          "body": "CrowdStrike Falcon Intelligence reports renewed activity from SCATTERED SPIDER (Starfraud) using updated social engineering playbooks against financial sector helpdesks. The group has shifted from SIM swapping to direct vishing attacks on IT support staff to achieve initial access.",
+          "date": "2026-05-13"
+        },
+        {
+          "dot": "d2",
+          "src": "Elastic Security Labs",
+          "tags": [{"cls": "t-mitre", "text": "T1055"}, {"cls": "", "text": "MALWARE"}],
+          "url": "https://elastic.co/security-labs",
+          "hl": "GHOSTPULSE loader campaign targeting enterprise endpoints via malvertising",
+          "body": "Elastic Security Labs has published analysis of a GHOSTPULSE campaign using malvertising to deliver a loader that uses process injection to evade EDR detection. The campaign primarily targets Windows 11 enterprise endpoints in North America and Western Europe.",
+          "date": "2026-05-12"
+        }
+      ]
+    },
+    {
+      "id": "cve",
+      "label": "Emerging Threats",
+      "note": null,
+      "items": [
+        {
+          "dot": "d1",
+          "src": "NVD / CISA KEV",
+          "tags": [{"cls": "t-cve", "text": "CVE-2025-4427"}, {"cls": "t-alert", "text": "CRITICAL"}],
+          "url": "https://nvd.nist.gov",
+          "hl": "CVE-2025-4427: Ivanti EPMM unauthenticated API access — CVSS 9.8",
+          "body": "An unauthenticated API endpoint in Ivanti Endpoint Manager Mobile allows remote attackers to access restricted functionality without credentials. Exploit code is publicly available. Patch to EPMM 11.12.0.4 or later immediately. CISA has confirmed exploitation in the wild.",
+          "date": "2026-05-14"
+        },
+        {
+          "dot": "d1",
+          "src": "Microsoft Security",
+          "tags": [{"cls": "t-cve", "text": "CVE-2026-26031"}, {"cls": "", "text": "PATCH TUESDAY"}],
+          "url": "https://microsoft.com/security",
+          "hl": "May Patch Tuesday: 72 CVEs addressed, 5 zero-days, 2 actively exploited",
+          "body": "Microsoft's May 2026 Patch Tuesday addresses 72 vulnerabilities including 5 zero-day flaws. Two are confirmed exploited in the wild: a Windows DWM Core Library elevation of privilege flaw and a Microsoft Office remote code execution vulnerability. Prioritize patching these two.",
+          "date": "2026-05-13"
+        }
+      ]
+    },
+    {
+      "id": "research",
+      "label": "Research Digest",
+      "note": null,
+      "items": [
+        {
+          "dot": "d1",
+          "src": "Palo Alto Unit 42",
+          "tags": [{"cls": "", "text": "RESEARCH"}],
+          "url": "https://unit42.paloaltonetworks.com",
+          "hl": "Unit 42 maps 14 months of cloud credential theft operations by MUDDLED LIBRA",
+          "body": "Unit 42 released a detailed retrospective on MUDDLED LIBRA's cloud-focused attack campaigns, documenting how the group pivots from initial SaaS compromise to multi-cloud lateral movement. The report includes detection rules compatible with major SIEM platforms including Elastic.",
+          "date": "2026-05-11"
+        },
+        {
+          "dot": "d2",
+          "src": "Wiz Research",
+          "tags": [{"cls": "", "text": "CLOUD"}, {"cls": "", "text": "RESEARCH"}],
+          "url": "https://wiz.io/blog",
+          "hl": "Wiz finds critical misconfiguration pattern in multi-tenant Kubernetes deployments",
+          "body": "Wiz Research has documented a common Kubernetes misconfiguration in multi-tenant environments that allows container escape to the host node. The pattern affects an estimated 18% of enterprise Kubernetes clusters. Mitigation guidance and a detection query are included in the post.",
+          "date": "2026-05-10"
+        }
+      ]
+    },
+    {
+      "id": "industry",
+      "label": "Industry Intel",
+      "note": null,
+      "items": [
+        {
+          "dot": "d2",
+          "src": "CRN",
+          "tags": [{"cls": "", "text": "M&A"}],
+          "url": "https://crn.com",
+          "hl": "Palo Alto Networks acquires Protect AI for $700M to expand AI security posture",
+          "body": "Palo Alto Networks has agreed to acquire AI security startup Protect AI for $700 million. The deal brings ML model scanning, AI bill of materials, and LLM vulnerability assessment capabilities directly into the Prisma Cloud platform. Deal expected to close Q3 2026.",
+          "date": "2026-05-14"
+        },
+        {
+          "dot": "d3",
+          "src": "SC Media",
+          "tags": [{"cls": "", "text": "REGULATORY"}],
+          "url": "https://scmagazine.com",
+          "hl": "SEC proposes 24-hour cybersecurity incident disclosure window for public companies",
+          "body": "The SEC has proposed tightening the cybersecurity incident disclosure window from four business days to 24 hours for material incidents. The proposal is open for comment through July 15. Legal and security teams at public companies should begin reviewing internal incident classification thresholds now.",
+          "date": "2026-05-09"
+        }
+      ]
+    },
+    {
+      "id": "social",
+      "label": "Social Signal",
+      "note": "Community discussion — unverified. Apply judgment.",
+      "items": [
+        {
+          "dot": "d4",
+          "src": "LinkedIn / Security Community",
+          "tags": [{"cls": "", "text": "COMMUNITY"}],
+          "url": "https://linkedin.com",
+          "hl": "Broad discussion: SOC teams reporting alert fatigue spike following Patch Tuesday",
+          "body": "Multiple SOC leads and detection engineers posting about significant alert volume increases this week following Patch Tuesday. Common thread is that legacy SIEM tuning hasn't caught up with the new CVE signatures. Several practitioners pointing to Elastic's prebuilt rules as a starting point.",
           "date": "2026-05-14"
         }
       ]
     }
   ],
   "sources": [
-    {"nm": "Source Name", "dom": "example.com", "dot": "d1", "ct": "1 item", "status": "active"},
-    {"nm": "Quiet Source", "dom": "quiet.com", "dot": "d2", "ct": "—", "status": "quiet"}
+    {"nm": "CISA Alerts & Advisories", "dom": "cisa.gov", "dot": "d1", "ct": "2 items", "status": "active"},
+    {"nm": "NVD (National Vulnerability Database)", "dom": "nvd.nist.gov", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "CrowdStrike Intelligence Blog", "dom": "crowdstrike.com", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "Microsoft Security Blog", "dom": "microsoft.com/security", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "Elastic Security Labs", "dom": "elastic.co/security-labs", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "Palo Alto Unit 42", "dom": "unit42.paloaltonetworks.com", "dot": "d1", "ct": "1 item", "status": "active"},
+    {"nm": "Wiz Research", "dom": "wiz.io/blog", "dot": "d2", "ct": "1 item", "status": "active"},
+    {"nm": "CRN", "dom": "crn.com", "dot": "d2", "ct": "1 item", "status": "active"},
+    {"nm": "SC Media", "dom": "scmagazine.com", "dot": "d2", "ct": "1 item", "status": "active"},
+    {"nm": "LinkedIn Security Community", "dom": "linkedin.com", "dot": "d4", "ct": "1 item", "status": "active"},
+    {"nm": "NSA Cybersecurity Advisories", "dom": "nsa.gov", "dot": "d1", "ct": "—", "status": "quiet"},
+    {"nm": "FBI IC3", "dom": "ic3.gov", "dot": "d1", "ct": "—", "status": "quiet"},
+    {"nm": "MSTIC (Microsoft Threat Intel)", "dom": "microsoft.com/mstic", "dot": "d1", "ct": "—", "status": "quiet"},
+    {"nm": "Dark Reading", "dom": "darkreading.com", "dot": "d3", "ct": "—", "status": "quiet"}
   ],
   "safety": {
     "domains": [
-      {"domain": "example.com", "verdict": "Clean — allowlist verified"}
+      {"domain": "cisa.gov", "verdict": "0 / 90 engines"},
+      {"domain": "nvd.nist.gov", "verdict": "0 / 90 engines"},
+      {"domain": "crowdstrike.com", "verdict": "0 / 90 engines"},
+      {"domain": "microsoft.com", "verdict": "0 / 90 engines"},
+      {"domain": "elastic.co", "verdict": "0 / 90 engines"},
+      {"domain": "unit42.paloaltonetworks.com", "verdict": "0 / 90 engines"},
+      {"domain": "wiz.io", "verdict": "0 / 90 engines"},
+      {"domain": "crn.com", "verdict": "0 / 90 engines"},
+      {"domain": "scmagazine.com", "verdict": "0 / 90 engines"},
+      {"domain": "linkedin.com", "verdict": "0 / 90 engines"}
     ],
-    "totalUrls": 1,
+    "totalUrls": 10,
     "flagged": 0,
-    "scannedAt": "May 14, 2026 · 09:00 ET"
+    "scannedAt": "15 May 2026 · 06:14 ET"
+  },
+  "dates": {
+    "CISA adds Ivanti": "2026-05-14",
+    "SCATTERED SPIDER": "2026-05-13",
+    "GHOSTPULSE loader": "2026-05-12",
+    "CVE-2025-4427": "2026-05-14",
+    "May Patch Tuesday": "2026-05-13",
+    "Unit 42 maps": "2026-05-11",
+    "Wiz finds": "2026-05-10",
+    "Palo Alto Networks acquires": "2026-05-14",
+    "SEC proposes": "2026-05-09",
+    "SOC teams reporting": "2026-05-14"
   }
 };
 </script>
-<body>
+<body class="eyb-bracketed sum-18">
 <a href="#main-content" class="skip-nav">Skip to main content</a>
 
 <!-- MASTHEAD -->
 <header class="masthead">
   <div class="masthead-inner">
     <div class="masthead-left">
+      <p class="masthead-eyebrow" aria-hidden="true"><span class="bars">▮▮▮</span>Daily Intelligence Brief<span class="bars">▮▮▮</span></p>
       <div class="masthead-title">
         <h1>The Warmup</h1>
         <div class="brand-sq"></div>
@@ -1258,12 +1434,12 @@ window.WARMUP_DATA = {
       <div class="masthead-date">
         <span class="mdate" id="mdate">Thu · 14 May 2026</span>
         <span id="brief-ts"></span>
-        <a href="#link-safety" class="scan-badge" aria-label="Link safety report — 1 link scanned clean"><span class="scan-mark" aria-hidden="true">✓</span> <span>1 link scanned</span> <span class="scan-count">· 0 flagged</span></a>
+        <a href="#link-safety" class="scan-badge" aria-label="Link safety report · 1 link scanned clean"><span class="scan-mark" aria-hidden="true">✓</span> <span>1 link scanned</span> <span class="scan-count">· 0 flagged</span></a>
       </div>
       <div class="masthead-tags">
-        <button type="button" class="pill" id="pill-trigger" aria-label="Open configuration — mode">Mode</button>
-        <button type="button" class="pill" id="pill-trigger2" aria-label="Open configuration — sector">Your Sector</button>
-        <button type="button" class="pill" id="pill-trigger3" aria-label="Open configuration — company">Your Company</button>
+        <button type="button" class="pill" id="pill-trigger" aria-label="Open configuration · mode">Mode</button>
+        <button type="button" class="pill" id="pill-trigger2" aria-label="Open configuration · sector">Your Sector</button>
+        <button type="button" class="pill" id="pill-trigger3" aria-label="Open configuration · company">Your Company</button>
       </div>
     </div>
     <div id="masthead-right" class="masthead-right">
@@ -1374,15 +1550,15 @@ window.WARMUP_DATA = {
     var _p1 = document.getElementById('pill-trigger');
     var _p2 = document.getElementById('pill-trigger2');
     var _p3 = document.getElementById('pill-trigger3');
-    if (_p1) { _p1.textContent = _cfg.mode; _p1.setAttribute('aria-label', 'Open configuration — ' + _cfg.mode + ' mode'); }
-    if (_p2) { _p2.textContent = _cfg.sector; _p2.setAttribute('aria-label', 'Open configuration — ' + _cfg.sector); }
+    if (_p1) { _p1.textContent = _cfg.mode; _p1.setAttribute('aria-label', 'Open configuration · ' + _cfg.mode + ' mode'); }
+    if (_p2) { _p2.textContent = _cfg.sector; _p2.setAttribute('aria-label', 'Open configuration · ' + _cfg.sector); }
     if (_p3) { var _regionAbbr = { 'United States': 'US', 'United Kingdom': 'UK', 'European Union': 'EU', 'Canada': 'CA', 'Australia': 'AU' }; var _co = (_cfg.company || '') + (_cfg.region ? ' · ' + (_regionAbbr[_cfg.region] || _cfg.region) : ''); _p3.textContent = _co; _p3.setAttribute('aria-label', 'Open configuration — ' + (_cfg.company || '')); }
 
     var _badge = document.querySelector('.scan-badge');
     if (_badge && D.safety) {
       var _total = D.safety.totalUrls || 0;
       var _flagged = D.safety.flagged || 0;
-      _badge.setAttribute('aria-label', 'Link safety report — ' + _total + ' links scanned clean');
+      _badge.setAttribute('aria-label', 'Link safety report · ' + _total + ' links scanned clean');
       var _spans = _badge.querySelectorAll('span');
       if (_spans[1]) _spans[1].textContent = _total + ' links scanned';
       if (_spans[2]) _spans[2].textContent = '· ' + _flagged + ' flagged';
@@ -1423,8 +1599,7 @@ window.WARMUP_DATA = {
 
 
 
-    // Render sections
-    D.sections.forEach(function(sec) {
+    D.sections.forEach(function(sec, _sIdx) {
       const el = document.getElementById(sec.id);
       if (!el) return;
       const note = sec.note
@@ -1459,7 +1634,14 @@ window.WARMUP_DATA = {
           '</div>';
       }).join('');
       el.innerHTML =
-        '<h2 class="s-eyebrow"><span class="accent" aria-hidden="true"></span>&nbsp;' + sec.label + '</h2>' +
+        '<h2 class="s-eyebrow">' +
+          '<span class="eb-bars eb-lead" aria-hidden="true">▮▮▮</span>' +
+          '<span class="accent" aria-hidden="true"></span>' +
+          '<span class="eb-num">' + (String(_sIdx + 1).padStart(2, '0')) + '</span>' +
+          '<span class="eb-label">' + sec.label + '</span>' +
+          '<span class="eb-bars eb-tail" aria-hidden="true">▮▮▮</span>' +
+          '<span class="eb-count">' + sec.items.length + ' · items</span>' +
+        '</h2>' +
         note +
         '<hr class="s-rule">' +
         items;
@@ -1469,10 +1651,10 @@ window.WARMUP_DATA = {
     var srcPanel = document.getElementById('sources');
     if (srcPanel && D.sources) {
       var tiers = [
-        {key:'d1', label:'Tier 1 — Authoritative'},
-        {key:'d2', label:'Tier 2 — Research'},
-        {key:'d3', label:'Tier 3 — News'},
-        {key:'d4', label:'Tier 4 — Vendor &amp; Market Intel'}
+        {key:'d1', label:'Tier 1 · Authoritative'},
+        {key:'d2', label:'Tier 2 · Research'},
+        {key:'d3', label:'Tier 3 · News'},
+        {key:'d4', label:'Tier 4 · Vendor &amp; Market Intel'}
       ];
       function srcRow(s) {
         var st = s.status === 'active' ? 'a' : 'q';
@@ -2582,6 +2764,484 @@ btn.textContent = 'Loading…';
     card.querySelector('#pdf-without-dives').addEventListener('click', function() { animateThenSave(this, false); });
 
   })(); } catch(e) { console.error('[Warmup:SavePDF]', e); }
+</script>
+
+<!-- ─────────── TWEAKS PANEL ─────────── -->
+<style id="tweaks-css">
+  #tweaks-fab {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 500;
+    background: var(--color-panel);
+    border: 1px solid var(--color-rule);
+    color: var(--color-chalk-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  #tweaks-fab.visible { display: inline-flex; }
+  #tweaks-fab:hover { color: var(--color-chalk); border-color: var(--color-blood); }
+  #tweaks-fab .fab-sq { display: inline-block; width: 7px; height: 7px; background: var(--color-blood); }
+
+  #tweaks-panel {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 600;
+    width: 320px;
+    max-height: calc(100vh - 44px);
+    overflow-y: auto;
+    background: var(--color-panel);
+    border: 1px solid var(--color-rule);
+    border-top: 2px solid var(--color-blood);
+    display: none;
+    flex-direction: column;
+    font-family: var(--font-mono);
+    color: var(--color-chalk);
+  }
+  #tweaks-panel.visible { display: flex; }
+  .tk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .tk-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+  }
+  .tk-title .tk-sq { width: 7px; height: 7px; background: var(--color-blood); display: inline-block; }
+  .tk-close {
+    background: none;
+    border: none;
+    color: var(--color-chalk-dim);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+  .tk-close:hover { color: var(--color-chalk); }
+
+  .tk-section {
+    padding: 14px 16px 4px;
+    border-bottom: 1px dashed var(--color-rule-soft);
+  }
+  .tk-section:last-child { border-bottom: none; }
+  .tk-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-blood);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tk-eyebrow .ar-tag {
+    margin-left: auto;
+    color: var(--color-chalk-faint);
+    letter-spacing: 0.14em;
+    font-size: 9px;
+  }
+  .tk-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 0 10px;
+  }
+  .tk-row + .tk-row { border-top: 1px solid var(--color-rule-soft); padding-top: 11px; }
+  .tk-label {
+    flex: 1;
+    min-width: 0;
+  }
+  .tk-name {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    margin-bottom: 3px;
+    line-height: 1.4;
+  }
+  .tk-desc {
+    font-family: var(--font-serif);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-chalk-faint);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .tk-pill-priority {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    vertical-align: middle;
+    line-height: 1.3;
+  }
+  .tk-pill-priority.p-high { background: var(--color-blood); color: #f5ede0; }
+  .tk-pill-priority.p-med { background: var(--color-army); color: var(--color-bg); }
+  .tk-pill-priority.p-low { background: transparent; color: var(--color-chalk-faint); border: 1px solid var(--color-rule); }
+
+  /* Segmented control for radio choices */
+  .tk-seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    width: 100%;
+    margin-top: 6px;
+    border: 1px solid var(--color-rule);
+  }
+  .tk-seg button {
+    appearance: none;
+    background: none;
+    border: none;
+    border-right: 1px solid var(--color-rule);
+    color: var(--color-chalk-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 8px 4px;
+    cursor: pointer;
+    transition: color 0.12s, background 0.12s;
+  }
+  .tk-seg button:last-child { border-right: none; }
+  .tk-seg button:hover { color: var(--color-chalk); }
+  .tk-seg button[aria-pressed="true"] {
+    background: var(--color-bg);
+    color: var(--color-chalk);
+    box-shadow: inset 0 -2px 0 var(--color-blood) !important;
+  }
+
+  /* Toggle */
+  .tk-toggle {
+    flex-shrink: 0;
+    position: relative;
+    width: 36px;
+    height: 18px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-rule);
+    cursor: pointer;
+    appearance: none;
+    margin-top: 2px;
+  }
+  .tk-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: var(--color-chalk-faint);
+    transition: left 0.15s, background 0.15s;
+  }
+  .tk-toggle[aria-pressed="true"] { border-color: var(--color-blood); }
+  .tk-toggle[aria-pressed="true"]::after {
+    left: 20px;
+    background: var(--color-blood);
+  }
+
+  /* Diff preview rendered above radios */
+  .tk-preview {
+    margin-top: 10px;
+    padding: 10px 11px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-rule);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-chalk);
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+  .tk-preview .pv-bars { color: var(--color-blood); font-weight: 700; }
+  .tk-preview .pv-sq { display: inline-block; width: 7px; height: 7px; background: var(--color-blood); vertical-align: middle; margin-right: 7px; position: relative; top: -1px; }
+  .tk-preview .pv-num { color: var(--color-chalk-faint); margin-right: 7px; }
+  .tk-preview .pv-count { color: var(--color-chalk-faint); margin-left: 9px; font-weight: 400; }
+
+  .tk-foot {
+    padding: 12px 16px 14px;
+    border-top: 1px solid var(--color-rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .tk-reset {
+    background: none;
+    border: 1px solid var(--color-rule);
+    color: var(--color-chalk-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .tk-reset:hover { color: var(--color-chalk); border-color: var(--color-blood); }
+  .tk-foot-note {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-chalk-faint);
+    text-align: right;
+  }
+  @media print { #tweaks-panel, #tweaks-fab { display: none !important; } }
+</style>
+
+<button type="button" id="tweaks-fab" aria-label="Open tweaks"><span class="fab-sq"></span>Tweaks</button>
+
+<aside id="tweaks-panel" role="dialog" aria-labelledby="tweaks-title" aria-hidden="true">
+  <div class="tk-head">
+    <div class="tk-title" id="tweaks-title"><span class="tk-sq"></span>Tweaks</div>
+    <button type="button" class="tk-close" id="tk-close" aria-label="Close tweaks">✕</button>
+  </div>
+
+  <div class="tk-section">
+    <div class="tk-eyebrow"><span>Section Eyebrow</span><span class="ar-tag">A/R #1 · High</span></div>
+    <div class="tk-preview" id="tk-eyb-preview"></div>
+    <div class="tk-seg" role="radiogroup" aria-label="Section eyebrow style" data-tk-group="eyebrow">
+      <button type="button" role="radio" data-val="original">Original</button>
+      <button type="button" role="radio" data-val="bracketed" aria-pressed="true">Bracketed</button>
+      <button type="button" role="radio" data-val="numbered">Numbered</button>
+    </div>
+    <p class="tk-desc" style="margin-top:9px;">Original = current single oxblood square. Bracketed = website hero pattern. Numbered = adds a section index and item count, for run-sheet feel.</p>
+  </div>
+
+  <div class="tk-section">
+    <div class="tk-row">
+      <div class="tk-label">
+        <div class="tk-name">Masthead eyebrow line<span class="tk-pill-priority p-med">A/R #2</span></div>
+        <div class="tk-desc">▮▮▮ Daily Intelligence Brief ▮▮▮ above the title. Mirrors the website hero.</div>
+      </div>
+      <button type="button" class="tk-toggle" data-tk-toggle="masthead-eyb" aria-pressed="true" aria-label="Masthead eyebrow"></button>
+    </div>
+  </div>
+
+  <div class="tk-section">
+    <div class="tk-eyebrow"><span>Summary Body Size</span><span class="ar-tag">A/R #4 · Med</span></div>
+    <div class="tk-seg" role="radiogroup" aria-label="Item summary font size" data-tk-group="sum">
+      <button type="button" role="radio" data-val="15">15px</button>
+      <button type="button" role="radio" data-val="16">16px</button>
+      <button type="button" role="radio" data-val="18" aria-pressed="true">18px</button>
+    </div>
+    <p class="tk-desc" style="margin-top:9px;">15 = spec’d size in original brief. 16 = website body match (review recommendation). 18 = current template (most generous breathing room).</p>
+  </div>
+
+  <div class="tk-section">
+    <div class="tk-row">
+      <div class="tk-label">
+        <div class="tk-name">Lighter Merriweather (300)<span class="tk-pill-priority p-low">A/R #3</span></div>
+        <div class="tk-desc">Use Merriweather 300 for item summaries instead of 400. More airy, less weighty.</div>
+      </div>
+      <button type="button" class="tk-toggle" data-tk-toggle="mw300" aria-pressed="false" aria-label="Lighter Merriweather"></button>
+    </div>
+    <div class="tk-row">
+      <div class="tk-label">
+        <div class="tk-name">Show item count badge</div>
+        <div class="tk-desc">Right-aligned mono count on each section header. Off by default; on automatically for Numbered style.</div>
+      </div>
+      <button type="button" class="tk-toggle" data-tk-toggle="show-count" aria-pressed="false" aria-label="Item count badge"></button>
+    </div>
+  </div>
+
+  <div class="tk-section">
+    <div class="tk-eyebrow"><span>Variant Presets</span></div>
+    <div class="tk-seg" role="radiogroup" aria-label="Variant preset" data-tk-group="preset">
+      <button type="button" role="radio" data-val="v1" aria-pressed="true">V1 Reco</button>
+      <button type="button" role="radio" data-val="v2">V2 Run-Sheet</button>
+      <button type="button" role="radio" data-val="v3">V3 Original</button>
+    </div>
+    <p class="tk-desc" style="margin-top:9px;">One-click presets across all settings. V1 applies every alignment-review recommendation. V2 is editorial / numbered run sheet. V3 is the as-shipped baseline.</p>
+  </div>
+
+  <div class="tk-foot">
+    <button type="button" class="tk-reset" id="tk-reset">Reset</button>
+    <div class="tk-foot-note">A/R = alignment review</div>
+  </div>
+</aside>
+
+<script>
+(function () {
+  // Default state = alignment-review recommended (V1)
+  var DEFAULTS = /*EDITMODE-BEGIN*/{
+    "eyebrow": "original",
+    "sum": "18",
+    "mastheadEyb": true,
+    "mw300": false,
+    "showCount": true
+  }/*EDITMODE-END*/;
+
+  var state = Object.assign({}, DEFAULTS);
+  try {
+    var saved = localStorage.getItem('warmup_tweaks');
+    if (saved) state = Object.assign({}, DEFAULTS, JSON.parse(saved));
+  } catch(e) {}
+
+  var body = document.body;
+  var panel = document.getElementById('tweaks-panel');
+  var fab = document.getElementById('tweaks-fab');
+  var closeBtn = document.getElementById('tk-close');
+
+  function applyState() {
+    // Eyebrow variants
+    body.classList.remove('eyb-original', 'eyb-bracketed', 'eyb-numbered');
+    body.classList.add('eyb-' + state.eyebrow);
+    // Summary size
+    body.classList.remove('sum-15', 'sum-16', 'sum-18');
+    body.classList.add('sum-' + state.sum);
+    // Masthead eyebrow
+    body.classList.toggle('no-masthead-eyb', !state.mastheadEyb);
+    // Merriweather 300
+    body.classList.toggle('mw-300', !!state.mw300);
+    // Force show count if Numbered, or user toggle
+    body.classList.toggle('force-count', !!state.showCount && state.eyebrow !== 'numbered');
+    renderPreview();
+    syncControls();
+  }
+
+  // Apply additional CSS for live toggles
+  var aux = document.createElement('style');
+  aux.textContent = [
+    'body.mw-300 .item-sum { font-weight: 300; }',
+    'body.mw-300 .deep-result { font-weight: 300; }',
+    'body.force-count .s-eyebrow .eb-count { display: inline !important; margin-left: auto; }'
+  ].join('\n');
+  document.head.appendChild(aux);
+
+  function renderPreview() {
+    var el = document.getElementById('tk-eyb-preview');
+    if (!el) return;
+    var bars = '<span class="pv-bars">▮▮▮</span>';
+    var label = 'THREAT LANDSCAPE';
+    var count = '<span class="pv-count">· 3 ITEMS</span>';
+    if (state.eyebrow === 'original') {
+      el.innerHTML = '<span class="pv-sq"></span>' + label;
+    } else if (state.eyebrow === 'numbered') {
+      el.innerHTML = bars + ' <span class="pv-num">01</span>' + label + count;
+    } else {
+      el.innerHTML = bars + ' ' + label + ' ' + bars;
+    }
+  }
+
+  function setState(k, v) {
+    state[k] = v;
+    try { localStorage.setItem('warmup_tweaks', JSON.stringify(state)); } catch(e) {}
+    try { window.parent.postMessage({type: '__edit_mode_set_keys', edits: state}, '*'); } catch(e) {}
+    applyState();
+  }
+
+  function syncControls() {
+    panel.querySelectorAll('[data-tk-group="eyebrow"] button').forEach(function(b) {
+      b.setAttribute('aria-pressed', b.dataset.val === state.eyebrow ? 'true' : 'false');
+    });
+    panel.querySelectorAll('[data-tk-group="sum"] button').forEach(function(b) {
+      b.setAttribute('aria-pressed', b.dataset.val === String(state.sum) ? 'true' : 'false');
+    });
+    var mastheadBtn = panel.querySelector('[data-tk-toggle="masthead-eyb"]');
+    if (mastheadBtn) mastheadBtn.setAttribute('aria-pressed', state.mastheadEyb ? 'true' : 'false');
+    var mwBtn = panel.querySelector('[data-tk-toggle="mw300"]');
+    if (mwBtn) mwBtn.setAttribute('aria-pressed', state.mw300 ? 'true' : 'false');
+    var cntBtn = panel.querySelector('[data-tk-toggle="show-count"]');
+    if (cntBtn) cntBtn.setAttribute('aria-pressed', state.showCount ? 'true' : 'false');
+
+    // Sync preset group
+    var presetGroup = panel.querySelector('[data-tk-group="preset"]');
+    if (presetGroup) {
+      var matchPreset = '';
+      if (state.eyebrow === 'bracketed' && state.sum === '18' && state.mastheadEyb && !state.mw300 && !state.showCount) matchPreset = 'v1';
+      else if (state.eyebrow === 'numbered' && state.sum === '16' && state.mastheadEyb && !state.mw300) matchPreset = 'v2';
+      else if (state.eyebrow === 'original' && state.sum === '18' && !state.mastheadEyb && !state.mw300 && !state.showCount) matchPreset = 'v3';
+      presetGroup.querySelectorAll('button').forEach(function(b) {
+        b.setAttribute('aria-pressed', b.dataset.val === matchPreset ? 'true' : 'false');
+      });
+    }
+  }
+
+  // Wire up segmented control buttons
+  panel.querySelectorAll('[data-tk-group="eyebrow"] button').forEach(function(btn) {
+    btn.addEventListener('click', function() { setState('eyebrow', btn.dataset.val); });
+  });
+  panel.querySelectorAll('[data-tk-group="sum"] button').forEach(function(btn) {
+    btn.addEventListener('click', function() { setState('sum', btn.dataset.val); });
+  });
+  panel.querySelectorAll('[data-tk-toggle]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.dataset.tkToggle;
+      var keyMap = { 'masthead-eyb': 'mastheadEyb', 'mw300': 'mw300', 'show-count': 'showCount' };
+      var stateKey = keyMap[key] || key;
+      setState(stateKey, !state[stateKey]);
+    });
+  });
+
+  // Preset buttons
+  panel.querySelectorAll('[data-tk-group="preset"] button').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var v = btn.dataset.val;
+      var preset;
+      if (v === 'v1') preset = {eyebrow:'bracketed', sum:'18', mastheadEyb:true, mw300:false, showCount:false};
+      else if (v === 'v2') preset = {eyebrow:'numbered', sum:'16', mastheadEyb:true, mw300:false, showCount:false};
+      else preset = {eyebrow:'original', sum:'18', mastheadEyb:false, mw300:false, showCount:false};
+      state = Object.assign({}, state, preset);
+      try { localStorage.setItem('warmup_tweaks', JSON.stringify(state)); } catch(e) {}
+      try { window.parent.postMessage({type: '__edit_mode_set_keys', edits: state}, '*'); } catch(e) {}
+      applyState();
+    });
+  });
+
+  document.getElementById('tk-reset').addEventListener('click', function() {
+    state = Object.assign({}, DEFAULTS);
+    try { localStorage.setItem('warmup_tweaks', JSON.stringify(state)); } catch(e) {}
+    try { window.parent.postMessage({type: '__edit_mode_set_keys', edits: state}, '*'); } catch(e) {}
+    applyState();
+  });
+
+  function openPanel() {
+    panel.classList.add('visible');
+    panel.setAttribute('aria-hidden', 'false');
+    fab.classList.remove('visible');
+  }
+  function closePanel() {
+    panel.classList.remove('visible');
+    panel.setAttribute('aria-hidden', 'true');
+    fab.classList.add('visible');
+    try { window.parent.postMessage({type: '__edit_mode_dismissed'}, '*'); } catch(e) {}
+  }
+  fab.addEventListener('click', openPanel);
+  closeBtn.addEventListener('click', closePanel);
+
+  // Host integration: edit-mode protocol (register listener BEFORE announcing availability)
+  window.addEventListener('message', function(e) {
+    var d = e.data || {};
+    if (d.type === '__activate_edit_mode') openPanel();
+    else if (d.type === '__deactivate_edit_mode') closePanel();
+  });
+  try { window.parent.postMessage({type: '__edit_mode_available'}, '*'); } catch(e) {}
+
+  // Initial apply
+  applyState();
+  // FAB visible whenever panel is closed (standalone use)
+  fab.classList.add('visible');
+})();
 </script>
 
 </body>
