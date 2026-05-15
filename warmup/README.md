@@ -99,6 +99,32 @@ a plain `WARMUP.md` file at your project root — readable, editable, yours.
 
 ---
 
+## Link safety verification
+
+Every URL cited in the brief is scanned before the artifact renders. The brief
+includes a Link Safety Verification panel showing the result for each source
+domain: scan verdict, number of URLs fetched, and whether anything was flagged.
+
+Each domain gets one of three verdicts:
+
+- **Clean** — no indicators of compromise, no redirects to suspicious
+  destinations, no malformed responses
+- **Caution** — something worth noting: an unusual redirect, a certificate
+  anomaly, a domain that recently changed hands
+- **Flagged** — do not follow; the domain or a specific URL showed indicators
+  consistent with phishing, malware delivery, or active compromise
+
+Items from flagged sources are excluded from the brief body. Caution-tier
+items are included but marked. You always know the safety status of what
+you are reading.
+
+The panel also shows aggregate counts: total domains scanned, total URLs
+checked, and how many were flagged. If everything is clean, it says so.
+If anything was caught, it surfaces at the top of the panel so it is the
+first thing you see.
+
+---
+
 ## Install
 
 Clone the Loadout and copy the Warmup skill into your project:
