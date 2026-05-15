@@ -374,22 +374,25 @@ Note the computed window in the summary line. **Hard date filter:** every item i
 
 Run this step immediately after computing the lookback window and **before** starting any fetch queries. Front-loading this check means the engine shell is in context before searches begin — so synthesis and render are a single pass with no re-fetching.
 
-**This step is mandatory — it cannot be skipped.** The brief's CSS, layout, PDF builder, and all rendering logic live exclusively in the template returned by `warmup_get_template`. There is no other source for this HTML. Do not attempt to write brief HTML from memory or training data.
+**This step is mandatory — it cannot be skipped.** The brief's CSS, layout, PDF builder, and all rendering logic live exclusively in the template returned by the `warmup_get_template` MCP tool. There is no other source for this HTML. Do not attempt to read any file from disk. Do not write brief HTML from memory or training data.
+
+> **`warmup_get_template` is an MCP tool — NOT a file.**
+> Invoke it as a tool call: `warmup_get_template()`. Do not read `warmup-template.html` or any other file from disk. The tool returns the complete HTML engine shell directly in its response.
 
 Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returned.
 
 **If `the-warmup` does not exist → first run:**
-- Call `warmup_get_template` now. The returned HTML is the full engine shell.
-- Hold it in context — you will inject `WARMUP_DATA` into it after synthesis (Step 4).
+- Invoke the `warmup_get_template` MCP tool now (tool call, not a file read). The tool's response contains the full HTML engine shell.
+- Hold the returned HTML in context — you will inject `WARMUP_DATA` into it after synthesis (Step 4).
 - Proceed to Step 2.
 
 **If `the-warmup` exists → daily run:**
 - Note the `html_path` from the response.
 - Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
-- **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — call `warmup_get_template` now and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
+- **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — invoke the `warmup_get_template` MCP tool now (tool call, not a file read) and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
 - **If the first 10 lines are readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` in those lines.
   - **Version matches:** You do not need to fetch the template and you do not need to read the full HTML. After synthesis (Step 4), you will patch only the `<script id="warmup-data">` block in-place using a bash command — the full file never enters agent context.
-  - **Version missing or mismatch:** Call `warmup_get_template` now. Hold the returned engine shell — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
+  - **Version missing or mismatch:** Invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
 
 Output this single line in chat, then proceed to Step 2:
 *"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
@@ -530,9 +533,9 @@ Do not add a placeholder or ask about it during RUN.
 ### Step 4 — Render phase
 
 **ABSOLUTE RULE — NO EXCEPTIONS:**
-The brief HTML is ALWAYS built from the engine returned by `warmup_get_template` (called in Step 1b) or from the existing artifact file. **Never write HTML from scratch. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, and PDF builder exist only in the template — reproducing them from memory will produce the wrong design and break PDF export.
+The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (invoked in Step 1b) or from the existing artifact file. **Never write HTML from scratch. Never read warmup-template.html from disk. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design and break PDF export.
 
-If you reach this step without having called `warmup_get_template` (first run or engine update) or confirmed the existing artifact file is readable (version match), stop and call `warmup_get_template` now before continuing.
+If you reach this step without having invoked the `warmup_get_template` MCP tool (first run or engine update) or confirmed the existing artifact file is readable (version match), stop and invoke the `warmup_get_template` MCP tool now (tool call — not a file read) before continuing.
 
 **Rule: only `WARMUP_DATA` changes between reports.** The engine (CSS, JS, PDF builder, renderer) is fixed in `warmup-template.html` and touched only when the version marker changes. Always deliver via `update_artifact` / `create_artifact` — never a `computer://` file link. The **Save PDF** button inside the artifact is the user's only download path.
 
