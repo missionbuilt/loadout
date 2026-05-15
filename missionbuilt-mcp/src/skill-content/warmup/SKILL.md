@@ -374,6 +374,8 @@ Note the computed window in the summary line. **Hard date filter:** every item i
 
 Run this step immediately after computing the lookback window and **before** starting any fetch queries. Front-loading this check means the engine shell is in context before searches begin — so synthesis and render are a single pass with no re-fetching.
 
+**This step is mandatory — it cannot be skipped.** The brief's CSS, layout, PDF builder, and all rendering logic live exclusively in the template returned by `warmup_get_template`. There is no other source for this HTML. Do not attempt to write brief HTML from memory or training data.
+
 Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returned.
 
 **If `the-warmup` does not exist → first run:**
@@ -526,6 +528,11 @@ If `special_interests` is not set or is empty, omit the section entirely.
 Do not add a placeholder or ask about it during RUN.
 
 ### Step 4 — Render phase
+
+**ABSOLUTE RULE — NO EXCEPTIONS:**
+The brief HTML is ALWAYS built from the engine returned by `warmup_get_template` (called in Step 1b) or from the existing artifact file. **Never write HTML from scratch. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, and PDF builder exist only in the template — reproducing them from memory will produce the wrong design and break PDF export.
+
+If you reach this step without having called `warmup_get_template` (first run or engine update) or confirmed the existing artifact file is readable (version match), stop and call `warmup_get_template` now before continuing.
 
 **Rule: only `WARMUP_DATA` changes between reports.** The engine (CSS, JS, PDF builder, renderer) is fixed in `warmup-template.html` and touched only when the version marker changes. Always deliver via `update_artifact` / `create_artifact` — never a `computer://` file link. The **Save PDF** button inside the artifact is the user's only download path.
 
