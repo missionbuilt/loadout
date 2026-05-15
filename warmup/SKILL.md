@@ -543,31 +543,26 @@ If you reach this step without having invoked the `warmup_get_template` MCP tool
 
 By the time you reach this step, Step 1b has already:
 - Called `list_artifacts` and determined first run vs. daily run.
-- For **daily runs with a version match:** the file exists at `html_path` — do NOT read it into context.
+- For **daily runs with a version match:** the file exists at `html_path`.
 - For **first runs or engine version mismatches:** `warmup_get_template` was already called and the engine shell is in context.
 
 **Do not call `list_artifacts` or `warmup_get_template` again here.**
 
 **Path A — Version match (daily run, no engine update):**  
-Use bash to patch only the `<script id="warmup-data">` block in-place. The full HTML never enters agent context (~32K tokens saved per run).
+Read the existing HTML from disk, replace only the `<script id="warmup-data">` block with the new `WARMUP_DATA`, write it back. Touch nothing else in the HTML.
 
-```python
-python3 << 'EOF'
-import re, json
-path = '/Users/mike/Documents/Claude/Projects/warmup-artifact.html'   # use actual html_path from Step 1b
-new_json = json.dumps(WARMUP_DATA_DICT)   # substitute the actual WARMUP_DATA dict
-new_block = f'<script id="warmup-data">\nwindow.WARMUP_DATA = {new_json};\n</script>'
-with open(path, 'r', encoding='utf-8') as f:
-    html = f.read()
-html, n = re.subn(r'<script id="warmup-data">.*?</script>', new_block, html, flags=re.DOTALL)
-assert n == 1, f'Expected 1 replacement, got {n}'
-with open(path, 'w', encoding='utf-8') as f:
-    f.write(html)
-print('ok')
-EOF
-```
+1. Use the Read tool to read the file at `html_path` (the full file — this is unavoidable for an in-place update).
+2. Locate the `<script id="warmup-data">` … `</script>` block. Replace the entire block with:
+   ```
+   <script id="warmup-data">
+   window.WARMUP_DATA = <JSON of the new WARMUP_DATA dict>;
+   </script>
+   ```
+   Touch no other part of the HTML — do not reformat, do not rewrite structure.
+3. Use the Write tool to write the complete updated HTML back to the same `html_path`.
+4. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
 
-Substitute the real `html_path` from Step 1b and the real `WARMUP_DATA` dict. Verify the command prints `ok`. Then call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
+> **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Read and Write file tools only — they accept the real macOS path from `html_path` directly.
 
 **Path B — First run or engine update:**  
 1. Take the engine shell returned by `warmup_get_template` (already in context from Step 1b).
@@ -580,32 +575,21 @@ Never call `create_artifact` when the artifact already exists — it will fail. 
 **Path C — Edit in place (user requests a correction to the existing brief):**  
 Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
 
-Step 1: Extract the current `WARMUP_DATA` from the file using bash — do NOT read the full HTML into context:
+Step 1: Use the Read tool to read the full HTML from `html_path`.
 
-```python
-python3 << 'EOF'
-import re
-path = '/Users/mike/Documents/Claude/Projects/warmup-artifact.html'   # use actual html_path
-with open(path, 'r', encoding='utf-8') as f:
-    html = f.read()
-m = re.search(r'<script id="warmup-data">\s*window\.WARMUP_DATA\s*=\s*(.*?);\s*</script>', html, re.DOTALL)
-print(m.group(1) if m else 'NOT FOUND')
-EOF
-```
+Step 2: Locate the `<script id="warmup-data">` … `</script>` block. Extract the JSON object inside it. Apply the user's requested change to the relevant field(s) in `WARMUP_DATA`. Touch nothing else.
 
-Step 2: Parse the printed JSON. Apply the user's requested change to the relevant field(s) in `WARMUP_DATA`. Touch nothing else.
+Step 3: Replace the entire `<script id="warmup-data">` block with the modified version and use the Write tool to write the complete HTML back to `html_path`. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
 
-Step 3: Patch it back using the same bash command as Path A (substitute the modified dict). Verify `ok`. Call `update_artifact`.
-
-The full HTML never enters agent context. Token cost: ≈ 100 tokens (extract + print + modify + patch).
+> **Do not use bash for Path C.** Same reason as Path A — bash runs in a Linux sandbox where macOS paths do not resolve. Use the Read and Write file tools only.
 
 **Token cost summary:**
 
 | Path | Trigger | Token cost |
 |---|---|---|
-| A — Data patch | Daily run, engine match | ~50 tokens |
-| B — Full engine | First run or version mismatch | ~40KB (one-time) |
-| C — Edit in place | User correction to existing brief | ~100 tokens |
+| A — Data patch | Daily run, engine match | ~40KB HTML read (unavoidable for in-place update) |
+| B — Full engine | First run or version mismatch | ~40KB template from MCP tool |
+| C — Edit in place | User correction to existing brief | ~40KB HTML read (same as Path A) |
 
 **When an engine bug is fixed:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
