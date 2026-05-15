@@ -383,9 +383,9 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
 
 **If `the-warmup` exists → daily run:**
 - Note the `html_path` from the response.
-- Read the artifact's current HTML from that `html_path`.
-- Look for `<!-- warmup-engine: ENGINE_VERSION -->` near the top of the file.
-- Compare it to the engine version shown at the top of the `warmup_run` response.
+- Attempt to read the artifact's current HTML from that `html_path`.
+- **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — call `warmup_get_template` now and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
+- **If the file is readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` near the top.
   - **Version matches:** You do not need to fetch the template. The existing artifact HTML is your base — you will replace only its `<script id="warmup-data">` block after synthesis (Step 4).
   - **Version missing or mismatch:** Call `warmup_get_template` now. Hold the returned engine shell — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
 
@@ -540,7 +540,7 @@ By the time you reach this step, Step 1b has already:
 
 1. Take the base HTML from Step 1b — either the existing artifact or the fetched engine shell.
 2. Find the `<script id="warmup-data">` block and replace it with the generated `WARMUP_DATA` for this run. Touch nothing else in the HTML.
-3. Write the result to `warmup-artifact.html` in the workspace folder.
+3. Write the result to `warmup-artifact.html` in the **user's selected/workspace folder** — the persistent folder mounted from the user's computer (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions and will break version checks on the next run.
 4. Call `create_artifact` (first run) or `update_artifact` (daily run or engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
