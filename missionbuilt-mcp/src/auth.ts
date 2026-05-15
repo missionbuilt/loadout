@@ -133,12 +133,22 @@ async function handleAuthorize(request: Request, env: AuthEnv): Promise<Response
     return errorPage("Missing client_id in authorization request.");
   }
 
-  // Store oauthReqInfo in KV — do NOT encode it in the Google state param.
-  // JSON.stringify of the parseAuthRequest result may drop non-enumerable
-  // or getter-based properties, causing completeAuthorization to fail.
+  // Explicitly extract all known fields before serializing — parseAuthRequest
+  // may return a class instance with getters that JSON.stringify drops.
   const stateKey = crypto.randomUUID();
-  await env.OAUTH_KV.put(`pending_auth:${stateKey}`, JSON.stringify(oauthReqInfo), {
-    expirationTtl: 300, // 5 min — plenty for a sign-in flow
+  const serializable = {
+    clientId:            oauthReqInfo.clientId,
+    redirectUri:         oauthReqInfo.redirectUri,
+    scope:               oauthReqInfo.scope,
+    state:               oauthReqInfo.state,
+    codeChallenge:       oauthReqInfo.codeChallenge,
+    codeChallengeMethod: oauthReqInfo.codeChallengeMethod,
+    responseType:        oauthReqInfo.responseType,
+    resource:            oauthReqInfo.resource,
+  };
+  console.log('storing oauthReqInfo:', JSON.stringify(serializable));
+  await env.OAUTH_KV.put(`pending_auth:${stateKey}`, JSON.stringify(serializable), {
+    expirationTtl: 300,
   });
 
   const params = new URLSearchParams({
@@ -212,6 +222,7 @@ async function handleGoogleCallback(request: Request, env: AuthEnv): Promise<Res
     sub: userInfo.id,
   };
 
+  console.log('completeAuthorization oauthReqInfo:', JSON.stringify(oauthReqInfo));
   const { redirectTo } = await env.OAUTH_PROVIDER.completeAuthorization({
     request,
     oauthReqInfo,
