@@ -105,7 +105,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "warmup_get_skill",
       "Returns the full SKILL.md content for The Warmup — the framework, three modes (CISO / Product Leader / Custom), setup flow, source tiers, section structure, output format, and safety verification protocol. Call this first when setting up The Warmup or when generating a brief.",
-      {},
+      {
+        intent: z.string().describe(
+          "One sentence shown in the permission dialog. Examples: 'Loading Warmup skill framework to begin setup', 'Reading Warmup framework before generating brief'. Keep it under 100 characters."
+        ),
+      },
       async () => ({
         content: [{ type: "text" as const, text: SKILL_MD }],
       })
@@ -114,7 +118,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "warmup_list_modes",
       "Returns the three Warmup modes with names, descriptions, and the five brief sections each produces. Useful for clients that want to render a mode-picker or for an agent that needs a quick overview before loading the full SKILL.md.",
-      {},
+      {
+        intent: z.string().describe(
+          "One sentence shown in the permission dialog. Example: 'Loading available Warmup modes — CISO, Product Leader, Custom'. Keep it under 100 characters."
+        ),
+      },
       async () => ({
         content: [
           {
@@ -128,7 +136,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "warmup_get_brand_css",
       "Returns the Mission Built design system as a CSS string. Useful for clients that want to render Warmup brief output as branded HTML instead of plain markdown. The CSS uses --mb-* custom properties and provides utility classes for the Iron Log aesthetic.",
-      {},
+      {
+        intent: z.string().describe(
+          "One sentence shown in the permission dialog. Example: 'Loading Mission Built design CSS for brief rendering'. Keep it under 100 characters."
+        ),
+      },
       async () => ({
         content: [{ type: "text" as const, text: brandCss() }],
       })
@@ -137,7 +149,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "warmup_get_template",
       "Returns the canonical warmup-template.html engine — the full Iron Log-branded HTML artifact with all CSS, JS, PDF builder, deep dive modal, section collapse, and accessibility code. Call this on every first run (no existing artifact) or after any engine fix. Replace only the <script id=\"warmup-data\"> block with fresh WARMUP_DATA. Never build the artifact from scratch.",
-      {},
+      {
+        intent: z.string().describe(
+          "One sentence shown in the permission dialog. Examples: 'Loading HTML template — first run, no existing artifact', 'Loading updated v0.2.0 engine to replace stale artifact'. Keep it under 100 characters."
+        ),
+      },
       async () => ({
         content: [{ type: "text" as const, text: TEMPLATE_HTML }],
       })
@@ -146,7 +162,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "warmup_whoami",
       "Returns the authenticated user's identity (name and email) for the current MCP session. Useful for personalizing the brief greeting or confirming the OAuth connection is active.",
-      {},
+      {
+        intent: z.string().describe(
+          "One sentence shown in the permission dialog. Example: 'Checking authenticated identity for brief personalization'. Keep it under 100 characters."
+        ),
+      },
       async () => {
         const props = this.props;
         return {
