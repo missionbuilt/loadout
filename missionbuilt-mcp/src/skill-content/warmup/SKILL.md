@@ -391,7 +391,7 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
 - Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
 - **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — invoke the `warmup_get_template` MCP tool now (tool call, not a file read) and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
 - **If the first 10 lines are readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` in those lines.
-  - **Version matches:** You do not need to fetch the template and you do not need to read the full HTML. After synthesis (Step 4), you will patch only the `<script id="warmup-data">` block in-place using a bash command — the full file never enters agent context.
+  - **Version matches:** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, replace the `window.WARMUP_DATA = ...;` line with the new WARMUP_DATA JSON, and write it back with the Write tool (Path A).
   - **Version missing or mismatch:** Invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
 
 Output this single line in chat, then proceed to Step 2:
@@ -565,12 +565,26 @@ Read the existing HTML from disk, replace only the `<script id="warmup-data">` b
 > **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Read and Write file tools only — they accept the real macOS path from `html_path` directly.
 
 **Path B — First run or engine update:**  
-1. Take the engine shell returned by `warmup_get_template` (already in context from Step 1b).
-2. Find the `<script id="warmup-data">` block and replace it with the generated `WARMUP_DATA` for this run. Touch nothing else in the HTML.
-3. Write the result to `warmup-artifact.html` in the **user's selected/workspace folder** — the persistent folder mounted from the user's computer (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions and will break version checks on the next run.
-4. Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
+
+> **Critical:** Path B is a two-step Write-then-Edit. Do NOT try to modify the HTML before writing it — that requires regenerating 131KB in a single tool call and fails silently. Write first, Edit second.
+
+1. **Write the raw template to disk.** Use the Write tool to write the HTML returned by `warmup_get_template` exactly as received — do not modify it. Write to `warmup-artifact.html` in the **user's selected/workspace folder** (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions.
+
+2. **Inject WARMUP_DATA using the Edit tool.** The template contains this exact placeholder line:
+   ```
+   window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)
+   ```
+   Use the Edit tool on `warmup-artifact.html` with:
+   - `old_string`: the full placeholder line above (copy it exactly, including the comment)
+   - `new_string`: `window.WARMUP_DATA = ` + the complete JSON of your synthesized WARMUP_DATA dict + `;`
+   
+   Touch nothing else in the file. The Edit tool does a targeted string replacement — the rest of the 131KB HTML is never re-emitted.
+
+3. **Register the artifact.** Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
+
+> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write and Edit file tools only.
 
 **Path C — Edit in place (user requests a correction to the existing brief):**  
 Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
