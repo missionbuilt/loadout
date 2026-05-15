@@ -383,10 +383,10 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
 
 **If `the-warmup` exists → daily run:**
 - Note the `html_path` from the response.
-- Attempt to read the artifact's current HTML from that `html_path`.
+- Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
 - **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — call `warmup_get_template` now and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
-- **If the file is readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` near the top.
-  - **Version matches:** You do not need to fetch the template. The existing artifact HTML is your base — you will replace only its `<script id="warmup-data">` block after synthesis (Step 4).
+- **If the first 10 lines are readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` in those lines.
+  - **Version matches:** You do not need to fetch the template and you do not need to read the full HTML. After synthesis (Step 4), you will patch only the `<script id="warmup-data">` block in-place using a bash command — the full file never enters agent context.
   - **Version missing or mismatch:** Call `warmup_get_template` now. Hold the returned engine shell — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
 
 Output this single line in chat, then proceed to Step 2:
@@ -533,19 +533,41 @@ Do not add a placeholder or ask about it during RUN.
 
 By the time you reach this step, Step 1b has already:
 - Called `list_artifacts` and determined first run vs. daily run.
-- For **daily runs with a version match:** the existing artifact HTML is your base.
+- For **daily runs with a version match:** the file exists at `html_path` — do NOT read it into context.
 - For **first runs or engine version mismatches:** `warmup_get_template` was already called and the engine shell is in context.
 
 **Do not call `list_artifacts` or `warmup_get_template` again here.**
 
-1. Take the base HTML from Step 1b — either the existing artifact or the fetched engine shell.
+**Path A — Version match (daily run, no engine update):**  
+Use bash to patch only the `<script id="warmup-data">` block in-place. The full HTML never enters agent context (~32K tokens saved per run).
+
+```python
+python3 << 'EOF'
+import re, json
+path = '/Users/mike/Documents/Claude/Projects/warmup-artifact.html'   # use actual html_path from Step 1b
+new_json = json.dumps(WARMUP_DATA_DICT)   # substitute the actual WARMUP_DATA dict
+new_block = f'<script id="warmup-data">\nwindow.WARMUP_DATA = {new_json};\n</script>'
+with open(path, 'r', encoding='utf-8') as f:
+    html = f.read()
+html, n = re.subn(r'<script id="warmup-data">.*?</script>', new_block, html, flags=re.DOTALL)
+assert n == 1, f'Expected 1 replacement, got {n}'
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(html)
+print('ok')
+EOF
+```
+
+Substitute the real `html_path` from Step 1b and the real `WARMUP_DATA` dict. Verify the command prints `ok`. Then call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
+
+**Path B — First run or engine update:**  
+1. Take the engine shell returned by `warmup_get_template` (already in context from Step 1b).
 2. Find the `<script id="warmup-data">` block and replace it with the generated `WARMUP_DATA` for this run. Touch nothing else in the HTML.
 3. Write the result to `warmup-artifact.html` in the **user's selected/workspace folder** — the persistent folder mounted from the user's computer (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions and will break version checks on the next run.
-4. Call `create_artifact` (first run) or `update_artifact` (daily run or engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
+4. Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
 
-Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered only when the version marker changes.
+Token cost: Path A data-only patch ≈ 50 tokens (5-line version check + bash command). Path B full engine load ≈ 40KB, triggered only on first run or version mismatch.
 
 **When an engine bug is fixed:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
