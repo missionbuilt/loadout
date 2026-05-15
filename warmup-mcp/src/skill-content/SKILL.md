@@ -359,6 +359,8 @@ Use `window` in every fetch query below. Note the computed window in the
 chat summary line: *"Lookback: 7 days"* or *"Lookback: 12 days (catch-up)"*
 or *"Lookback: 30 days (first run)"*.
 
+**Hard date filter — non-negotiable:** Every item included in the brief MUST have a publication date within the computed lookback window. Before adding any article to WARMUP_DATA, verify its date. If an article is from 15 days ago and the window is 7 days, exclude it — no exceptions. Articles outside the window are not "close enough." Do not include them and do not flag them as older — simply omit them. If a source has no items within the window, mark it as `"status": "quiet"` in sources. The brief is a snapshot of now, not a news archive.
+
 **Daily fast-path:** if `gap_days == 1` AND `daily_mode: true` is set in WARMUP.md, override window to `2` regardless of the logic above. This prevents re-fetching 7 days of stale content for users who run the brief every day. Note it in the summary line as `"Lookback: 2 days (daily mode)"`.
 
 **Time-of-day gap coverage:** When computing the `after:DATE` parameter for
@@ -583,6 +585,9 @@ Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered onl
     "pdfTheme": "dark", "timezone": "",
     "scanTime": "HH:MM TZ", "totalLinks": 0
   },
+
+> **Config field accuracy rule:** `mode`, `sector`, `company`, and `region` in `WARMUP_DATA.config` MUST exactly match the values the user provided during setup — copied verbatim from `WARMUP.md`. Do not infer, generalize, abbreviate, or replace them. If the user said "Security", sector = "Security". If the user said "Global", region = "Global". These values populate the green pills in the masthead — the user sees them on every run and will immediately notice if they are wrong.
+
   "sections": [
     {
       "id": "threat", "label": "Threat Landscape", "note": null,  // ALWAYS null — section subtitles are never used

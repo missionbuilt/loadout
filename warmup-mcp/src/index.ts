@@ -40,7 +40,7 @@ import { authHandler, type UserProps } from "./auth";
 
 const WARMUP_VERSION = "0.2.0";
 const SERVER_VERSION = "0.2.0";
-const ENGINE_VERSION = "v0.2.0"; // Bump this whenever warmup-template.html changes
+const ENGINE_VERSION = "v0.2.1"; // Bump this whenever warmup-template.html changes
 
 const MODES = [
   {
