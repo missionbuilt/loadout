@@ -25,6 +25,7 @@ const GITHUB_URL = "https://github.com/missionbuilt/loadout";
 
 export interface AuthEnv {
   OAUTH_PROVIDER: OAuthHelpers;
+  OAUTH_KV: KVNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   COOKIE_ENCRYPTION_KEY: string;
@@ -132,13 +133,20 @@ async function handleAuthorize(request: Request, env: AuthEnv): Promise<Response
     return errorPage("Missing client_id in authorization request.");
   }
 
-  const state = btoa(JSON.stringify(oauthReqInfo));
+  // Store oauthReqInfo in KV — do NOT encode it in the Google state param.
+  // JSON.stringify of the parseAuthRequest result may drop non-enumerable
+  // or getter-based properties, causing completeAuthorization to fail.
+  const stateKey = crypto.randomUUID();
+  await env.OAUTH_KV.put(`pending_auth:${stateKey}`, JSON.stringify(oauthReqInfo), {
+    expirationTtl: 300, // 5 min — plenty for a sign-in flow
+  });
+
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: new URL(request.url).origin + "/google/callback",
     response_type: "code",
     scope: "openid email profile",
-    state,
+    state: stateKey,
   });
 
   return Response.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`, 302);
@@ -147,17 +155,24 @@ async function handleAuthorize(request: Request, env: AuthEnv): Promise<Response
 async function handleGoogleCallback(request: Request, env: AuthEnv): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const stateKey = url.searchParams.get("state");
 
-  if (!code || !state) {
+  if (!code || !stateKey) {
     return errorPage("Missing code or state from Google callback.");
   }
 
+  // Retrieve the original oauthReqInfo from KV using the state UUID.
+  const stored = await env.OAUTH_KV.get(`pending_auth:${stateKey}`);
+  if (!stored) {
+    return errorPage("Auth state expired or invalid. Please try connecting again.");
+  }
+  await env.OAUTH_KV.delete(`pending_auth:${stateKey}`);
+
   let oauthReqInfo: any;
   try {
-    oauthReqInfo = JSON.parse(atob(state));
+    oauthReqInfo = JSON.parse(stored);
   } catch {
-    return errorPage("Invalid state parameter.");
+    return errorPage("Corrupted auth state. Please try connecting again.");
   }
 
   // Exchange code for tokens
