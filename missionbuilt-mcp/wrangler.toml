@@ -1,0 +1,40 @@
+name = "missionbuilt-mcp"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Bundle skill markdown and HTML template files as text imports.
+[[rules]]
+type = "Text"
+globs = ["**/*.md", "**/*.html"]
+fallthrough = true
+
+# Durable Objects — required by agents/mcp McpAgent for SSE state.
+[[durable_objects.bindings]]
+name = "MCP_OBJECT"
+class_name = "MissionBuiltMCP"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MissionBuiltMCP"]
+
+# KV namespace for OAuth state (client registrations, auth codes, tokens).
+# Create via: npx wrangler kv namespace create OAUTH_KV
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Observability — free tier includes this.
+[observability]
+enabled = true
+
+# Single domain for the unified server.
+[[routes]]
+pattern = "mcp.missionbuilt.io"
+custom_domain = true
+
+# Secrets — set via `npx wrangler secret put <NAME>`:
+#   GOOGLE_CLIENT_ID       — from Google Cloud Console OAuth client
+#   GOOGLE_CLIENT_SECRET   — from Google Cloud Console OAuth client
+#   COOKIE_ENCRYPTION_KEY  — random 32-byte hex string

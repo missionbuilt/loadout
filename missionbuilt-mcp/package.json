@@ -1,6 +1,6 @@
 {
-  "name": "warmup-mcp",
-  "version": "0.2.0",
+  "name": "missionbuilt-mcp",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

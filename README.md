@@ -48,9 +48,38 @@ Future skills in the kit. Names tentative, scope under exploration:
 
 Each skill in The Loadout is a markdown-based skill compatible with Claude Code, Cowork, and other agents that support the SKILL.md convention. They're plain text — no installer, no runtime, no API key required. You can fork them, adapt them for your team, and ship your own derivatives under the same MIT license.
 
+Skills are also available through the hosted MCP server — one connection gives you both skills, OAuth-protected and ready to use from any MCP-compatible agent.
+
 ## Install
 
-Clone the Loadout and pull the skills you want into your project:
+### Option A — Hosted MCP server (recommended)
+
+Connect once and both skills are available:
+
+```bash
+# Claude Code
+claude mcp add loadout https://mcp.missionbuilt.io/sse
+```
+
+Or add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "loadout": {
+      "url": "https://mcp.missionbuilt.io/sse"
+    }
+  }
+}
+```
+
+Then say *"warmup setup"* the first time, or *"run the spotter on this epic"* to get started.
+
+→ [MCP server documentation](missionbuilt-mcp/README.md)
+
+### Option B — Local skill files
+
+Clone the repo and copy skill directories into your project:
 
 ```bash
 git clone https://github.com/missionbuilt/loadout.git /tmp/loadout
@@ -59,14 +88,7 @@ cp -r /tmp/loadout/spotter .claude/skills/
 cp -r /tmp/loadout/warmup .claude/skills/
 ```
 
-Verify installation:
-
-```bash
-ls .claude/skills/
-# spotter  warmup
-```
-
-Then in Claude Code or Cowork, trigger the skill with a phrase from its README — for example, *"run the spotter on this epic"* or *"run warmup"* / *"start my warmup."*
+Then trigger with a phrase from each skill's README.
 
 ## Customizing for your team
 

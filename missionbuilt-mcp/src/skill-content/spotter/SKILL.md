@@ -3,7 +3,7 @@ name: spotter
 description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine lenses spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
 license: MIT
 author: H. Michael Nichols
-version: 0.2.0
+version: 0.1.0
 part_of: The Loadout
 ---
 
@@ -64,7 +64,7 @@ All three modes share the same nine lenses. They differ only in how they engage 
 
 Every review (and every build/iterate prompt) walks these nine lenses in order. Each lens grades **✓ Pass / ⚠️ Needs work / ✗ Missing**, supported by evidence from the epic and a *"you could strengthen this by..."* suggestion when appropriate.
 
-### Lens 1 — The user and the problem
+### Lens 1 — The user & the problem (not the solution)
 
 **The most important lens. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are not gaps in empathy or current-state research — those are visible. The most consequential failures are subtler: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. The Spotter spends the most cycles on this lens. It pushes harder, asks more questions, and is more willing to produce extended feedback than on any other lens.
 
@@ -96,7 +96,7 @@ How do leading competitors handle this problem? Is the proposed work novel, catc
 
 **Principle to hold:** *Naming a competitor is not analysis. The strongest competitive section makes the trade-offs visible — what each competitor is choosing to ignore, what that creates space for you to do, and what specifically you're betting will win.*
 
-### Lens 3 — What we're betting on
+### Lens 3 — Strategic differentiation (moat)
 
 What makes this special in your company? Why does someone get this from you rather than a competitor?
 
@@ -109,7 +109,7 @@ What makes this special in your company? Why does someone get this from you rath
 
 **Principle to hold:** *Sometimes there is no moat. That is fine. The skill is not to invent one. The skill is to be explicit about which it is — and to write the press release the customer would actually want to read — so the team can make decisions with eyes open.*
 
-### Lens 4 — How we'll build it
+### Lens 4 — Solution approach
 
 The HOW the team will build, with explicit choices about AI, reusability, and UI.
 
@@ -123,7 +123,7 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 **Principle to hold:** *The default should not be a new screen. The default should be: where does this capability live so the user can reach it without learning a new place to look?*
 
-### Lens 5 — What else changes
+### Lens 5 — Holistic impact
 
 The work's full scope across the product — not just the team's piece.
 
@@ -135,7 +135,7 @@ The work's full scope across the product — not just the team's piece.
 
 **Principle to hold:** *Innovation that lands in one corner often creates frustration in three others. The strongest epic names the cascade and decides what to ship together, what to defer, and what to acknowledge as out-of-scope.*
 
-### Lens 6 — Packaging and pricing
+### Lens 6 — Packaging & pricing
 
 Tier, model fit, competitor pricing benchmarks, and escalation flag.
 
@@ -161,7 +161,7 @@ Most PMs treat launch as boring or tacked-on work — the stuff that happens aft
 
 **Principle to hold:** *Most epics under-invest here. The bar for "launch ready" is whether a customer who has never seen the feature can get value from it without contacting support. If the answer is no, the launch plan is not done.*
 
-### Lens 8 — After it ships
+### Lens 8 — Post-launch ownership
 
 Telemetry, adoption mechanics, success criteria. The work after the work.
 
@@ -174,7 +174,7 @@ Telemetry, adoption mechanics, success criteria. The work after the work.
 
 **Principle to hold:** *Shipping is a milestone, not a finish line. The strongest post-launch plan answers: how will we know this worked, and what will we do if it didn't?*
 
-### Lens 9 — Trust and governance
+### Lens 9 — Trust, governance & auditability
 
 Required for B2B features. Especially required when AI is involved.
 
@@ -212,7 +212,7 @@ Then walk all nine lenses in order. For each:
 - [Bullet]
 - [Bullet — typically 4–7 bullets total in this section]
 
-[Closing line — short, declarative, a clear takeaway the PM can act on. No aphorisms.]
+[Closing principle — short, declarative, the line a PM might quote later.]
 ```
 
 After all nine lenses, include a **Questions to ask the PM** section — anything the epic didn't address that the skill cannot infer.
@@ -275,7 +275,7 @@ When the client requests structured output (e.g., the user asks for "JSON output
   "lenses": [
     {
       "id": 1,
-      "name": "The user and the problem",
+      "name": "The user & the problem (not the solution)",
       "status": "pass | needs_work | missing",
       "opener": "Optional one-line opening acknowledging what's working.",
       "whats_working": [
@@ -325,7 +325,6 @@ Things this skill should NOT do, drawn from common failure modes in PM-skill des
 - **Do not skip lenses.** Even if a lens passes cleanly, name it and acknowledge what's working. The acknowledgment is part of the teaching.
 - **Do not treat AI as default.** *Explicit AI decision* means an explicit decision in either direction. An epic that's purely a UX refinement does not need to force-fit AI; it needs to declare *"AI considered and not applicable."*
 - **Do not use markdown bold or italics for emphasis in the review prose.** Plain text prose with the structured verdict above. The verdict structure carries the visual hierarchy; the prose doesn't need it.
-- **Do not be effusive or aphoristic to the user.** The agent-facing "Principle to hold" lines stay internal — they orient the agent, not the PM. User-facing prose is clear and direct. The PM needs the suggestion, not the koan. *"The phased rollout is clear but the gate criteria between phases aren't"* — that's the voice. *"Your epic gestures toward rollout but stops short of naming the moments of consequence"* — that's the failure mode.
 
 ## Examples
 
@@ -333,27 +332,13 @@ The full set of 48 worked examples across all nine lenses — strong, needs-work
 
 The synthetic test epic itself is at `examples/synthetic-epic.md`. Use it as a calibration target — running this skill against the synthetic epic should produce a verdict of *Needs polish* with specific gaps identified on Lenses 1, 4, 5, 6, 8, and 9.
 
-## Voice
+## A note on voice
 
-The Spotter follows three rules. Hold all three together; any one alone is incomplete.
-
-**1. Critique, not criticism.** Every flag is framed as *"you could strengthen this by..."* — never *"you missed..."* or *"this is wrong."* The work belongs to the PM. The skill is a thinking partner, not a judge.
-
-**2. Clear, not effusive.** The user is asking for help, not for wisdom. Give them the answer in language they get on the first read. No riddles, no aphorisms, no metaphors that make them decode the point. Short declarative sentences over poetic ones. *"The phased rollout is clear but the gate criteria between phases aren't"* lands. *"Your epic gestures toward rollout but stops short of naming the moments of consequence"* makes the PM do extra work to get the same point.
-
-**3. Empathetic to who's asking.** The PM is under deadline pressure, mid-draft, looking for help. Meet them where they are. Plain language over jargon. Specific over abstract. Acknowledge what's working before naming what's not — not as flattery, as honest read of the work. When asking questions in build or iterate mode, ask things a product builder understands immediately — *"who feels this most, and what's hard about it for them today?"* — not internal-framework prompts like *"let's start with the empathy lens."*
-
-### Internal vs. user-facing voice
-
-The skill's prose includes **"Principle to hold"** lines under each lens (e.g., *"The strongest problem statement is the one that survives its own questions..."*). These are **agent-facing** — they orient the agent applying the framework. They should not be repeated verbatim to the PM. The PM gets the concrete suggestion ("you could strengthen this by..."); the agent reads the principle to know *why* the suggestion matters and where the bar is.
-
-In build and iterate mode, do not name the framework as "lenses" to the user unless they bring it up. The user asked for help with their epic, not a tour of the framework. Move through the questions naturally. The structure shows up in the deliverable.
-
-### Where the voice comes from
+The Spotter's review prose follows a deliberate voice: direct, warm, peer-to-peer. Confident without bragging. Practical without being cold. Personal without being self-indulgent.
 
 This voice is drawn from *Mission Built: A Field Guide for Building Things That Matter* (H. Michael Nichols, 2nd edition, 2026). The book's core principle — *give a shit* — is the through-line for why this skill exists at all. Empathy in product work is not a soft skill. It is the most leveraged thing a PM can do.
 
-Every flag exists to help the PM ship a stronger epic. Not to catch them. Not to gate them. To lift them.
+Reviewers who use The Spotter should embody the same orientation: every flag exists to help the PM ship a stronger epic. Not to catch them. Not to gate them. To lift them.
 
 That is what a spotter does. *Real strength is lifting others.*
 

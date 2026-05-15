@@ -56,14 +56,14 @@ Expected lens grades:
 
 | Lens | Expected grade | Why |
 |---|---|---|
-| 1. The user and the problem | ⚠️ | Thin empathy. No diagnosis of *why* customers don't already automate (product gaps, trust gaps). Solutioning leakage in the *Approach* section. |
+| 1. User & problem (not solution) | ⚠️ | Thin empathy. No diagnosis of *why* customers don't already automate (product gaps, trust gaps). Solutioning leakage in the *Approach* section. |
 | 2. Competitive landscape | ⚠️ | Names three competitors and asserts "we are behind" but does no analysis of how each handles it, where each is strong/weak, or where the space is for us. |
-| 3. What we're betting on | ✗ | Completely missing. |
-| 4. How we'll build it | ⚠️ | "AI-driven decision engine" without explicit AI decision. Implies static playbook matching where dynamic agentic reasoning is what actually works. Defaults to "new dashboard" without UI restraint consideration. No skills-first thinking. |
-| 5. What else changes | ✗ | When the agent isolates a host, what happens in the SIEM, case management, on-call rotation, identity systems? Cross-product cascade not considered. |
-| 6. Packaging and pricing | ⚠️ | Names tier but provides no competitor pricing benchmarks, no reasoning about why this tier, no escalation flag. |
+| 3. Strategic differentiation (moat) | ✗ | Completely missing. |
+| 4. Solution approach | ⚠️ | "AI-driven decision engine" without explicit AI decision. Implies static playbook matching where dynamic agentic reasoning is what actually works. Defaults to "new dashboard" without UI restraint consideration. No skills-first thinking. |
+| 5. Holistic impact | ✗ | When the agent isolates a host, what happens in the SIEM, case management, on-call rotation, identity systems? Cross-product cascade not considered. |
+| 6. Packaging & pricing | ⚠️ | Names tier but provides no competitor pricing benchmarks, no reasoning about why this tier, no escalation flag. |
 | 7. Launch readiness | ⚠️ | Hits docs/training/blog at headline level. No calculators, power hours, PLG, video, customer comms. |
-| 8. After it ships | ⚠️ | "Track adoption and MTTR" — generic, no specifics. No telemetry plan, no in-product guides, no adoption mechanism. |
-| 9. Trust and governance | ✗ | No mention of trust gradient, RBAC, audit trail, transparency, or human-on-the-loop pattern. Critical gap for a B2B security feature. |
+| 8. Post-launch ownership | ⚠️ | "Track adoption and MTTR" — generic, no specifics. No telemetry plan, no in-product guides, no adoption mechanism. |
+| 9. Trust, governance & auditability | ✗ | No mention of trust gradient, RBAC, audit trail, transparency, or human-on-the-loop pattern. Critical gap for a B2B security feature. |
 
 If your install of **The Spotter** produces grades that diverge significantly from this calibration table, the skill has drifted. Recheck `SKILL.md` for local edits and any `CLAUDE.md` that may be overriding the lens framework.

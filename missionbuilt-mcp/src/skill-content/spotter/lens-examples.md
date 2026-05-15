@@ -8,7 +8,7 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 ---
 
-## Lens 1 — The user and the problem
+## Lens 1 — The user & the problem (not the solution)
 
 **The most important lens. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are subtle: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. Eight sub-checks: empathy, current state, why-not-solved, no-solutioning, problem scope and value framing, assumptions surfaced, alternatives considered, and epistemic openness.
 
@@ -214,7 +214,7 @@ How do leading competitors handle this problem? Is the proposed work novel, catc
 
 *Teaching note: Missing entirely. The PM has implicitly assumed either that the work is greenfield or that competitive context doesn't matter. Neither is usually true in B2B. The skill flags: "In a market with established competitors, an epic without competitive analysis defaults the team's positioning. Name three competitors, summarize each, position the work."*
 
-## Lens 3 — What we're betting on
+## Lens 3 — Strategic differentiation (moat)
 
 What makes this special in your company? Why does someone get this from you rather than a competitor? Sometimes there is no moat — being explicit about that is also passing.
 
@@ -258,7 +258,7 @@ What makes this special in your company? Why does someone get this from you rath
 
 *Teaching note: When the press-release test is skipped, the PM hasn't been forced into outside-in framing. The epic may have strong moat and competitive analysis but lack a sharp customer-facing value statement — which means sales, marketing, and customer success will each invent their own when the time comes, and they will not agree. The skill prompts: "Write the press release sentence. Even one sentence. If it's hard to write, the value isn't sharp enough yet — and that's information worth surfacing now, not after the team has been building for three months."*
 
-## Lens 4 — How we'll build it
+## Lens 4 — Solution approach
 
 The HOW the team will build, with explicit choices about AI, reusability, and UI. Four sub-checks: explicit AI decision, agentic-not-static, skills-first reusability, UI restraint.
 
@@ -344,7 +344,7 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 *Teaching note: Compound failure — this crosses two lens lines (Lens 1 D no-solutioning and Lens 4 D UI restraint). The PM has not just added a new dashboard, they've prescribed its information architecture, named its panels, and attached mockups. Engineering and design have no room to innovate, and there was no consideration of whether existing surfaces could carry the capability. The skill flags both gaps and points the PM at the strong UI restraint example.*
 
-## Lens 5 — What else changes
+## Lens 5 — Holistic impact
 
 The work's full scope across the product — not just the team's piece. Cross-product cascade, adjacent areas, side effects.
 
@@ -360,7 +360,7 @@ The work's full scope across the product — not just the team's piece. Cross-pr
 
 *Teaching note: Two sentences of confident hand-waving. "Will integrate" is not a plan. "Continue to function normally" is faith. The skill flags: "Name the downstream effects. When the agent acts, what changes in the SIEM? The case management tool? The on-call rotation? The identity systems? The endpoint inventory? Each integration is either in scope or explicitly deferred — name which, and assign an owner to the deferred items."*
 
-## Lens 6 — Packaging and pricing
+## Lens 6 — Packaging & pricing
 
 Tier, model fit, competitor pricing benchmarks, escalation flag.
 
@@ -398,7 +398,7 @@ Documentation, field enablement, content surfaces. *The launch is not over when 
 
 *Teaching note: From the synthetic epic. Three placeholders. Each is a category, not a plan. The skill flags: "These are categories, not commitments. Name who writes what, by when. Add field enablement beyond a single sales training (customer success, demos, calculators, battle cards). Add PLG content (in-product guides, tooltips). Add video and customer comms. Name release sequencing — marquee, quiet, or design-partner-first?"*
 
-## Lens 8 — After it ships
+## Lens 8 — Post-launch ownership
 
 Telemetry, adoption mechanics, success criteria. The work after the work.
 
@@ -420,7 +420,7 @@ Telemetry, adoption mechanics, success criteria. The work after the work.
 
 *Teaching note: A common B2B failure mode — the PM treats GA as the end of the work. The skill flags: "Shipping is a milestone, not a finish line. The work after the work is what determines whether the feature delivers value. Name metrics with thresholds, telemetry plan, adoption mechanics, and ownership cadence."*
 
-## Lens 9 — Trust and governance
+## Lens 9 — Trust, governance & auditability
 
 Required for B2B features. Especially required when AI is involved. Five sub-checks: granular trust model, human-on-the-loop pattern, RBAC, audit trail, transparency.
 
