@@ -339,64 +339,36 @@ sources, `last_run` date, `window_override` if set.
 
 ```
 today         = current date (YYYY-MM-DD)
-now_time      = current local time (HH:MM, user's timezone)
 last_run_date = parsed from WARMUP.md `last_run` field (YYYY-MM-DD)
 gap_days      = (today - last_run_date) in calendar days
 
-if window_override is set in WARMUP.md:
-  window = window_override   # e.g. 14 for "always show 14 days"
-elif user stated a lookback override in this run:
-  window = user-specified days
+# Override checks — apply first, skip the rest if matched
+if user stated a lookback phrase in this run (e.g. "go back 30 days", "since April 15"):
+  window = user-specified value   # note in summary line, skip remaining logic
+elif window_override is set in WARMUP.md:
+  window = window_override
 elif last_run is missing or empty:
   window = 30   # first run — bootstrap with a month of context
+elif gap_days == 1 AND daily_mode: true in WARMUP.md:
+  window = 2    # daily fast-path: skip re-fetching a full 7-day window
 elif gap_days <= 7:
-  window = 7    # standard daily window; always covers at least a week
+  window = 7    # standard — always covers at least a week
 else:
   window = min(gap_days, 30)   # catch-up run, capped at 30 days
-```
 
-Use `window` in every fetch query below. Note the computed window in the
-chat summary line: *"Lookback: 7 days"* or *"Lookback: 12 days (catch-up)"*
-or *"Lookback: 30 days (first run)"*.
-
-**Hard date filter — non-negotiable:** Every item included in the brief MUST have a publication date within the computed lookback window. Before adding any article to WARMUP_DATA, verify its date. If an article is from 15 days ago and the window is 7 days, exclude it — no exceptions. Articles outside the window are not "close enough." Do not include them and do not flag them as older — simply omit them. If a source has no items within the window, mark it as `"status": "quiet"` in sources. The brief is a snapshot of now, not a news archive.
-
-**Daily fast-path:** if `gap_days == 1` AND `daily_mode: true` is set in WARMUP.md, override window to `2` regardless of the logic above. This prevents re-fetching 7 days of stale content for users who run the brief every day. Note it in the summary line as `"Lookback: 2 days (daily mode)"`.
-
-**Time-of-day gap coverage:** When computing the `after:DATE` parameter for
-search queries, always subtract one additional calendar day from the lookback
-start date. This ensures articles published earlier today (e.g., 9am when
-running at 11am) or in the late evening of the prior day are captured regardless
-of when the brief runs. Example: window=2, today=2026-05-14 → search uses
-`after:2026-05-11` instead of `after:2026-05-12`. The overlap is intentional
-and cheap — duplicate items from the prior run are filtered by recency weight,
-not by date exclusion.
-
-**Weekend and holiday bridge:** Before finalizing the lookback start date,
-check whether the interval between `last_run_date` and today spans non-working
-days that would otherwise be undercovered.
-
-```
-Determine the user's regional weekend from WARMUP.md `region` field:
-  - Default (most countries): Saturday + Sunday
-  - Israel / Middle East (if region contains "Israel" or "IL"): Friday + Saturday
-  - User can override at any time: "my weekend is Friday-Saturday"
-
-If today == first working day after a regional weekend AND gap_days <= 2:
-  # The user likely ran on Friday (or last workday) and is running Monday morning
-  # Extend window to cover the full weekend + any gap
-  window = max(window, gap_days + 2)   # +2 ensures both weekend days are in scope
+# Weekend bridge (run after computing window above)
+region = WARMUP.md `region` field (default: Sat+Sun weekend; IL/Israel: Fri+Sat)
+if today == first working day after regional weekend AND gap_days <= 2:
+  window = max(window, gap_days + 2)   # cover full weekend
   note in summary: "Lookback extended to cover weekend"
-
-If gap_days > 7 AND the interval spans a regional public holiday:
-  # User can declare holidays in WARMUP.md under Notes: "holiday: YYYY-MM-DD"
-  # No automatic detection — the user flags holidays themselves or overrides at run time
+if gap_days > 7 AND interval spans a user-declared holiday (Notes: "holiday: YYYY-MM-DD"):
   note in summary: "Catch-up run — verify holiday coverage manually if needed"
+
+# Search date parameter
+search_after_date = today - (window + 1) days  # +1 catches late-yesterday and early-today
 ```
 
-The user can always override the window at run time with natural language:
-*"warmup — go back since last Tuesday"*, *"include last week"*, etc.
-When they do, use that window directly and skip the computation above.
+Note the computed window in the summary line. **Hard date filter:** every item in the brief MUST have a publication date within the lookback window — no exceptions. If a source has no in-window items, mark it `"status": "quiet"`.
 
 ### Step 1b — Artifact and engine check (before any searches)
 
@@ -424,6 +396,8 @@ Output this single line in chat, then proceed to Step 2:
 
 Before starting any searches, output this line in chat:
 *"🔍 Gathering intelligence from [N] sources · [M] search batches · lookback [X] days — this takes a few minutes."*
+
+**Run all batches concurrently.** Do not wait for one batch to complete before starting the next — they are independent. Fire all batches in a single parallel pass, then synthesize after all return.
 
 For each active source, search for recent content using WebSearch.
 
@@ -553,23 +527,7 @@ Do not add a placeholder or ask about it during RUN.
 
 ### Step 4 — Render phase
 
-**Template + manifest architecture.** The Warmup separates the fixed HTML engine (CSS, JS, PDF builder, modal, renderer — never changes per-report) from the swappable `WARMUP_DATA` content block (regenerated each run). Each RUN only needs to produce the content manifest — not a full HTML rewrite.
-
-**CANONICAL TEMPLATE: `warmup/warmup-template.html`**
-
-This file is the single source of truth for the engine. It contains all rendering, PDF generation, deep dive, save modal, section collapse, and accessibility code. It works for all report modes (CISO, Product Leader, Custom) because mode-specific behavior is driven entirely by `WARMUP_DATA.config.mode` — never by hardcoded logic.
-
-**Rule: WARMUP_DATA is the only thing that changes between reports.**
-All engine fixes go into `warmup-template.html` first. Active reports are updated by replacing their `<script id="warmup-data">` block only.
-
-**DELIVERY: The brief is ALWAYS rendered as a Cowork artifact. Never as a file link.**
-
-The Warmup renders inside the Cowork artifact pane — this is what makes Deep Dive, the PDF builder, and `window.cowork.askClaude` work. Opening the HTML as a raw file breaks all of that. The `warmup-artifact.html` file on disk is the working source the skill reads and modifies; it is never sent to the user as a download.
-
-- ✓ Correct: `update_artifact` → brief opens in the artifact pane
-- ✗ Wrong: `computer://` link → user downloads an HTML file
-
-The user's only download option is the **Save PDF** button inside the artifact. That is intentional and sufficient.
+**Rule: only `WARMUP_DATA` changes between reports.** The engine (CSS, JS, PDF builder, renderer) is fixed in `warmup-template.html` and touched only when the version marker changes. Always deliver via `update_artifact` / `create_artifact` — never a `computer://` file link. The **Save PDF** button inside the artifact is the user's only download path.
 
 **Inject and render (Step 1b already determined the base HTML):**
 
@@ -1259,19 +1217,7 @@ Adapt all queries to the user's company, sector, and competitor list from WARMUP
 If a competitor list has more than five names, run two competitor sweep batches rather
 than cramming all into one query (search engines truncate long OR chains).
 
-**URL safety gate — identical to CISO mode, no exceptions:**
-
-The same binary safety check from RUN Step 2 applies to every URL returned by
-every batch above. Competitor newsrooms, VC firm blogs, AI vendor sites,
-analyst pages — all URLs are checked against the allowlist before inclusion.
-The allowlist in RUN Step 2 includes Product Leader domains explicitly.
-
-URLs from the user's configured `competitors:` and `ai_vendors:` domains are
-treated as allowlisted (the user reviewed them at SETUP). All other domains
-not on the allowlist go through URLScan.io. Any domain that cannot be confirmed
-clean is excluded — no exceptions for "reputable-sounding" sources. If a
-competitor's press release comes from a domain that fails the check, it is
-excluded and noted in the safety summary.
+**URL safety gate:** identical to RUN Step 2 — no exceptions. Every URL from every batch passes the same allowlist → URLScan.io check. Configured `competitors:` and `ai_vendors:` domains are pre-allowlisted. Anything that cannot be confirmed clean is excluded.
 
 ---
 
@@ -1473,6 +1419,18 @@ The user has no intuition about what "1 day" means until they see a brief.
 Ask. Remind them the default is 1 day. Let them choose. A 30-day first run
 costs nothing and prevents the "why is this so thin?" complaint on day one.
 
+**13. Do not assume a Monday brief only needs 1 day of lookback.**
+Monday morning covers Friday afternoon, Saturday, and Sunday. If the user
+ran on Friday, gap_days=3. The weekend bridge logic handles this automatically —
+but do not override it with a daily fast-path that would collapse it back to
+2 days. The fast-path only applies when gap_days==1 AND daily_mode is true.
+
+**14. Do not recommend sources on every run.**
+The emergence check runs only when it has been 30+ days since `updated`.
+Running it more often produces noise, not signal. A source that appeared
+once in a single search result batch does not qualify — it needs multi-item
+presence or clear sector fit. When in doubt, don't recommend.
+
 **15. Do not let the competitor list go stale.**
 In Product Leader mode, if `competitors:` in WARMUP.md hasn't been updated
 in 90+ days, note it in chat after the summary line: *"Competitor list last
@@ -1484,18 +1442,6 @@ This is one of the highest-value moments in the setup flow. A generic
 *"who are your competitors?"* gets a lazy answer. A specific, credible suggestion
 (*"Based on [their company and sector], I'd start with: [2–4 named competitors] — does that look right?"*) gets a useful one.
 Always generate the suggestion before asking for confirmation.
-
-**14. Do not recommend sources on every run.**
-The emergence check runs only when it has been 30+ days since `updated`.
-Running it more often produces noise, not signal. A source that appeared
-once in a single search result batch does not qualify — it needs multi-item
-presence or clear sector fit. When in doubt, don't recommend.
-
-**13. Do not assume a Monday brief only needs 1 day of lookback.**
-Monday morning covers Friday afternoon, Saturday, and Sunday. If the user
-ran on Friday, gap_days=3. The weekend bridge logic handles this automatically —
-but do not override it with a daily fast-path that would collapse it back to
-2 days. The fast-path only applies when gap_days==1 AND daily_mode is true.
 
 ---
 
