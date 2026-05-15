@@ -567,7 +567,35 @@ Substitute the real `html_path` from Step 1b and the real `WARMUP_DATA` dict. Ve
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
 
-Token cost: Path A data-only patch ≈ 50 tokens (5-line version check + bash command). Path B full engine load ≈ 40KB, triggered only on first run or version mismatch.
+**Path C — Edit in place (user requests a correction to the existing brief):**  
+Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
+
+Step 1: Extract the current `WARMUP_DATA` from the file using bash — do NOT read the full HTML into context:
+
+```python
+python3 << 'EOF'
+import re
+path = '/Users/mike/Documents/Claude/Projects/warmup-artifact.html'   # use actual html_path
+with open(path, 'r', encoding='utf-8') as f:
+    html = f.read()
+m = re.search(r'<script id="warmup-data">\s*window\.WARMUP_DATA\s*=\s*(.*?);\s*</script>', html, re.DOTALL)
+print(m.group(1) if m else 'NOT FOUND')
+EOF
+```
+
+Step 2: Parse the printed JSON. Apply the user's requested change to the relevant field(s) in `WARMUP_DATA`. Touch nothing else.
+
+Step 3: Patch it back using the same bash command as Path A (substitute the modified dict). Verify `ok`. Call `update_artifact`.
+
+The full HTML never enters agent context. Token cost: ≈ 100 tokens (extract + print + modify + patch).
+
+**Token cost summary:**
+
+| Path | Trigger | Token cost |
+|---|---|---|
+| A — Data patch | Daily run, engine match | ~50 tokens |
+| B — Full engine | First run or version mismatch | ~40KB (one-time) |
+| C — Edit in place | User correction to existing brief | ~100 tokens |
 
 **When an engine bug is fixed:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
