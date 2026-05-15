@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.2.0
+version: 0.3.0
 part_of: The Loadout
 ---
 
@@ -574,43 +574,91 @@ Output cost for data-only update: ~5KB. Full engine update: ~40KB, triggered onl
 3. Call `update_artifact` to push the fix into the live artifact.
 4. The fix propagates to all future reports automatically because new reports start from the template.
 
-**`WARMUP_DATA` schema:**
+**`WARMUP_DATA` schema (v0.3.0 — Morning Edition):**
+
+> **Config field accuracy rule:** `mode`, `sector`, `company`, and `region` MUST be copied verbatim from `WARMUP.md`. Do not infer, generalize, abbreviate, or replace. If the user said "Security", sector = "Security". If the user said "Global", region = "Global". These values appear as pills the user sees on every run.
 
 ```json
 {
   "config": {
-    "mode": "CISO", "sector": "...", "company": "...", "region": "...",
-    "vendors": "...", "interests": "...", "name": "...", "showQuote": true,
-    "sourcesActive": 0, "sourcesQuiet": 0, "updated": "DD Mon YYYY",
-    "pdfTheme": "dark", "timezone": "",
-    "scanTime": "HH:MM TZ", "totalLinks": 0
+    // Required
+    "name": "Mike",
+    "mode": "CISO",
+    "company": "Elastic",
+    "sector": "Cybersecurity",
+    "reportDate": "Thursday, 15 May 2026",   // Full display string for masthead date
+    "updated": "15 May 2026",                // Footer display string
+    "lastRun": "2026-05-14",                 // ISO date — drives issue number
+    "dateRange": "May 8 – May 15, 2026",     // Lookback window display string
+    "sourcesActive": 12,
+    "sourcesQuiet": 4,
+    "showQuote": true,
+    "scanTime": "06:14 ET",   // 24hr, user tz. THE single timestamp source —
+                              // populates masthead, signal bar, safety panel, PDF.
+    // Optional
+    "region": "Global",
+    "timezone": "ET",
+    "vendors": "CrowdStrike, Palo Alto",
+    "interests": "",
+    "totalLinks": 18
   },
-
-> **Config field accuracy rule:** `mode`, `sector`, `company`, and `region` in `WARMUP_DATA.config` MUST exactly match the values the user provided during setup — copied verbatim from `WARMUP.md`. Do not infer, generalize, abbreviate, or replace them. If the user said "Security", sector = "Security". If the user said "Global", region = "Global". These values populate the green pills in the masthead — the user sees them on every run and will immediately notice if they are wrong.
-
   "sections": [
     {
-      "id": "threat", "label": "Threat Landscape", "note": null,  // ALWAYS null — section subtitles are never used
+      "id": "threat",
+      "label": "Threat Landscape",
+      "sub": "Active campaigns and fresh exploitation. What your stack should be watching for today.",
+      // sub: ALWAYS populated — the section's standing italic deck. One sentence.
+      // note: null unless there is a today-only run caveat (e.g. "Source X was down"). Never repeat sub here.
+      "note": null,
       "items": [
         {
-          "dot": "d1", "src": "Source Name",
-          "tags": [{"cls": "t-alert", "text": "ACTIVE THREAT"}, {"cls": "t-mitre", "text": "T1078"}],
-          "hl": "Article headline", "url": "https://...", "body": "2–3 sentence summary.",
+          // items[0] is the EDITORIAL LEAD — rendered full-width with a large
+          // headline and an oxblood drop-cap on the first letter of body.
+          // Choose it deliberately: most important item in the section.
+          "dot": "d1", "src": "CISA",
+          "tags": [{"cls": "t-alert", "text": "KEV ADDED"}, {"cls": "t-mitre", "text": "T1190"}],
+          "url": "https://...",
+          "hl": "Article headline.",
+          "deck": "Federal agencies have until June 4 to patch.",
+          // deck: LEAD ITEMS ONLY. One short italic sentence — the 'so what?'.
+          // Omit entirely on non-lead items (items[1..N]).
+          "body": "2–3 sentence summary in plain prose.",
+          "date": "YYYY-MM-DD"
+        },
+        {
+          // items[1..N] render in a two-column grid. No deck field. Date-sorted.
+          "dot": "d2", "src": "Source Name",
+          "tags": [],
+          "url": "https://...",
+          "hl": "Article headline",
+          "body": "2–3 sentence summary.",
           "date": "YYYY-MM-DD"
         }
       ]
     }
   ],
   "sources": [
-    {"dot": "d1", "nm": "CISA Alerts & Advisories", "dom": "cisa.gov", "ct": "2 items", "status": "active"}
+    {"nm": "CISA Alerts & Advisories", "dom": "cisa.gov", "dot": "d1", "ct": "2 items", "status": "active"},
+    {"nm": "NSA Advisories", "dom": "nsa.gov", "dot": "d1", "ct": "—", "status": "quiet"}
   ],
   "safety": {
-    "scannedAt": "DD Mon YYYY · HH:MM TZ", "totalUrls": 26, "flagged": 0,
-    "domains": [{"domain": "cisa.gov", "verdict": "0 / 90 engines"}]
+    "domains": [{"domain": "cisa.gov", "verdict": "0 / 90 engines"}],
+    // INTEGRITY RULE: domains.length MUST equal the number of active sources exactly.
+    "totalUrls": 12,
+    "flagged": 0,
+    "scannedAt": ""   // Empty string — renderer uses scanTime. Fill only to override.
   },
   "dates": {"Article headline prefix": "YYYY-MM-DD"}
 }
 ```
+
+**Editorial lead rules:**
+- `items[0]` is the lead for every section. It renders full-width with a large Oswald headline and an oxblood drop-cap on the first letter of `body`.
+- Always use `deck` on lead items — one italic sentence that adds the "so what?" framing.
+- The lead is never re-sorted. Choose it deliberately — most important item in the section.
+- Items 1..N render in a two-column grid, date-sorted descending. No `deck` field on these.
+
+**`scanTime` is the single timestamp source.** Write it once as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). The renderer uses it in the masthead, the Generated cell in the signal bar, the link-safety scanned-at line, and the PDF masthead. Do not write separate timestamp values anywhere else.
 
 **First run (no artifact exists yet):**
 

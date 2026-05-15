@@ -6,33 +6,52 @@ page — not tabbed, not paginated. Think a morning newspaper, not a dashboard.
 Follow these specifications exactly. Do not approximate colors or substitute
 fonts. The visual identity is the trust signal.
 
-## Artifact Design Spec — Iron Log
+## Artifact Design Spec — Morning Edition (v0.3.0)
+
+The v0.3.0 template is a **cream-paper / light** variant of the Iron Log system.
+Background is warm cream, text is near-black ink, oxblood is deepened for paper legibility.
+Do not revert to charcoal backgrounds — the template controls color-scheme.
 
 ### Color tokens
 
-Embed these as CSS custom properties in the artifact's `<style>` block.
+The template defines all tokens. Do not override them per-report.
 
 ```css
 :root {
-  color-scheme: dark;
-  --color-bg:          #171513;
-  --color-panel:       #1f1c19;
-  --color-rule:        #2a2622;
-  --color-rule-soft:   #2e2b27;
-  --color-chalk:       #f0ead9;
-  --color-chalk-dim:   #ccc5b5;
-  --color-chalk-faint: #9e9688;
-  --color-blood:       #c8281e;
-  --color-blood-dim:   #5e1e1c;
-  --color-army:        #92a844;
-  --color-army-dim:    #4a5527;
-  --color-steel:       #7a7873;
+  color-scheme: light;
+  --paper:        #f3ecdc;   /* Page background */
+  --paper-warm:   #ebe2cf;   /* Signal bar background */
+  --paper-card:   #ede5d2;   /* Pill / button backgrounds */
+  --paper-soft:   #efe8d6;   /* Deep-dive panel background */
+  --ink:          #1a1612;   /* Primary text */
+  --ink-soft:     #3a342d;   /* Body summaries */
+  --ink-dim:      #6a5f50;   /* Metadata, source names */
+  --ink-faint:    #968974;   /* Captions, off states */
+  --rule:         #c8bea7;   /* Borders, dividers */
+  --rule-soft:    #d8cfb8;   /* Inner item separators */
+  --blood:        #8a2017;   /* THE one accent — deepened from #a8211a for paper */
+  --blood-bright: #a8281e;   /* Tag fill / brand square on dark variants */
+  --blood-soft:   #f0d8d4;   /* Selection / alert tag background */
+  --army:         #5f6e26;   /* Micro-accent: CVE tags, scan badge */
+  --army-soft:    #dfe3c4;   /* CVE tag fill */
 }
 ```
 
-> **v0.2.0 change:** chalk tones lightened for WCAG AA compliance, blood and army
-> raised for better contrast. `color-scheme: dark` added for browser-level dark mode.
-> `--color-rule-soft` changed from `#221f1c` to `#2e2b27` (visible dashed rules).
+Legacy aliases (kept for backward compat — map to new tokens):
+```css
+  --color-bg:          var(--paper);
+  --color-chalk:       var(--ink);
+  --color-chalk-dim:   var(--ink-soft);
+  --color-chalk-faint: var(--ink-dim);
+  --color-blood:       var(--blood);
+  --color-blood-dim:   var(--blood-soft);
+  --color-army:        var(--army);
+  --color-steel:       var(--ink-faint);
+```
+
+> **v0.3.0 change:** Full light-mode redesign. cream-paper background replaces charcoal.
+> Oxblood deepened from `#c8281e` to `#8a2017` for paper contrast. Army darkened from
+> `#92a844` to `#5f6e26`. New `--paper-*` and `--ink-*` token families. `color-scheme: light`.
 
 ### Fonts
 
