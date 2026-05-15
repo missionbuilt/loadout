@@ -38,9 +38,9 @@ import TEMPLATE_HTML from "./skill-content/warmup-template.html";
 import { brandCss } from "./design";
 import { authHandler, type UserProps } from "./auth";
 
-const WARMUP_VERSION = "0.1.0";
-const SERVER_VERSION = "0.1.0";
-const ENGINE_VERSION = "v0.1.0"; // Bump this whenever warmup-template.html changes
+const WARMUP_VERSION = "0.2.0";
+const SERVER_VERSION = "0.2.0";
+const ENGINE_VERSION = "v0.2.0"; // Bump this whenever warmup-template.html changes
 
 const MODES = [
   {

@@ -135,9 +135,6 @@ mkdir -p .claude/skills
 cp -r /tmp/loadout/warmup .claude/skills/
 ```
 
-Or install the `.plugin` file directly in Claude Code or Cowork from
-[the Loadout releases page](https://github.com/missionbuilt/loadout/releases).
-
 ---
 
 ## Usage

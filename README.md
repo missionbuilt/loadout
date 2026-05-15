@@ -66,7 +66,7 @@ ls .claude/skills/
 # spotter  warmup
 ```
 
-Then in Claude Code or Cowork, trigger the skill with a phrase from its README — for example, *"run the spotter on this epic"* or *"warmup"* / *"morning brief."*
+Then in Claude Code or Cowork, trigger the skill with a phrase from its README — for example, *"run the spotter on this epic"* or *"run warmup"* / *"start my warmup."*
 
 ## Customizing for your team
 

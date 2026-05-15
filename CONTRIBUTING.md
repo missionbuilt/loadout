@@ -6,7 +6,7 @@ The Loadout is open source under MIT. Improvements to existing skills, new skill
 
 ## Quick orientation
 
-The Loadout lives at [github.com/missionbuilt/loadout](https://github.com/missionbuilt/loadout). Each skill is a self-contained subdirectory at the top level — `spotter/`, and others to come. Each skill carries its own `SKILL.md`, `README.md`, `ATTRIBUTION.md`, and `examples/` folder.
+The Loadout lives at [github.com/missionbuilt/loadout](https://github.com/missionbuilt/loadout). Each skill is a self-contained subdirectory at the top level — `spotter/`, `warmup/`, and others to come. Each skill carries its own `SKILL.md`, `README.md`, `ATTRIBUTION.md`, and `examples/` or reference folder.
 
 When a Claude Code or Cowork user installs a skill, they copy a single subdirectory into their `.claude/skills/`. The directory structure mirrors that contract.
 

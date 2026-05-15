@@ -50,7 +50,7 @@ export function renderLanding(args: LandingArgs): string {
       <div>Modes <strong>3</strong></div>
       <div>Sections <strong>5</strong></div>
       <div>License <strong>MIT</strong></div>
-      <div>Status <strong style="color: #7a8b3a;">Online</strong></div>
+      <div>Status <strong style="color: #92a844;">Online</strong></div>
     </div>
 
     <hr class="mb-divider">
@@ -96,7 +96,7 @@ export function renderLanding(args: LandingArgs): string {
 
     <section class="mb-section">
       <p class="mb-section-label">Tools exposed</p>
-      <h2 class="mb-h2">Seven tools, two resources.</h2>
+      <h2 class="mb-h2">Eight tools.</h2>
       <ul class="mb-tool-list">
         <li><code>warmup_get_skill</code><span>Returns the full SKILL.md framework</span></li>
         <li><code>warmup_list_modes</code><span>Returns the three modes with section descriptions</span></li>
