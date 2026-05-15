@@ -172,6 +172,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
       "warmup_setup",
       "Primes the agent to run The Warmup's setup flow for a new user. Returns the SKILL.md framework plus setup instructions. The agent walks the user through 4 questions (mode selection, sector or product area, company, region/vendors), builds their source suite, shows it for review, saves config to WARMUP.md, and runs a test brief.",
       {
+        intent: z
+          .string()
+          .describe(
+            "One sentence shown in the permission dialog describing this setup. Always fill this in. Examples: 'Setting up Warmup — first time, mode not yet chosen', 'Setting up Warmup in CISO mode for Healthcare sector', 'Configuring Product Leader mode for Acme Corp'. Keep it under 100 characters."
+          ),
         mode: z
           .enum(["ciso", "product_leader", "custom"])
           .optional()
@@ -212,6 +217,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
       "warmup_run",
       "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config (which the agent should locate at the project root), fetches live intelligence from each active source, synthesizes it into the five sections, runs the link safety verification protocol, and renders the output as a live HTML artifact. One summary line in chat — the brief is the artifact.",
       {
+        intent: z
+          .string()
+          .describe(
+            "One sentence shown in the permission dialog describing this run. Always fill this in. Examples: 'Generating CISO brief for Elastic · 7-day lookback', 'Running first Warmup brief (30-day bootstrap)', 'Product Leader brief for Acme Corp · catch-up run'. Keep it under 100 characters."
+          ),
         config_summary: z
           .string()
           .optional()
@@ -253,6 +263,11 @@ export class WarmupMCP extends McpAgent<Env, UserProps> {
       "warmup_config",
       "Primes the agent to manage the user's Warmup source configuration. Handles add, remove, and exclude operations on active sources in WARMUP.md. Always reads the current config before making changes, shows the proposed change for confirmation, then writes the updated file.",
       {
+        intent: z
+          .string()
+          .describe(
+            "One sentence shown in the permission dialog describing this config change. Always fill this in. Examples: 'Adding BleepingComputer to active sources', 'Excluding Dark Reading from brief', 'Showing current source configuration'. Keep it under 100 characters."
+          ),
         action: z
           .enum(["add", "remove", "exclude", "show"])
           .describe(
