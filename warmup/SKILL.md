@@ -132,13 +132,14 @@ Ask the user: *"Three brief types to choose from — which fits you best?
   · Product Leader — GM / PM intelligence brief
   · Custom — describe your own interests and I'll build a source suite around them"*
 
-- **CISO** is the flagship configuration. It comes pre-loaded with an
-  authoritative source suite curated for security executives. The user
-  answers four questions and the brief is ready.
+- **CISO** is the flagship configuration. Pre-loaded with an authoritative
+  source suite curated for security executives. Provide your company name
+  and sector, region, and peer vendors are looked up automatically — one
+  confirmation and you're done.
 - **Product Leader** is built for GMs, PMs, and anyone steering a product.
-  It asks six quick questions — including auto-generating a competitor list
-  for confirmation — then builds a source suite around company, competitor,
-  AI, and vertical-specific intelligence.
+  Provide your company name and competitors, vertical, region, and model
+  are researched automatically. Confirm what's right, answer two quick
+  follow-ups, and the brief is ready.
 - **Custom** builds a source suite from scratch around the user's described
   interests. Takes a few more questions.
 - The user can toggle between modes at any time via CONFIGURE.
@@ -151,88 +152,111 @@ Stored only in the local WARMUP.md, never sent anywhere. Save as `name:` in the 
 
 ### Step 2a — If CISO mode
 
-Ask these five questions. One at a time, not as a list dump.
+**Lead with company name. Auto-fill everything derivable. Ask only what can't be looked up.**
+
+Ask: *"What's your company name? I'll look up your sector, region, and typical peer vendors automatically. Or say 'skip' and I'll ask instead."*
+
+**If the user provides a company name:**
+
+Run a web search: `"[Company]" company overview industry sector headquarters cybersecurity`
+
+From the results, determine:
+- **Sector** — map to one of the Sector Sources table values below (Healthcare, Financial Services, Energy / Utilities, Technology, Government, Manufacturing / OT, Retail, Critical Infrastructure, or the user's own phrasing if it doesn't map cleanly)
+- **Region** — infer from HQ location. Map to: United States, European Union, APAC, Latin America, or Global if multinational
+- **Peer vendors** — based on the company's sector and known competitive landscape, suggest 3–5 security vendors they likely watch (e.g., a healthcare org watches CrowdStrike, Palo Alto, Microsoft Sentinel; a fintech watches Wiz, SentinelOne, Lacework)
+
+Present all findings in a single confirmation message:
+
+*"Here's what I found for [Company]:
+  · Sector: [X]
+  · Region: [Y]
+  · Peer vendors to track: [A, B, C]
+Does that look right? Edit anything or say 'looks good' to continue."*
+
+Accept natural-language edits. Update any field the user corrects. Save company, sector, and region to WARMUP.md.
+
+Then ask only the one remaining question:
+
+*"Last thing — anything you want to stay current on outside of work? Sports, markets, a hobby, a specific team? Totally optional."*
+Save to `special_interests:` in WARMUP.md. If skipped, omit the section.
+
+**If the user skips the company name:**
+
+Ask these four questions one at a time:
 
 1. *"What industry or sector is your organization in?"*
    Examples: *"Healthcare"*, *"Financial Services"*, *"Energy / Utilities"*, *"Technology"*, *"Government"*, *"Manufacturing / OT"*, *"Retail"*, *"Critical Infrastructure"*
-   Accept open-form. Map to the Sector Sources table below. If unclear, ask a clarifying follow-up.
+   Accept open-form. Map to the Sector Sources table below.
 
-2. *"What's your company name?"*
-   Examples: *"Elastic"*, *"Acme Health System"*, *"skip"*
-   Optional — used only to tailor threat actor context and personalize the brief header.
-   Stored only in your local WARMUP.md, never sent anywhere.
-
-3. *"What region are you primarily operating in?"*
+2. *"What region are you primarily operating in?"*
    Examples: *"United States"*, *"European Union"*, *"APAC"*, *"Latin America"*, *"Global"*
-   Used to prioritize regionally-relevant advisories and regulatory news.
-   Stored only in your local WARMUP.md, never sent anywhere.
 
-4. *"Any specific vendors or competitors you want to track?"*
+3. *"Any specific vendors or competitors you want to track?"*
    Examples: *"Palo Alto, CrowdStrike, Wiz"*, *"Microsoft Sentinel, Splunk, SentinelOne"*, *"skip"*
-   Accept a comma-separated list. These will be tracked in the Industry Intel section.
 
-5. *"Last one — anything you want to stay current on outside of work? Sports,
-   markets, a hobby, a specific team? Totally optional."*
-   Examples: *"SEC football, NBA"*, *"Formula 1"*, *"Pittsburgh Steelers"*, *"bourbon releases"*, *"markets and F1"*, *"skip"*
-   Stored only in your local WARMUP.md, never sent anywhere.
-   If the user skips, do not include the section. If they provide interests,
-   save them to WARMUP.md and pull a quick digest each run.
+4. *"Anything you want to stay current on outside of work? Totally optional."*
 
 Build the source suite from the CISO Source Suite tables below.
 Add sector-specific sources from the Sector Sources table.
 
 ### Step 2b — If Product Leader mode
 
-Ask these six questions. One at a time.
+**Lead with company name. Auto-fill sector, region, and competitors. Ask only what can't be looked up.**
 
-1. *"What's your company and what product or product area are you responsible for?"*
-   Accept open-form. Examples: "Acme Corp — security platform", "a B2C consumer app",
-   "a Series B developer tools company". Store company name
-   and product area separately in WARMUP.md.
+Ask: *"What's your company name — and what product or area are you responsible for? I'll look up your sector, region, and top competitors automatically. Or describe it yourself and I'll go from there."*
 
-2. *"Are you building B2B, B2C, or a platform / API that other developers build on?"*
-   This determines source weighting and the vertical-specific section. Accept natural phrasing:
-   "enterprise SaaS", "consumer app", "developer tools", "marketplace", "embedded finance", etc.
-   Map to one of: `b2b` / `b2c` / `platform` / `marketplace` / `hybrid`.
+Examples: *"Acme Corp, security platform"*, *"Blue Yonder, supply chain"*, *"skip — I'll describe it"*
 
-3. *"What industry or vertical is your customer in — or, if you're B2C, who is your user?"*
-   This drives the vertical-specific section. Common answers:
-   - Security → borrows from CISO source suite
-   - Fintech / payments → regulatory + banking ecosystem
-   - Healthcare / digital health → FDA, CMS, EHR ecosystem
-   - Consumer social / creator → platform APIs, creator economy
-   - Enterprise SaaS → CIO/CFO sentiment, procurement trends
-   - Developer tools → open source, GitHub ecosystem, Stack Overflow
-   - E-commerce / retail → Shopify/platform moves, consumer spending data
-   - Logistics / supply chain → freight indexes, geopolitical risk
-   If the user's vertical doesn't map cleanly, ask one follow-up: *"What does a bad week
-   look like for your business — what external event would most disrupt your roadmap?"*
-   Use the answer to infer the right vertical section.
+**If the user provides a company name:**
 
-4. *"Who are your top three to five direct competitors?"*
-   Before asking, generate a suggested competitor list based on the company and product area
-   already given. Present it: *"Based on [Company] in [product area], I'd start with:
-   [A, B, C, D, E]. Does that look right? Any to add, swap, or remove?"*
-   Accept edits in natural language. Save the confirmed list to WARMUP.md under a
-   `competitors:` field (comma-separated). This list is used every run to target
-   competitor-specific searches.
+Run a web search: `"[Company]" product overview market competitors B2B B2C industry`
 
-5. *"Which AI vendors or tools matter most to your roadmap right now?"*
-   Suggest a default set based on their product area, then let them edit. Default suggestion:
-   *"I'd default to tracking OpenAI, Anthropic, Google DeepMind, and Meta AI — plus any
-   specific tools your team uses (e.g., GitHub Copilot, Cursor, Mistral). Anything to
-   add or drop?"*
-   Save confirmed list to WARMUP.md under `ai_vendors:`.
+From the results, determine:
+- **Product focus** — what the company primarily builds and sells
+- **B2B / B2C / platform** — infer from business model. Map to: `b2b` / `b2c` / `platform` / `marketplace` / `hybrid`. If ambiguous, note it and ask.
+- **Vertical / customer industry** — who the company sells to. Map to the vertical source options below (Security, Fintech, Healthcare, Enterprise SaaS, Developer tools, E-commerce, Logistics, etc.)
+- **Region** — infer from HQ location
+- **Top competitors** — identify 3–5 direct competitors from search results
 
-6. *"Any executives, investors, analysts, or journalists you want to track personally?
-   And any non-work interests to add at the end of your brief?"*
-   Two-in-one close question to keep setup feeling light. Accept a name list for exec/analyst
-   tracking (saved as `track_people:`) and open-form for interests (saved as `special_interests:`).
-   Both are optional — skip gracefully if the user passes.
+Present all findings in a single confirmation message:
 
-After collecting answers, auto-generate the competitor list confirmation (Question 4 above)
-before moving to Step 3. This is the one moment where Claude proposes content rather than
-just collecting it — make the suggestion specific and credible.
+*"Here's what I found for [Company]:
+  · Product: [what they build]
+  · Model: [B2B / B2C / platform]
+  · Vertical: [customer industry]
+  · Region: [Y]
+  · Top competitors: [A, B, C, D]
+Does that look right? Edit anything or say 'looks good' to continue."*
+
+Accept natural-language edits. If B2B/B2C is still unclear after the search, ask: *"One quick one — are you selling to businesses, consumers, or is it a platform other developers build on?"*
+
+If the user's vertical doesn't map cleanly, ask: *"What does a bad week look like for your business — what external event would most disrupt your roadmap?"* Use the answer to infer the right vertical section.
+
+Then ask only the two remaining questions:
+
+*"Which AI vendors or tools matter most to your roadmap? I'd default to OpenAI, Anthropic, Google DeepMind, and Meta AI — plus any tools your team uses (Copilot, Cursor, Mistral). Anything to add or drop?"*
+Save confirmed list to `ai_vendors:` in WARMUP.md.
+
+*"Any executives, investors, analysts, or journalists you want to track? And any non-work interests for the end of your brief? Both optional."*
+Save exec/analyst names to `track_people:` and interests to `special_interests:`.
+
+**If the user skips the company name:**
+
+Ask these five questions one at a time:
+
+1. *"What are you building and who are you building it for?"*
+   Accept open-form. Infer product focus, B2B/B2C, and vertical from the answer.
+
+2. *"What industry or vertical is your customer in — or, if B2C, who is your user?"*
+   Map to the vertical source options below.
+
+3. *"Who are your top three to five direct competitors?"*
+   Generate a suggested list based on what they've described. Present: *"Based on what you've told me, I'd start with: [A, B, C]. Does that look right?"*
+
+4. *"Which AI vendors or tools matter most to your roadmap?"*
+   Suggest the standard default set and let them edit.
+
+5. *"Any execs or analysts to track personally? Any non-work interests?"*
 
 ### Step 2d — If Custom mode
 
