@@ -43,8 +43,8 @@ const SERVER_VERSION = "1.0.0";
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.1";
-const WARMUP_ENGINE_VERSION = "v0.3.1";
+const WARMUP_VERSION = "0.3.3";
+const WARMUP_ENGINE_VERSION = "v0.3.3";
 
 const WARMUP_MODES = [
   {
@@ -242,9 +242,9 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `## How to run setup\n\n` +
                 `1. Ask which mode fits the user (CISO / Product Leader / Custom) if not already known.\n` +
                 `2. Ask the user's name for the brief header.\n` +
-                `3. Ask for company name FIRST — then run a web search to auto-determine sector, region, and competitors. Present all findings in one confirmation message. Ask only what the search could not determine.\n` +
+                `3. Ask for company name FIRST — then call the WebSearch tool to auto-determine sector, region, and competitors. Present all findings in one confirmation message. Ask only what the search could not determine.\n` +
                 `4. Build the source suite based on confirmed answers. Show it to the user for review.\n` +
-                `5. Save config to WARMUP.md at their project root using the ## WARMUP.md Config Format section in SKILL.md below.\n` +
+                `5. Use the Write file tool to save WARMUP.md at the user's project root. Use the schema in the ## WARMUP.md Config Format section of SKILL.md below — do not invent fields or omit required ones. Include showQuote: true in the Profile section.\n` +
                 `6. Run a test brief using the saved config. Deliver it as a Cowork artifact.\n\n` +
                 `## CRITICAL: Question order for CISO and Product Leader modes\n\n` +
                 `After company confirmation, you MUST still ask the follow-up questions below. Do not skip them — they cannot be looked up.\n\n` +
@@ -295,17 +295,26 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `**Engine version: ${WARMUP_ENGINE_VERSION}**\n\n` +
                 `${configNote}\n\n` +
                 `## How to generate the brief\n\n` +
-                `1. Read WARMUP.md from the project root (or use the provided config_summary).\n` +
-                `2. Check for an existing artifact using list_artifacts. If \"the-warmup\" exists, read the first 10 lines of its html_path — if the file starts with <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> skip to step 4. Otherwise call warmup_get_template now.\n` +
-                `3. If no existing artifact OR the engine version does not match ${WARMUP_ENGINE_VERSION}: call warmup_get_template (MCP tool call — do NOT read warmup-template.html from disk, do NOT use training-data memory of the HTML). Hold the returned HTML in context.\n` +
-                `4. For each active source, fetch recent content using the adaptive lookback window. Reject any item older than the lookback start date before routing to sections.\n` +
+                `1. Use the Read file tool (not bash) to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts first — the html_path from "the-warmup" reveals the workspace folder, and WARMUP.md lives there. If no artifact and no WARMUP.md, run warmup_setup first.\n` +
+                `2. Artifact and engine check — call list_artifacts.\n` +
+                `   a) "the-warmup" does not exist → first run: call warmup_get_template (MCP tool — never read from disk). Hold the HTML. Proceed to step 4.\n` +
+                `   b) "the-warmup" exists → use the Read file tool to read the first 10 lines of html_path.\n` +
+                `      - File cannot be read (path gone, session cleared) → treat as first run: call warmup_get_template. Proceed to step 4.\n` +
+                `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → version match (Path A): do NOT call warmup_get_template. Proceed to step 4.\n` +
+                `      - First 10 lines contain any other version or no marker → engine is stale (Path B): call warmup_get_template. Proceed to step 4.\n` +
+                `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
+                `3. CRITICAL — template source: The HTML template is ONLY available via the warmup_get_template MCP tool call. Do NOT use the Grep tool to search for warmup-template.html. Do NOT use the Read tool to read warmup-template.html from disk. Do NOT reconstruct the HTML from training-data memory. Any of those paths produces the wrong design and breaks PDF export.\n` +
+                `4. For each active source, call the WebSearch tool to fetch recent content using the adaptive lookback window. Reject any item where item.date < lookback_start before routing to sections.\n` +
                 `5. Run the link safety verification protocol on all URLs before including them.\n` +
-                `6. Synthesize content into sections. Build WARMUP_DATA with all required fields: config.showQuote: true, config.scanTime: \"HH:MM TZ\" (current time), safety.domains populated.\n` +
-                `7. Write the template HTML to disk, inject WARMUP_DATA using the Edit tool (Path B), then call update_artifact / create_artifact. One summary line in chat — the brief is the artifact.\n\n` +
-                `## CRITICAL — template source\n\n` +
-                `The HTML template is ONLY available via the warmup_get_template MCP tool call. ` +
-                `Do NOT search for warmup-template.html, do NOT read it from disk, do NOT reconstruct it from memory. ` +
-                `Any of those paths produces the wrong design and breaks PDF export.\n\n` +
+                `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
+                `   - config.showQuote: true (JSON boolean — required, not optional)\n` +
+                `   - config.scanTime: current generation time as "HH:MM TZ" (use WARMUP.md timezone; default UTC if not set)\n` +
+                `   - config.vendors: copy verbatim from WARMUP.md vendors field; write "" if blank, never omit\n` +
+                `   - safety.domains: one entry per active source — required; empty array means safety panel does not render\n` +
+                `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks)\n` +
+                `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
+                `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
+                `7. Write the template HTML to disk using the Write tool. Then use the Read file tool to read the file you just wrote (the Edit tool requires a prior Read). Then use the Edit tool to locate the exact placeholder line: window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B) and replace it with: window.WARMUP_DATA = <full WARMUP_DATA JSON>; Finally call update_artifact (existing artifact) or create_artifact (first run). One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +
@@ -333,10 +342,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       },
       async ({ action, source }) => {
         const actionInstructions: Record<string, string> = {
-          show: "Read WARMUP.md and display the current active sources, quiet sources, and excluded sources in a clean summary.",
-          add: `Add "${source ?? "[source]"}" to the user's active sources in WARMUP.md. Ask for the URL and tier (Authoritative / Research / News / Vendor) if not provided. Show the proposed addition for confirmation before writing.`,
-          remove: `Remove "${source ?? "[source]"}" from WARMUP.md entirely. Show the current entry and confirm with the user before writing.`,
-          exclude: `Mark "${source ?? "[source]"}" as excluded in WARMUP.md (move to the Excluded Sources section). It will remain listed but be skipped in future briefs. Confirm before writing.`,
+          show: "Use the Read file tool to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts — the html_path from 'the-warmup' reveals the workspace folder, and WARMUP.md lives there. Display current active, quiet, and excluded sources in a clean summary.",
+          add: `Use the Read file tool to read WARMUP.md first. Then add "${source ?? "[source]"}" to the user's active sources. Ask for the URL and tier (Authoritative / Research / News / Vendor) if not provided. Format: "- Name | URL | active". Show the proposed addition for confirmation before writing.`,
+          remove: `Use the Read file tool to read WARMUP.md first. Then remove "${source ?? "[source]"}" from WARMUP.md entirely. Show the current entry and confirm with the user before writing.`,
+          exclude: `Use the Read file tool to read WARMUP.md first. Then mark "${source ?? "[source]"}" as excluded by moving it to the ## Excluded Sources section with format: "- Name | URL | excluded". Confirm before writing.`,
         };
 
         return {
@@ -347,10 +356,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `# The Warmup — Config\n\n` +
                 `${actionInstructions[action]}\n\n` +
                 `## Rules\n\n` +
-                `- Always read the current WARMUP.md before making any changes.\n` +
+                `- Always use the Read file tool (not bash) to read the current WARMUP.md before making any changes.\n` +
                 `- Show the proposed change clearly before writing.\n` +
                 `- Preserve all other config fields — only touch the section being modified.\n` +
-                `- Update the \`updated\` field to today's date after any write.\n\n` +
+                `- You MUST update the \`updated\` field to today's date (YYYY-MM-DD) after any write. This is required — it drives the source emergence check schedule.\n\n` +
                 `## SKILL.md\n\n${WARMUP_SKILL_MD}`,
             },
           ],

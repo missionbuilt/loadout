@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.3.0
+version: 0.3.3
 part_of: The Loadout
 ---
 
@@ -158,7 +158,7 @@ Ask: *"What's your company name? I'll look up your sector, region, and typical p
 
 **If the user provides a company name:**
 
-Run a web search: `"[Company]" company overview industry sector headquarters cybersecurity`
+Call the **WebSearch tool** with query: `"[Company]" company overview industry sector headquarters cybersecurity`
 
 From the results, determine:
 - **Sector** — map to one of the Sector Sources table values below (Healthcare, Financial Services, Energy / Utilities, Technology, Government, Manufacturing / OT, Retail, Critical Infrastructure, or the user's own phrasing if it doesn't map cleanly)
@@ -215,7 +215,7 @@ Examples: *"Acme Corp, security platform"*, *"Blue Yonder, supply chain"*, *"ski
 
 **If the user provides a company name:**
 
-Run a web search: `"[Company]" product overview market competitors B2B B2C industry`
+Call the **WebSearch tool** with query: `"[Company]" product overview market competitors B2B B2C industry`
 
 From the results, determine:
 - **Product focus** — what the company primarily builds and sells
@@ -271,7 +271,7 @@ Ask these five questions one at a time:
 
 5. *"Any execs or analysts to track personally? Any non-work interests?"*
 
-### Step 2d — If Custom mode
+### Step 2c — If Custom mode
 
 Ask: *"Describe what you want in your warmup. Be specific — topics,
 companies, industries, markets, regions, anything that matters to how you start
@@ -366,8 +366,7 @@ window and note it in the chat summary line.
 
 ### Step 1 — Read config and compute lookback window
 
-Read `WARMUP.md` from the project root. If not found, stop and prompt for
-SETUP.
+Use the **Read file tool** (not bash) to read `WARMUP.md` from the user's project root. If you do not know the project root path, call `list_artifacts` first — the `html_path` from the `"the-warmup"` artifact reveals the workspace folder, and `WARMUP.md` lives in that same folder. If no artifact exists and no WARMUP.md is found, stop and prompt for SETUP.
 
 Note: mode (CISO or Custom), user profile, active source list, excluded
 sources, `last_run` date, `window_override` if set.
@@ -432,6 +431,7 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
   - **Version missing or mismatch (anything other than `v0.3.3`, including `v0.3.1`, `v0.3.2`, or no marker):** Engine is stale — invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Path B / Step 4).
 
 Output this single line in chat, then proceed to Step 2:
+You MUST output this exact line in chat before proceeding to Step 2 — do not skip it:
 *"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
 
 ### Step 2 — Fetch phase
@@ -457,7 +457,7 @@ Search using compound batch queries — not one query per source. This cuts fetc
 | Social | X + r/netsec + LinkedIn | `[sector] security debate OR disclosure site:reddit.com/r/netsec after:YYYY-MM-DD` |
 | Interests | One per special interest | Targeted query per interest (e.g., `Ironman 70.3 results 2026`) |
 
-Replace `YYYY-MM-DD` with the computed lookback start date. Adapt queries to the user's sector and profile (e.g., a Healthcare CISO adds `site:hhs.gov hc3` to the gov batch). Run Gov, Research, CVE, News, and Market batches concurrently. Synthesize only after all batches complete.
+Replace `YYYY-MM-DD` with the computed lookback start date. Adapt queries to the user's sector and profile (e.g., a Healthcare CISO adds `site:hhs.gov hc3` to the gov batch). Run Gov, Research, CVE, News, Market, and Interests batches **all concurrently** — fire all batches in a single parallel pass, then synthesize after all return. Do not wait for one batch before starting the next.
 
 **Record for each found item:** source name, trust tier, URL, headline, 2–3 sentence summary, relevant tags (CVE ID, MITRE TTP ID, vendor name, M&A flag, regulatory flag, community flag).
 
@@ -562,15 +562,9 @@ Within a section, order by relevance to the user's profile, not by source tier.
 
 ### Step 3b — Special Interests (optional)
 
-If `special_interests` is set in `WARMUP.md`, run an additional fetch pass
-for each listed interest. Use general news and sports/topic sources appropriate
-to the interest — ESPN, AP, Reuters, official league sites, trade publications,
-etc. Pull 1–3 items per interest. Do not use security-tier sourcing for
-personal interests; label all items with `○` (Tier 3 / Community/News).
+If `special_interests` is set in `WARMUP.md`, the Interests batch was already fetched concurrently in Step 2. Do not run a second fetch here.
 
-Render as a **Special Interests** section in the artifact, positioned after
-AI Intelligence (or Industry Intel if the AI section is not present) and
-before Social Signal.
+Render the results from the Step 2 Interests batch as a **Special Interests** section in the artifact, positioned after AI Intelligence (or Industry Intel if the AI section is not present) and before Social Signal. Use general news and sports/topic sources — label all items with `○` (Tier 3 / Community/News).
 
 Tag format: use `[NBA]`, `[SEC FOOTBALL]`, `[F1]`, etc. — whatever matches
 the interest. Keep summaries conversational — this is the coffee reading, not
@@ -680,14 +674,15 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     "sourcesQuiet": 4,
     "showQuote": true,   // REQUIRED — must be true (JSON boolean). Omitting or setting false hides the daily quote.
     "scanTime": "HH:MM TZ", // REQUIRED — set to current generation time in 24-hr user-timezone format (e.g. "06:14 ET").
+                              // Use timezone from WARMUP.md; default to UTC and write "HH:MM UTC" if not set.
                               // THE single timestamp source — populates masthead, signal bar, safety panel, PDF.
                               // Without this, Generated cell shows "—" and scan timestamp is blank.
-    // Optional
+    // Optional fields — include even if blank (write "" not omit)
     "region": "Global",
     "timezone": "ET",
-    "vendors": "CrowdStrike, Palo Alto",
+    "vendors": "CrowdStrike, Palo Alto",  // Copy verbatim from WARMUP.md vendors field. Write "" if blank — do not omit.
     "interests": "",
-    "totalLinks": 18
+    "totalLinks": 18  // Count of verified-safe clickable URLs in the rendered brief. Must equal safety.totalUrls.
   },
   "sections": [
     {
@@ -725,22 +720,26 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     }
   ],
   "sources": [
+    // status: "active" | "quiet" | "excluded" — exact strings only, no other values permitted.
+    // ct: "N items" for active sources (e.g. "2 items"), "—" for quiet sources, "excluded" for excluded sources.
     {"nm": "CISA Alerts & Advisories", "dom": "cisa.gov", "dot": "d1", "ct": "2 items", "status": "active"},
     {"nm": "NSA Advisories", "dom": "nsa.gov", "dot": "d1", "ct": "—", "status": "quiet"}
   ],
   "safety": {
-    // domains: ONE entry per active source. Populated from Step 2 checks — never fabricated.
-    // verdict values:
+    // domains: REQUIRED — one entry per active source. Populated from Step 2 checks — never fabricated.
+    // Empty array = safety panel does not render. This field must not be omitted or left empty.
+    // verdict values (exact strings):
     //   "ALLOWLISTED"   — domain matched the Step A allowlist (no external call made)
     //   "CLEAN"         — domain passed URLScan.io Step B check (explicitly clean verdict)
     // Flagged domains do NOT appear here — they go in flagged_urls and are excluded from the brief.
-    "domains": [{"domain": "cisa.gov", "verdict": "ALLOWLISTED"}], // REQUIRED — one entry per active source. Empty array = safety panel does not render.
     // INTEGRITY RULE: domains.length MUST equal the number of active sources exactly.
-    // Flagged domains do NOT appear here — they go in flagged_urls and are excluded from the brief.
-    "totalUrls": 12,   // total URL count across all items
+    "domains": [{"domain": "cisa.gov", "verdict": "ALLOWLISTED"}],
+    "totalUrls": 12,   // REQUIRED — count of verified-safe clickable URLs in the rendered brief. Must equal config.totalLinks.
     "flagged": 0,
     "scannedAt": ""   // Empty string — renderer uses scanTime. Fill only to override.
   },
+  // dates: REQUIRED — one entry per item using the item's hl string (or a unique prefix) as the key.
+  // Used by the template to render per-item publication dates. Empty object = no dates rendered.
   "dates": {"Article headline prefix": "YYYY-MM-DD"}
 }
 ```
@@ -822,8 +821,7 @@ After a successful render, update the `last_run` field in `WARMUP.md` to
 today's date in `YYYY-MM-DD` format. This is the record the next run uses
 to compute its lookback window.
 
-Do not update `last_run` if the run failed or produced no items — a failed
-run should not advance the window and risk skipping content.
+Do not update `last_run` if the run failed, produced no items, or produced fewer than 3 items total across all sections — treat these as degraded runs and preserve the window so the next run has a wider lookback to recover missing content.
 
 ---
 
@@ -1392,7 +1390,7 @@ artifact carries its source's tier indicator. No exceptions.
 
 ## Artifact Design Spec
 
-The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md` in this directory. Consult it only when building the artifact from scratch on a first run. It is not needed for standard daily runs.
+The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md`. It is not accessible via any MCP tool and cannot be read during a Cowork session. It is also not needed during normal operation: Path B always starts from the engine shell returned by `warmup_get_template`, which already embeds all design tokens. Do not attempt to read SKILL-DESIGN.md at runtime.
 
 ---
 
@@ -1493,6 +1491,8 @@ findings. When the well is dry, say so. "No new research from Tier 2 sources
 this week" is an honest and useful line.
 
 **6. Do not use army green fills.**
+> Note: anti-patterns 6–8 apply only when troubleshooting a corrupted artifact or building a design test outside the normal run flow. Under normal operation, the engine shell from `warmup_get_template` already enforces all visual rules — you do not make CSS decisions.
+
 Pills, dots, small marks only. Not section backgrounds. Not banners. The
 design skill has flagged this twice. It reads wrong and breaks the visual
 contract.

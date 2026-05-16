@@ -27,7 +27,9 @@ track_people:               # optional: exec, analyst, investor, or journalist n
 
 ## Active Sources
 # Add your sources here. Claude builds this list during SETUP.
-# Format: Name | URL | active|quiet
+# Format: - Name | URL | active
+# "quiet" is a runtime state computed per-run, not written here.
+# To exclude a source, move it to ## Excluded Sources with: - Name | URL | excluded
 
 ### Tier 1 — Authoritative
 # (Claude populates this at SETUP based on your mode and sector)
