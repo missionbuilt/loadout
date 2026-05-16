@@ -676,7 +676,7 @@ Lens name + category mapping (use exactly, in order):
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
               `## How to run this review\n\n` +
-              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for review" }) to load the full lens framework with sub-checks. Do this before grading.\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading Spotter review framework" }) to load the full lens framework with sub-checks. Do this before grading.\n` +
               `2. Walk all nine lenses in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
               `3. Lens 1 carries disproportionate weight (foundation — 8 sub-checks). Lens 9 is a gate: ✗ Missing on any B2B feature with agent action, data access, or new permission surfaces caps the verdict at Not ready.\n` +
               `4. Voice rule: every flag uses "you could strengthen this by..." framing — never "you missed..." or "this is wrong."\n` +
@@ -713,7 +713,7 @@ Lens name + category mapping (use exactly, in order):
               `# The Spotter v${SPOTTER_VERSION} — Build Mode\n\n` +
               `A PM is building an epic for: **${feature}**.\n\n` +
               `## How to run build mode\n\n` +
-              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for build mode" }) to load the lens framework and sub-checks before starting.\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading Spotter build framework" }) to load the lens framework and sub-checks before starting.\n` +
               `2. Walk the PM through the nine lenses with guiding questions. Ask — don't lecture.\n` +
               `3. Linger on Lens 1: empathy (A), current state (B), why-not-solved (C), no solutioning (D), scope/value framing (E), assumptions surfaced (F), alternatives considered (G), epistemic openness (H). Get real answers on all eight sub-checks before moving to Lens 2.\n` +
               `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
@@ -742,7 +742,7 @@ Lens name + category mapping (use exactly, in order):
               `# The Spotter v${SPOTTER_VERSION} — Iterate Mode\n\n` +
               `A PM has a partial draft they want to push forward.\n\n` +
               `## How to run iterate mode\n\n` +
-              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for iterate mode" }) to load the lens framework and sub-checks before engaging.\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading Spotter framework for iteration" }) to load the lens framework and sub-checks before engaging.\n` +
               `2. Scan the draft for which lenses have content — engage only those.\n` +
               `3. For each lens with content: acknowledge what's there, ask one or two specific questions that push the section forward, offer structure where the PM is stuck.\n` +
               `4. For lenses not yet drafted, ask: "Have you started thinking about [lens]? I can help you frame it."\n` +

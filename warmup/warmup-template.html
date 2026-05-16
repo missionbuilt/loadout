@@ -908,7 +908,7 @@
     align-items: center;
     gap: 6px;
   }
-  .btn-configure, .btn-save-pdf {
+  .btn-configure {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 500;
@@ -921,7 +921,7 @@
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
   }
-  .btn-configure:hover, .btn-save-pdf:hover, .btn-fullscreen:hover { color: var(--blood); border-color: var(--blood); }
+  .btn-configure:hover, .btn-fullscreen:hover { color: var(--blood); border-color: var(--blood); }
   .btn-fullscreen {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -935,6 +935,33 @@
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
   }
+  /* ── Export dropdown ── */
+  .tb-export { position: relative; }
+  .tb-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%; right: 0;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-top: none;
+    z-index: 300;
+    min-width: 160px;
+  }
+  .tb-dropdown.open { display: block; }
+  .tb-dropdown button {
+    display: block; width: 100%;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-dim); background: transparent;
+    border: none; border-bottom: 1px solid var(--rule);
+    padding: 10px 16px; text-align: left; cursor: pointer;
+    white-space: nowrap; transition: color 0.1s, background 0.1s;
+  }
+  .tb-dropdown button:last-child { border-bottom: none; }
+  .tb-dropdown button:hover { color: var(--ink); background: var(--paper-tint); }
+  .tb-dropdown button.dd-primary { color: var(--blood); }
+  .tb-dropdown button.dd-primary:hover { color: var(--paper); background: var(--blood); }
+
   /* ── Presentation mode (CSS fallback when native fullscreen is blocked) ── */
   html.presentation-mode {
     position: fixed;
@@ -1200,49 +1227,6 @@
   .profile-current-toggle:hover .profile-current-caret { color: var(--blood); }
   .profile-fields-wrap { padding-top: 14px; }
 
-  /* Save PDF modal */
-  @keyframes btn-confirm {
-    0%   { border-color: var(--blood); color: var(--ink); background: var(--blood-soft); transform: scale(0.96); }
-    60%  { border-color: var(--blood); color: var(--ink); background: var(--paper-warm); transform: scale(1.01); }
-    100% { border-color: var(--rule); color: var(--ink-soft); background: transparent; transform: scale(1); }
-  }
-  .save-modal-btns {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  .save-modal-btn {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    padding: 16px 16px;
-    cursor: pointer;
-    background: var(--paper-card);
-    border: 1px solid var(--rule);
-    color: var(--ink-soft);
-    transition: color 0.12s, border-color 0.12s, background 0.12s;
-    text-align: center;
-  }
-  .save-modal-btn:hover { color: var(--blood); border-color: var(--blood); background: var(--blood-soft); }
-  .save-modal-btn.btn-clicked { animation: btn-confirm 0.45s ease-out forwards; pointer-events: none; }
-  .save-modal-btn .smb-icon { display: block; font-size: 22px; margin-bottom: 8px; color: var(--blood); }
-  .save-modal-btn .smb-label { display: block; margin-bottom: 4px; }
-  .save-modal-btn .smb-desc {
-    display: block; font-size: 10px; letter-spacing: 0.06em;
-    color: var(--ink-faint);
-    text-transform: none; font-weight: 400;
-  }
-  .save-modal-note {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-faint);
-    text-align: center;
-  }
 
   #brief-ts {
     font-family: var(--font-mono);
@@ -1383,7 +1367,7 @@
       gap: 6px;
       margin-bottom: 10px;
     }
-    .btn-configure, .btn-save-pdf, .btn-fullscreen {
+    .btn-configure, .tb-btn, .btn-fullscreen {
       font-size: 9px;
       padding: 3px 8px;
     }
@@ -1414,7 +1398,13 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
 <header class="masthead">
   <div class="masthead-controls">
     <button type="button" class="btn-configure" id="btn-configure">Configure</button>
-    <button type="button" class="btn-save-pdf" id="btn-save-pdf">Save PDF</button>
+    <div class="tb-export">
+      <button class="tb-btn save" onclick="toggleExport(event)">Export ▾</button>
+      <div class="tb-dropdown" id="export-dd">
+        <button class="dd-primary" onclick="exportHTML();closeExport()">Export HTML</button>
+        <button onclick="window.print();closeExport()">Print / PDF</button>
+      </div>
+    </div>
     <button type="button" class="btn-fullscreen" id="btn-fullscreen" aria-label="Enter fullscreen">Fullscreen</button>
   </div>
   <button type="button" class="btn-fullscreen-exit" id="btn-fullscreen-exit" aria-label="Exit fullscreen">Exit Fullscreen</button>
@@ -2399,18 +2389,54 @@ btn.textContent = 'Loading…';
       item.appendChild(resultDiv);
     }
   }); } catch(e) { console.error('[Warmup:DeepDive]', e); }
-  // ── SAVE PDF MODAL ──
+  // ── EXPORT ──
   try { (function () {
-    const btn = document.getElementById('btn-save-pdf');
-    if (!btn) return;
-
+    // Apply print theme if configured
     if (WARMUP_CONFIG.pdfTheme === 'light') document.body.classList.add('print-light');
-    const prfCompany = document.getElementById('prf-company');
-    if (prfCompany && WARMUP_CONFIG.company) prfCompany.textContent = WARMUP_CONFIG.company;
 
-    // ── Zero-dependency text PDF builder ──
-    // Generates valid PDF/1.4 bytes directly — no CDN, no canvas, no dialogs.
-    // Output: selectable text, Helvetica, A4.
+    function toggleExport(e) {
+      e && e.stopPropagation();
+      var dd = document.getElementById('export-dd');
+      if (dd) dd.classList.toggle('open');
+    }
+    function closeExport() {
+      var dd = document.getElementById('export-dd');
+      if (dd) dd.classList.remove('open');
+    }
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest || !e.target.closest('.tb-export')) closeExport();
+    });
+
+    function exportHTML() {
+      const now  = new Date();
+      const tz   = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
+      const modeAliases = { 'Product Leader': 'pl', 'CISO': 'ciso', 'Custom': 'custom' };
+      const modeRaw = WARMUP_CONFIG.mode || '';
+      const mode = modeAliases[modeRaw] || modeRaw.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
+      let isoDate = '';
+      try {
+        const isoFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz });
+        isoDate = isoFmt.format(now);
+      } catch (e) { isoDate = ''; }
+      const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}.html`;
+      const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([html], { type: 'text/html' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Expose to inline onclick handlers
+    window.toggleExport = toggleExport;
+    window.closeExport  = closeExport;
+    window.exportHTML   = exportHTML;
+    /* buildBriefPDF removed — export now uses exportHTML() for HTML download
     function buildBriefPDF(withDives) {
       const PW = 595.28, PH = 841.89; // A4 in points
       const ML = 54, MR = 54, MT = 62, MB = 54;
@@ -2948,109 +2974,9 @@ btn.textContent = 'Loading…';
       let pos = 0;
       for (const b of parts) { out.set(b, pos); pos += b.length; }
       return out;
-    }
+    } */ // end buildBriefPDF (removed)
 
-    // ── Save modal (same pattern as Configure) ──
-    const sq = `<span style="display:inline-block;width:9px;height:9px;background:var(--color-blood);flex-shrink:0;vertical-align:middle;position:relative;top:-1px;"></span>`;
-    const overlay = document.createElement('div');
-    overlay.className = 'profile-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-labelledby', 'save-dialog-title');
-
-    const card = document.createElement('div');
-    card.className = 'profile-card';
-    card.style.maxWidth = '480px';
-    card.innerHTML =
-      `<button type="button" class="profile-close-btn" id="save-close-btn" aria-label="Close save panel">✕</button>` +
-      `<div class="profile-card-title" id="save-dialog-title">${sq}&nbsp; Save PDF</div>` +
-      `<div class="save-modal-btns">
-        <button type="button" class="save-modal-btn" id="pdf-with-dives">
-          <span class="smb-icon" aria-hidden="true">⎙</span>
-          <span class="smb-label">With Deep Dives</span>
-          <span class="smb-desc">The full report plus any deep dives you've already opened on screen.</span>
-        </button>
-        <button type="button" class="save-modal-btn" id="pdf-without-dives">
-          <span class="smb-icon" aria-hidden="true">⎙</span>
-          <span class="smb-label">Articles Only</span>
-          <span class="smb-desc">The full report — every section and source — without any deep dives.</span>
-        </button>
-      </div>` +
-      `<div class="save-modal-note">Saves what's currently on screen</div>`;
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-
-    let _saveTrigger = null;
-    function openSave() { _saveTrigger = document.activeElement; overlay.classList.add('visible'); setTimeout(() => card.querySelector('#save-close-btn').focus(), 50); }
-    function closeSave() { overlay.classList.remove('visible'); if (_saveTrigger && _saveTrigger.focus) _saveTrigger.focus(); _saveTrigger = null; }
-
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeSave(); });
-    card.querySelector('#save-close-btn').addEventListener('click', closeSave);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay.classList.contains('visible')) { e.stopPropagation(); closeSave(); } });
-
-    btn.addEventListener('click', openSave);
-
-    // ── Trigger download ──
-    async function doSave(withDives) {
-      closeSave();
-      const origText = btn.textContent;
-      btn.textContent = '⏳ Compiling…';
-      btn.disabled = true;
-      await new Promise(r => setTimeout(r, 30));
-
-      try {
-        const pdfBytes = buildBriefPDF(withDives);
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        const now  = new Date();
-        const tz   = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-        let fnDate = '', fnTime = '', fnTz = '';
-        try {
-          const df = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: tz });
-          const tf = new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
-          fnDate = df.format(now).replace(/ /g, '-');
-          fnTime = tf.format(now).replace(/[:\s]/g, '-').replace('--', '-');
-          fnTz   = tz.replace(/\//g, '-').replace(/_/g, '');
-        } catch (e) { /* ignore timezone formatting errors */ }
-        const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
-        const modeAliases = { 'Product Leader': 'pl', 'CISO': 'ciso', 'Custom': 'custom' };
-        const modeRaw = WARMUP_CONFIG.mode || '';
-        const mode = modeAliases[modeRaw] || modeRaw.replace(/[^a-z0-9]/gi, '').slice(0, 8).toLowerCase();
-        // ISO date YYYY-MM-DD in user's timezone — sortable, unambiguous, no time or tz suffix
-        let isoDate = '';
-        try {
-          const isoFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz });
-          isoDate = isoFmt.format(now); // "2026-05-15"
-        } catch (e) { isoDate = fnDate.replace(/[^0-9\-]/g, '') || ''; }
-        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}${fnTime ? '-' + fnTime : ''}.pdf`;
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error('PDF build failed:', err);
-        btn.textContent = '✗ Failed';
-        setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
-        return;
-      }
-      btn.textContent = '✓ Saved';
-      setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 1800);
-    }
-    function animateThenSave(btnEl, withDives) {
-      btnEl.classList.add('btn-clicked');
-      btnEl.addEventListener('animationend', () => {
-        btnEl.classList.remove('btn-clicked');
-        doSave(withDives);
-      }, { once: true });
-    }
-    card.querySelector('#pdf-with-dives').addEventListener('click',    function() { animateThenSave(this, true);  });
-    card.querySelector('#pdf-without-dives').addEventListener('click', function() { animateThenSave(this, false); });
-
-  })(); } catch(e) { console.error('[Warmup:SavePDF]', e); }
+  })(); } catch(e) { console.error('[Warmup:Export]', e); }
 
   // ── FULLSCREEN ──
   // Attempts native Fullscreen API first. Artifacts run inside iframes, which
