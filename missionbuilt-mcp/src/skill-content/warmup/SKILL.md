@@ -427,9 +427,9 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
 - Note the `html_path` from the response.
 - Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
 - **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — invoke the `warmup_get_template` MCP tool now (tool call, not a file read) and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
-- **If the first 10 lines are readable:** look for `<!-- warmup-engine: v0.3.2 -->` in those lines (exact string match — the current engine version is **v0.3.2**).
-  - **Version matches (`v0.3.2` found):** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, locate the `<script id="warmup-data">` block, replace the entire block (from the opening `<script id="warmup-data">` tag through the closing `</script>`) with the new block containing your WARMUP_DATA JSON, and write the full file back with the Write tool (Path A).
-  - **Version missing or mismatch (anything other than `v0.3.2`, including `v0.3.1` or no marker):** Engine is stale — invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Path B / Step 4).
+- **If the first 10 lines are readable:** look for `<!-- warmup-engine: v0.3.3 -->` in those lines (exact string match — the current engine version is **v0.3.3**).
+  - **Version matches (`v0.3.3` found):** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, locate the `<script id="warmup-data">` block, replace the entire block (from the opening `<script id="warmup-data">` tag through the closing `</script>`) with the new block containing your WARMUP_DATA JSON, and write the full file back with the Write tool (Path A).
+  - **Version missing or mismatch (anything other than `v0.3.3`, including `v0.3.1`, `v0.3.2`, or no marker):** Engine is stale — invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Path B / Step 4).
 
 Output this single line in chat, then proceed to Step 2:
 *"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
@@ -540,6 +540,18 @@ After all batches complete, output in chat:
 
 Output in chat before starting synthesis:
 *"⚡ Synthesizing [N] items across [M] sections..."*
+
+**DATE FILTER — enforce before writing any item to WARMUP_DATA:**
+Every item's `date` field must be ≥ the lookback start date. This is a hard requirement — no exceptions.
+
+```
+lookback_start = today - lookback_days    (e.g. May 15 - 7 = May 8)
+REJECT any item where item.date < lookback_start
+```
+
+If a search result has no clear publication date, or if the date is ambiguous, do not include it. If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` — do not include it in `safety.domains`.
+
+This step happens **before** you organize items into sections. Do not route stale items into sections and remove them later — discard them at first sight.
 
 Organize fetched items into sections using the Section Structure below
 (CISO mode) or the user's defined interest categories (Custom mode).
@@ -666,9 +678,10 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     "dateRange": "May 8 – May 15, 2026",     // Lookback window display string
     "sourcesActive": 12,
     "sourcesQuiet": 4,
-    "showQuote": true,
-    "scanTime": "06:14 ET",   // 24hr, user tz. THE single timestamp source —
-                              // populates masthead, signal bar, safety panel, PDF.
+    "showQuote": true,   // REQUIRED — must be true (JSON boolean). Omitting or setting false hides the daily quote.
+    "scanTime": "HH:MM TZ", // REQUIRED — set to current generation time in 24-hr user-timezone format (e.g. "06:14 ET").
+                              // THE single timestamp source — populates masthead, signal bar, safety panel, PDF.
+                              // Without this, Generated cell shows "—" and scan timestamp is blank.
     // Optional
     "region": "Global",
     "timezone": "ET",
@@ -721,9 +734,10 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     //   "ALLOWLISTED"   — domain matched the Step A allowlist (no external call made)
     //   "CLEAN"         — domain passed URLScan.io Step B check (explicitly clean verdict)
     // Flagged domains do NOT appear here — they go in flagged_urls and are excluded from the brief.
-    "domains": [{"domain": "cisa.gov", "verdict": "ALLOWLISTED"}],
+    "domains": [{"domain": "cisa.gov", "verdict": "ALLOWLISTED"}], // REQUIRED — one entry per active source. Empty array = safety panel does not render.
     // INTEGRITY RULE: domains.length MUST equal the number of active sources exactly.
-    "totalUrls": 12,
+    // Flagged domains do NOT appear here — they go in flagged_urls and are excluded from the brief.
+    "totalUrls": 12,   // total URL count across all items
     "flagged": 0,
     "scannedAt": ""   // Empty string — renderer uses scanTime. Fill only to override.
   },

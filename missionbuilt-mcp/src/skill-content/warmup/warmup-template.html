@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.2 -->
+<!-- warmup-engine: v0.3.3 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -488,6 +488,10 @@
     color: var(--army);
     background: var(--army-soft);
     padding: 2px 8px;
+  }
+  .item-date-rel.is-stale {
+    color: var(--blood);
+    background: var(--blood-soft);
   }
 
   .item-hl {
@@ -1555,10 +1559,11 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
           var _diff = Math.round((_now - _pd) / 86400000);
           var _rel = _diff <= 0 ? 'Today' : _diff === 1 ? '1 day ago' : _diff + ' days ago';
           var _cal = _pd.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric', timeZone:'UTC'});
+          var _staleClass = _diff > 14 ? ' is-stale' : '';
           _dateHtml = '<div class="item-date">' +
             '<span class="item-date-cal">' + _cal + '</span>' +
             '<span class="item-date-dot">·</span>' +
-            '<span class="item-date-rel">' + _rel + '</span>' +
+            '<span class="item-date-rel' + _staleClass + '">' + _rel + '</span>' +
             '</div>';
         }
         var deckHtml = '';
@@ -1639,6 +1644,12 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     var safetyPanel = document.getElementById('link-safety');
     if (safetyPanel && D.safety) {
       var sf = D.safety;
+      // Guard: if domains missing or empty, show a minimal notice and skip
+      if (!sf.domains || sf.domains.length === 0) {
+        safetyPanel.innerHTML =
+          '<h2 class="s-eyebrow"><span class="sec-kicker">Verification</span><span class="sec-label">Link Safety</span><span class="sec-sub">Every URL in this brief, scanned at the moment of generation.</span></h2>' +
+          '<p class="safety-meta" style="color:var(--ink-dim);">No domain scan data available for this report.</p>';
+      } else {
       // Count article URLs per domain so we can annotate sources with >1 URL
       var _urlsPerDomain = {};
       (D.sections || []).forEach(function(sec) {
@@ -1670,6 +1681,7 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         '<p class="safety-disclaimer"><strong>How this works</strong> Link safety is verified at report generation time using a two-tier approach. First, each domain is checked against a curated allowlist of authoritative sources — government agencies, established security vendors, and major news organizations. Domains on the allowlist are verified instantly with no external call. Second, any domain not on the allowlist is queried against URLScan.io\'s public API, which returns community scan results and a maliciousness verdict. No API key is required, and no URL data is transmitted beyond the domain name.</p>' +
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Scan timing</strong> These results reflect conditions at the moment the brief was generated. A clean result means the domain wasn\'t flagged then — not a live guarantee. Pages change, redirects get added, domains get reused. Treat this as a quick signal, not a substitute for your own judgment on anything sensitive.</p>' +
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Open source</strong> The Warmup is a free, open-source skill built on Claude. Link scanning is included as a convenience feature — a fast first pass, not a security audit. Source code and documentation are at github.com/missionbuilt/loadout under the MIT License.</p>';
+      } // end else (domains present)
     }
     // ── Re-initialize scroll-spy with dynamically built elements ──
     (function() {
