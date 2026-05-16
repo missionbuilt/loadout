@@ -296,10 +296,16 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `${configNote}\n\n` +
                 `## How to generate the brief\n\n` +
                 `1. Read WARMUP.md from the project root (or use the provided config_summary).\n` +
-                `2. For each active source, fetch recent content using the adaptive lookback window.\n` +
-                `3. Run the link safety verification protocol on all URLs before including them.\n` +
-                `4. Synthesize content into the five sections for the user's mode.\n` +
-                `5. Deliver as a live Cowork artifact (Iron Log HTML design). One summary line in chat.\n\n` +
+                `2. Check for an existing artifact using list_artifacts. If \"the-warmup\" exists, read the first 10 lines of its html_path — if the file starts with <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> skip to step 4. Otherwise call warmup_get_template now.\n` +
+                `3. If no existing artifact OR the engine version does not match ${WARMUP_ENGINE_VERSION}: call warmup_get_template (MCP tool call — do NOT read warmup-template.html from disk, do NOT use training-data memory of the HTML). Hold the returned HTML in context.\n` +
+                `4. For each active source, fetch recent content using the adaptive lookback window. Reject any item older than the lookback start date before routing to sections.\n` +
+                `5. Run the link safety verification protocol on all URLs before including them.\n` +
+                `6. Synthesize content into sections. Build WARMUP_DATA with all required fields: config.showQuote: true, config.scanTime: \"HH:MM TZ\" (current time), safety.domains populated.\n` +
+                `7. Write the template HTML to disk, inject WARMUP_DATA using the Edit tool (Path B), then call update_artifact / create_artifact. One summary line in chat — the brief is the artifact.\n\n` +
+                `## CRITICAL — template source\n\n` +
+                `The HTML template is ONLY available via the warmup_get_template MCP tool call. ` +
+                `Do NOT search for warmup-template.html, do NOT read it from disk, do NOT reconstruct it from memory. ` +
+                `Any of those paths produces the wrong design and breaks PDF export.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +
