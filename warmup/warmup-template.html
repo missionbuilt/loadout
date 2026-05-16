@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.5 -->
+<!-- warmup-engine: v0.3.6 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1824,12 +1824,21 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     function parts(fmt) { return fmt.formatToParts(now); }
     function part(fmt, type) { return (parts(fmt).find(p => p.type === type) || {}).value || ''; }
 
-    // Masthead date: "Thu · 14 May 2026"
+    // Masthead date: "Fri · 15 May 2026"
     const mdateEl = document.getElementById('mdate');
     if (mdateEl) {
-      const f = tzFmt({ weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-      const day = part(f, 'weekday'), d = part(f, 'day'), mo = part(f, 'month'), yr = part(f, 'year');
-      mdateEl.textContent = `${day} · ${d} ${mo} ${yr}`;
+      try {
+        const f = tzFmt({ weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+        const day = part(f, 'weekday'), d = part(f, 'day'), mo = part(f, 'month'), yr = part(f, 'year');
+        if (day && d && mo && yr) {
+          mdateEl.textContent = `${day} · ${d} ${mo} ${yr}`;
+        } else {
+          // Fallback to reportDate from config if parts came back empty
+          if (WARMUP_CONFIG.reportDate) mdateEl.textContent = WARMUP_CONFIG.reportDate;
+        }
+      } catch(e) {
+        if (WARMUP_CONFIG.reportDate) mdateEl.textContent = WARMUP_CONFIG.reportDate;
+      }
     }
 
     // Brief timestamp + Generated stat — pinned to a single value, derived
@@ -1839,11 +1848,23 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
       // Only use scanTime if it looks like an actual time (e.g. "22:44 ET").
       // If the agent mistakenly wrote a date string, fall through to the live clock.
       if (WARMUP_CONFIG.scanTime && /\d{1,2}:\d{2}/.test(WARMUP_CONFIG.scanTime)) return WARMUP_CONFIG.scanTime;
-      const f = tzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
-      let h = part(f, 'hour'); if (h === '24') h = '00';
-      const m = part(f, 'minute');
-      const tzName = part(f, 'timeZoneName') || tzRaw || 'UTC';
-      return `${h}:${m} ${tzName}`;
+      // Tier 1: Intl.DateTimeFormat with formatToParts — preferred (timezone-aware)
+      try {
+        const f = tzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
+        let h = part(f, 'hour'); if (h === '24') h = '00';
+        const m = part(f, 'minute');
+        const tzName = part(f, 'timeZoneName') || tzRaw || 'UTC';
+        // Only use these parts if they look like actual digits — guard against
+        // browsers returning unexpected values (empty, day numbers, etc.)
+        if (/^\d{1,2}$/.test(h) && /^\d{2}$/.test(m)) return `${h.padStart(2,'0')}:${m} ${tzName}`;
+      } catch(e) { /* fall through */ }
+      // Tier 2: toLocaleTimeString — broader browser support
+      try {
+        const s = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz });
+        if (/^\d{2}:\d{2}$/.test(s)) return `${s}${tzRaw ? ' ' + tzRaw : ''}`;
+      } catch(e) { /* fall through */ }
+      // Tier 3: raw Date methods — always works, no timezone abbreviation
+      return `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     }
     const genStr = computeGenStr();
 
