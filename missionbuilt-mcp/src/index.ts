@@ -244,7 +244,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `2. Ask the user's name for the brief header.\n` +
                 `3. Ask for company name FIRST — then run a web search to auto-determine sector, region, and competitors. Present all findings in one confirmation message. Ask only what the search could not determine.\n` +
                 `4. Build the source suite based on confirmed answers. Show it to the user for review.\n` +
-                `5. Save config to WARMUP.md at their project root using the schema in WARMUP.example.md.\n` +
+                `5. Save config to WARMUP.md at their project root using the ## WARMUP.md Config Format section in SKILL.md below.\n` +
                 `6. Run a test brief using the saved config. Deliver it as a Cowork artifact.\n\n` +
                 `## CRITICAL: Question order for CISO and Product Leader modes\n\n` +
                 `After company confirmation, you MUST still ask the follow-up questions below. Do not skip them — they cannot be looked up.\n\n` +
