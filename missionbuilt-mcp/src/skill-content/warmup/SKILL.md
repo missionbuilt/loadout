@@ -427,9 +427,9 @@ Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returne
 - Note the `html_path` from the response.
 - Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
 - **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — invoke the `warmup_get_template` MCP tool now (tool call, not a file read) and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
-- **If the first 10 lines are readable:** look for `<!-- warmup-engine: ENGINE_VERSION -->` in those lines.
-  - **Version matches:** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, replace the `window.WARMUP_DATA = ...;` line with the new WARMUP_DATA JSON, and write it back with the Write tool (Path A).
-  - **Version missing or mismatch:** Invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Step 4).
+- **If the first 10 lines are readable:** look for `<!-- warmup-engine: v0.3.2 -->` in those lines (exact string match — the current engine version is **v0.3.2**).
+  - **Version matches (`v0.3.2` found):** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, locate the `<script id="warmup-data">` block, replace the entire block (from the opening `<script id="warmup-data">` tag through the closing `</script>`) with the new block containing your WARMUP_DATA JSON, and write the full file back with the Write tool (Path A).
+  - **Version missing or mismatch (anything other than `v0.3.2`, including `v0.3.1` or no marker):** Engine is stale — invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Path B / Step 4).
 
 Output this single line in chat, then proceed to Step 2:
 *"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
@@ -589,13 +589,13 @@ By the time you reach this step, Step 1b has already:
 Read the existing HTML from disk, replace only the `<script id="warmup-data">` block with the new `WARMUP_DATA`, write it back. Touch nothing else in the HTML.
 
 1. Use the Read tool to read the file at `html_path` (the full file — this is unavoidable for an in-place update).
-2. Locate the `<script id="warmup-data">` … `</script>` block. Replace the entire block with:
+2. Locate the `<script id="warmup-data">` … `</script>` block. The block may contain a null placeholder line, a previous WARMUP_DATA JSON object spanning many lines, or a comment block — it doesn't matter. Replace the **entire** block (from `<script id="warmup-data">` through its closing `</script>`) with exactly:
    ```
    <script id="warmup-data">
-   window.WARMUP_DATA = <JSON of the new WARMUP_DATA dict>;
+   window.WARMUP_DATA = <FULL JSON of the new WARMUP_DATA dict>;
    </script>
    ```
-   Touch no other part of the HTML — do not reformat, do not rewrite structure.
+   Use the Write tool's string replacement capability (or read → modify in memory → write) to substitute this block. Touch no other part of the HTML — do not reformat, do not rewrite structure. The block will be uniquely identifiable by `id="warmup-data"`.
 3. Use the Write tool to write the complete updated HTML back to the same `html_path`.
 4. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
 
