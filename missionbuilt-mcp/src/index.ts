@@ -75,6 +75,13 @@ function getSkillSection(md: string, section: string): string {
   return md.slice(si, ei === -1 ? md.length : ei).trim();
 }
 
+// ── Shared param schemas ──────────────────────────────────────────────────────
+
+/** Re-used across every tool that shows a Cowork permission dialog. */
+const intentField = z.string().describe(
+  "Permission dialog text — one sentence, ≤100 chars. E.g. 'Loading Warmup skill framework'."
+);
+
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
 const WARMUP_VERSION = "0.3.7";
@@ -163,9 +170,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "loadout_whoami",
       "Returns the authenticated user's identity (name and email) for the current MCP session. Useful for personalizing skill output or confirming the OAuth connection is active.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Example: 'Checking authenticated identity'. Keep it under 100 characters."
-        ),
+        intent: intentField,
       },
       async () => {
         const props = this.props;
@@ -192,9 +197,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "loadout_get_brand_css",
       "Returns the Mission Built design system as a CSS string. Use to render any Loadout skill output (Warmup briefs, Spotter reviews) as branded HTML in compatible clients. The CSS uses --mb-* custom properties.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Example: 'Loading Mission Built design CSS'. Keep it under 100 characters."
-        ),
+        intent: intentField,
       },
       async () => ({
         content: [{ type: "text" as const, text: brandCss() }],
@@ -209,9 +212,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_get_skill",
       "Returns a section of the Warmup SKILL.md. Use the 'section' param to load only what you need — avoids loading the full ~90KB document. Sections: 'schema' (WARMUP_DATA render schema + field rules), 'sources' (source suites, tiers, batch queries), 'sections' (report section structures for CISO + Product Leader), 'run' (full run flow), 'setup' (first-run setup flow), 'config' (add/remove sources), 'rules' (anti-patterns + editorial voice), 'warmupmd' (WARMUP.md config format), 'full' (everything — use only when a specific section is insufficient).",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Loading WARMUP_DATA schema for render phase', 'Loading source tiers for fetch phase'. Keep it under 100 characters."
-        ),
+        intent: intentField,
         section: z
           .enum(["setup", "run", "config", "schema", "sources", "sections", "rules", "warmupmd", "full"])
           .optional()
@@ -228,9 +229,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_list_modes",
       "Returns the three Warmup modes with names, descriptions, and the five brief sections each produces. Useful for clients that want to render a mode-picker or for an agent that needs a quick overview before loading the full SKILL.md.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Example: 'Loading available Warmup modes'. Keep it under 100 characters."
-        ),
+        intent: intentField,
       },
       async () => ({
         content: [
@@ -246,9 +245,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_get_template",
       "Returns the canonical warmup-template.html engine — the full Iron Log-branded HTML artifact with all CSS, JS, PDF builder, deep dive modal, section collapse, and accessibility code. Call on every first run (no existing artifact) or after any engine update. Replace only the <script id=\"warmup-data\"> block with fresh WARMUP_DATA. Never build the artifact from scratch.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Loading HTML template — first run, no existing artifact', 'Loading updated engine to replace stale artifact'. Keep it under 100 characters."
-        ),
+        intent: intentField,
       },
       async () => ({
         content: [{ type: "text" as const, text: WARMUP_TEMPLATE_HTML }],
@@ -259,9 +256,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_setup",
       "Primes the agent to run The Warmup's setup flow for a new user. Ask mode, then company name FIRST — use a web search to auto-determine sector, region, and competitors from the company name, present findings for confirmation, then ask only what could not be looked up. Saves config to WARMUP.md and runs a test brief.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Setting up Warmup — first time, mode not yet chosen', 'Configuring CISO mode for Healthcare sector'. Keep it under 100 characters."
-        ),
+        intent: intentField,
         mode: z
           .enum(["ciso", "product_leader", "custom"])
           .optional()
@@ -317,9 +312,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_run",
       "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config, fetches live intelligence from each active source, synthesizes it into the five sections, runs link safety verification, and renders the output as a live HTML artifact. One summary line in chat — the brief is the artifact.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Generating CISO brief for Elastic · 7-day lookback', 'Running first Warmup brief (30-day bootstrap)'. Keep it under 100 characters."
-        ),
+        intent: intentField,
         config_summary: z
           .string()
           .optional()
@@ -378,9 +371,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup_config",
       "Primes the agent to manage the user's Warmup source configuration. Handles add, remove, and exclude operations on active sources in WARMUP.md. Always reads current config before making changes, shows the proposed change for confirmation, then writes.",
       {
-        intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Adding BleepingComputer to active sources', 'Showing current source configuration'. Keep it under 100 characters."
-        ),
+        intent: intentField,
         action: z
           .enum(["add", "remove", "exclude", "show"])
           .describe("What to do: add a new source, remove one, exclude one (skips it in the brief but keeps it listed), or show the current config."),

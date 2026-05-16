@@ -406,34 +406,6 @@ search_after_date = today - (window + 1) days  # +1 catches late-yesterday and e
 
 Note the computed window in the summary line. **Hard date filter:** every item in the brief MUST have a publication date within the lookback window — no exceptions. If a source has no in-window items, mark it `"status": "quiet"`.
 
-### Step 1b — Artifact and engine check (before any searches)
-
-Run this step immediately after computing the lookback window and **before** starting any fetch queries. Front-loading this check means the engine shell is in context before searches begin — so synthesis and render are a single pass with no re-fetching.
-
-**This step is mandatory — it cannot be skipped.** The brief's CSS, layout, PDF builder, and all rendering logic live exclusively in the template returned by the `warmup_get_template` MCP tool. There is no other source for this HTML. Do not attempt to read any file from disk. Do not write brief HTML from memory or training data.
-
-> **`warmup_get_template` is an MCP tool — NOT a file.**
-> Invoke it as a tool call: `warmup_get_template()`. Do not read `warmup-template.html` or any other file from disk. The tool returns the complete HTML engine shell directly in its response.
-
-Call `list_artifacts`. Check whether an artifact with id `the-warmup` is returned.
-
-**If `the-warmup` does not exist → first run:**
-- Invoke the `warmup_get_template` MCP tool now (tool call, not a file read). The tool's response contains the full HTML engine shell.
-- Hold the returned HTML in context — you will inject `WARMUP_DATA` into it after synthesis (Step 4).
-- Proceed to Step 2.
-
-**If `the-warmup` exists → daily run:**
-- Note the `html_path` from the response.
-- Read **only the first 10 lines** of that file (`limit: 10`). Do not read the full file — it is ~131KB and loading it into context wastes ~32K tokens on every daily run.
-- **If the file cannot be read** (path gone, session cleared, temp dir wiped): treat as a first run — invoke the `warmup_get_template` MCP tool now (tool call, not a file read) and proceed to Step 2. The artifact record exists but the source file is stale; `update_artifact` will replace it.
-- **If the first 10 lines are readable:** look for `<!-- warmup-engine: v0.3.3 -->` in those lines (exact string match — the current engine version is **v0.3.3**).
-  - **Version matches (`v0.3.3` found):** You do not need to fetch the template. After synthesis (Step 4), you will read the full `html_path` file with the Read tool, locate the `<script id="warmup-data">` block, replace the entire block (from the opening `<script id="warmup-data">` tag through the closing `</script>`) with the new block containing your WARMUP_DATA JSON, and write the full file back with the Write tool (Path A).
-  - **Version missing or mismatch (anything other than `v0.3.3`, including `v0.3.1`, `v0.3.2`, or no marker):** Engine is stale — invoke the `warmup_get_template` MCP tool now (tool call, not a file read). Hold the returned HTML engine shell in context — you will inject `WARMUP_DATA` into it after synthesis and call `update_artifact` (Path B / Step 4).
-
-Output this single line in chat, then proceed to Step 2:
-You MUST output this exact line in chat before proceeding to Step 2 — do not skip it:
-*"📋 Artifact ready · [first run / engine match / engine update vX.X.X→vY.Y.Y] · Fetching intelligence now."*
-
 ### Step 2 — Fetch phase
 
 Before starting any searches, output this line in chat:
@@ -965,101 +937,83 @@ For tracking M&A, funding, product launches, regulatory moves. Label items
 
 ## Product Leader Source Suite
 
-The default source suite for Product Leader mode. Core sources load for all
-Product Leader users. Vertical-specific sources are added based on the user's
-declared vertical at SETUP.
+Default source suite for Product Leader mode. Core sources load for all users; vertical-specific sources added at SETUP.
 
 ### Tier 1 — Primary Sources
 
-High-confidence, primary-record sources. Always included unless the user
-explicitly excludes one.
-
 | Source | Search target | What it contributes |
 |---|---|---|
-| SEC EDGAR | `site:sec.gov [company] OR [competitor]` | Public company filings, 8-K material events, earnings, exec changes — primary record for public competitors |
-| Crunchbase News | `site:crunchbase.com [sector] funding OR acquisition` | Funding rounds, M&A, founding dates, investor signals |
-| Company newsroom | `site:[company].com/news OR /press` | Official announcements, product launches, leadership moves — primary for the user's own company |
-| Competitor newsrooms | `site:[competitor].com/news OR /press` | Official competitor announcements — primary record per competitor |
+| SEC EDGAR | `site:sec.gov [company] OR [competitor]` | Public filings, 8-K events, earnings, exec changes |
+| Crunchbase News | `site:crunchbase.com [sector] funding OR acquisition` | Funding rounds, M&A, investor signals |
+| Company newsroom | `site:[company].com/news OR /press` | Official announcements, product launches, leadership moves |
+| Competitor newsrooms | `site:[competitor].com/news OR /press` | Official competitor announcements |
 
 ### Tier 2 — Research & Premium Coverage
-
-Vetted analysis with named authors and editorial review. High signal-to-noise.
 
 | Source | Search target | What it contributes |
 |---|---|---|
 | a16z | `site:a16z.com [sector] OR [vertical]` | Market theses, sector deep-dives, portfolio signals |
-| Sequoia Capital | `site:sequoiacap.com [sector]` | Market memos, economic outlook, founder-facing research |
-| The Information | `site:theinformation.com [company] OR [sector]` | Investigative tech journalism; paywalled — search for public excerpts |
-| Stratechery | `site:stratechery.com [company] OR [sector]` | Strategic analysis of tech business models; paywalled — search for public posts |
+| Sequoia Capital | `site:sequoiacap.com [sector]` | Market memos, economic outlook, founder research |
+| The Information | `site:theinformation.com [company] OR [sector]` | Investigative tech journalism (search for public excerpts) |
+| Stratechery | `site:stratechery.com [company] OR [sector]` | Strategic analysis of tech business models |
 | Benedict Evans | `site:ben-evans.com [sector] OR [topic]` | Consumer tech and market structure analysis |
 | CB Insights | `site:cbinsights.com [sector] intelligence` | Market maps, funding data, industry reports |
 | Gartner | `site:gartner.com [sector] magic quadrant OR report` | Analyst positioning, market category definitions |
 | Forrester | `site:forrester.com [sector] wave OR report` | Enterprise buyer-focused analyst coverage |
-| Product Hunt | `site:producthunt.com [category]` | New product launches in the user's category — early signal on emerging competitors |
+| Product Hunt | `site:producthunt.com [category]` | New product launches, early competitor signal |
 
 ### Tier 3 — News & Community
 
-Reliable reporting and practitioner communities. Label items [NEWS] or [COMMUNITY].
+Label items [NEWS] or [COMMUNITY].
 
 | Source | Search target | What it contributes |
 |---|---|---|
 | TechCrunch | `site:techcrunch.com [company] OR [sector]` | Funding news, product launches, startup coverage |
 | The Verge | `site:theverge.com [company] OR [product category]` | Consumer tech, platform policy, product reviews |
-| Wired | `site:wired.com [company] OR [sector]` | Longer-form technology and business reporting |
-| Fast Company | `site:fastcompany.com [company] OR innovation` | Innovation, design, product culture coverage |
-| Reuters / Bloomberg | `site:reuters.com OR site:bloomberg.com [company] OR [sector]` | Tier 1 for breaking M&A; Tier 3 for market color |
-| Lenny's Newsletter | `site:lennysnewsletter.com [topic]` | Practitioner-grade PM and growth content |
+| Wired | `site:wired.com [company] OR [sector]` | Long-form technology and business reporting |
+| Fast Company | `site:fastcompany.com [company] OR innovation` | Innovation, design, product culture |
+| Reuters / Bloomberg | `site:reuters.com OR site:bloomberg.com [company] OR [sector]` | Breaking M&A (Tier 1); market color (Tier 3) |
+| Lenny's Newsletter | `site:lennysnewsletter.com [topic]` | Practitioner PM and growth content |
 | Reforge Blog | `site:reforge.com/blog [topic]` | Product growth and retention frameworks |
-| Hacker News | `site:news.ycombinator.com [company] OR [product]` | Developer and technical community signal; often earliest mention of product issues |
-| LinkedIn | `[person] OR [company] site:linkedin.com` | Exec commentary, people moves, product announcements from named individuals |
+| Hacker News | `site:news.ycombinator.com [company] OR [product]` | Developer community signal; earliest mention of product issues |
+| LinkedIn | `[person] OR [company] site:linkedin.com` | Exec commentary, people moves, product announcements |
 
 ### Tier 4 — Vendor & Analyst Marketing
 
-Content produced by vendors and research firms about their own products or
-market. Read with commercial interest context.
-
 | Source | Search target | What it contributes |
 |---|---|---|
-| G2 | `site:g2.com [company] OR [competitor] reviews` | Customer review signal, category positioning, competitive grids |
+| G2 | `site:g2.com [company] OR [competitor] reviews` | Customer review signal, competitive grids |
 | Capterra | `site:capterra.com [company] OR [competitor]` | B2B buyer reviews, alternative discovery |
-| Trustpilot | `site:trustpilot.com [company] OR [competitor]` | Consumer review signal (B2C and B2B2C) |
-| Vendor blogs | `site:[vendor].com/blog [product area]` | AI vendor product updates, API changes, new model releases |
+| Trustpilot | `site:trustpilot.com [company] OR [competitor]` | Consumer review signal |
+| Vendor blogs | `site:[vendor].com/blog [product area]` | AI vendor product updates, API changes |
 
-### AI Vendor Sources (Product Leader — always included)
-
-These sources are always active for Product Leader mode regardless of vertical.
-They cover the AI layer that underlies nearly every modern product decision.
+### AI Vendor Sources (always included for Product Leader)
 
 | Source | Search target | What it contributes |
 |---|---|---|
-| OpenAI Blog | `site:openai.com/blog` | Model releases, API changes, product announcements, pricing |
+| OpenAI Blog | `site:openai.com/blog` | Model releases, API changes, pricing |
 | Anthropic | `site:anthropic.com/news OR /research` | Model releases, safety research, API updates |
-| Google DeepMind | `site:deepmind.google OR site:blog.google/technology/ai` | Research publications, Gemini updates, infrastructure moves |
-| Meta AI | `site:ai.meta.com/blog OR site:research.facebook.com` | Open-source model releases (Llama), research, infrastructure |
+| Google DeepMind | `site:deepmind.google OR site:blog.google/technology/ai` | Research, Gemini updates, infrastructure |
+| Meta AI | `site:ai.meta.com/blog OR site:research.facebook.com` | Open-source models (Llama), research |
 | Mistral AI | `site:mistral.ai/news` | European frontier model moves, open-weight releases |
-| Hugging Face | `site:huggingface.co/blog` | Open-source model ecosystem, tooling, deployment patterns |
-| arXiv cs.AI | `site:arxiv.org cs.AI [topic]` | Pre-print research; leading indicator of where capabilities are heading |
+| Hugging Face | `site:huggingface.co/blog` | Open-source model ecosystem, tooling |
+| arXiv cs.AI | `site:arxiv.org cs.AI [topic]` | Pre-print research; leading indicator of capability direction |
 
-Additional AI vendor sources from the user's `ai_vendors:` config field are
-appended to this list at runtime.
+Additional AI vendor sources from `ai_vendors:` in WARMUP.md appended at runtime.
 
 ### Vertical-Specific Sources (Product Leader)
 
-Appended based on the user's declared vertical. Add to appropriate tier.
-
 | Vertical | Add These Sources |
 |---|---|
-| **Security product** | Full CISO Tier 1–2 source suite (CISA, NVD, CrowdStrike, Unit 42, MSTIC, Elastic Security Labs, etc.) — see CISO Source Suite above |
-| **Fintech / payments** | OCC (`site:occ.gov`), CFPB (`site:consumerfinance.gov`), FS-ISAC (`site:fsisac.com`), Payments Dive (`site:paymentsdive.com`), PYMNTS (`site:pymnts.com`) |
-| **Healthcare / digital health** | FDA Digital Health (`site:fda.gov/medical-devices/digital-health`), CMS (`site:cms.gov`), Rock Health (`site:rockhealth.com/insights`), HIMSS (`site:himss.org/news`) |
-| **Consumer social / creator economy** | Social Media Today (`site:socialmediatoday.com`), Creator Economy Report (`site:thecreatoreconomy.co`), platform developer blogs (Meta, TikTok, YouTube, Snap) |
-| **Enterprise SaaS** | Bessemer Venture Partners State of Cloud (`site:bvp.com/atlas`), SaaStr (`site:saastr.com`), ChartMogul blog (`site:chartmogul.com/blog`), Lighter Capital (`site:lightercapital.com/blog`) |
-| **Developer tools / platform** | GitHub Blog (`site:github.blog`), Stack Overflow Developer Survey, npm trends, CNCF reports, Changelog (`site:changelog.com`) |
-| **E-commerce / retail** | Digital Commerce 360 (`site:digitalcommerce360.com`), Shopify Engineering Blog, NRF (`site:nrf.com/research`), Morning Brew Retail (`site:morningbrew.com`) |
-| **Logistics / supply chain** | FreightWaves (`site:freightwaves.com`), Supply Chain Dive (`site:supplychaindive.com`), Flexport blog (`site:flexport.com/blog`) |
-| **Marketplace** | a16z marketplace posts (`site:a16z.com marketplace`), NFX (`site:nfx.com`), Andreessen Horowitz marketplace essays |
-
----
+| **Security product** | Full CISO Tier 1–2 suite (CISA, NVD, CrowdStrike, Unit 42, MSTIC, Elastic Security Labs, etc.) |
+| **Fintech / payments** | OCC (`site:occ.gov`), CFPB (`site:consumerfinance.gov`), FS-ISAC, Payments Dive, PYMNTS |
+| **Healthcare / digital health** | FDA Digital Health, CMS (`site:cms.gov`), Rock Health, HIMSS |
+| **Consumer social / creator** | Social Media Today, Creator Economy Report, platform dev blogs (Meta, TikTok, YouTube, Snap) |
+| **Enterprise SaaS** | Bessemer State of Cloud, SaaStr, ChartMogul blog, Lighter Capital |
+| **Developer tools / platform** | GitHub Blog, Stack Overflow Developer Survey, npm trends, CNCF reports, Changelog |
+| **E-commerce / retail** | Digital Commerce 360, Shopify Engineering Blog, NRF research, Morning Brew Retail |
+| **Logistics / supply chain** | FreightWaves, Supply Chain Dive, Flexport blog |
+| **Marketplace** | a16z marketplace posts, NFX (`site:nfx.com`), a16z marketplace essays |
 
 ## Sector-Specific Sources
 
@@ -1508,22 +1462,8 @@ Ten mediocre items from Tier 3 news do not substitute for three sharp Tier 2
 findings. When the well is dry, say so. "No new research from Tier 2 sources
 this week" is an honest and useful line.
 
-**6. Do not use army green fills.**
-> Note: anti-patterns 6–8 apply only when troubleshooting a corrupted artifact or building a design test outside the normal run flow. Under normal operation, the engine shell from `warmup_get_template` already enforces all visual rules — you do not make CSS decisions.
-
-Pills, dots, small marks only. Not section backgrounds. Not banners. The
-design skill has flagged this twice. It reads wrong and breaks the visual
-contract.
-
-**7. Do not add rounded corners or box shadows.**
-The global CSS reset enforces this. If you find yourself thinking about
-card-with-shadow UI patterns, you are building the wrong thing.
-
-**8. Do not put two filled oxblood elements on the page.**
-The masthead square is the one oxblood fill. Section eyebrow text is oxblood.
-MITRE tag backgrounds use `--color-blood-dim`. That is the complete inventory.
-If you add an oxblood button or an oxblood banner, you have broken the visual
-grammar.
+**6–8. CSS visual contract (handled automatically)**
+The template CSS reset enforces zero rounded corners, zero box shadows, and correct oxblood usage. These constraints are built into the engine — no decisions needed during a normal run.
 
 **9. Do not echo the brief content in chat.**
 After rendering the artifact, output one summary line and stop. The brief is
