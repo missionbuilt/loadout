@@ -134,7 +134,7 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.12";
+const WARMUP_VERSION = "0.3.13";
 const WARMUP_ENGINE_VERSION = "v0.3.10";
 
 const WARMUP_MODES = [
@@ -424,10 +424,13 @@ ${WARMUP_TEMPLATE_HTML}`,
                 `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
                 `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
                 `7. Render the artifact:\n` +
-                `   PATH A (version match — no template reload): edit the existing html_path file — use the Read file tool to read it, then the Edit tool to find and replace the old window.WARMUP_DATA = {...}; line with the new WARMUP_DATA. Call update_artifact. Done.\n` +
-                `   PATH B / FIRST RUN (engine update or new artifact): Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). The server injects the data and returns filled, artifact-ready HTML. Write the returned HTML to disk with the Write tool. Call create_artifact (new) or update_artifact (replacing stale). Done.\n` +
-                `   NEVER write your own HTML. NEVER generate a shorter version of the template. The warmup_get_template response IS the complete artifact — write it as-is.\n` +
-                `8. VERIFICATION (mandatory for PATH B / FIRST RUN): After writing the HTML to disk, use the Read file tool to read the first 10 lines of the file you just wrote. Confirm the line <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> is present. If that line is MISSING, you wrote your own HTML — the design will be wrong. Immediately discard the file, call warmup_get_template again with your WARMUP_DATA, and write the returned HTML to disk. Do not call create_artifact or update_artifact until the engine comment is verified present.\n` +
+                `   PATH A (version match — no template reload): use the Read file tool to read html_path, then the Edit tool to find and replace the old window.WARMUP_DATA = {...}; line with the new WARMUP_DATA. Call update_artifact. Done. No bash. No disk writes beyond the Edit.\n` +
+                `   PATH B / FIRST RUN (engine update or new artifact):\n` +
+                `     a) Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). The server returns filled, artifact-ready HTML as a text string.\n` +
+                `     b) VERIFY BEFORE WRITING: inspect the first 500 characters of the returned string. Confirm <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> is present. If MISSING, the injection failed — call warmup_get_template again. Do NOT proceed until the comment is confirmed.\n` +
+                `     c) Use the Write file tool to write the verified HTML string to disk. NEVER use bash, shell commands, or python to write or extract the HTML — use only the Write file tool.\n` +
+                `     d) Call create_artifact (new) or update_artifact (replacing stale). Done.\n` +
+                `   NEVER write your own HTML. NEVER generate a shorter version of the template. NEVER use bash for any part of the render step.\n` +
                 `   One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
