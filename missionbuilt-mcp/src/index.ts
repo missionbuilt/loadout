@@ -37,6 +37,7 @@ import SPOTTER_LENS_EXAMPLES_MD from "./skill-content/spotter/lens-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
+import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
 
 import { brandCss } from "./design";
 import { authHandler, type UserProps } from "./auth";
@@ -133,7 +134,7 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.11";
+const WARMUP_VERSION = "0.3.12";
 const WARMUP_ENGINE_VERSION = "v0.3.10";
 
 const WARMUP_MODES = [
@@ -176,7 +177,7 @@ const WARMUP_MODES = [
 
 // ── Spotter constants ─────────────────────────────────────────────────────────
 
-const SPOTTER_VERSION = "0.4.0";
+const SPOTTER_VERSION = "0.5.0";
 
 const SPOTTER_LENSES = [
   { id: 1, name: "The user and the problem", weight: "foundation — heaviest lens, 8 sub-checks" },
@@ -411,7 +412,7 @@ ${WARMUP_TEMPLATE_HTML}`,
                 `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → Path A (version match). Proceed to step 4.\n` +
                 `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
                 `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
-                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from warmup_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory. NEVER simplify or abbreviate the template. The template is 128KB by design. Your only job is supply WARMUP_DATA; the template renders itself.\n` +
+                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from warmup_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory. NEVER simplify or abbreviate the template. The template is 128KB by design. Your only job is supply WARMUP_DATA; the template renders itself. WHY THIS MATTERS: Every time an agent generates HTML from training memory, the design is wrong — wrong colors, wrong layout, invented stat labels, wrong structure. The correct design exists ONLY in warmup_get_template. There is no shortcut.\n` +
                 `4. For each active source, call the WebSearch tool to fetch recent content using the adaptive lookback window. Reject any item where item.date < lookback_start before routing to sections.\n` +
                 `5. Run the link safety verification protocol on all URLs before including them.\n` +
                 `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
@@ -426,6 +427,7 @@ ${WARMUP_TEMPLATE_HTML}`,
                 `   PATH A (version match — no template reload): edit the existing html_path file — use the Read file tool to read it, then the Edit tool to find and replace the old window.WARMUP_DATA = {...}; line with the new WARMUP_DATA. Call update_artifact. Done.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact): Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). The server injects the data and returns filled, artifact-ready HTML. Write the returned HTML to disk with the Write tool. Call create_artifact (new) or update_artifact (replacing stale). Done.\n` +
                 `   NEVER write your own HTML. NEVER generate a shorter version of the template. The warmup_get_template response IS the complete artifact — write it as-is.\n` +
+                `8. VERIFICATION (mandatory for PATH B / FIRST RUN): After writing the HTML to disk, use the Read file tool to read the first 10 lines of the file you just wrote. Confirm the line <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> is present. If that line is MISSING, you wrote your own HTML — the design will be wrong. Immediately discard the file, call warmup_get_template again with your WARMUP_DATA, and write the returned HTML to disk. Do not call create_artifact or update_artifact until the engine comment is verified present.\n` +
                 `   One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
@@ -571,6 +573,79 @@ ${WARMUP_TEMPLATE_HTML}`,
     );
 
     this.server.tool(
+      "spotter_get_template",
+      `Returns the canonical spotter-template.html with SPOTTER_DATA already injected — artifact-ready HTML, no Edit step required. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. The server replaces the placeholder and returns the filled artifact. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.
+
+SPOTTER_DATA schema (all fields):
+{
+  mode: "review",                    // always "review" for a completed review
+  epic: {
+    name: string,                    // Epic title (required)
+    company?: string,                // Company name (optional)
+    teamShape?: string,              // e.g. "3 eng · 1 design" (optional)
+    window?: string,                 // e.g. "6 weeks" (optional)
+    attempt?: number,                // Attempt/sprint number (optional)
+  },
+  user: {
+    name: string,                    // PM's first name (required)
+    timestamp?: string,              // e.g. "16 May 2026 · 14:22 ET" (optional, defaults to today)
+  },
+  lenses: Array<{
+    id: string,                      // kebab-case slug, e.g. "user-and-problem"
+    n: number,                       // 1–9
+    name: string,                    // Display name (use SKILL.md lens names exactly)
+    category: string,                // Grouping label — see mapping below
+    question: string,                // The one-line lens question
+    judges: [string|null, string|null, string|null],  // 3 vote slots: "w" (white), "r" (red), or null
+    finding: string,                 // The main review observation (1–3 sentences)
+    spotterPull?: string|null,       // Key pull quote — the "you could strengthen this by..." insight (optional)
+    handNote?: string|null,          // Most critical 1-liner, rendered in Permanent Marker (optional — use sparingly)
+    active?: boolean,                // false for a completed review
+  }>
+}
+
+Judge encoding — map SKILL.md grades to the three-light system:
+  ✓ Pass       → ["w", "w", "w"]   (all white — Good Lift)
+  ⚠️ Needs work → ["w", "w", "r"]   (two white, one red — still a Lift, but one judge flagged)
+  ✗ Missing    → ["r", "r", "r"]   (all red — No-Lift, triggers rerack)
+
+Lens name + category mapping (use exactly, in order):
+  n:1  id:"user-and-problem"       name:"The user & the problem"          category:"Foundation"
+  n:2  id:"competitive-landscape"  name:"Competitive landscape"           category:"Strategy"
+  n:3  id:"strategic-moat"         name:"Strategic differentiation"       category:"Strategy"
+  n:4  id:"solution-approach"      name:"Solution approach"               category:"Solution"
+  n:5  id:"holistic-impact"        name:"Holistic impact"                 category:"Impact"
+  n:6  id:"packaging-pricing"      name:"Packaging & pricing"             category:"GTM"
+  n:7  id:"launch-readiness"       name:"Launch readiness"                category:"Launch"
+  n:8  id:"post-launch-ownership"  name:"Post-launch ownership"           category:"Post-launch"
+  n:9  id:"trust-governance"       name:"Trust, governance & auditability" category:"Governance"`,
+      {
+        intent: intentField,
+        spotter_data: z
+          .string()
+          .describe(
+            "The full SPOTTER_DATA JSON object serialised as a string via JSON.stringify(). " +
+            "Required. The server injects it server-side and returns filled, artifact-ready HTML."
+          ),
+      },
+      async ({ spotter_data }) => {
+        const PLACEHOLDER = `window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)`;
+        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, `window.SPOTTER_DATA = ${spotter_data};`);
+        const injected = filled !== SPOTTER_TEMPLATE_HTML;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: injected
+                ? filled
+                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found — injection failed. Raw template returned.]\n\n${SPOTTER_TEMPLATE_HTML}`,
+            },
+          ],
+        };
+      }
+    );
+
+    this.server.tool(
       "spotter_review",
       "Primes the agent to review a B2B product epic using The Spotter's nine-lens framework. Returns instructions and the epic — agent loads framework sections on demand via spotter_get_skill.",
       {
@@ -588,10 +663,19 @@ ${WARMUP_TEMPLATE_HTML}`,
               `2. Walk all nine lenses in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
               `3. Lens 1 carries disproportionate weight (foundation — 8 sub-checks). Lens 9 is a gate: ✗ Missing on any B2B feature with agent action, data access, or new permission surfaces caps the verdict at Not ready.\n` +
               `4. Voice rule: every flag uses "you could strengthen this by..." framing — never "you missed..." or "this is wrong."\n` +
-              `5. Call spotter_get_skill({ section: "review", intent: "Loading review output format" }) for the exact output format (verdict block, per-lens structure, push-forward offer pattern).\n` +
-              `6. If examples are needed for calibration: call spotter_get_examples({ lens: N, intent: "..." }) for the specific lens — do not load all 64 examples unless multiple lenses need contrast.\n\n` +
+              `5. If examples are needed for calibration: call spotter_get_examples({ lens: N, intent: "..." }) for a specific lens only.\n\n` +
+              `## After grading — produce the branded artifact\n\n` +
+              `TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from spotter_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory.\n\n` +
+              `6. Build a SPOTTER_DATA object. Use the judge encoding from spotter_get_template:\n` +
+              `   ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"]\n` +
+              `   For each lens: id, n, name, category, question (see spotter_get_template tool description for exact mapping),\n` +
+              `   finding (1–3 sentence observation), spotterPull (key "you could strengthen this by..." line), handNote (most critical 1-liner, optional).\n` +
+              `7. Call spotter_get_template({ intent: "Rendering Spotter review artifact", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
+              `   The server injects the data and returns filled, artifact-ready HTML.\n` +
+              `8. Write the returned HTML to disk. Call create_artifact (new review) or update_artifact (re-review).\n` +
+              `9. In chat: one summary line only — the artifact is the review. No rehashing the full prose.\n\n` +
               `## Epic to review\n\n${epic}\n\n` +
-              `Load the lenses (step 1), then produce the review. Open with the verdict. Walk all nine lenses. Close with Questions to ask the PM and the push-forward offer.`,
+              `Load the lenses (step 1), grade all nine, then build SPOTTER_DATA and call spotter_get_template to render the artifact.`,
           },
         ],
       })
