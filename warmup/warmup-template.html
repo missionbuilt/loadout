@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.9 -->
+<!-- warmup-engine: v0.3.10 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1590,10 +1590,10 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     if (_sQuiet)  _sQuiet.textContent  = _nQuiet;
     var _sGen = document.getElementById('stat-generated');
     if (_sGen) {
-      // Only write scanTime here if it looks like an actual time (HH:MM) — not a date string.
-      // The Timestamps block (below) computes and writes the canonical value too;
-      // this is a safe early placeholder so the cell isn't empty on slow renders.
-      var _gen = (_cfg.scanTime && /\d{1,2}:\d{2}/.test(_cfg.scanTime)) ? _cfg.scanTime : '';
+      // Only write scanTime here if it has a timezone label (e.g. "22:44 ET").
+      // A bare "HH:MM" is likely UTC — leave as '—' so the Timestamps block below
+      // can write the correct timezone-aware value instead.
+      var _gen = (_cfg.scanTime && /\d{1,2}:\d{2}\s+\S/.test((_cfg.scanTime || '').trim())) ? _cfg.scanTime.trim() : '';
       _sGen.textContent = _gen || '—';
     }
     // Right-side run identifier (Company · Mode)
@@ -1854,9 +1854,12 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     // from config.scanTime when set, otherwise live page-load time in the
     // user's tz, 24-hour format. Header and Generated cell never diverge.
     function computeGenStr() {
-      // Only use scanTime if it looks like an actual time (e.g. "22:44 ET").
-      // If the agent mistakenly wrote a date string, fall through to the live clock.
-      if (WARMUP_CONFIG.scanTime && /\d{1,2}:\d{2}/.test(WARMUP_CONFIG.scanTime)) return WARMUP_CONFIG.scanTime;
+      // Only use scanTime if it carries a timezone label (e.g. "22:44 ET", "04:55 CT").
+      // A bare "HH:MM" (no suffix) is likely UTC from the agent's server clock — fall
+      // through to the live page-load clock which IS in the user's configured timezone.
+      if (WARMUP_CONFIG.scanTime && /\d{1,2}:\d{2}\s+\S/.test(WARMUP_CONFIG.scanTime.trim())) {
+        return WARMUP_CONFIG.scanTime.trim();
+      }
       // Tier 1: Intl.DateTimeFormat with formatToParts — preferred (timezone-aware)
       try {
         const f = tzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
@@ -2591,7 +2594,7 @@ btn.textContent = 'Loading…';
         }
         // Heading: left-aligned Helvetica-Bold 14pt, near-black
         T(heading.toUpperCase(), ML, curY, 14, 'bold', 0.06);
-        curY -= 6;
+        curY -= 18; // 14pt font + 4pt gap before sub-deck or rule
         // Sub-deck: left-aligned italic, darker gray
         if (sub) {
           const subLines = wrap(sub, 8.5, 'italic', TW);
@@ -2724,7 +2727,7 @@ btn.textContent = 'Loading…';
         curY -= 16;
         const saTitle = 'LINK SAFETY';
         const saTW = tw(saTitle, 22, 'bold');
-        T(saTitle, (PW - saTW) / 2, curY, 22, 'bold', 0.08); curY -= 8;
+        T(saTitle, (PW - saTW) / 2, curY, 22, 'bold', 0.08); curY -= 28; // 22pt font + 6pt gap
         HR(ML, curY, PW-MR, 0.4, 0.75); curY -= 14;
         // Meta line — derive flagged count from actual verdicts, not agent's sf.flagged
         const _pdfFlagged = (sf.domains || []).filter(function(d) {
@@ -2767,7 +2770,7 @@ btn.textContent = 'Loading…';
         curY -= 16;
         const sTitle = 'SOURCES USED';
         const sTW = tw(sTitle, 22, 'bold');
-        T(sTitle, (PW - sTW) / 2, curY, 22, 'bold', 0.08); curY -= 8;
+        T(sTitle, (PW - sTW) / 2, curY, 22, 'bold', 0.08); curY -= 28; // 22pt font + 6pt gap
         HR(ML, curY, PW-MR, 0.4, 0.75); curY -= 18;
 
         srcPanel.querySelectorAll('.src-group-lbl, .src-row').forEach(el => {
@@ -3010,17 +3013,21 @@ btn.textContent = 'Loading…';
     let inPresentationMode = false;
 
     function openInNewTab() {
-      // CSS position:fixed is useless in an iframe — it fixes relative to the iframe
-      // viewport, not the browser window. Open the brief in a new tab instead so the
-      // user can use browser-native fullscreen (F11) from there.
+      // Open the brief as a standalone page in a new tab. The tab gets a full
+      // browser window so the user can hit F11 / ⌘+Ctrl+F for native fullscreen.
+      // We use a Blob URL so no document.write() or noopener flag is needed.
       try {
-        const win = window.open('', '_blank', 'noopener,noreferrer');
+        const html = '<!DOCTYPE html>' + document.documentElement.outerHTML;
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const win  = window.open(url, '_blank');
         if (win) {
-          win.document.write('<!DOCTYPE html>' + document.documentElement.outerHTML);
-          win.document.close();
+          // Revoke after a generous delay — tab needs time to fully load
+          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
           return true;
         }
-      } catch(e) { /* popup blocked or cross-origin restriction */ }
+        URL.revokeObjectURL(url);
+      } catch(e) { /* popup blocked or Blob API unavailable */ }
       return false;
     }
 
