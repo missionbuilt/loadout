@@ -16,11 +16,29 @@
  */
 
 import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
+import { z } from "zod";
 import { brandCss, STENCIL } from "./design";
 import { renderLanding } from "./landing";
 import { renderPreview } from "./preview";
+import { SERVER_VERSION } from "./constants";
 
-const SERVER_VERSION = "1.0.0";
+// ── Google API response schemas ───────────────────────────────────────────────
+
+const GoogleTokenSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string().optional(),
+  expires_in: z.number().optional(),
+  scope: z.string().optional(),
+});
+
+const GoogleUserInfoSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string().optional(),
+  picture: z.string().url().optional(),
+  verified_email: z.boolean().optional(),
+});
+
 const GITHUB_URL = "https://github.com/missionbuilt/loadout";
 
 export interface AuthEnv {
@@ -53,7 +71,7 @@ export const authHandler = {
     // Public routes
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return new Response(
-        renderLanding({ origin: url.origin, githubUrl: GITHUB_URL, serverVersion: SERVER_VERSION, stencil: STENCIL }),
+        renderLanding({ origin: url.origin, githubUrl: GITHUB_URL, stencil: STENCIL }),
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
@@ -201,7 +219,12 @@ async function handleGoogleCallback(request: Request, env: AuthEnv): Promise<Res
     return errorPage("Failed to exchange code with Google.");
   }
 
-  const tokens: any = await tokenRes.json();
+  const tokensRaw: unknown = await tokenRes.json();
+  const tokensParsed = GoogleTokenSchema.safeParse(tokensRaw);
+  if (!tokensParsed.success) {
+    return errorPage("Unexpected response from Google token endpoint. Please try again.");
+  }
+  const tokens = tokensParsed.data;
 
   // Fetch user identity
   const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -212,7 +235,12 @@ async function handleGoogleCallback(request: Request, env: AuthEnv): Promise<Res
     return errorPage("Failed to fetch user identity from Google.");
   }
 
-  const userInfo: any = await userRes.json();
+  const userInfoRaw: unknown = await userRes.json();
+  const userInfoParsed = GoogleUserInfoSchema.safeParse(userInfoRaw);
+  if (!userInfoParsed.success) {
+    return errorPage("Unexpected user identity response from Google. Please try again.");
+  }
+  const userInfo = userInfoParsed.data;
 
   const props: UserProps = {
     email: userInfo.email,

@@ -8,16 +8,17 @@
  */
 
 import { brandCss, STENCIL } from "./design";
+import { SERVER_VERSION, TOOL_COUNT } from "./constants";
 
 interface LandingArgs {
   origin: string;
   githubUrl: string;
-  serverVersion: string;
   stencil: string;
 }
 
 export function renderLanding(args: LandingArgs): string {
-  const { origin, githubUrl, serverVersion } = args;
+  const { origin, githubUrl } = args;
+  const serverVersion = SERVER_VERSION; // sourced from constants.ts — do not hardcode
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -43,7 +44,7 @@ export function renderLanding(args: LandingArgs): string {
     <div class="mb-meta-row">
       <div>Server <strong>v${serverVersion}</strong></div>
       <div>Skills <strong>2</strong></div>
-      <div>Tools <strong>14</strong></div>
+      <div>Tools <strong>${TOOL_COUNT}</strong></div>
       <div>License <strong>MIT</strong></div>
       <div>Status <strong style="color: #92a844;">Online</strong></div>
     </div>
@@ -67,10 +68,9 @@ export function renderLanding(args: LandingArgs): string {
   }
 }</code></pre>
 
-      <h3 class="mb-h3">Transports</h3>
+      <h3 class="mb-h3">Transport</h3>
       <ul class="mb-tool-list" style="margin-top: 0.5rem;">
-        <li><code>${origin}/sse</code><span>Server-Sent Events (most common)</span></li>
-        <li><code>${origin}/mcp</code><span>Streamable HTTP (newer clients)</span></li>
+        <li><code>${origin}/sse</code><span>Server-Sent Events</span></li>
       </ul>
     </section>
 
@@ -104,7 +104,9 @@ export function renderLanding(args: LandingArgs): string {
         <li><code>spotter_get_skill</code><span>Returns the full SKILL.md framework</span></li>
         <li><code>spotter_list_lenses</code><span>Returns the nine lenses with weight notes</span></li>
         <li><code>spotter_get_examples</code><span>Returns 64 worked examples with teaching notes</span></li>
-        <li><code>spotter_get_calibration_epic</code><span>Returns the synthetic calibration epic</span></li>
+        <li><code>spotter_get_calibration_epic</code><span>Returns synthetic calibration epic #1 with deliberate gaps</span></li>
+        <li><code>spotter_get_calibration_epics</code><span>Returns all three calibration epics for batch grading</span></li>
+        <li><code>spotter_get_template</code><span>Returns spotter-template.html with SPOTTER_DATA injected — artifact-ready</span></li>
         <li><code>spotter_review</code><span>Primes the agent to review an epic</span></li>
         <li><code>spotter_build</code><span>Primes the agent to build an epic from scratch</span></li>
         <li><code>spotter_iterate</code><span>Primes the agent to push a draft forward</span></li>

@@ -61,9 +61,15 @@ export const STENCIL = "▮▮▮";
  * Returns the full Mission Built CSS as a string. Inlined into pages or
  * served at /brand.css for any external client that wants to render Spotter
  * content with the same aesthetic.
+ *
+ * Memoized — the CSS is pure static content derived from BRAND/TYPE constants.
+ * Computed once at module initialization; subsequent calls return the same string.
  */
+let _brandCssCache: string | null = null;
+
 export function brandCss(): string {
-  return `
+  if (_brandCssCache !== null) return _brandCssCache;
+  _brandCssCache = `
 :root {
   --mb-bg: ${BRAND.bg};
   --mb-bg-elevated: ${BRAND.bgElevated};
@@ -751,4 +757,5 @@ pre.mb-pre code {
   .mb-tool-list li { grid-template-columns: 1fr; gap: 0.25rem; }
 }
 `;
+  return _brandCssCache;
 }

@@ -18,13 +18,13 @@
  *
  * Protected MCP routes (require Bearer token):
  *   /sse           - MCP over Server-Sent Events
- *   /mcp           - MCP over Streamable HTTP
  *
  * Source: https://github.com/missionbuilt/loadout
  * License: MIT
  */
 
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
+import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -41,8 +41,7 @@ import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html
 
 import { brandCss } from "./design";
 import { authHandler, type UserProps } from "./auth";
-
-const SERVER_VERSION = "1.0.0";
+import { SERVER_VERSION, WARMUP_VERSION, WARMUP_ENGINE_VERSION, SPOTTER_VERSION } from "./constants";
 
 /**
  * Extract a named section from SKILL.md by heading boundary.
@@ -134,9 +133,6 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.16";
-const WARMUP_ENGINE_VERSION = "v0.3.12";
-
 const WARMUP_MODES = [
   {
     id: "ciso",
@@ -177,8 +173,6 @@ const WARMUP_MODES = [
 
 // ── Spotter constants ─────────────────────────────────────────────────────────
 
-const SPOTTER_VERSION = "0.5.0";
-
 const SPOTTER_LENSES = [
   { id: 1, name: "The user and the problem", weight: "foundation — heaviest lens, 8 sub-checks" },
   { id: 2, name: "Competitive landscape", weight: "standard" },
@@ -199,7 +193,7 @@ interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   COOKIE_ENCRYPTION_KEY: string;
-  OAUTH_PROVIDER: any;
+  OAUTH_PROVIDER: OAuthHelpers;
 }
 
 // ── Agent ─────────────────────────────────────────────────────────────────────
@@ -393,8 +387,11 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           .describe("Optional: the contents of the user's WARMUP.md, if already read. If omitted, the agent reads it first."),
       },
       async ({ config_summary }) => {
+        // config_summary is isolated as a fenced data block rather than spliced
+        // into instruction prose — prevents adversarial WARMUP.md content from
+        // overwriting the agent's operating instructions.
         const configNote = config_summary
-          ? `The user's WARMUP.md has been provided:\n\n${config_summary}\n\nProceed directly to source fetching.`
+          ? `The user's WARMUP.md has been provided. Proceed directly to source fetching.\n\n## WARMUP.md (provided)\n\n\`\`\`\n${config_summary.slice(0, 8000)}\n\`\`\``
           : "Read the user's WARMUP.md from their project root before proceeding. If it does not exist, run warmup_setup first.";
 
         return {
@@ -467,11 +464,18 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           .describe("The source name or URL to act on. Not required for show."),
       },
       async ({ action, source }) => {
+        // Sanitize `source` before embedding in instruction text — prevents prompt
+        // injection if a user passes adversarial content as the source name.
+        const safeSource = source
+          ? source.replace(/[\r\n]+/g, ' ').replace(/[^\x20-\x7E]/g, '').slice(0, 120).trim()
+          : null;
+        const sourceLabel = safeSource ?? "[source]";
+
         const actionInstructions: Record<string, string> = {
           show: "Use the Read file tool to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts — the html_path from 'the-warmup' reveals the workspace folder, and WARMUP.md lives there. Display current active, quiet, and excluded sources in a clean summary.",
-          add: `Use the Read file tool to read WARMUP.md first. Then add "${source ?? "[source]"}" to the user's active sources. Ask for the URL and tier (Authoritative / Research / News / Vendor) if not provided. Format: "- Name | URL | active". Show the proposed addition for confirmation before writing.`,
-          remove: `Use the Read file tool to read WARMUP.md first. Then remove "${source ?? "[source]"}" from WARMUP.md entirely. Show the current entry and confirm with the user before writing.`,
-          exclude: `Use the Read file tool to read WARMUP.md first. Then mark "${source ?? "[source]"}" as excluded by moving it to the ## Excluded Sources section with format: "- Name | URL | excluded". Confirm before writing.`,
+          add: `Use the Read file tool to read WARMUP.md first. Then add the source named below to the user's active sources. Ask for the URL and tier (Authoritative / Research / News / Vendor) if not provided. Format: "- Name | URL | active". Show the proposed addition for confirmation before writing.`,
+          remove: `Use the Read file tool to read WARMUP.md first. Then remove the source named below from WARMUP.md entirely. Show the current entry and confirm with the user before writing.`,
+          exclude: `Use the Read file tool to read WARMUP.md first. Then mark the source named below as excluded by moving it to the ## Excluded Sources section with format: "- Name | URL | excluded". Confirm before writing.`,
         };
 
         return {
@@ -481,6 +485,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               text:
                 `# The Warmup — Config\n\n` +
                 `${actionInstructions[action]}\n\n` +
+                (safeSource ? `## Target source\n\n\`\`\`\n${sourceLabel}\n\`\`\`\n\n` : '') +
                 `## Rules\n\n` +
                 `- Always use the Read file tool (not bash) to read the current WARMUP.md before making any changes.\n` +
                 `- Show the proposed change clearly before writing.\n` +
@@ -638,8 +643,11 @@ Lens name + category mapping (use exactly, in order):
           ),
       },
       async ({ spotter_data }) => {
+        // XSS safety: epic text can contain </script> which breaks the script tag
+        // if injected verbatim. Escape before injection — same as warmup_get_template.
+        const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)`;
-        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, `window.SPOTTER_DATA = ${spotter_data};`);
+        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, `window.SPOTTER_DATA = ${safe};`);
         const injected = filled !== SPOTTER_TEMPLATE_HTML;
         return {
           content: [
@@ -647,7 +655,7 @@ Lens name + category mapping (use exactly, in order):
               type: "text" as const,
               text: injected
                 ? filled
-                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found — injection failed. Raw template returned.]\n\n${SPOTTER_TEMPLATE_HTML}`,
+                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Call spotter_get_template again.]`,
             },
           ],
         };
