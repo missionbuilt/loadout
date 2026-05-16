@@ -41,6 +41,40 @@ import { authHandler, type UserProps } from "./auth";
 
 const SERVER_VERSION = "1.0.0";
 
+/**
+ * Extract a named section from SKILL.md by heading boundary.
+ * Prevents tool responses from embedding the full ~90KB document.
+ *
+ * Available sections:
+ *   "setup"    – SETUP Mode (first-run flow, question order, WARMUP.md format)
+ *   "run"      – RUN Mode steps 1–6 (full run workflow + schema + source rules)
+ *   "config"   – CONFIGURE Mode (add/remove/exclude sources)
+ *   "schema"   – Step 4 Render phase only (WARMUP_DATA JSON schema + rules)
+ *   "sources"  – Source suites for CISO, Product Leader, Sector-Specific
+ *   "sections" – Report section structures (CISO + Product Leader)
+ *   "rules"    – Anti-patterns and editorial voice
+ *   "warmupmd" – WARMUP.md config format reference
+ *   "full"     – Entire SKILL.md (use only when a specific section is insufficient)
+ */
+function getSkillSection(md: string, section: string): string {
+  const boundaries: Record<string, [string, string | null]> = {
+    setup:    ["## SETUP Mode",                            "## RUN Mode"],
+    run:      ["## RUN Mode",                              "## CONFIGURE Mode"],
+    config:   ["## CONFIGURE Mode",                        "## CISO Source Suite"],
+    schema:   ["### Step 4 — Render phase",                "### Step 5 — Summary line"],
+    sources:  ["## CISO Source Suite",                     "## CISO Report"],
+    sections: ["## CISO Report",                           "## Custom Mode — Source-Building Rules"],
+    rules:    ["## Anti-Patterns",                         "## Voice"],
+    warmupmd: ["## WARMUP.md Config Format",               "## Anti-Patterns"],
+  };
+  if (section === "full" || !boundaries[section]) return md;
+  const [startMark, endMark] = boundaries[section];
+  const si = md.indexOf(startMark);
+  if (si === -1) return `[Section "${section}" not found in SKILL.md — use section:"full" to load everything]`;
+  const ei = endMark ? md.indexOf(endMark, si) : md.length;
+  return md.slice(si, ei === -1 ? md.length : ei).trim();
+}
+
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
 const WARMUP_VERSION = "0.3.7";
@@ -173,14 +207,20 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_skill",
-      "Returns the full SKILL.md for The Warmup — the framework, three modes (CISO / Product Leader / Custom), setup flow, source tiers, section structure, output format, and safety verification protocol. Call this first when setting up The Warmup or generating a brief.",
+      "Returns a section of the Warmup SKILL.md. Use the 'section' param to load only what you need — avoids loading the full ~90KB document. Sections: 'schema' (WARMUP_DATA render schema + field rules), 'sources' (source suites, tiers, batch queries), 'sections' (report section structures for CISO + Product Leader), 'run' (full run flow), 'setup' (first-run setup flow), 'config' (add/remove sources), 'rules' (anti-patterns + editorial voice), 'warmupmd' (WARMUP.md config format), 'full' (everything — use only when a specific section is insufficient).",
       {
         intent: z.string().describe(
-          "One sentence shown in the permission dialog. Examples: 'Loading Warmup skill framework to begin setup', 'Reading Warmup framework before generating brief'. Keep it under 100 characters."
+          "One sentence shown in the permission dialog. Examples: 'Loading WARMUP_DATA schema for render phase', 'Loading source tiers for fetch phase'. Keep it under 100 characters."
         ),
+        section: z
+          .enum(["setup", "run", "config", "schema", "sources", "sections", "rules", "warmupmd", "full"])
+          .optional()
+          .describe(
+            "Which section to return. Defaults to 'full'. Prefer specific sections: 'schema' during render, 'sources' during fetch, 'sections' when writing section content, 'rules' for anti-pattern checks, 'setup' during first-run setup, 'warmupmd' to check WARMUP.md format."
+          ),
       },
-      async () => ({
-        content: [{ type: "text" as const, text: WARMUP_SKILL_MD }],
+      async ({ section }) => ({
+        content: [{ type: "text" as const, text: getSkillSection(WARMUP_SKILL_MD, section ?? "full") }],
       })
     );
 
@@ -261,7 +301,11 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `## Voice\n\n` +
                 `Ask one question at a time. Plain language — never internal-framework prompts. ` +
                 `The user is setting up their morning routine, not configuring a system. Keep it fast.\n\n` +
-                `## SKILL.md\n\n${WARMUP_SKILL_MD}\n\n` +
+                `## Reference sections (call warmup_get_skill with the section param as needed)\n\n` +
+                `- Detailed setup flow and question order: warmup_get_skill({ section: "setup", intent: "..." })\n` +
+                `- Source suites and tier definitions: warmup_get_skill({ section: "sources", intent: "..." })\n` +
+                `- WARMUP.md config format reference: warmup_get_skill({ section: "warmupmd", intent: "..." })\n` +
+                `- Full SKILL.md (only if above sections are insufficient): warmup_get_skill({ section: "full", intent: "..." })\n\n` +
                 `Begin with mode selection if not yet known, or with the first config question for the given mode.`,
             },
           ],
@@ -318,7 +362,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +
-                `## SKILL.md\n\n${WARMUP_SKILL_MD}`,
+                `## Reference sections (call warmup_get_skill with the section param when you need details)\n\n` +
+                `- Source tiers, batch query templates, sector-specific sources (Step 2 fetch phase): warmup_get_skill({ section: "sources", intent: "Loading source tiers for fetch phase" })\n` +
+                `- Report section structures — what goes in each section, lead vs grid items (Step 3 synthesis): warmup_get_skill({ section: "sections", intent: "Loading section structures for synthesis" })\n` +
+                `- WARMUP_DATA JSON schema, all field rules, date filter, sub field, safety panel (Step 4 render): warmup_get_skill({ section: "schema", intent: "Loading WARMUP_DATA schema for render" })\n` +
+                `- Anti-patterns, editorial voice, hard rules: warmup_get_skill({ section: "rules", intent: "Checking anti-patterns" })\n` +
+                `- Full SKILL.md (only if the above sections are collectively insufficient): warmup_get_skill({ section: "full", intent: "..." })`,
             },
           ],
         };
@@ -360,7 +409,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `- Show the proposed change clearly before writing.\n` +
                 `- Preserve all other config fields — only touch the section being modified.\n` +
                 `- You MUST update the \`updated\` field to today's date (YYYY-MM-DD) after any write. This is required — it drives the source emergence check schedule.\n\n` +
-                `## SKILL.md\n\n${WARMUP_SKILL_MD}`,
+                `## Reference sections (call warmup_get_skill with the section param as needed)\n\n` +
+                `- CONFIGURE mode rules and source emergence check: warmup_get_skill({ section: "config", intent: "Loading config rules" })\n` +
+                `- Source suites (for recommending sources to add): warmup_get_skill({ section: "sources", intent: "Loading source suites for recommendation" })\n` +
+                `- WARMUP.md config format: warmup_get_skill({ section: "warmupmd", intent: "Checking WARMUP.md format" })`,
             },
           ],
         };
