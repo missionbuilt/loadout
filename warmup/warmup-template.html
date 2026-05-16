@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.4 -->
+<!-- warmup-engine: v0.3.5 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -935,6 +935,21 @@
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
   }
+  /* ── Presentation mode (CSS fallback when native fullscreen is blocked) ── */
+  html.presentation-mode {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    z-index: 2147483646;
+    background: var(--paper);
+    width: 100%;
+    height: 100%;
+  }
+  html.presentation-mode body {
+    min-height: 100%;
+  }
+  html.presentation-mode .masthead-controls { display: none; }
+
   /* Fullscreen exit button — fixed top-right corner, only visible in fullscreen */
   .btn-fullscreen-exit {
     display: none;
@@ -1539,8 +1554,12 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     var _badge = document.querySelector('.scan-badge');
     if (_badge && D.safety) {
       var _total = D.safety.totalUrls || 0;
-      var _flagged = D.safety.flagged || 0;
-      _badge.setAttribute('aria-label', 'Link safety report · ' + _total + ' links scanned clean');
+      // Derive flagged from domain verdicts — same logic as the safety panel renderer
+      var _flagged = (D.safety.domains || []).filter(function(d) {
+        var v = (d.verdict || '').toUpperCase();
+        return v.indexOf('ALLOW') === -1 && v !== 'CLEAN' && v !== 'SAFE' && v !== '';
+      }).length;
+      _badge.setAttribute('aria-label', 'Link safety report · ' + _total + ' links scanned · ' + _flagged + ' flagged');
       var _spans = _badge.querySelectorAll('span');
       if (_spans[1]) _spans[1].textContent = _total + ' links scanned';
       if (_spans[2]) _spans[2].textContent = '· ' + _flagged + ' flagged';
@@ -1719,7 +1738,10 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         });
       });
       var domainRows = sf.domains.map(function(d) {
-        var _verdict = (d.verdict || '').split(/\s*[—–]\s*/)[0].trim();
+        var _rawVerdict = (d.verdict || '').split(/\s*[—–]\s*/)[0].trim();
+        // Normalize common single-word forms to spaced display versions
+        var _verdictMap = { 'ALLOWLISTED': 'ALLOW LISTED', 'allowlisted': 'Allow Listed', 'Allowlisted': 'Allow Listed', 'CLEAN': 'CLEAN', 'SAFE': 'SAFE' };
+        var _verdict = _verdictMap[_rawVerdict] || _rawVerdict;
         var _cnt = _urlsPerDomain[d.domain] || 0;
         var _cntHtml = _cnt > 1 ? '<span class="safety-url-ct">' + _cnt + ' urls</span>' : '';
         return '<div class="safety-domain-row">' +
@@ -1729,10 +1751,20 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
           '<span class="safety-verdict">' + _verdict + '</span>' +
           '</div>';
       }).join('');
+      // Derive flagged count from actual domain data — don't trust agent's sf.flagged
+      // which can contradict the domain list (e.g. "3 flagged" when all are ALLOWLISTED)
+      var _derivedFlagged = sf.domains.filter(function(d) {
+        var v = (d.verdict || '').toUpperCase();
+        return v.indexOf('ALLOW') === -1 && v !== 'CLEAN' && v !== 'SAFE' && v !== '';
+      }).length;
+      var _allClear = _derivedFlagged === 0;
+      var _metaStatus = _allClear
+        ? '<span class="safety-ok">✓ All clear</span>'
+        : '<span class="safety-warn" style="color:var(--blood);font-weight:700;">⚠ ' + _derivedFlagged + ' domain' + (_derivedFlagged > 1 ? 's' : '') + ' flagged — review before clicking</span>';
       safetyPanel.innerHTML =
         '<h2 class="s-eyebrow"><span class="sec-kicker">Verification</span><span class="sec-label">Link Safety</span><span class="sec-sub">Every URL in this brief, scanned at the moment of generation.</span></h2>' +
-        '<p class="safety-meta"><span class="safety-ok">✓ All clear</span> Report compiled &amp; links scanned · ' + sf.scannedAt + ' · ' +
-        sf.domains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + sf.flagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
+        '<p class="safety-meta">' + _metaStatus + ' Report compiled &amp; links scanned · ' + sf.scannedAt + ' · ' +
+        sf.domains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + _derivedFlagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
         '<div class="safety-domain-grid">' + domainRows + '</div>' +
         '<p class="safety-disclaimer"><strong>How this works</strong> Link safety is verified at report generation time using a two-tier approach. First, each domain is checked against a curated allowlist of authoritative sources — government agencies, established security vendors, and major news organizations. Domains on the allowlist are verified instantly with no external call. Second, any domain not on the allowlist is queried against URLScan.io\'s public API, which returns community scan results and a maliciousness verdict. No API key is required, and no URL data is transmitted beyond the domain name.</p>' +
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Scan timing</strong> These results reflect conditions at the moment the brief was generated. A clean result means the domain wasn\'t flagged then — not a live guarantee. Pages change, redirects get added, domains get reused. Treat this as a quick signal, not a substitute for your own judgment on anything sensitive.</p>' +
@@ -1804,7 +1836,9 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     // from config.scanTime when set, otherwise live page-load time in the
     // user's tz, 24-hour format. Header and Generated cell never diverge.
     function computeGenStr() {
-      if (WARMUP_CONFIG.scanTime) return WARMUP_CONFIG.scanTime;
+      // Only use scanTime if it looks like an actual time (e.g. "22:44 ET").
+      // If the agent mistakenly wrote a date string, fall through to the live clock.
+      if (WARMUP_CONFIG.scanTime && /\d{1,2}:\d{2}/.test(WARMUP_CONFIG.scanTime)) return WARMUP_CONFIG.scanTime;
       const f = tzFmt({ hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
       let h = part(f, 'hour'); if (h === '24') h = '00';
       const m = part(f, 'minute');
@@ -2514,7 +2548,9 @@ btn.textContent = 'Loading…';
           }
         }
 
-        need(60);
+        // Reserve enough space for the section header + at least the first item's
+        // meta + one headline line, so the heading never strands at the bottom.
+        need(130);
         // Section heading — left-aligned newspaper column style
         // Kicker: small oxblood mono tag left-aligned
         if (kicker) {
@@ -2553,7 +2589,8 @@ btn.textContent = 'Loading…';
           const deepEl   = item.querySelector('.deep-result');
           const hasDive  = withDives && deepEl && deepEl.classList.contains('visible');
 
-          need(50);
+          // Lead items need more room (large headline); secondary items are compact.
+          need(isLead ? 50 : 32);
 
           // Source + date meta row
           const meta = [source, date].filter(Boolean).join('     ');
@@ -2634,14 +2671,14 @@ btn.textContent = 'Loading…';
 
           // Thin separator between items inside the section
           if (iIdx < itemsArr.length - 1) {
-            curY -= 8;
+            curY -= 6;
             HR(ML, curY, PW-MR, 0.25, 0.85);
-            curY -= 16;
+            curY -= 12;
           } else {
-            curY -= 18;
+            curY -= 12;
           }
         });
-        curY -= 14; // section gap
+        curY -= 10; // section gap
       });
 
       // ── Link Safety panel ──
@@ -2916,28 +2953,57 @@ btn.textContent = 'Loading…';
   })(); } catch(e) { console.error('[Warmup:SavePDF]', e); }
 
   // ── FULLSCREEN ──
+  // Attempts native Fullscreen API first. Artifacts run inside iframes, which
+  // may block the API depending on the host app's iframe sandbox policy.
+  // If the API call is rejected (or unavailable), we fall back to a CSS
+  // presentation mode that hides chrome and maximises the reading area.
   try { (function () {
     const btnEnter = document.getElementById('btn-fullscreen');
     const btnExit  = document.getElementById('btn-fullscreen-exit');
     if (!btnEnter) return;
 
+    let inPresentationMode = false;
+
+    function applyPresentationMode() {
+      inPresentationMode = true;
+      document.documentElement.classList.add('presentation-mode');
+      btnEnter.textContent = 'Exit FS';
+      if (btnExit) btnExit.style.display = 'block';
+    }
+    function removePresentationMode() {
+      inPresentationMode = false;
+      document.documentElement.classList.remove('presentation-mode');
+      btnEnter.textContent = 'Fullscreen';
+      if (btnExit) btnExit.style.display = '';
+    }
+
     function enterFS() {
       const el = document.documentElement;
       const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (req) req.call(el);
+      if (req) {
+        const result = req.call(el);
+        // requestFullscreen returns a Promise — if rejected (e.g. iframe sandbox
+        // blocks it), fall back to CSS presentation mode instead.
+        if (result && typeof result.catch === 'function') {
+          result.catch(() => applyPresentationMode());
+        }
+      } else {
+        applyPresentationMode();
+      }
     }
     function exitFS() {
+      if (inPresentationMode) { removePresentationMode(); return; }
       const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
       if (ex) ex.call(document);
     }
 
-    btnEnter.addEventListener('click', enterFS);
+    btnEnter.addEventListener('click', () => inPresentationMode ? exitFS() : enterFS());
     if (btnExit) btnExit.addEventListener('click', exitFS);
 
-    // Update button label based on fullscreen state
+    // Keep button label in sync when native fullscreen state changes
     function onFSChange() {
-      const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-      if (btnEnter) btnEnter.textContent = inFS ? 'Exit FS' : 'Fullscreen';
+      const inNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      if (!inPresentationMode) btnEnter.textContent = inNativeFS ? 'Exit FS' : 'Fullscreen';
     }
     document.addEventListener('fullscreenchange', onFSChange);
     document.addEventListener('webkitfullscreenchange', onFSChange);
