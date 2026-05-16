@@ -88,6 +88,41 @@ a { color: inherit; text-decoration: none; }
 .tb-btn.save { color: var(--blood); }
 .tb-btn.save:hover { color: var(--paper); background: var(--blood); }
 
+/* Export dropdown */
+.tb-export { position: relative; }
+.tb-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%; right: 0;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-top: none;
+  z-index: 300;
+  min-width: 160px;
+}
+.tb-dropdown.open { display: block; }
+.tb-dropdown button {
+  display: block;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 16px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.1s, background 0.1s;
+}
+.tb-dropdown button:last-child { border-bottom: none; }
+.tb-dropdown button:hover { color: var(--ink); background: var(--paper-tint); }
+.tb-dropdown button.dd-primary { color: var(--blood); }
+.tb-dropdown button.dd-primary:hover { color: var(--paper); background: var(--blood); }
+
 /* ══════════════════════════════════════════════════════
    PRINT — clean PDF output
    ══════════════════════════════════════════════════════ */
@@ -1126,7 +1161,13 @@ a { color: inherit; text-decoration: none; }
 </head>
 <body>
 <div class="toolbar">
-  <button class="tb-btn save" onclick="printReview()">Print / PDF</button>
+  <div class="tb-export">
+    <button class="tb-btn save" onclick="toggleExport(event)">Export ▾</button>
+    <div class="tb-dropdown" id="export-dd">
+      <button class="dd-primary" onclick="exportHTML();closeExport()">Export HTML</button>
+      <button onclick="window.print();closeExport()">Print / PDF</button>
+    </div>
+  </div>
   <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
 </div>
 <div id="root"></div>
@@ -1281,41 +1322,268 @@ Open questions
 };
 
 /* ══════════════════════════════════════════════════════
-   PRINT — open a dedicated print window so filename is
-   controlled by our <title>, not the Cowork app title
+   EXPORT FOR PRINT — downloads a self-contained HTML file.
+   When opened in any browser outside Cowork, it renders
+   identically to the artifact and auto-triggers the print
+   dialog. The filename comes from our <title>, not Cowork.
    ══════════════════════════════════════════════════════ */
-function printReview() {
-  var epic = (window.SPOTTER_DATA || {}).epic || {};
-  var name = (epic.name || 'Spotter Review').replace(/[<>"']/g, '');
-  var printTitle = name + ' — Spotter Review';
+function exportHTML() {
+  var epic     = (window.SPOTTER_DATA || {}).epic || {};
+  var safeName = (epic.name || 'Spotter Review')
+    .replace(/['']/g,"'").replace(/[""]/g,'"').replace(/[–—]/g,'-')
+    .replace(/[^\x20-\x7E]/g,'').replace(/[^a-zA-Z0-9 \-_.]/g,'').trim()
+    || 'Spotter Review';
+  var title    = safeName + ' — Spotter Review';
+  var filename = safeName + ' - Spotter Review.html';
 
-  /* Collect only fonts + our style block — no Cowork scripts */
-  var headParts = '<meta charset="UTF-8"><title>' + printTitle + '</title>\n';
-  document.querySelectorAll('link[rel="preconnect"], link[rel="stylesheet"]').forEach(function(el) {
-    headParts += el.outerHTML + '\n';
+  /* Build head: our title + fonts + styles only (no Cowork scripts) */
+  var head = '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n';
+  head += '<title>' + title + '</title>\n';
+  document.querySelectorAll('link[rel="preconnect"],link[rel="stylesheet"]').forEach(function(el){
+    head += el.outerHTML + '\n';
   });
-  document.querySelectorAll('style').forEach(function(el) {
-    headParts += '<style>' + el.textContent + '</style>\n';
+  document.querySelectorAll('style').forEach(function(el){
+    head += '<style>' + el.textContent + '</style>\n';
   });
 
-  /* Build a fully self-contained HTML blob — title is ours, no Cowork shell */
-  var html =
-    '<!DOCTYPE html><html lang="en"><head>' + headParts + '</head>' +
-    '<body>' + document.body.innerHTML +
-    /* Auto-trigger print once fonts are ready */
-    '<script>document.fonts.ready.then(function(){window.print();});<\/script>' +
-    '</body></html>';
+  /* Auto-trigger print once fonts settle */
+  var autoprint = '<script>document.fonts.ready.then(function(){setTimeout(function(){window.print();},400);});<\/script>';
+
+  var html = '<!DOCTYPE html><html lang="en"><head>' + head + '</head>' +
+             '<body>' + document.body.innerHTML + autoprint + '</body></html>';
 
   var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   var url  = URL.createObjectURL(blob);
-  var win  = window.open(url, '_blank');
-  if (!win) {
-    /* Popup blocked — fall back */
-    document.title = printTitle;
-    window.print();
-  }
-  setTimeout(function() { URL.revokeObjectURL(url); }, 30000);
+  var a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 15000);
+  showToast('Saved “' + filename + '” — open it to print');
 }
+
+/* ── DEAD CODE placeholder — buildSpotterPDF removed in favour of HTML export ── */
+function buildSpotterPDF(data) {
+  var lenses  = data.lenses || [];
+  var epic    = data.epic   || {};
+  var user    = data.user   || {};
+
+  /* — Geometry — A4 — */
+  var PW = 595.28, PH = 841.89;
+  var ML = 54, MT = 60, MB = 52;
+  var TW = PW - ML - ML;
+
+  /* — Verdict — */
+  function lensResult(judges) {
+    return (judges || []).filter(function(j){ return j === 'r'; }).length >= 2 ? 'fail' : 'pass';
+  }
+  var noFail  = lenses.filter(function(l){ return lensResult(l.judges) === 'fail'; }).length;
+  var verdict = noFail === 0 ? 'Ready' : noFail <= 2 ? 'Needs Work' : 'Not Ready';
+  var now     = new Date();
+  var dateStr = user.timestamp ||
+    new Intl.DateTimeFormat('en-US', { day:'numeric', month:'long', year:'numeric' }).format(now);
+
+  /* — Colors (PDF 0–1 rgb) — */
+  var C_INK   = '0.08 0.07 0.05';
+  var C_DIM   = '0.36 0.32 0.28';
+  var C_FAINT = '0.59 0.55 0.49';
+  var C_RED   = '0.71 0.15 0.11';
+  var C_GREEN = '0.31 0.38 0.09';
+
+  /* — String helpers — */
+  function san(s) {
+    return String(s || '')
+      .replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+      .replace(/–/g, '-').replace(/—/g, '--').replace(/…/g, '...')
+      .replace(/[^\x20-\x7E]/g, '?');
+  }
+  function ps(s) {
+    return san(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+  }
+  function pu(u) {
+    return String(u||'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
+  }
+
+  /* — Helvetica approximate character widths (per 1000 units) — */
+  var HW = {' ':278,'!':278,'"':355,'#':556,'$':556,'%':889,'&':667,"'":222,'(':333,')':333,
+    '*':389,'+':584,',':278,'-':333,'.':278,'/':278,'0':556,'1':556,'2':556,'3':556,'4':556,
+    '5':556,'6':556,'7':556,'8':556,'9':556,':':278,';':278,'<':584,'=':584,'>':584,'?':556,
+    '@':1015,'A':667,'B':667,'C':722,'D':722,'E':667,'F':611,'G':778,'H':722,'I':278,'J':500,
+    'K':667,'L':556,'M':833,'N':722,'O':778,'P':667,'Q':778,'R':722,'S':667,'T':611,'U':722,
+    'V':667,'W':944,'X':667,'Y':667,'Z':611,'[':278,'\\':278,']':278,'^':469,'_':556,
+    'a':556,'b':556,'c':500,'d':556,'e':556,'f':278,'g':556,'h':556,'i':222,'j':222,'k':500,
+    'l':222,'m':833,'n':556,'o':556,'p':556,'q':556,'r':333,'s':500,'t':278,'u':556,'v':500,
+    'w':722,'x':500,'y':500,'z':500,'{':334,'|':260,'}':334};
+  function cw(c){ return HW[c] || 500; }
+  function sw(s, sz){ var w=0; for(var i=0;i<s.length;i++) w+=cw(s[i]); return w*sz/1000; }
+  function wrap(text, maxW, sz) {
+    var words = san(text).replace(/\s+/g,' ').trim().split(' ');
+    var lines=[], line='';
+    for(var i=0;i<words.length;i++){
+      var t = line ? line+' '+words[i] : words[i];
+      if(sw(t,sz)>maxW && line){ lines.push(line); line=words[i]; } else line=t;
+    }
+    if(line) lines.push(line);
+    return lines.length ? lines : [''];
+  }
+
+  /* — PDF object store — */
+  var objs = [];
+  function addObj(c){ objs.push(c); return objs.length; }
+
+  var CAT_ID = addObj(''); /* 1 */
+  var PGS_ID = addObj(''); /* 2 */
+  var FR_ID  = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  var FB_ID  = addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+
+  var pageIds = [];
+  var pages   = [];
+
+  function startPage(){ pages.push({ ops:[], ann:[] }); }
+  function cp(){ return pages[pages.length-1]; }
+
+  function T(text, x, y, sz, bold, color, url) {
+    var f = bold ? '/F2' : '/F1';
+    cp().ops.push('BT '+f+' '+sz+' Tf '+(color||C_INK)+' rg '+x.toFixed(2)+' '+y.toFixed(2)+' Td ('+ps(text)+') Tj ET');
+    if(url){
+      var w = sw(san(text), sz);
+      var aid = addObj('<< /Type /Annot /Subtype /Link /Rect ['+x.toFixed(2)+' '+y.toFixed(2)+' '+(x+w).toFixed(2)+' '+(y+sz+2).toFixed(2)+'] /Border [0 0 0] /A << /Type /Action /S /URI /URI ('+pu(url)+') >> >>');
+      cp().ann.push(aid);
+    }
+  }
+
+  function Rect(x, y, w, h, color){
+    cp().ops.push((color||C_INK)+' rg '+x.toFixed(2)+' '+y.toFixed(2)+' '+w.toFixed(2)+' '+(h||0.5).toFixed(2)+' re f');
+  }
+
+  function footer(){
+    var fy = MB-18, fx = ML;
+    Rect(ML, MB-6, TW, 0.5, C_FAINT);
+    function ft(txt, url){ T(txt,fx,fy,7,false,C_DIM,url); fx+=sw(san(txt),7); }
+    ft('Mission Built', 'https://missionbuilt.io');
+    ft('  .  The Spotter  .  '+dateStr+'  .  ');
+    ft('MIT License', 'https://opensource.org/licenses/MIT');
+  }
+
+  function finalizePage(){
+    var p = cp();
+    var sc = p.ops.join('\n');
+    var sid = addObj('<< /Length '+sc.length+' >>\nstream\n'+sc+'\nendstream');
+    var res = '<< /Font << /F1 '+FR_ID+' 0 R /F2 '+FB_ID+' 0 R >> >>';
+    var ann = p.ann.length ? '/Annots ['+p.ann.map(function(id){return id+' 0 R';}).join(' ')+']' : '';
+    var pid = addObj('<< /Type /Page /Parent '+PGS_ID+' 0 R /MediaBox [0 0 '+PW.toFixed(2)+' '+PH.toFixed(2)+'] /Contents '+sid+' 0 R /Resources '+res+' '+ann+' >>');
+    pageIds.push(pid);
+  }
+
+  function block(text, x, y, maxW, sz, bold, color, lead){
+    var lines = wrap(text, maxW, sz);
+    var ln = lead || sz*1.5;
+    for(var i=0;i<lines.length;i++){
+      if(y < MB+50){ footer(); finalizePage(); startPage(); y=PH-MT; }
+      T(lines[i], x, y, sz, bold, color);
+      y -= ln;
+    }
+    return y;
+  }
+
+  /* ── Cover ── */
+  startPage();
+  var y = PH - MT;
+
+  T('THE SPOTTER', ML, y, 30, true, C_INK); y -= 42;
+  Rect(ML, y, TW, 1.5, C_RED); y -= 14;
+  if(epic.name){ y = block(epic.name, ML, y, TW, 16, true, C_INK, 22); y -= 8; }
+  var vC = verdict==='Ready' ? C_GREEN : C_RED;
+  T(verdict.toUpperCase(), ML, y, 40, true, vC); y -= 52;
+  T((lenses.length-noFail)+' areas pass  .  '+noFail+' fail  .  '+lenses.length+' total', ML, y, 11, false, C_DIM); y -= 18;
+  T(san(dateStr)+(user.name ? '  .  '+san(user.name) : ''), ML, y, 9, false, C_FAINT); y -= 30;
+  Rect(ML, y, TW, 0.5, C_FAINT); y -= 20;
+
+  /* Area grid — 3 columns */
+  var colW = TW/3;
+  for(var i=0; i<lenses.length; i++){
+    var l = lenses[i], res = lensResult(l.judges);
+    var col = i%3, row = Math.floor(i/3);
+    var ax = ML+col*colW, ay = y-row*36;
+    T(res==='pass'?'PASS':'FAIL', ax, ay, 8, true, res==='pass'?C_GREEN:C_RED);
+    T(String(l.n).padStart(2,'0')+'  '+san(l.name||''), ax+32, ay, 8, false, C_INK);
+    if(l.category) T(san(l.category), ax+32, ay-12, 7, false, C_FAINT);
+  }
+
+  footer();
+  finalizePage();
+
+  /* ── Per-area pages ── */
+  for(var ai=0; ai<lenses.length; ai++){
+    var lens = lenses[ai], ares = lensResult(lens.judges);
+    startPage();
+    y = PH-MT;
+
+    T(String(lens.n).padStart(2,'0')+'  .  '+(lens.category||'Area').toUpperCase(), ML, y, 8, false, C_FAINT); y -= 15;
+    y = block(lens.name||'', ML, y, TW, 20, true, C_INK, 26); y -= 4;
+    T(ares==='pass'?'PASS':'FAIL', ML, y, 26, true, ares==='pass'?C_GREEN:C_RED); y -= 36;
+    var judges = lens.judges||['w','w','w'];
+    T(judges.map(function(j){return j==='r'?'[FAIL]':'[PASS]';}).join('  '), ML, y, 8, false, C_DIM); y -= 18;
+    Rect(ML, y, TW, 0.5, C_FAINT); y -= 14;
+
+    if(lens.question){
+      y = block(lens.question, ML, y, TW, 9, false, C_FAINT, 14); y -= 10;
+    }
+    if(lens.finding){
+      T('FINDING', ML, y, 7, true, C_FAINT); y -= 13;
+      y = block(lens.finding, ML, y, TW, 11, false, C_INK, 17); y -= 10;
+    }
+    if(lens.spotterPull){
+      T('SPOTTER', ML, y, 7, true, C_GREEN); y -= 13;
+      y = block(lens.spotterPull, ML+12, y, TW-12, 10, false, C_DIM, 16); y -= 10;
+    }
+    if(lens.handNote){
+      y = block('> '+lens.handNote, ML, y, TW, 10, false, C_RED, 16); y -= 8;
+    }
+
+    footer();
+    finalizePage();
+  }
+
+  /* ── Assemble PDF ── */
+  objs[CAT_ID-1] = '<< /Type /Catalog /Pages '+PGS_ID+' 0 R >>';
+  objs[PGS_ID-1] = '<< /Type /Pages /Kids ['+pageIds.map(function(id){return id+' 0 R';}).join(' ')+'] /Count '+pageIds.length+' >>';
+
+  var out = '%PDF-1.4\n', offs = [];
+  for(var i=0; i<objs.length; i++){
+    offs.push(out.length);
+    out += (i+1)+' 0 obj\n'+objs[i]+'\nendobj\n\n';
+  }
+  var xref = out.length;
+  out += 'xref\n0 '+(objs.length+1)+'\n';
+  out += '0000000000 65535 f \n';
+  for(var i=0; i<offs.length; i++){
+    out += String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  }
+  out += 'trailer\n<< /Size '+(objs.length+1)+' /Root '+CAT_ID+' 0 R >>\nstartxref\n'+xref+'\n%%EOF\n';
+  return out;
+}
+
+/* Print / PDF — opens browser print dialog. Filename defaults to
+   "Claude" in Cowork; user can rename in the Save dialog. */
+
+/* ══════════════════════════════════════════════════════
+   EXPORT DROPDOWN
+   ══════════════════════════════════════════════════════ */
+function toggleExport(e) {
+  e && e.stopPropagation();
+  var dd = document.getElementById('export-dd');
+  if (dd) dd.classList.toggle('open');
+}
+function closeExport() {
+  var dd = document.getElementById('export-dd');
+  if (dd) dd.classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest || !e.target.closest('.tb-export')) closeExport();
+});
 
 /* ══════════════════════════════════════════════════════
    FULLSCREEN
@@ -1414,14 +1682,16 @@ function showToast(msg) {
   /* — Computed stats — */
   function computeSummary(lenses) {
     let lensesSet = 0, whites = 0, reds = 0, unset = 0;
+    let passAreas = 0, failAreas = 0;
     for (const l of lenses) {
       const j = l.judges || [null, null, null];
       if (j.every(x => x !== null)) lensesSet++;
       whites += j.filter(x => x === 'w').length;
       reds   += j.filter(x => x === 'r').length;
       unset  += j.filter(x => x === null).length;
+      if (lensResult(j) === 'lift') passAreas++; else failAreas++;
     }
-    return { lensesSet, totalLenses: lenses.length, whites, reds, unset };
+    return { lensesSet, totalLenses: lenses.length, whites, reds, unset, passAreas, failAreas };
   }
 
   function lensResult(judges) {
@@ -1762,8 +2032,8 @@ function showToast(msg) {
       <span class="sub">${subVerdict}</span>
     </div>
     <div class="vr-stats">
-      <div><span class="k">Lights · W</span><span class="v lift">${summary.whites}</span></div>
-      <div><span class="k">Lights · R</span><span class="v no-lift">${summary.reds}</span></div>
+      <div><span class="k">Areas · Pass</span><span class="v lift">${summary.passAreas}</span></div>
+      <div><span class="k">Areas · Fail</span><span class="v no-lift">${summary.failAreas}</span></div>
       <div><span class="k">Reviewed</span><span class="v">${summary.lensesSet}&nbsp;/&nbsp;${summary.totalLenses}</span></div>
     </div>
   </div>
