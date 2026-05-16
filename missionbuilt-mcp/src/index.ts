@@ -77,6 +77,53 @@ function getSkillSection(md: string, section: string): string {
   return md.slice(si, ei === -1 ? md.length : ei).trim();
 }
 
+/**
+ * Extract a named section from Spotter SKILL.md by heading boundary.
+ * Prevents tool responses from embedding the full ~29KB document.
+ *
+ * Available sections:
+ *   "lenses"       – The nine lenses (L1–L9, all sub-checks) — largest section, load for grading
+ *   "review"       – Review mode output format only (verdict, per-lens blocks, push-forward offer)
+ *   "iterate"      – Iterate mode output format only
+ *   "build"        – Build mode output format only
+ *   "output"       – All three output format sections together (review + iterate + build)
+ *   "schema"       – Structured output schema (JSON fields, rules, forward-compat notes)
+ *   "antipatterns" – Anti-patterns list (what the skill must not do)
+ *   "full"         – Entire SKILL.md (use only when a specific section is insufficient)
+ */
+function getSpotterSkillSection(md: string, section: string): string {
+  const boundaries: Record<string, [string, string | null]> = {
+    lenses:       ["## The nine lenses",           "## Output formats by mode"],
+    output:       ["## Output formats by mode",    "## Structured output schema"],
+    review:       ["### Review mode",               "### Iterate mode"],
+    iterate:      ["### Iterate mode",              "### Build mode"],
+    build:        ["### Build mode",                "## Structured output schema"],
+    schema:       ["## Structured output schema",   "## Anti-patterns"],
+    antipatterns: ["## Anti-patterns",              "## Examples"],
+  };
+  if (section === "full" || !boundaries[section]) return md;
+  const [startMark, endMark] = boundaries[section];
+  const si = md.indexOf(startMark);
+  if (si === -1) return `[Section "${section}" not found in Spotter SKILL.md — use section:"full" to load everything]`;
+  const ei = endMark ? md.indexOf(endMark, si) : md.length;
+  return md.slice(si, ei === -1 ? md.length : ei).trim();
+}
+
+/**
+ * Extract examples for a specific lens from lens-examples.md.
+ * Each lens is delimited by "## Lens N" headings.
+ * Pass lens=0 or lens="all" to return the full document.
+ */
+function getSpotterLensExamples(md: string, lens: number): string {
+  if (lens === 0) return md;
+  const startMark = `## Lens ${lens}`;
+  const si = md.indexOf(startMark);
+  if (si === -1) return `[Lens ${lens} not found in lens-examples.md — use lens:0 to load all examples]`;
+  const nextMark = `## Lens ${lens + 1}`;
+  const ei = md.indexOf(nextMark, si);
+  return md.slice(si, ei === -1 ? md.length : ei).trim();
+}
+
 // ── Shared param schemas ──────────────────────────────────────────────────────
 
 /** Re-used across every tool that shows a Cowork permission dialog. */
@@ -129,7 +176,7 @@ const WARMUP_MODES = [
 
 // ── Spotter constants ─────────────────────────────────────────────────────────
 
-const SPOTTER_VERSION = "0.3.0";
+const SPOTTER_VERSION = "0.4.0";
 
 const SPOTTER_LENSES = [
   { id: 1, name: "The user and the problem", weight: "foundation — heaviest lens, 8 sub-checks" },
@@ -444,19 +491,38 @@ ${WARMUP_TEMPLATE_HTML}`,
 
     this.server.tool(
       "spotter_get_skill",
-      "Returns the full SKILL.md for The Spotter — the framework, modes (build/iterate/review), nine lenses with sub-checks, output formats, anti-patterns, and the structured output schema. Call this first when running a review, building an epic, or iterating on a draft.",
-      { intent: intentField },
-      async () => ({
-        content: [{ type: "text" as const, text: SPOTTER_SKILL_MD }],
+      "Returns a section of The Spotter SKILL.md. Use the 'section' param to load only what you need — avoids loading the full ~29KB document every call. Sections: 'lenses' (all nine lenses + sub-checks — load this for grading), 'review' (review mode output format), 'iterate' (iterate mode output format), 'build' (build mode output format), 'output' (all three output formats together), 'schema' (structured JSON output schema), 'antipatterns' (what the skill must not do), 'full' (everything — use only when a specific section is insufficient).",
+      {
+        intent: intentField,
+        section: z
+          .enum(["lenses", "review", "iterate", "build", "output", "schema", "antipatterns", "full"])
+          .optional()
+          .describe(
+            "Which section to return. Defaults to 'full'. Prefer targeted sections: 'lenses' when walking lens checks, 'review'/'iterate'/'build' for the relevant output format, 'schema' when emitting structured JSON output, 'antipatterns' for a quick anti-pattern check."
+          ),
+      },
+      async ({ section }) => ({
+        content: [{ type: "text" as const, text: getSpotterSkillSection(SPOTTER_SKILL_MD, section ?? "full") }],
       })
     );
 
     this.server.tool(
       "spotter_get_examples",
-      "Returns the full lens-examples.md content with 64 worked examples across the nine lenses — strong (✓), needs-work (⚠️), and missing (✗) variants with teaching notes. Use when calibrating grading or teaching by contrast.",
-      { intent: intentField },
-      async () => ({
-        content: [{ type: "text" as const, text: SPOTTER_LENS_EXAMPLES_MD }],
+      "Returns worked examples from lens-examples.md — strong (✓), needs-work (⚠️), and missing (✗) variants with teaching notes. Use the 'lens' param (1–9) to load examples for a single lens, or 0 for all lenses. Prefer loading one lens at a time during a review to avoid loading the full 64KB document.",
+      {
+        intent: intentField,
+        lens: z
+          .number()
+          .int()
+          .min(0)
+          .max(9)
+          .optional()
+          .describe(
+            "Which lens to load examples for (1–9). Pass 0 to load all lenses (64KB — use sparingly). Defaults to 0 (all). Prefer specific lens numbers during a review."
+          ),
+      },
+      async ({ lens }) => ({
+        content: [{ type: "text" as const, text: getSpotterLensExamples(SPOTTER_LENS_EXAMPLES_MD, lens ?? 0) }],
       })
     );
 
@@ -506,7 +572,7 @@ ${WARMUP_TEMPLATE_HTML}`,
 
     this.server.tool(
       "spotter_review",
-      "Primes the agent to review a B2B product epic using The Spotter's nine-lens framework. Returns the framework and an instruction block telling the agent to apply review mode to the provided epic.",
+      "Primes the agent to review a B2B product epic using The Spotter's nine-lens framework. Returns instructions and the epic — agent loads framework sections on demand via spotter_get_skill.",
       {
         intent: intentField,
         epic: z.string().min(50).describe("The full text of the epic to review."),
@@ -516,17 +582,16 @@ ${WARMUP_TEMPLATE_HTML}`,
           {
             type: "text" as const,
             text:
-              `# The Spotter — Review Mode\n\n` +
-              `You have been asked to review the following B2B product epic using The Spotter v${SPOTTER_VERSION}.\n\n` +
+              `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
               `## How to run this review\n\n` +
-              `1. Read the SKILL.md framework below in full before grading.\n` +
-              `2. Walk all nine lenses in order. Grade each lens ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
-              `3. Lens 1 carries disproportionate weight (foundation). Lens 9 is a gate (✗ Missing on a B2B feature with agent action, data access, or new permission surfaces caps the verdict at Not ready).\n` +
-              `4. Use the critique-not-criticism voice throughout: every flag is "you could strengthen this by..." — never "you missed..."\n` +
-              `5. End with a Questions to ask the PM section and, if verdict is Needs polish or Not ready, an offer to work through specific gaps.\n\n` +
-              `## SKILL.md\n\n${SPOTTER_SKILL_MD}\n\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for review" }) to load the full lens framework with sub-checks. Do this before grading.\n` +
+              `2. Walk all nine lenses in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
+              `3. Lens 1 carries disproportionate weight (foundation — 8 sub-checks). Lens 9 is a gate: ✗ Missing on any B2B feature with agent action, data access, or new permission surfaces caps the verdict at Not ready.\n` +
+              `4. Voice rule: every flag uses "you could strengthen this by..." framing — never "you missed..." or "this is wrong."\n` +
+              `5. Call spotter_get_skill({ section: "review", intent: "Loading review output format" }) for the exact output format (verdict block, per-lens structure, push-forward offer pattern).\n` +
+              `6. If examples are needed for calibration: call spotter_get_examples({ lens: N, intent: "..." }) for the specific lens — do not load all 64 examples unless multiple lenses need contrast.\n\n` +
               `## Epic to review\n\n${epic}\n\n` +
-              `Now produce the review. Open with the verdict. Walk all nine lenses. Close with Questions to ask the PM and the push-forward offer.`,
+              `Load the lenses (step 1), then produce the review. Open with the verdict. Walk all nine lenses. Close with Questions to ask the PM and the push-forward offer.`,
           },
         ],
       })
@@ -544,11 +609,17 @@ ${WARMUP_TEMPLATE_HTML}`,
           {
             type: "text" as const,
             text:
-              `# The Spotter — Build Mode\n\n` +
+              `# The Spotter v${SPOTTER_VERSION} — Build Mode\n\n` +
               `A PM is building an epic for: **${feature}**.\n\n` +
-              `Walk them through the nine lenses with guiding questions. Linger on Lens 1 (especially empathy, current state, why-not-solved, scope/value, assumptions, alternatives, openness) before moving on. The output at the end is a polished draft epic structured by lens.\n\n` +
-              `Use the critique-not-criticism voice. Ask questions; don't lecture. If the PM rushes past the user, gently slow them down.\n\n` +
-              `## SKILL.md\n\n${SPOTTER_SKILL_MD}\n\n` +
+              `## How to run build mode\n\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for build mode" }) to load the lens framework and sub-checks before starting.\n` +
+              `2. Walk the PM through the nine lenses with guiding questions. Ask — don't lecture.\n` +
+              `3. Linger on Lens 1: empathy (A), current state (B), why-not-solved (C), no solutioning (D), scope/value framing (E), assumptions surfaced (F), alternatives considered (G), epistemic openness (H). Get real answers on all eight sub-checks before moving to Lens 2.\n` +
+              `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
+              `5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.\n` +
+              `6. The output at the end is a polished draft epic structured by lens.\n\n` +
+              `## Voice\n\n` +
+              `Critique, not criticism. Ask questions; don't lecture. Every flag is "you could strengthen this by..." — never "you missed..."\n\n` +
               `Begin with Lens 1. Ask about the user first.`,
           },
         ],
@@ -567,12 +638,18 @@ ${WARMUP_TEMPLATE_HTML}`,
           {
             type: "text" as const,
             text:
-              `# The Spotter — Iterate Mode\n\n` +
-              `A PM has a partial draft they want to push forward. Engage only the lenses that have content; ask targeted questions for each gap. Offer structure where the PM is stuck.\n\n` +
-              `Use the critique-not-criticism voice. Each suggestion uses "you could strengthen this by..." framing.\n\n` +
-              `## SKILL.md\n\n${SPOTTER_SKILL_MD}\n\n` +
+              `# The Spotter v${SPOTTER_VERSION} — Iterate Mode\n\n` +
+              `A PM has a partial draft they want to push forward.\n\n` +
+              `## How to run iterate mode\n\n` +
+              `1. Call spotter_get_skill({ section: "lenses", intent: "Loading nine lenses for iterate mode" }) to load the lens framework and sub-checks before engaging.\n` +
+              `2. Scan the draft for which lenses have content — engage only those.\n` +
+              `3. For each lens with content: acknowledge what's there, ask one or two specific questions that push the section forward, offer structure where the PM is stuck.\n` +
+              `4. For lenses not yet drafted, ask: "Have you started thinking about [lens]? I can help you frame it."\n` +
+              `5. Call spotter_get_skill({ section: "iterate", intent: "Loading iterate output format" }) for the output format guidance.\n\n` +
+              `## Voice\n\n` +
+              `Critique, not criticism. Each suggestion uses "you could strengthen this by..." framing — never "you missed..."\n\n` +
               `## Draft to iterate on\n\n${draft}\n\n` +
-              `Walk the lenses present in the draft. Push each one forward.`,
+              `Load the lenses (step 1), then walk the lenses present in the draft. Push each one forward.`,
           },
         ],
       })

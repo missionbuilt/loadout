@@ -3,7 +3,7 @@ name: spotter
 description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine lenses spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
 license: MIT
 author: H. Michael Nichols
-version: 0.1.0
+version: 0.4.0
 part_of: The Loadout
 ---
 
