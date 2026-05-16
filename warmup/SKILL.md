@@ -513,25 +513,31 @@ After all batches complete, output in chat:
 Output in chat before starting synthesis:
 *"⚡ Synthesizing [N] items across [M] sections..."*
 
-**DATE FILTER — enforce before writing any item to WARMUP_DATA:**
-Every item's `date` field must be ≥ the lookback start date. This is a hard requirement — zero exceptions.
+**DATE FILTER — MANDATORY GATE. No item enters WARMUP_DATA without passing this check.**
 
 ```
-lookback_start = today - lookback_days    (e.g. May 15 - 7 = May 8)
-REJECT any item where item.date < lookback_start
+lookback_start = today - lookback_days
 
-Example violations — these MUST be discarded, never included:
-  today = 2026-05-15, lookback = 7 days → lookback_start = 2026-05-08
-  item.date = 2026-02-15  → 89 days old → REJECT
-  item.date = 2026-03-01  → 75 days old → REJECT
-  item.date = 2026-05-07  → 8 days old  → REJECT (one day outside window)
-  item.date = 2026-05-08  → 7 days old  → ACCEPT (exactly at boundary)
+BEFORE WRITING EACH ITEM — run this check:
+  1. Parse item.date as YYYY-MM-DD
+  2. Is item.date ≥ lookback_start? → INCLUDE
+  3. Is item.date < lookback_start? → DISCARD immediately. Do not include it "because it's relevant."
+
+Real violations that MUST be caught (window = 7 days, today = 2026-05-16):
+  lookback_start = 2026-05-09
+  item.date = 2026-05-08  → 8 days old  → REJECT  ← one day over. Still REJECT.
+  item.date = 2026-05-06  → 10 days old → REJECT  ← "only two weeks ago" is still REJECT.
+  item.date = 2026-05-09  → 7 days old  → ACCEPT  (exactly at boundary = OK)
+  item.date = 2026-05-10  → 6 days old  → ACCEPT
 ```
 
-If a search result has no clear publication date, or if the date is ambiguous, **discard it — do not guess**.
+**No date = discard.** If a result has no parseable publication date, discard it. Do not guess or assume.
+
+**"Relevant but old" = still discard.** An article can be highly relevant and still violate the date filter. Relevance does not override the date gate.
+
 If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` and exclude it from `safety.domains`.
 
-This step happens **before** you organize items into sections. Do not route stale items into sections and remove them later — discard them at first sight. If you find yourself thinking "this article is a bit old but still relevant" — that is the filter working. Discard it.
+This gate runs **before** you organize items into sections. Do not route stale items into sections intending to remove them later — discard at first sight, before any further processing.
 
 Organize fetched items into sections using the Section Structure below
 (CISO mode) or the user's defined interest categories (Custom mode).

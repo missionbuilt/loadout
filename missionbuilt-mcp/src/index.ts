@@ -84,8 +84,8 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.8";
-const WARMUP_ENGINE_VERSION = "v0.3.8";
+const WARMUP_VERSION = "0.3.9";
+const WARMUP_ENGINE_VERSION = "v0.3.9";
 
 const WARMUP_MODES = [
   {

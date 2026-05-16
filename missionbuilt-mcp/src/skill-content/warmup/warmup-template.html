@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.8 -->
+<!-- warmup-engine: v0.3.9 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1737,7 +1737,16 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
           }
         });
       });
-      var domainRows = sf.domains.map(function(d) {
+      // Deduplicate by domain name — same domain can appear for multiple sources
+      // (e.g. cisa.gov covers both CISA Alerts and CISA KEV). Show each domain once.
+      var _seenDomains = {};
+      var _uniqueDomains = sf.domains.filter(function(d) {
+        var k = (d.domain || '').toLowerCase();
+        if (_seenDomains[k]) return false;
+        _seenDomains[k] = true;
+        return true;
+      });
+      var domainRows = _uniqueDomains.map(function(d) {
         var _rawVerdict = (d.verdict || '').split(/\s*[—–]\s*/)[0].trim();
         // Normalize common single-word forms to spaced display versions
         var _verdictMap = { 'ALLOWLISTED': 'ALLOW LISTED', 'allowlisted': 'Allow Listed', 'Allowlisted': 'Allow Listed', 'CLEAN': 'CLEAN', 'SAFE': 'SAFE' };
@@ -1764,7 +1773,7 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
       safetyPanel.innerHTML =
         '<h2 class="s-eyebrow"><span class="sec-kicker">Verification</span><span class="sec-label">Link Safety</span><span class="sec-sub">Every URL in this brief, scanned at the moment of generation.</span></h2>' +
         '<p class="safety-meta">' + _metaStatus + ' Report compiled &amp; links scanned · ' + sf.scannedAt + ' · ' +
-        sf.domains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + _derivedFlagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
+        _uniqueDomains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + _derivedFlagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
         '<div class="safety-domain-grid">' + domainRows + '</div>' +
         '<p class="safety-disclaimer"><strong>How this works</strong> Link safety is verified at report generation time using a two-tier approach. First, each domain is checked against a curated allowlist of authoritative sources — government agencies, established security vendors, and major news organizations. Domains on the allowlist are verified instantly with no external call. Second, any domain not on the allowlist is queried against URLScan.io\'s public API, which returns community scan results and a maliciousness verdict. No API key is required, and no URL data is transmitted beyond the domain name.</p>' +
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Scan timing</strong> These results reflect conditions at the moment the brief was generated. A clean result means the domain wasn\'t flagged then — not a live guarantee. Pages change, redirects get added, domains get reused. Treat this as a quick signal, not a substitute for your own judgment on anything sensitive.</p>' +
@@ -2723,10 +2732,18 @@ btn.textContent = 'Loading…';
           return v.indexOf('ALLOW') === -1 && v !== 'CLEAN' && v !== 'SAFE' && v !== '';
         }).length;
         const _pdfStatus = _pdfFlagged === 0 ? 'All clear' : _pdfFlagged + ' domain' + (_pdfFlagged > 1 ? 's' : '') + ' flagged & excluded';
-        const safeMeta = `${_pdfStatus}  ·  ${sf.domains.length} domains  ·  ${sf.totalUrls || sf.domains.length} URLs  ·  ${_pdfFlagged} flagged  ·  Scanned at generation time`;
+        // Deduplicate by domain name (same domain can cover multiple sources)
+        const _pdfSeenDoms = {};
+        const _pdfUniqDoms = (sf.domains || []).filter(function(d) {
+          const k = (d.domain || '').toLowerCase();
+          if (_pdfSeenDoms[k]) return false;
+          _pdfSeenDoms[k] = true;
+          return true;
+        });
+        const safeMeta = `${_pdfStatus}  ·  ${_pdfUniqDoms.length} domains  ·  ${sf.totalUrls || sf.domains.length} URLs  ·  ${_pdfFlagged} flagged  ·  Scanned at generation time`;
         T(clean(safeMeta), ML, curY, 7.5, 'mono', 0.35); curY -= 16;
-        // Domain rows
-        sf.domains.forEach(d => {
+        // Domain rows (deduplicated — same seen-dict as HTML panel)
+        _pdfUniqDoms.forEach(d => {
           need(13);
           const verdict = clean((d.verdict || '').split(/\s*[—–\-]\s*/)[0].trim());
           const domStr = clean(d.domain || '');
