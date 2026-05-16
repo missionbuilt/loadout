@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.6 -->
+<!-- warmup-engine: v0.3.7 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2985,7 +2985,23 @@ btn.textContent = 'Loading…';
 
     let inPresentationMode = false;
 
+    function openInNewTab() {
+      // CSS position:fixed is useless in an iframe — it fixes relative to the iframe
+      // viewport, not the browser window. Open the brief in a new tab instead so the
+      // user can use browser-native fullscreen (F11) from there.
+      try {
+        const win = window.open('', '_blank', 'noopener,noreferrer');
+        if (win) {
+          win.document.write('<!DOCTYPE html>' + document.documentElement.outerHTML);
+          win.document.close();
+          return true;
+        }
+      } catch(e) { /* popup blocked or cross-origin restriction */ }
+      return false;
+    }
+
     function applyPresentationMode() {
+      // Last-resort CSS fallback when both native fullscreen and popup are blocked.
       inPresentationMode = true;
       document.documentElement.classList.add('presentation-mode');
       btnEnter.textContent = 'Exit FS';
@@ -3003,13 +3019,14 @@ btn.textContent = 'Loading…';
       const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
       if (req) {
         const result = req.call(el);
-        // requestFullscreen returns a Promise — if rejected (e.g. iframe sandbox
-        // blocks it), fall back to CSS presentation mode instead.
+        // requestFullscreen returns a Promise — if rejected (iframe sandbox blocks it),
+        // fall back to opening in a new tab. Only CSS-mode if tab also fails.
         if (result && typeof result.catch === 'function') {
-          result.catch(() => applyPresentationMode());
+          result.catch(() => { if (!openInNewTab()) applyPresentationMode(); });
         }
       } else {
-        applyPresentationMode();
+        // No native API available — try new tab first, CSS mode as last resort.
+        if (!openInNewTab()) applyPresentationMode();
       }
     }
     function exitFS() {

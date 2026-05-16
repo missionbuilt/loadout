@@ -43,8 +43,8 @@ const SERVER_VERSION = "1.0.0";
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.6";
-const WARMUP_ENGINE_VERSION = "v0.3.6";
+const WARMUP_VERSION = "0.3.7";
+const WARMUP_ENGINE_VERSION = "v0.3.7";
 
 const WARMUP_MODES = [
   {

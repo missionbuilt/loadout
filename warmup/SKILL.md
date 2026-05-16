@@ -674,7 +674,9 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     "mode": "CISO",
     "company": "Elastic",
     "sector": "Cybersecurity",
-    "reportDate": "Thursday, 15 May 2026",   // Full display string for masthead date
+    "reportDate": "Thursday, 15 May 2026",   // REQUIRED — full display string for the masthead date (e.g. "Friday, 15 May 2026").
+                                               // Format: "{Weekday}, {DD} {Month} {YYYY}". Use today's date in the user's timezone.
+                                               // Without this field the masthead date falls back to template placeholder text.
     "updated": "15 May 2026",                // Footer display string
     "lastRun": "2026-05-14",                 // ISO date — drives issue number
     "dateRange": "May 8 – May 15, 2026",     // Lookback window display string
@@ -685,11 +687,12 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
                               // Use timezone from WARMUP.md; default to UTC and write "HH:MM UTC" if not set.
                               // THE single timestamp source — populates masthead, signal bar, safety panel, PDF.
                               // Without this, Generated cell shows "—" and scan timestamp is blank.
+    "timezone": "ET",   // REQUIRED — copy verbatim from WARMUP.md `timezone` field (e.g. "ET", "PT", "UTC").
+                        // CRITICAL: this is the USER'S local timezone — NOT the company's headquarters timezone.
+                        // Read it from WARMUP.md. Do not infer from the company location. Write "UTC" if not set.
+                        // Without this field the time display in the masthead is missing timezone context.
     // Optional fields — include even if blank (write "" not omit)
     "region": "Global",
-    "timezone": "ET",   // Copy verbatim from WARMUP.md `timezone` field (e.g. "ET", "PT", "UTC").
-                        // CRITICAL: this is the USER'S local timezone — NOT the company's headquarters timezone.
-                        // Read it from WARMUP.md. Do not infer from the company location. Write "" if not set.
     "vendors": "CrowdStrike, Palo Alto",  // Copy verbatim from WARMUP.md vendors field. Write "" if blank — do not omit.
     "interests": "",
     "totalLinks": 18  // Count of verified-safe clickable URLs in the rendered brief. Must equal safety.totalUrls.
