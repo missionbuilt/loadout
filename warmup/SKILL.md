@@ -175,10 +175,16 @@ Does that look right? Edit anything or say 'looks good' to continue."*
 
 Accept natural-language edits. Update any field the user corrects. Save company, sector, and region to WARMUP.md.
 
-Then ask only the one remaining question:
+**Then ask these two follow-up questions — do not skip them:**
 
-*"Last thing — anything you want to stay current on outside of work? Sports, markets, a hobby, a specific team? Totally optional."*
-Save to `special_interests:` in WARMUP.md. If skipped, omit the section.
+**Follow-up 1 — People to follow:**
+*"Anyone in the security world you want to follow closely — executives, CISOs, researchers, threat intel voices? I can suggest a few based on [Company]'s space."*
+Suggest 2–3 relevant names based on sector and company (e.g., known CISOs at peer companies, prominent threat researchers, security journalists). Present as: *"People like [A], [B], [C] are worth following if you're in [sector]. Anyone to add, or skip this?"*
+Save confirmed names to `track_people:` in WARMUP.md. If skipped, leave blank.
+
+**Follow-up 2 — Personal interests:**
+*"Last one — anything you want at the end of your brief that's not work? Sports, markets, a hobby, a team?"*
+Save to `special_interests:` in WARMUP.md. If skipped, omit the section. Accept any answer — "skip", "nothing", or an actual interest. Do not pressure.
 
 **If the user skips the company name:**
 
@@ -232,13 +238,20 @@ Accept natural-language edits. If B2B/B2C is still unclear after the search, ask
 
 If the user's vertical doesn't map cleanly, ask: *"What does a bad week look like for your business — what external event would most disrupt your roadmap?"* Use the answer to infer the right vertical section.
 
-Then ask only the two remaining questions:
+**Then ask these three follow-up questions — do not skip them:**
 
+**Follow-up 1 — AI vendors:**
 *"Which AI vendors or tools matter most to your roadmap? I'd default to OpenAI, Anthropic, Google DeepMind, and Meta AI — plus any tools your team uses (Copilot, Cursor, Mistral). Anything to add or drop?"*
-Save confirmed list to `ai_vendors:` in WARMUP.md.
+Save confirmed list to `ai_vendors:` in WARMUP.md. If skipped, use the default set.
 
-*"Any executives, investors, analysts, or journalists you want to track? And any non-work interests for the end of your brief? Both optional."*
-Save exec/analyst names to `track_people:` and interests to `special_interests:`.
+**Follow-up 2 — People to follow:**
+*"Anyone you want to track closely — executives, investors, analysts, journalists, or researchers? I can suggest a few based on [Company]'s space."*
+Suggest 2–3 relevant names based on vertical and company (e.g., for a security platform: relevant VCs, CISOs at peer companies, prominent analysts). Present: *"People like [A], [B], [C] are worth following if you're in [vertical]. Anyone to add, or skip this?"*
+Save confirmed names to `track_people:` in WARMUP.md. If skipped, leave blank.
+
+**Follow-up 3 — Personal interests:**
+*"Last one — anything you want at the end of your brief that's not work? Sports, markets, a hobby, a team?"*
+Save to `special_interests:` in WARMUP.md. If skipped, omit the section. Do not pressure.
 
 **If the user skips the company name:**
 

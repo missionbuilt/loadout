@@ -247,9 +247,17 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `5. Save config to WARMUP.md at their project root using the schema in WARMUP.example.md.\n` +
                 `6. Run a test brief using the saved config. Deliver it as a Cowork artifact.\n\n` +
                 `## CRITICAL: Question order for CISO and Product Leader modes\n\n` +
-                `Mode → Name → **Company name (web search auto-fills sector/region/competitors)** → confirm findings → special interests only.\n` +
+                `After company confirmation, you MUST still ask the follow-up questions below. Do not skip them — they cannot be looked up.\n\n` +
+                `**CISO follow-ups (ask after confirmation):**\n` +
+                `- Any executives, security leaders, or board members they want to follow? Suggest 2–3 relevant names based on the company/sector (e.g. known CISOs, threat intel voices). They can add, remove, or skip.\n` +
+                `- Any personal interests for the end of the brief? (sports, markets, hobby — totally optional, but ask)\n\n` +
+                `**Product Leader follow-ups (ask after confirmation):**\n` +
+                `- Which AI vendors or tools matter to their roadmap? Suggest a list based on their product area, let them edit.\n` +
+                `- Any executives, investors, analysts, or journalists they want to follow? Suggest 2–3 relevant names. They can add, remove, or skip.\n` +
+                `- Any personal interests for the end of the brief? (sports, markets, hobby — totally optional, but ask)\n\n` +
+                `Full question order: Mode → Name → Company (web search) → confirm → follow-ups above → source review → save → run brief.\n` +
                 `Do NOT ask sector or region before asking for the company name.\n` +
-                `If the user skips company, then ask sector, region, vendors manually.\n\n` +
+                `If the user skips company, ask sector, region, vendors, execs, interests manually.\n\n` +
                 `## Voice\n\n` +
                 `Ask one question at a time. Plain language — never internal-framework prompts. ` +
                 `The user is setting up their morning routine, not configuring a system. Keep it fast.\n\n` +
