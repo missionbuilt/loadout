@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.3.15
+version: 0.3.16
 part_of: The Loadout
 ---
 
@@ -337,6 +337,12 @@ If the user says *"default"* or *"1 day"*, use adaptive lookback (no override).
 Remind them: *"You can always override this at run time — just say 'warmup,
 go back 2 weeks' and I'll use that window for that run only."*
 
+**Also ask about search depth:**
+
+*"One more setting — search depth. By default I cap each search batch to 5 results and 200 words per article. This keeps the brief fast and token-efficient (typically 40–60K tokens for the fetch phase). If you have more token budget, 'deep' mode doubles both — 10 results per batch, 400 words per article — for broader coverage at roughly 2× the fetch cost. Standard is what I'd recommend for daily use. Which do you prefer?"*
+
+Save as `search_depth: standard` or `search_depth: deep` in WARMUP.md. If the user skips or has no preference, default to `standard`.
+
 ### Step 5 — Save WARMUP.md
 
 Save the config file at the project root using the WARMUP.md Config Format
@@ -431,7 +437,11 @@ Search using compound batch queries — not one query per source. This cuts fetc
 
 Replace `YYYY-MM-DD` with the computed lookback start date. Adapt queries to the user's sector and profile (e.g., a Healthcare CISO adds `site:hhs.gov hc3` to the gov batch). Run Gov, Research, CVE, News, Market, and Interests batches **all concurrently** — fire all batches in a single parallel pass, then synthesize after all return. Do not wait for one batch before starting the next.
 
-**WebSearch result budget:** For each batch, take the top 5 results only. Extract at most 200 words per article body before moving on. Richer summaries do not improve brief quality and inflate token cost by 3–5×.
+**WebSearch result budget:** Check `search_depth` from WARMUP.md:
+- `standard` (default): top 5 results per batch · 200 words per article
+- `deep`: top 10 results per batch · 400 words per article
+
+Standard is recommended for daily use — keeps fetch-phase cost at 40–60K tokens. Deep roughly doubles that for broader coverage. If `search_depth` is not set or unrecognized, use standard.
 
 **Record for each found item:** source name, trust tier, URL, headline, 2–3 sentence summary, relevant tags (CVE ID, MITRE TTP ID, vendor name, M&A flag, regulatory flag, community flag).
 
@@ -669,7 +679,9 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
     "region": "Global",
     "vendors": "CrowdStrike, Palo Alto",  // Copy verbatim from WARMUP.md vendors field. Write "" if blank — do not omit.
     "interests": "",
-    "totalLinks": 18  // Count of verified-safe clickable URLs in the rendered brief. Must equal safety.totalUrls.
+    "totalLinks": 18,  // Count of verified-safe clickable URLs in the rendered brief. Must equal safety.totalUrls.
+    "skipScan": false,  // Optional — set true if skip_scan: true in WARMUP.md. Hides scan badge, skips safety panel, shows friendly disclaimer instead.
+    "searchDepth": "standard"  // "standard" | "deep" — copy from WARMUP.md search_depth. Drives depth indicator in sources panel and configure modal.
   },
   "sections": [
     {
@@ -1390,6 +1402,14 @@ window_override:            # optional: set a fixed lookback in days (e.g. 14); 
 daily_mode: true            # set to true if you run the brief every day; enables 2-day lookback fast-path
 source_check_days:          # optional: days between source emergence checks (default: 30)
 skip_scan: false            # set to true to skip URL safety checks — saves tokens, but links are unverified. Recommended: false.
+# ── Search Depth ────────────────────────────────────────────────────────────
+# Controls how many results per batch and how much article text is extracted.
+# Why we cap it: at standard depth the fetch phase uses ~40–60K tokens.
+# Deep mode doubles that for broader coverage — useful when your budget allows.
+#   standard (default)  5 results per batch · 200 words/article  ← recommended for daily use
+#   deep                10 results per batch · 400 words/article  ← ~2× fetch cost, broader coverage
+# Switch at any time: say "use deep search" or "use standard search" in chat.
+search_depth: standard
 
 # Product Leader fields (populated when mode: product_leader)
 product_area:               # e.g. "Security product line", "creator tools", "developer platform"

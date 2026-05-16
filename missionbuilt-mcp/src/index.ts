@@ -134,8 +134,8 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.15";
-const WARMUP_ENGINE_VERSION = "v0.3.11";
+const WARMUP_VERSION = "0.3.16";
+const WARMUP_ENGINE_VERSION = "v0.3.12";
 
 const WARMUP_MODES = [
   {
@@ -415,13 +415,14 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
                 `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
                 `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes ONLY from warmup_get_template (PATH B) or the existing artifact file (PATH A). NEVER write HTML from scratch. NEVER reconstruct the template from training memory. Every time an agent generates HTML from memory, the design is wrong — wrong colors, wrong layout, invented stat labels. The correct design lives only in warmup_get_template.\n` +
-                `4. Fetch phase: for each active source, call WebSearch. Budget: top 5 results per batch, max 200 words per article body. Reject any item where item.date < lookback_start before routing to sections. If skip_scan: true in WARMUP.md, skip the URL safety check (step 5) and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
+                `4. Fetch phase: for each active source, call WebSearch. Budget: check search_depth in WARMUP.md — standard (default) = top 5 results per batch, 200 words/article; deep = top 10 results, 400 words/article. Standard is recommended for daily use (~40–60K fetch tokens); deep is ~2× that for broader coverage. Reject any item where item.date < lookback_start before routing to sections. If skip_scan: true in WARMUP.md, skip the URL safety check (step 5) and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
                 `5. Run the link safety verification protocol on all URLs before including them (unless skip_scan: true — see step 4).\n` +
                 `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
                 `   - config.showQuote: true (JSON boolean — required, not optional)\n` +
                 `   - config.scanTime: current generation time as "HH:MM TZ" (use WARMUP.md timezone; default UTC if not set)\n` +
                 `   - config.vendors: copy verbatim from WARMUP.md vendors field; write "" if blank, never omit\n` +
                 `   - config.skipScan: true if skip_scan: true in WARMUP.md, otherwise omit\n` +
+                `   - config.searchDepth: copy from WARMUP.md search_depth field ("standard" or "deep"); default "standard" if not set\n` +
                 `   - safety.domains: one entry per active source — required; set [] if skipScan; empty array means safety panel does not render\n` +
                 `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks); set 0 if skipScan\n` +
                 `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +

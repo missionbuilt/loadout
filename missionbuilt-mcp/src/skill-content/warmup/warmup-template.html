@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.11 -->
+<!-- warmup-engine: v0.3.12 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1699,6 +1699,10 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
           '</div>';
       }
       var srcHtml = '<h2 class="s-eyebrow"><span class="sec-kicker">Appendix</span><span class="sec-label">Sources Used</span><span class="sec-sub">Every source consulted for this brief, grouped by trust tier.</span></h2>';
+      var _searchDepth = (D.config && D.config.searchDepth === 'deep') ? 'deep' : 'standard';
+      var _depthDesc = _searchDepth === 'deep' ? '10 results per batch · 400 words/article' : '5 results per batch · 200 words/article';
+      var _depthHint = _searchDepth === 'deep' ? 'say <em>"use standard search"</em> to reduce token cost' : 'say <em>"use deep search"</em> for broader coverage';
+      srcHtml += '<p class="safety-meta" style="margin-bottom:16px;">Search depth: <strong>' + _searchDepth + '</strong> · ' + _depthDesc + ' · ' + _depthHint + '</p>';
       tiers.forEach(function(tier) {
         var active = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'active'; });
         var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'quiet';  });
@@ -1980,6 +1984,7 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
       ['Daily Quote', WARMUP_CONFIG.showQuote ? 'On' : 'Off'],
       ['Timezone',    WARMUP_CONFIG.timezone || 'UTC'],
       ['Link scanning', WARMUP_CONFIG.skipScan ? 'Off — links not verified' : 'On · recommended'],
+      ['Search depth',  WARMUP_CONFIG.searchDepth === 'deep' ? 'Deep · 10 results · 400w' : 'Standard · 5 results · 200w'],
       ['Sources',     `${WARMUP_CONFIG.sourcesActive || 0} active · ${WARMUP_CONFIG.sourcesQuiet || 0} quiet`],
     ];
 
@@ -1995,6 +2000,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Run the warmup back 2 weeks — I was out last week`,
         `Set my timezone to Eastern Time`,
         `Turn off the daily quote`,
+        `Switch to deep search — I have more token budget`,
+        `Switch to standard search — keep it token-efficient`,
         `Skip link scanning — I'm being token-conscious`,
         `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
@@ -2010,6 +2017,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Run the warmup back 2 weeks — I was out last week`,
         `Set my timezone to Eastern Time`,
         `Turn off the daily quote`,
+        `Switch to deep search — I have more token budget`,
+        `Switch to standard search — keep it token-efficient`,
         `Skip link scanning — I'm being token-conscious`,
         `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
@@ -2028,6 +2037,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Update my special interests to Formula 1 and the Pittsburgh Steelers`,
         `Switch my company to Nike`,
         `Add Dark Reading as a source`,
+        `Switch to deep search — I have more token budget`,
+        `Switch to standard search — keep it token-efficient`,
         `Skip link scanning — I'm being token-conscious`,
         `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
