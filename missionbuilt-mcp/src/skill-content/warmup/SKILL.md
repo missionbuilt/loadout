@@ -542,16 +542,24 @@ Output in chat before starting synthesis:
 *"⚡ Synthesizing [N] items across [M] sections..."*
 
 **DATE FILTER — enforce before writing any item to WARMUP_DATA:**
-Every item's `date` field must be ≥ the lookback start date. This is a hard requirement — no exceptions.
+Every item's `date` field must be ≥ the lookback start date. This is a hard requirement — zero exceptions.
 
 ```
 lookback_start = today - lookback_days    (e.g. May 15 - 7 = May 8)
 REJECT any item where item.date < lookback_start
+
+Example violations — these MUST be discarded, never included:
+  today = 2026-05-15, lookback = 7 days → lookback_start = 2026-05-08
+  item.date = 2026-02-15  → 89 days old → REJECT
+  item.date = 2026-03-01  → 75 days old → REJECT
+  item.date = 2026-05-07  → 8 days old  → REJECT (one day outside window)
+  item.date = 2026-05-08  → 7 days old  → ACCEPT (exactly at boundary)
 ```
 
-If a search result has no clear publication date, or if the date is ambiguous, do not include it. If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` — do not include it in `safety.domains`.
+If a search result has no clear publication date, or if the date is ambiguous, **discard it — do not guess**.
+If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` and exclude it from `safety.domains`.
 
-This step happens **before** you organize items into sections. Do not route stale items into sections and remove them later — discard them at first sight.
+This step happens **before** you organize items into sections. Do not route stale items into sections and remove them later — discard them at first sight. If you find yourself thinking "this article is a bit old but still relevant" — that is the filter working. Discard it.
 
 Organize fetched items into sections using the Section Structure below
 (CISO mode) or the user's defined interest categories (Custom mode).
@@ -679,7 +687,9 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
                               // Without this, Generated cell shows "—" and scan timestamp is blank.
     // Optional fields — include even if blank (write "" not omit)
     "region": "Global",
-    "timezone": "ET",
+    "timezone": "ET",   // Copy verbatim from WARMUP.md `timezone` field (e.g. "ET", "PT", "UTC").
+                        // CRITICAL: this is the USER'S local timezone — NOT the company's headquarters timezone.
+                        // Read it from WARMUP.md. Do not infer from the company location. Write "" if not set.
     "vendors": "CrowdStrike, Palo Alto",  // Copy verbatim from WARMUP.md vendors field. Write "" if blank — do not omit.
     "interests": "",
     "totalLinks": 18  // Count of verified-safe clickable URLs in the rendered brief. Must equal safety.totalUrls.
@@ -689,7 +699,12 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
       "id": "threat",
       "label": "Threat Landscape",
       "sub": "Active campaigns and fresh exploitation. What your stack should be watching for today.",
-      // sub: ALWAYS populated — the section's standing italic deck. One sentence.
+      // sub: ALWAYS populated — the section's standing editorial deck, one sentence.
+      //      This renders visibly in the brief as italic text under the section heading.
+      //      NEVER put lookback computation text, agent instructions, or meta-commentary here.
+      //      WRONG: "1-day lookback (first run). Say 'warmup, go back 7 days' for context."
+      //      RIGHT: "Active campaigns and fresh exploitation. What your stack should be watching for today."
+      //      Write it as editorial voice — a standing description of what this section covers.
       // note: null unless there is a today-only run caveat (e.g. "Source X was down"). Never repeat sub here.
       "note": null,
       "items": [

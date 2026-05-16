@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.3 -->
+<!-- warmup-engine: v0.3.4 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -921,7 +921,45 @@
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
   }
-  .btn-configure:hover, .btn-save-pdf:hover { color: var(--blood); border-color: var(--blood); }
+  .btn-configure:hover, .btn-save-pdf:hover, .btn-fullscreen:hover { color: var(--blood); border-color: var(--blood); }
+  .btn-fullscreen {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    background: transparent;
+    border: 1px solid var(--rule);
+    padding: 4px 11px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  /* Fullscreen exit button — fixed top-right corner, only visible in fullscreen */
+  .btn-fullscreen-exit {
+    display: none;
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    z-index: 9999;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: 4px 11px;
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .btn-fullscreen-exit:hover { color: var(--blood); border-color: var(--blood); }
+  :fullscreen .btn-fullscreen-exit,
+  :-webkit-full-screen .btn-fullscreen-exit { display: block; }
+  /* Hide the masthead controls row in fullscreen so they don't double up */
+  :fullscreen .masthead-controls,
+  :-webkit-full-screen .masthead-controls { display: none; }
 
   /* ════════════════════════════════════════════════════════════════════════
      OVERLAYS (Configure + Save PDF modals)
@@ -1319,6 +1357,22 @@
     .stat-cell { flex: 0 0 50%; border-bottom: 1px solid var(--rule); }
     .stat-cell:nth-last-child(-n+2) { border-bottom: none; }
   }
+  /* At narrow widths, pull controls out of absolute position so they don't
+     overlap the masthead title — render them as a static row below the header */
+  @media (max-width: 540px) {
+    .masthead { padding-top: 14px; padding-bottom: 10px; }
+    .masthead-controls {
+      position: static;
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .btn-configure, .btn-save-pdf, .btn-fullscreen {
+      font-size: 9px;
+      padding: 3px 8px;
+    }
+  }
 
   @media print {
     .scan-badge, .safety-panel { display: none !important; }
@@ -1346,7 +1400,9 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
   <div class="masthead-controls">
     <button type="button" class="btn-configure" id="btn-configure">Configure</button>
     <button type="button" class="btn-save-pdf" id="btn-save-pdf">Save PDF</button>
+    <button type="button" class="btn-fullscreen" id="btn-fullscreen" aria-label="Enter fullscreen">Fullscreen</button>
   </div>
+  <button type="button" class="btn-fullscreen-exit" id="btn-fullscreen-exit" aria-label="Exit fullscreen">Exit Fullscreen</button>
   <div class="masthead-inner">
     <div class="masthead-left">
       <p class="np-row1">
@@ -2588,6 +2644,36 @@ btn.textContent = 'Loading…';
         curY -= 14; // section gap
       });
 
+      // ── Link Safety panel ──
+      const safetyPdfEl = document.getElementById('link-safety');
+      if (safetyPdfEl && window.WARMUP_DATA && window.WARMUP_DATA.safety && window.WARMUP_DATA.safety.domains && window.WARMUP_DATA.safety.domains.length > 0) {
+        const sf = window.WARMUP_DATA.safety;
+        need(70);
+        const saKicker = '. VERIFICATION .';
+        const saKW = tw(saKicker, 7.5, 'mono');
+        ops.push(`0.541 0.125 0.090 g BT /F3 7.5 Tf 1 0 0 1 ${((PW - saKW) / 2).toFixed(1)} ${curY.toFixed(1)} Tm (${esc(saKicker)}) Tj ET 0 g`);
+        curY -= 16;
+        const saTitle = 'LINK SAFETY';
+        const saTW = tw(saTitle, 22, 'bold');
+        T(saTitle, (PW - saTW) / 2, curY, 22, 'bold', 0.08); curY -= 8;
+        HR(ML, curY, PW-MR, 0.4, 0.75); curY -= 14;
+        // Meta line
+        const safeMeta = `All clear  ·  ${sf.domains.length} domains  ·  ${sf.totalUrls || sf.domains.length} URLs  ·  ${sf.flagged || 0} flagged  ·  Scanned at generation time`;
+        T(clean(safeMeta), ML, curY, 7.5, 'mono', 0.35); curY -= 16;
+        // Domain rows
+        sf.domains.forEach(d => {
+          need(13);
+          const verdict = clean((d.verdict || '').split(/\s*[—–\-]\s*/)[0].trim());
+          const domStr = clean(d.domain || '');
+          // Checkmark in oxblood
+          ops.push(`0.541 0.125 0.090 rg BT /F4 7.5 Tf 1 0 0 1 ${ML.toFixed(1)} ${curY.toFixed(1)} Tm (✓) Tj ET 0 g`);
+          T(domStr, ML + 12, curY, 7.5, 'mono', 0.12);
+          T(verdict, ML + 12 + tw(domStr, 7.5, 'mono') + 14, curY, 7.5, 'mono', 0.45);
+          curY -= 12;
+        });
+        curY -= 10;
+      }
+
       // ── Sources panel ──
       const srcPanel = document.getElementById('sources');
       if (srcPanel) {
@@ -2801,7 +2887,7 @@ btn.textContent = 'Loading…';
           const isoFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz });
           isoDate = isoFmt.format(now); // "2026-05-15"
         } catch (e) { isoDate = fnDate.replace(/[^0-9\-]/g, '') || ''; }
-        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}.pdf`;
+        const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}${fnTime ? '-' + fnTime : ''}.pdf`;
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);
@@ -2828,6 +2914,36 @@ btn.textContent = 'Loading…';
     card.querySelector('#pdf-without-dives').addEventListener('click', function() { animateThenSave(this, false); });
 
   })(); } catch(e) { console.error('[Warmup:SavePDF]', e); }
+
+  // ── FULLSCREEN ──
+  try { (function () {
+    const btnEnter = document.getElementById('btn-fullscreen');
+    const btnExit  = document.getElementById('btn-fullscreen-exit');
+    if (!btnEnter) return;
+
+    function enterFS() {
+      const el = document.documentElement;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) req.call(el);
+    }
+    function exitFS() {
+      const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (ex) ex.call(document);
+    }
+
+    btnEnter.addEventListener('click', enterFS);
+    if (btnExit) btnExit.addEventListener('click', exitFS);
+
+    // Update button label based on fullscreen state
+    function onFSChange() {
+      const inFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      if (btnEnter) btnEnter.textContent = inFS ? 'Exit FS' : 'Fullscreen';
+    }
+    document.addEventListener('fullscreenchange', onFSChange);
+    document.addEventListener('webkitfullscreenchange', onFSChange);
+    document.addEventListener('mozfullscreenchange', onFSChange);
+    document.addEventListener('MSFullscreenChange', onFSChange);
+  })(); } catch(e) { console.error('[Warmup:Fullscreen]', e); }
 </script>
 
 </body>
