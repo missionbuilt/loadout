@@ -35,6 +35,8 @@ import WARMUP_TEMPLATE_HTML from "./skill-content/warmup/warmup-template.html";
 import SPOTTER_SKILL_MD from "./skill-content/spotter/SKILL.md";
 import SPOTTER_LENS_EXAMPLES_MD from "./skill-content/spotter/lens-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
+import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
+import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
 
 import { brandCss } from "./design";
 import { authHandler, type UserProps } from "./auth";
@@ -84,7 +86,7 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.10";
+const WARMUP_VERSION = "0.3.11";
 const WARMUP_ENGINE_VERSION = "v0.3.10";
 
 const WARMUP_MODES = [
@@ -127,7 +129,7 @@ const WARMUP_MODES = [
 
 // ── Spotter constants ─────────────────────────────────────────────────────────
 
-const SPOTTER_VERSION = "0.2.0";
+const SPOTTER_VERSION = "0.3.0";
 
 const SPOTTER_LENSES = [
   { id: 1, name: "The user and the problem", weight: "foundation — heaviest lens, 8 sub-checks" },
@@ -243,13 +245,35 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the canonical warmup-template.html engine — the full Iron Log-branded HTML artifact with all CSS, JS, PDF builder, deep dive modal, section collapse, and accessibility code. Call on every first run (no existing artifact) or after any engine update. Replace only the <script id=\"warmup-data\"> block with fresh WARMUP_DATA. Never build the artifact from scratch.",
+      "Returns the canonical warmup-template.html engine with WARMUP_DATA already injected — artifact-ready HTML, no Edit step required. Build your complete WARMUP_DATA object first, then pass it as a JSON string. The server replaces the placeholder and returns the filled artifact. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.",
       {
         intent: intentField,
+        warmup_data: z
+          .string()
+          .describe(
+            "The full WARMUP_DATA JSON object serialised as a string via JSON.stringify(). " +
+            "Required. The server injects it server-side and returns filled, artifact-ready HTML."
+          ),
       },
-      async () => ({
-        content: [{ type: "text" as const, text: WARMUP_TEMPLATE_HTML }],
-      })
+      async ({ warmup_data }) => {
+        // Inject WARMUP_DATA server-side — eliminates the fragile Write→Read→Edit cycle
+        // that caused agents to abandon the template and generate their own HTML.
+        const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
+        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, `window.WARMUP_DATA = ${warmup_data};`);
+        const injected = filled !== WARMUP_TEMPLATE_HTML;
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: injected
+                ? filled
+                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Raw template returned.]
+
+${WARMUP_TEMPLATE_HTML}`,
+            },
+          ],
+        };
+      }
     );
 
     this.server.tool(
@@ -334,13 +358,13 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `## How to generate the brief\n\n` +
                 `1. Use the Read file tool (not bash) to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts first — the html_path from "the-warmup" reveals the workspace folder, and WARMUP.md lives there. If no artifact and no WARMUP.md, run warmup_setup first.\n` +
                 `2. Artifact and engine check — call list_artifacts.\n` +
-                `   a) "the-warmup" does not exist → first run: call warmup_get_template (MCP tool — never read from disk). Hold the HTML. Proceed to step 4.\n` +
+                `   a) "the-warmup" does not exist → first run: set mode = "create". Proceed to step 4.\n` +
                 `   b) "the-warmup" exists → use the Read file tool to read the first 10 lines of html_path.\n` +
-                `      - File cannot be read (path gone, session cleared) → treat as first run: call warmup_get_template. Proceed to step 4.\n` +
-                `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → version match (Path A): do NOT call warmup_get_template. Proceed to step 4.\n` +
-                `      - First 10 lines contain any other version or no marker → engine is stale (Path B): call warmup_get_template. Proceed to step 4.\n` +
+                `      - File cannot be read → treat as first run: set mode = "create". Proceed to step 4.\n` +
+                `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → Path A (version match). Proceed to step 4.\n` +
+                `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
                 `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
-                `3. CRITICAL — template source: The HTML template is ONLY available via the warmup_get_template MCP tool call. Do NOT use the Grep tool to search for warmup-template.html. Do NOT use the Read tool to read warmup-template.html from disk. Do NOT reconstruct the HTML from training-data memory. Any of those paths produces the wrong design and breaks PDF export.\n` +
+                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from warmup_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory. NEVER simplify or abbreviate the template. The template is 128KB by design. Your only job is supply WARMUP_DATA; the template renders itself.\n` +
                 `4. For each active source, call the WebSearch tool to fetch recent content using the adaptive lookback window. Reject any item where item.date < lookback_start before routing to sections.\n` +
                 `5. Run the link safety verification protocol on all URLs before including them.\n` +
                 `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
@@ -351,7 +375,11 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks)\n` +
                 `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
                 `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
-                `7. Write the template HTML to disk using the Write tool. Then use the Read file tool to read the file you just wrote (the Edit tool requires a prior Read). Then use the Edit tool to locate the exact placeholder line: window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B) and replace it with: window.WARMUP_DATA = <full WARMUP_DATA JSON>; Finally call update_artifact (existing artifact) or create_artifact (first run). One summary line in chat — the brief is the artifact.\n\n` +
+                `7. Render the artifact:\n` +
+                `   PATH A (version match — no template reload): edit the existing html_path file — use the Read file tool to read it, then the Edit tool to find and replace the old window.WARMUP_DATA = {...}; line with the new WARMUP_DATA. Call update_artifact. Done.\n` +
+                `   PATH B / FIRST RUN (engine update or new artifact): Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). The server injects the data and returns filled, artifact-ready HTML. Write the returned HTML to disk with the Write tool. Call create_artifact (new) or update_artifact (replacing stale). Done.\n` +
+                `   NEVER write your own HTML. NEVER generate a shorter version of the template. The warmup_get_template response IS the complete artifact — write it as-is.\n` +
+                `   One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +
@@ -417,7 +445,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "spotter_get_skill",
       "Returns the full SKILL.md for The Spotter — the framework, modes (build/iterate/review), nine lenses with sub-checks, output formats, anti-patterns, and the structured output schema. Call this first when running a review, building an epic, or iterating on a draft.",
-      {},
+      { intent: intentField },
       async () => ({
         content: [{ type: "text" as const, text: SPOTTER_SKILL_MD }],
       })
@@ -426,7 +454,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
     this.server.tool(
       "spotter_get_examples",
       "Returns the full lens-examples.md content with 64 worked examples across the nine lenses — strong (✓), needs-work (⚠️), and missing (✗) variants with teaching notes. Use when calibrating grading or teaching by contrast.",
-      {},
+      { intent: intentField },
       async () => ({
         content: [{ type: "text" as const, text: SPOTTER_LENS_EXAMPLES_MD }],
       })
@@ -434,17 +462,38 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_calibration_epic",
-      "Returns a synthetic B2B security epic used to calibrate The Spotter. Running a review against it should produce verdict 'Needs polish' with specific gaps on Lenses 1, 4, 5, 6, 8, and 9. Use to verify a fresh install is producing expected output.",
-      {},
+      "Returns synthetic calibration epic #1 — a B2B security epic with deliberate gaps. Running a review against it should produce verdict 'Needs polish' with specific gaps on Lenses 1, 4, 5, 6, 8, and 9. Use to verify a fresh install is producing expected output. For all three calibration epics, call spotter_get_calibration_epics instead.",
+      { intent: intentField },
       async () => ({
         content: [{ type: "text" as const, text: SPOTTER_SYNTHETIC_EPIC_MD }],
       })
     );
 
     this.server.tool(
+      "spotter_get_calibration_epics",
+      "Returns all three synthetic calibration epics concatenated. Use to run a batch calibration pass or to compare how The Spotter grades epics at different quality levels. Epic 1 targets 'Needs polish' (gaps on L1, L4, L5, L6, L8, L9). Epics 2 and 3 are well-formed security platform epics for grading range calibration.",
+      { intent: intentField },
+      async () => ({
+        content: [
+          {
+            type: "text" as const,
+            text:
+              `# Spotter Calibration Epics — All Three\n\n` +
+              `---\n\n## Epic 1 (gap-heavy — target verdict: Needs polish)\n\n` +
+              SPOTTER_SYNTHETIC_EPIC_MD +
+              `\n\n---\n\n## Epic 2 (MITRE ATT&CK Coverage Insights)\n\n` +
+              SPOTTER_SYNTHETIC_EPIC_2_MD +
+              `\n\n---\n\n## Epic 3 (Adversary-Informed Vulnerability Prioritization)\n\n` +
+              SPOTTER_SYNTHETIC_EPIC_3_MD,
+          },
+        ],
+      })
+    );
+
+    this.server.tool(
       "spotter_list_lenses",
       "Returns the nine lenses with names and weight notes. Useful for clients that want to render lens cards or for an agent that needs a quick overview before loading the full SKILL.md.",
-      {},
+      { intent: intentField },
       async () => ({
         content: [
           {
@@ -459,6 +508,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter_review",
       "Primes the agent to review a B2B product epic using The Spotter's nine-lens framework. Returns the framework and an instruction block telling the agent to apply review mode to the provided epic.",
       {
+        intent: intentField,
         epic: z.string().min(50).describe("The full text of the epic to review."),
       },
       async ({ epic }) => ({
@@ -486,6 +536,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter_build",
       "Primes the agent to help a PM build a new epic from scratch using The Spotter's framework. The agent walks the PM through the nine lenses with guiding questions, lingering on Lens 1 before moving on. Output is a polished draft epic.",
       {
+        intent: intentField,
         feature: z.string().describe("Brief description of the feature or capability the PM wants to build an epic for."),
       },
       async ({ feature }) => ({
@@ -508,6 +559,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter_iterate",
       "Primes the agent to push a partial draft epic forward. The agent engages only the lenses that have content, asks targeted questions for each gap, and offers structure where the PM is stuck.",
       {
+        intent: intentField,
         draft: z.string().min(50).describe("The current partial draft of the epic. Can be incomplete or rough."),
       },
       async ({ draft }) => ({
@@ -566,6 +618,32 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       },
       async () => ({
         contents: [{ uri: "loadout://spotter/examples", mimeType: "text/markdown", text: SPOTTER_LENS_EXAMPLES_MD }],
+      })
+    );
+
+    this.server.resource(
+      "spotter-calibration-2",
+      "loadout://spotter/calibration/2",
+      {
+        name: "The Spotter — Calibration Epic 2",
+        description: "Synthetic B2B security epic: MITRE ATT&CK Coverage Insights. Well-formed epic for grading range calibration.",
+        mimeType: "text/markdown",
+      },
+      async () => ({
+        contents: [{ uri: "loadout://spotter/calibration/2", mimeType: "text/markdown", text: SPOTTER_SYNTHETIC_EPIC_2_MD }],
+      })
+    );
+
+    this.server.resource(
+      "spotter-calibration-3",
+      "loadout://spotter/calibration/3",
+      {
+        name: "The Spotter — Calibration Epic 3",
+        description: "Synthetic B2B security epic: Adversary-Informed Vulnerability Prioritization. Well-formed epic for grading range calibration.",
+        mimeType: "text/markdown",
+      },
+      async () => ({
+        contents: [{ uri: "loadout://spotter/calibration/3", mimeType: "text/markdown", text: SPOTTER_SYNTHETIC_EPIC_3_MD }],
       })
     );
 
