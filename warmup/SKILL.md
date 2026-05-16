@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.3.3
+version: 0.3.15
 part_of: The Loadout
 ---
 
@@ -431,7 +431,11 @@ Search using compound batch queries — not one query per source. This cuts fetc
 
 Replace `YYYY-MM-DD` with the computed lookback start date. Adapt queries to the user's sector and profile (e.g., a Healthcare CISO adds `site:hhs.gov hc3` to the gov batch). Run Gov, Research, CVE, News, Market, and Interests batches **all concurrently** — fire all batches in a single parallel pass, then synthesize after all return. Do not wait for one batch before starting the next.
 
+**WebSearch result budget:** For each batch, take the top 5 results only. Extract at most 200 words per article body before moving on. Richer summaries do not improve brief quality and inflate token cost by 3–5×.
+
 **Record for each found item:** source name, trust tier, URL, headline, 2–3 sentence summary, relevant tags (CVE ID, MITRE TTP ID, vendor name, M&A flag, regulatory flag, community flag).
+
+**skipScan fast-path:** If `skip_scan: true` is set in `WARMUP.md`, skip the URL safety check entirely. Set `config.skipScan: true`, `safety.domains: []`, and `safety.totalUrls: 0` in WARMUP_DATA. Do not call URLScan.io. Do not perform Step A allowlist checks. Proceed directly to synthesis. A friendly disclaimer will render in the artifact in place of the Link Safety panel.
 
 **URL safety check — run before adding any item to the brief:**
 
@@ -578,42 +582,34 @@ By the time you reach this step, Step 1b has already:
 **Do not call `list_artifacts` or `warmup_get_template` again here.**
 
 **Path A — Version match (daily run, no engine update):**  
-Read the existing HTML from disk, replace only the `<script id="warmup-data">` block with the new `WARMUP_DATA`, write it back. Touch nothing else in the HTML.
+Replace only the `<script id="warmup-data">` block in the existing HTML. Do NOT read the full file — the engine is 131KB and reading it wastes ~30K tokens. Use Grep to locate the exact line, read only that block, then Edit it in place.
 
-1. Use the Read tool to read the file at `html_path` (the full file — this is unavoidable for an in-place update).
-2. Locate the `<script id="warmup-data">` … `</script>` block. The block may contain a null placeholder line, a previous WARMUP_DATA JSON object spanning many lines, or a comment block — it doesn't matter. Replace the **entire** block (from `<script id="warmup-data">` through its closing `</script>`) with exactly:
+1. **Grep** for `<script id="warmup-data">` in `html_path` to find the line number.
+2. Use the **Read tool** with `offset` and `limit` set to read only the `<script id="warmup-data">` … `</script>` block (~10–20 lines). This gives you the exact current text to match.
+3. Use the **Edit tool** to replace the entire block (from `<script id="warmup-data">` through its closing `</script>`) with exactly:
    ```
    <script id="warmup-data">
    window.WARMUP_DATA = <FULL JSON of the new WARMUP_DATA dict>;
    </script>
    ```
-   Use the Write tool's string replacement capability (or read → modify in memory → write) to substitute this block. Touch no other part of the HTML — do not reformat, do not rewrite structure. The block will be uniquely identifiable by `id="warmup-data"`.
-3. Use the Write tool to write the complete updated HTML back to the same `html_path`.
+   Touch no other part of the HTML. The Edit tool does a targeted string replacement — the rest of the 131KB engine is never read or re-emitted.
 4. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
 
-> **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Read and Write file tools only — they accept the real macOS path from `html_path` directly.
+> **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Grep, Read, and Edit file tools only — they accept the real macOS path from `html_path` directly.
 
 **Path B — First run or engine update:**  
 
-> **Critical:** Path B is a two-step Write-then-Edit. Do NOT try to modify the HTML before writing it — that requires regenerating 131KB in a single tool call and fails silently. Write first, Edit second.
+The MCP server injects WARMUP_DATA server-side. You do NOT write the template then edit a placeholder — the placeholder is gone after injection. Call the tool with your data, get back filled HTML, write it once.
 
-1. **Write the raw template to disk.** Use the Write tool to write the HTML returned by `warmup_get_template` exactly as received — do not modify it. Write to `warmup-artifact.html` in the **user's selected/workspace folder** (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions.
+1. **Call `warmup_get_template({ warmup_data: JSON.stringify(WARMUP_DATA) })`.** The server injects `WARMUP_DATA` into the engine shell before returning. The response is complete, filled HTML — no editing needed.
 
-2. **Inject WARMUP_DATA using the Edit tool.** The template contains this exact placeholder line:
-   ```
-   window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)
-   ```
-   Use the Edit tool on `warmup-artifact.html` with:
-   - `old_string`: the full placeholder line above (copy it exactly, including the comment)
-   - `new_string`: `window.WARMUP_DATA = ` + the complete JSON of your synthesized WARMUP_DATA dict + `;`
-   
-   Touch nothing else in the file. The Edit tool does a targeted string replacement — the rest of the 131KB HTML is never re-emitted.
+2. **Write the filled HTML to disk.** Use the Write tool to write the response to `warmup-artifact.html` in the **user's selected/workspace folder** (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions. Do not modify the HTML before writing — write it exactly as received.
 
 3. **Register the artifact.** Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
 
-> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write and Edit file tools only.
+> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write file tool only.
 
 **Path C — Edit in place (user requests a correction to the existing brief):**  
 Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
@@ -630,9 +626,9 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
 
 | Path | Trigger | Token cost |
 |---|---|---|
-| A — Data patch | Daily run, engine match | ~40KB HTML read (unavoidable for in-place update) |
-| B — Full engine | First run or version mismatch | ~40KB template from MCP tool |
-| C — Edit in place | User correction to existing brief | ~40KB HTML read (same as Path A) |
+| A — Data patch | Daily run, engine match | ~1–2KB targeted Grep+Read (avoids reading the full 131KB engine) |
+| B — Full engine | First run or version mismatch | ~131KB filled HTML from MCP tool (one-time; no file read needed) |
+| C — Edit in place | User correction to existing brief | ~1–2KB targeted Grep+Read (same Grep+targeted-Read approach as Path A) |
 
 **When an engine bug is fixed:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
@@ -1393,6 +1389,7 @@ last_run: 2026-05-14        # set automatically after each successful run
 window_override:            # optional: set a fixed lookback in days (e.g. 14); leave blank for adaptive
 daily_mode: true            # set to true if you run the brief every day; enables 2-day lookback fast-path
 source_check_days:          # optional: days between source emergence checks (default: 30)
+skip_scan: false            # set to true to skip URL safety checks — saves tokens, but links are unverified. Recommended: false.
 
 # Product Leader fields (populated when mode: product_leader)
 product_area:               # e.g. "Security product line", "creator tools", "developer platform"

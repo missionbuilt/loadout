@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- warmup-engine: v0.3.10 -->
+<!-- warmup-engine: v0.3.11 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1399,11 +1399,11 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // THE WARMUP · MORNING EDITION — DATA CONTRACT
 // ══════════════════════════════════════════════════════════════════════════════
-// TEMPLATE FILE — WARMUP_DATA IS A PLACEHOLDER.
-// The agent writes this file to disk, then uses the Edit tool to replace the
-// single null line below with the generated WARMUP_DATA JSON object.
-// See SKILL.md Path B for the exact replacement instruction.
-// Do NOT replace this comment block — only replace the null assignment line.
+// TEMPLATE FILE — WARMUP_DATA IS INJECTED BY THE SERVER.
+// The MCP server's warmup_get_template tool replaces the null line below with
+// your WARMUP_DATA JSON object before returning filled, artifact-ready HTML.
+// The server finds the injection point by exact string match on the null line.
+// Do NOT modify this comment block or the null assignment line.
 // ══════════════════════════════════════════════════════════════════════════════
 window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)
 </script>
@@ -1552,17 +1552,21 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     if (_p3) { var _regionAbbr = { 'United States': 'US', 'United Kingdom': 'UK', 'European Union': 'EU', 'Canada': 'CA', 'Australia': 'AU' }; var _co = (_cfg.company || '') + (_cfg.region ? ' · ' + (_regionAbbr[_cfg.region] || _cfg.region) : ''); _p3.textContent = _co; _p3.setAttribute('aria-label', 'Open configuration — ' + (_cfg.company || '')); }
 
     var _badge = document.querySelector('.scan-badge');
-    if (_badge && D.safety) {
-      var _total = D.safety.totalUrls || 0;
-      // Derive flagged from domain verdicts — same logic as the safety panel renderer
-      var _flagged = (D.safety.domains || []).filter(function(d) {
-        var v = (d.verdict || '').toUpperCase();
-        return v.indexOf('ALLOW') === -1 && v !== 'CLEAN' && v !== 'SAFE' && v !== '';
-      }).length;
-      _badge.setAttribute('aria-label', 'Link safety report · ' + _total + ' links scanned · ' + _flagged + ' flagged');
-      var _spans = _badge.querySelectorAll('span');
-      if (_spans[1]) _spans[1].textContent = _total + ' links scanned';
-      if (_spans[2]) _spans[2].textContent = '· ' + _flagged + ' flagged';
+    if (_badge) {
+      if (_cfg.skipScan) {
+        _badge.style.display = 'none'; // scanning off — badge not meaningful
+      } else if (D.safety) {
+        var _total = D.safety.totalUrls || 0;
+        // Derive flagged from domain verdicts — same logic as the safety panel renderer
+        var _flagged = (D.safety.domains || []).filter(function(d) {
+          var v = (d.verdict || '').toUpperCase();
+          return v.indexOf('ALLOW') === -1 && v !== 'CLEAN' && v !== 'SAFE' && v !== '';
+        }).length;
+        _badge.setAttribute('aria-label', 'Link safety report · ' + _total + ' links scanned · ' + _flagged + ' flagged');
+        var _spans = _badge.querySelectorAll('span');
+        if (_spans[1]) _spans[1].textContent = _total + ' links scanned';
+        if (_spans[2]) _spans[2].textContent = '· ' + _flagged + ' flagged';
+      }
     }
 
     var _prfCo = document.getElementById('prf-company');
@@ -1606,8 +1610,9 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
     var _mdateEl = document.getElementById('mdate');
     if (_mdateEl && _cfg.reportDate) _mdateEl.textContent = _cfg.reportDate;
 
-    // ── INTEGRITY CHECK: safety.domains must equal active sources ──
+    // ── INTEGRITY CHECK: safety.domains must equal active sources (skip when scanning is off) ──
     (function() {
+      if (_cfg.skipScan) return; // scanning disabled — domains array intentionally empty
       var _nSafetyDoms = (D.safety && D.safety.domains) ? D.safety.domains.length : 0;
       if (_nSafetyDoms !== _nActive) {
         console.error('[Warmup] Integrity check FAILED: safety.domains (' + _nSafetyDoms +
@@ -1717,7 +1722,15 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
 
     // Render safety panel
     var safetyPanel = document.getElementById('link-safety');
-    if (safetyPanel && D.safety) {
+    if (safetyPanel) {
+      if (D.config && D.config.skipScan) {
+        // ── Scan skipped — friendly, non-legal notice ──
+        safetyPanel.innerHTML =
+          '<h2 class="s-eyebrow"><span class="sec-kicker">A note</span><span class="sec-label">Links Not Scanned</span><span class="sec-sub">You chose to skip URL security scanning for this brief.</span></h2>' +
+          '<p class="safety-meta" style="color:var(--ink-dim);">Security scanning was disabled to reduce token usage. Links come from your configured sources but haven\'t been checked against our allowlist or URLScan.io for this run.</p>' +
+          '<p class="safety-disclaimer"><strong>Be a little careful with links today.</strong> The sources here are ones you set up and trust, but without scanning we can\'t confirm that individual URLs haven\'t changed, been redirected, or been repurposed. Give any unfamiliar link a quick look before clicking — especially anything that seems off.</p>' +
+          '<p class="safety-disclaimer" style="margin-top:14px;color:var(--ink-dim);font-size:11.5px;">To re-enable: say <em>"enable link scanning"</em> in chat. Recommended — but you know your token budget.</p>';
+      } else if (D.safety) {
       var sf = D.safety;
       // Guard: if domains missing or empty, show a minimal notice and skip
       if (!sf.domains || sf.domains.length === 0) {
@@ -1779,7 +1792,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Scan timing</strong> These results reflect conditions at the moment the brief was generated. A clean result means the domain wasn\'t flagged then — not a live guarantee. Pages change, redirects get added, domains get reused. Treat this as a quick signal, not a substitute for your own judgment on anything sensitive.</p>' +
         '<p class="safety-disclaimer" style="margin-top:14px;"><strong>Open source</strong> The Warmup is a free, open-source skill built on Claude. Link scanning is included as a convenience feature — a fast first pass, not a security audit. Source code and documentation are at github.com/missionbuilt/loadout under the MIT License.</p>';
       } // end else (domains present)
-    }
+      } // end else if (D.safety)
+    } // end if (safetyPanel)
     // ── Re-initialize scroll-spy with dynamically built elements ──
     (function() {
       var _secs = document.querySelectorAll('.section[id], .src-panel[id]');
@@ -1965,6 +1979,7 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
       ['Welcome',     WARMUP_CONFIG.name ? 'On' : 'Off'],
       ['Daily Quote', WARMUP_CONFIG.showQuote ? 'On' : 'Off'],
       ['Timezone',    WARMUP_CONFIG.timezone || 'UTC'],
+      ['Link scanning', WARMUP_CONFIG.skipScan ? 'Off — links not verified' : 'On · recommended'],
       ['Sources',     `${WARMUP_CONFIG.sourcesActive || 0} active · ${WARMUP_CONFIG.sourcesQuiet || 0} quiet`],
     ];
 
@@ -1980,6 +1995,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Run the warmup back 2 weeks — I was out last week`,
         `Set my timezone to Eastern Time`,
         `Turn off the daily quote`,
+        `Skip link scanning — I'm being token-conscious`,
+        `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
       ],
       'Product Leader': [
@@ -1993,6 +2010,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Run the warmup back 2 weeks — I was out last week`,
         `Set my timezone to Eastern Time`,
         `Turn off the daily quote`,
+        `Skip link scanning — I'm being token-conscious`,
+        `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
       ],
       '_default': [
@@ -2009,6 +2028,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         `Update my special interests to Formula 1 and the Pittsburgh Steelers`,
         `Switch my company to Nike`,
         `Add Dark Reading as a source`,
+        `Skip link scanning — I'm being token-conscious`,
+        `Enable link scanning — verify URLs at generation time`,
         `Show me everything I can customize`,
       ],
     };
@@ -2718,7 +2739,27 @@ btn.textContent = 'Loading…';
 
       // ── Link Safety panel ──
       const safetyPdfEl = document.getElementById('link-safety');
-      if (safetyPdfEl && window.WARMUP_DATA && window.WARMUP_DATA.safety && window.WARMUP_DATA.safety.domains && window.WARMUP_DATA.safety.domains.length > 0) {
+      const _pdfSkipScan = window.WARMUP_DATA && window.WARMUP_DATA.config && window.WARMUP_DATA.config.skipScan;
+      if (_pdfSkipScan) {
+        // Scan was skipped — render a brief notice in the PDF
+        need(55);
+        const _dsKicker = '. A NOTE .';
+        const _dsKW = tw(_dsKicker, 7.5, 'mono');
+        ops.push(`0.541 0.125 0.090 g BT /F3 7.5 Tf 1 0 0 1 ${((PW - _dsKW) / 2).toFixed(1)} ${curY.toFixed(1)} Tm (${esc(_dsKicker)}) Tj ET 0 g`);
+        curY -= 16;
+        const _dsTitle = 'LINKS NOT SCANNED';
+        const _dsTW = tw(_dsTitle, 18, 'bold');
+        T(_dsTitle, (PW - _dsTW) / 2, curY, 18, 'bold', 0.08); curY -= 24;
+        HR(ML, curY, PW - MR, 0.4, 0.75); curY -= 14;
+        const _dsLines = [
+          'Security scanning was disabled for this brief to reduce token usage.',
+          'Links come from your configured sources but have not been verified.',
+          'Be thoughtful when clicking unfamiliar links.',
+          'Re-enable scanning in chat: "enable link scanning".',
+        ];
+        _dsLines.forEach(ln => { T(clean(ln), ML, curY, 8, 'regular', 0.35); curY -= 13; });
+        curY -= 6;
+      } else if (safetyPdfEl && window.WARMUP_DATA && window.WARMUP_DATA.safety && window.WARMUP_DATA.safety.domains && window.WARMUP_DATA.safety.domains.length > 0) {
         const sf = window.WARMUP_DATA.safety;
         need(70);
         const saKicker = '. VERIFICATION .';

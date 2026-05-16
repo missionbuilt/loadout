@@ -134,8 +134,8 @@ const intentField = z.string().describe(
 
 // ── Warmup constants ──────────────────────────────────────────────────────────
 
-const WARMUP_VERSION = "0.3.13";
-const WARMUP_ENGINE_VERSION = "v0.3.10";
+const WARMUP_VERSION = "0.3.15";
+const WARMUP_ENGINE_VERSION = "v0.3.11";
 
 const WARMUP_MODES = [
   {
@@ -306,8 +306,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       async ({ warmup_data }) => {
         // Inject WARMUP_DATA server-side — eliminates the fragile Write→Read→Edit cycle
         // that caused agents to abandon the template and generate their own HTML.
+        //
+        // XSS safety: article titles/bodies can contain </script> which would break
+        // the script tag if injected verbatim. Escape before injection.
+        const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
-        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, `window.WARMUP_DATA = ${warmup_data};`);
+        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, `window.WARMUP_DATA = ${safe};`);
         const injected = filled !== WARMUP_TEMPLATE_HTML;
         return {
           content: [
@@ -315,9 +319,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               type: "text" as const,
               text: injected
                 ? filled
-                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Raw template returned.]
-
-${WARMUP_TEMPLATE_HTML}`,
+                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Call warmup_get_template again.]`,
             },
           ],
         };
@@ -412,25 +414,28 @@ ${WARMUP_TEMPLATE_HTML}`,
                 `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → Path A (version match). Proceed to step 4.\n` +
                 `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
                 `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
-                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from warmup_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory. NEVER simplify or abbreviate the template. The template is 128KB by design. Your only job is supply WARMUP_DATA; the template renders itself. WHY THIS MATTERS: Every time an agent generates HTML from training memory, the design is wrong — wrong colors, wrong layout, invented stat labels, wrong structure. The correct design exists ONLY in warmup_get_template. There is no shortcut.\n` +
-                `4. For each active source, call the WebSearch tool to fetch recent content using the adaptive lookback window. Reject any item where item.date < lookback_start before routing to sections.\n` +
-                `5. Run the link safety verification protocol on all URLs before including them.\n` +
+                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes ONLY from warmup_get_template (PATH B) or the existing artifact file (PATH A). NEVER write HTML from scratch. NEVER reconstruct the template from training memory. Every time an agent generates HTML from memory, the design is wrong — wrong colors, wrong layout, invented stat labels. The correct design lives only in warmup_get_template.\n` +
+                `4. Fetch phase: for each active source, call WebSearch. Budget: top 5 results per batch, max 200 words per article body. Reject any item where item.date < lookback_start before routing to sections. If skip_scan: true in WARMUP.md, skip the URL safety check (step 5) and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
+                `5. Run the link safety verification protocol on all URLs before including them (unless skip_scan: true — see step 4).\n` +
                 `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
                 `   - config.showQuote: true (JSON boolean — required, not optional)\n` +
                 `   - config.scanTime: current generation time as "HH:MM TZ" (use WARMUP.md timezone; default UTC if not set)\n` +
                 `   - config.vendors: copy verbatim from WARMUP.md vendors field; write "" if blank, never omit\n` +
-                `   - safety.domains: one entry per active source — required; empty array means safety panel does not render\n` +
-                `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks)\n` +
+                `   - config.skipScan: true if skip_scan: true in WARMUP.md, otherwise omit\n` +
+                `   - safety.domains: one entry per active source — required; set [] if skipScan; empty array means safety panel does not render\n` +
+                `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks); set 0 if skipScan\n` +
                 `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
                 `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
                 `7. Render the artifact:\n` +
-                `   PATH A (version match — no template reload): use the Read file tool to read html_path, then the Edit tool to find and replace the old window.WARMUP_DATA = {...}; line with the new WARMUP_DATA. Call update_artifact. Done. No bash. No disk writes beyond the Edit.\n` +
+                `   PATH A (version match — no template reload): do NOT read the full 131KB file.\n` +
+                `     a) Use the Grep tool to find the line number of "<script id=\\"warmup-data\\">" in html_path.\n` +
+                `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
+                `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done. No bash.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
-                `     a) Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). The server returns filled, artifact-ready HTML as a text string.\n` +
-                `     b) VERIFY BEFORE WRITING: inspect the first 500 characters of the returned string. Confirm <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> is present. If MISSING, the injection failed — call warmup_get_template again. Do NOT proceed until the comment is confirmed.\n` +
-                `     c) Use the Write file tool to write the verified HTML string to disk. NEVER use bash, shell commands, or python to write or extract the HTML — use only the Write file tool.\n` +
-                `     d) Call create_artifact (new) or update_artifact (replacing stale). Done.\n` +
-                `   NEVER write your own HTML. NEVER generate a shorter version of the template. NEVER use bash for any part of the render step.\n` +
+                `     a) Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). Server injects WARMUP_DATA and returns filled, artifact-ready HTML. If response begins with "[warmup_get_template ERROR", call it again.\n` +
+                `     b) Use the Write file tool to write the HTML string to disk. Write path: use existing html_path if updating stale engine; for first run, write to [project_root]/warmup.html. The Write file tool writes directly to user's filesystem — do NOT use bash, shell, or python.\n` +
+                `     c) Call create_artifact (first run) or update_artifact (stale engine). Done.\n` +
+                `   NEVER write your own HTML. NEVER use bash for any part of the render step.\n` +
                 `   One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +

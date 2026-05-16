@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Spotter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=JetBrains+Mono:wght@400;500;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS — Iron Log · light variant
+   ══════════════════════════════════════════════════════ */
+:root {
+  --paper:       #fbfaf7;
+  --paper-tint:  #f3f0e8;
+  --paper-card:  #ebe6d8;
+  --paper-card2: #f6f1e2;
+  --ink:         #14110d;
+  --ink-soft:    #2e2a23;
+  --ink-dim:     #5a5247;
+  --ink-faint:   #968d7d;
+  --rule:        #d5cfbf;
+  --rule-soft:   #e6e1d2;
+  --blood:       #b6271d;
+  --blood-soft:  #f0d4d0;
+  --army:        #4e6018;
+  --army-soft:   #d6dfae;
+
+  --font-display: 'Oswald', sans-serif;
+  --font-serif:   'Merriweather', Georgia, serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --font-hand:    'Permanent Marker', cursive;
+}
+
+/* ══════════════════════════════════════════════════════
+   GLOBAL RESET — hard rules: no rounded corners, no shadows
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+html, body {
+  background: var(--paper);
+  min-height: 100%;
+}
+body {
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(182,39,29,0.18); color: var(--ink); }
+a { color: inherit; text-decoration: none; }
+
+/* ══════════════════════════════════════════════════════
+   BUILD MODE — artifact header, platform board, lens tiles
+   ══════════════════════════════════════════════════════ */
+.build-view {
+  padding: 28px 32px 48px;
+}
+
+/* — Artifact header — */
+.a-head {
+  margin-bottom: 26px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.a-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--blood);
+  margin-bottom: 8px;
+}
+.a-kicker::before, .a-kicker::after {
+  content: '▮';
+  color: var(--blood);
+  margin: 0 8px;
+}
+.a-head h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+  line-height: 1.05;
+  margin-bottom: 8px;
+}
+.sq {
+  display: inline-block;
+  width: 0.16em;
+  height: 0.16em;
+  background: var(--blood);
+  vertical-align: baseline;
+  margin-left: 0.04em;
+}
+.a-deck {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+/* — Platform board — build mode (compact, aspect 2:1 cells) — */
+.platform-board {
+  background: var(--paper-card2);
+  border: 1px solid var(--rule);
+  padding: 16px 18px 26px;
+  margin-bottom: 22px;
+}
+.pb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pb-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.pb-progress {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.pb-progress strong { color: var(--ink); }
+.pb-progress .s-lift   { color: var(--army); font-weight: 700; }
+.pb-progress .s-nolift { color: var(--blood); font-weight: 700; }
+.pb-rail {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  margin-bottom: 8px; /* labels via ::after need room */
+}
+.pb-cell {
+  aspect-ratio: 2 / 1;
+  border: 1.5px solid var(--rule);
+  background: var(--paper);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.pb-cell::after {
+  content: attr(data-n);
+  position: absolute;
+  bottom: -16px;
+  left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.pb-cell.state-w { background: var(--ink); border-color: var(--ink); }
+.pb-cell.state-r { background: var(--blood); border-color: var(--blood); }
+.pb-cell.state-active { border-color: var(--blood); border-width: 2px; }
+.pb-cell:hover { transform: scaleY(1.15); }
+
+/* — Platform board — full/transition mode (aspect 3:2 cells, heavy border) — */
+.platform-board.full {
+  border: 1.5px solid var(--ink);
+  padding: 32px 36px 28px;
+  position: relative;
+}
+.platform-board.full::before {
+  content: 'THE PLATFORM';
+  position: absolute;
+  top: -10px; left: 22px;
+  background: var(--paper);
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  color: var(--blood);
+  font-weight: 700;
+}
+.platform-board.full .pb-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+.platform-board.full .pb-progress {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.platform-board.full .pb-progress .s-ok   { color: var(--army); font-weight: 700; }
+.platform-board.full .pb-progress .s-warn { color: var(--blood); font-weight: 700; }
+.platform-board.full .pb-rail {
+  gap: 8px;
+  margin-bottom: 30px;
+}
+.platform-board.full .pb-cell {
+  aspect-ratio: 3 / 2;
+  border: 2px solid var(--ink);
+}
+.platform-board.full .pb-cell::after {
+  bottom: -22px;
+  font-size: 10px;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+/* In full/transition mode, white = hollow (paper) not solid ink */
+.platform-board.full .pb-cell.state-w { background: var(--paper); border-color: var(--ink); }
+.platform-board.full .pb-cell.state-r { background: var(--blood); border-color: var(--blood); }
+.platform-board.full .pb-cell:hover { transform: scaleY(1.12); }
+
+/* — Ready bar — transition mode — */
+.ready-bar {
+  margin-top: 36px;
+  padding-top: 26px;
+  border-top: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ready-text { display: flex; flex-direction: column; gap: 6px; }
+.ready-k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.ready-h {
+  font-family: var(--font-hand);
+  font-size: clamp(30px, 4vw, 46px);
+  color: var(--ink);
+  line-height: 1;
+  transform: rotate(-1deg);
+  transform-origin: left;
+  display: inline-block;
+}
+.ready-h em { color: var(--blood); font-style: normal; }
+.ready-sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-soft);
+  max-width: 38ch;
+  line-height: 1.55;
+}
+.ready-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--blood);
+  border: 2px solid var(--blood);
+  padding: 18px 32px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.ready-cta:hover { background: var(--ink); border-color: var(--ink); }
+.ready-cta .arrow { font-family: var(--font-display); font-size: 22px; line-height: 1; }
+.ready-alt {
+  margin-top: 10px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.ready-alt a {
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 1px;
+  cursor: pointer;
+}
+.ready-alt a:hover { color: var(--blood); border-color: var(--blood); }
+
+/* — Lens summary grid — transition mode — */
+.lens-summary {
+  margin-top: 36px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.ls {
+  border-left: 2px solid var(--army);
+  padding: 10px 14px;
+  background: var(--paper);
+  border-right: 1px solid var(--rule-soft);
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ls.no-lift { border-left-color: var(--blood); }
+.ls-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.ls-meta .v-lift   { color: var(--army); font-weight: 700; }
+.ls-meta .v-nolift { color: var(--blood); font-weight: 700; }
+.ls-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  color: var(--ink);
+}
+
+/* — Lens tiles — build mode — */
+.tile {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.tile.active {
+  border-color: var(--blood);
+  border-left-width: 3px;
+  background: var(--paper-card2);
+}
+.tile.unset { opacity: 0.55; }
+.tile-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.tile-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  font-weight: 700;
+}
+.tile-num strong { color: var(--blood); margin-right: 6px; }
+.tile-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+.tile-cat {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.tile-lights { display: flex; gap: 5px; margin-bottom: 10px; }
+.tile-lights .light {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--ink-faint);
+  background: var(--paper);
+}
+.tile-lights .light.w { background: var(--ink); border-color: var(--ink); }
+.tile-lights .light.r { background: var(--blood); border-color: var(--blood); }
+.tile-lights .light.empty {
+  background: var(--paper);
+  border-color: var(--rule);
+  border-style: dashed;
+}
+.tile-finding {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.tile-finding em { color: var(--ink); font-style: italic; }
+.tile-finding strong { color: var(--ink); font-weight: 700; }
+.tile.unset .tile-finding { font-style: italic; color: var(--ink-faint); }
+/* Permanent Marker reserved for: margin notes, verdicts, greeting, sign-off */
+.tile-hand {
+  margin: 8px 0 0;
+  font-family: var(--font-hand);
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--blood);
+  transform: rotate(-0.6deg);
+  transform-origin: left;
+  display: inline-block;
+}
+.tile-hand::before { content: '↳ '; color: var(--blood); }
+.tile-pull {
+  margin-top: 8px;
+  padding: 7px 11px;
+  border-left: 2px solid var(--army);
+  background: var(--army-soft);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.tile-pull::before {
+  content: 'SPOTTER · ';
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--army);
+  font-weight: 700;
+}
+.tile-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule-soft);
+  flex-wrap: wrap;
+}
+.tile-action {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--rule);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.tile-action:hover { color: var(--blood); border-color: var(--blood); }
+.tile-action.primary { color: var(--ink); border-color: var(--ink); }
+
+/* ══════════════════════════════════════════════════════
+   TRANSITION MODE — prologue, stage, tease strip
+   ══════════════════════════════════════════════════════ */
+.prologue {
+  padding: 36px 56px 22px;
+  text-align: center;
+  border-bottom: 1px solid var(--rule);
+}
+.prologue .kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--blood);
+  margin-bottom: 10px;
+}
+.prologue .kicker::before, .prologue .kicker::after { content: '▮▮▮'; margin: 0 12px; }
+.prologue h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(22px, 3.5vw, 38px);
+  line-height: 1.15;
+  color: var(--ink);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.prologue p {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-soft);
+  max-width: 52ch;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+.stage {
+  max-width: 980px;
+  margin: 40px auto 0;
+  padding: 0 56px;
+}
+.review-tease {
+  max-width: 980px;
+  margin: 64px auto 0;
+  padding: 0 56px 72px;
+}
+.tease-strip {
+  position: relative;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 28px 32px 0;
+  overflow: hidden;
+}
+.tease-strip::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(251,250,247,0) 0%, rgba(251,250,247,1) 95%);
+  pointer-events: none;
+}
+.tease-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--blood);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.tease-eyebrow::before, .tease-eyebrow::after { content: '▮▮▮'; margin: 0 10px; }
+.tease-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(48px, 9vw, 100px);
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 0.92;
+  text-align: center;
+  margin-bottom: 14px;
+}
+.tease-verdict-row {
+  display: flex; gap: 12px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.tease-verdict-row .light { width: 40px; height: 40px; border: 2px solid var(--ink); }
+.tease-verdict-row .light.w { background: var(--paper); }
+.tease-verdict-row .light.r { background: var(--blood); border-color: var(--blood); }
+/* Permanent Marker — verdict call in tease */
+.tease-verdict {
+  text-align: center;
+  font-family: var(--font-hand);
+  font-size: clamp(52px, 9vw, 96px);
+  color: var(--army);
+  line-height: 0.95;
+  transform: rotate(-1deg);
+  margin-bottom: 16px;
+}
+.tease-verdict.no-lift { color: var(--blood); }
+.tease-fade { height: 140px; }
+
+/* ══════════════════════════════════════════════════════
+   REVIEW MODE — cover, rail, epic card, lens cards, closing
+   ══════════════════════════════════════════════════════ */
+
+/* — Cover — */
+.cover {
+  padding: 52px 64px 36px;
+  text-align: center;
+  border-bottom: 1px dashed var(--rule);
+}
+/* Permanent Marker — greeting */
+.cover-greet {
+  font-family: var(--font-hand);
+  font-size: clamp(24px, 3.5vw, 40px);
+  color: var(--ink);
+  line-height: 1.1;
+  margin-bottom: 18px;
+  transform: rotate(-0.6deg);
+  transform-origin: center;
+  display: inline-block;
+}
+.cover-greet em { font-style: normal; color: var(--blood); }
+.cover-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.cover-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(58px, 10vw, 124px);
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 0.92;
+}
+.cover-deck {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(14px, 1.4vw, 18px);
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 6px auto 28px;
+  line-height: 1.55;
+}
+.cover-deck em { font-style: normal; color: var(--blood); border-bottom: 1.5px solid var(--blood); }
+
+/* Verdict block */
+.verdict-row {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 40px;
+  justify-content: center;
+  align-items: end;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+}
+.vr-lights { display: flex; gap: 12px; }
+.vr-lights .light { width: 56px; height: 56px; border: 2.5px solid var(--ink); }
+.vr-lights .light.w { background: var(--paper); }
+.vr-lights .light.r { background: var(--blood); border-color: var(--blood); }
+.vr-call .k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+/* Permanent Marker — head judge's call */
+.vr-call .v {
+  display: block;
+  font-family: var(--font-hand);
+  font-size: 48px;
+  color: var(--army);
+  line-height: 0.95;
+  transform: rotate(-1deg);
+  transform-origin: left;
+}
+.vr-call .v.no-lift { color: var(--blood); }
+.vr-call .sub {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.vr-call .sub .warn { color: var(--blood); font-weight: 700; }
+.vr-stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 22px;
+  text-align: right;
+}
+.vr-stats .k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 5px;
+}
+.vr-stats .v {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--ink);
+}
+.vr-stats .v.lift    { color: var(--army); }
+.vr-stats .v.no-lift { color: var(--blood); }
+
+/* — Sticky progress rail — */
+.rail {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: rgba(251,250,247,0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.rail-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.rail-dots { display: flex; gap: 6px; flex: 1; }
+.rail-dot {
+  width: 26px; height: 10px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.rail-dot.w { background: var(--paper); border-color: var(--ink); }
+.rail-dot.r { background: var(--blood); border-color: var(--blood); }
+.rail-dot:hover { transform: scaleY(1.5); }
+/* Permanent Marker — rail verdict echo */
+.rail-call {
+  font-family: var(--font-hand);
+  font-size: 20px;
+  color: var(--army);
+  transform: rotate(-1deg);
+  transform-origin: left;
+}
+.rail-call.no-lift { color: var(--blood); }
+
+/* — Epic card — */
+.epic-section {
+  margin: 36px auto 0;
+  max-width: 880px;
+  padding: 0 64px;
+}
+.epic-card {
+  border: 1.5px solid var(--ink);
+  padding: 22px 26px 20px;
+  background: var(--paper-tint);
+  position: relative;
+}
+.epic-card::before {
+  content: 'EPIC UNDER REVIEW';
+  position: absolute;
+  top: -8px; left: 18px;
+  background: var(--paper);
+  padding: 0 9px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.32em;
+  color: var(--blood);
+  font-weight: 700;
+}
+.epic-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  line-height: 1.25;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.epic-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.epic-meta strong { color: var(--ink); margin-right: 5px; letter-spacing: 0.18em; }
+
+/* — Per-lens cards — review mode — */
+.lens {
+  padding: 64px 64px 52px;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 52px;
+  align-items: start;
+  position: relative;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.lens.no-lift::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--blood);
+}
+.lens-stage { position: sticky; top: 72px; }
+.lens-num {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.32em;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+.lens-num strong { color: var(--blood); margin-right: 10px; font-weight: 700; }
+.lens-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 32px;
+  line-height: 1.05;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.lens-category {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.lens-lights { display: flex; gap: 10px; margin-bottom: 14px; }
+.lens-lights .light {
+  width: 50px; height: 50px;
+  border: 2px solid var(--ink);
+}
+.lens-lights .light.w { background: var(--paper); }
+.lens-lights .light.r { background: var(--blood); border-color: var(--blood); }
+/* Permanent Marker — per-lens verdict */
+.lens-verdict {
+  font-family: var(--font-hand);
+  font-size: 26px;
+  line-height: 1;
+  transform: rotate(-1deg);
+  transform-origin: left;
+  display: inline-block;
+}
+.lens-verdict.lift    { color: var(--army); }
+.lens-verdict.no-lift { color: var(--blood); }
+.lens-verdict-sub {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+.lens-body { padding-top: 4px; }
+.lens-finding {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.45;
+  color: var(--ink);
+  margin-bottom: 20px;
+  max-width: 38ch;
+}
+.lens-finding em { font-style: normal; color: var(--blood); }
+.lens-body p {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.78;
+  color: var(--ink-soft);
+  max-width: 60ch;
+  margin-bottom: 14px;
+}
+.lens-body p strong { color: var(--ink); font-weight: 700; }
+.lens-body p em { color: var(--ink); font-style: italic; }
+.lens-actions {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.lens-action {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.lens-action:hover { color: var(--paper); background: var(--ink); }
+.lens-action.primary { color: var(--paper); background: var(--ink); }
+.lens-action.primary:hover { background: var(--blood); border-color: var(--blood); }
+/* Permanent Marker — margin notes */
+.hand-note {
+  font-family: var(--font-hand);
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--blood);
+  margin: 20px 0 0;
+  transform: rotate(-1deg);
+  transform-origin: left center;
+  max-width: 30ch;
+  display: block;
+}
+.hand-note::before {
+  content: '↳ ';
+  font-family: var(--font-display);
+  color: var(--blood);
+}
+.spotter-pull {
+  margin-top: 22px;
+  padding: 14px 20px;
+  border-left: 3px solid var(--army);
+  background: var(--army-soft);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  max-width: 60ch;
+}
+.spotter-pull::before {
+  content: 'SPOTTER · ';
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--army);
+  font-weight: 700;
+}
+
+/* — Closing — */
+.closing {
+  padding: 72px 64px;
+  background: var(--paper-tint);
+  border-top: 1px dashed var(--rule);
+  text-align: center;
+}
+.closing-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--blood);
+  margin-bottom: 16px;
+}
+.closing-eyebrow::before, .closing-eyebrow::after { content: '▮▮▮'; margin: 0 14px; }
+/* Permanent Marker — big closing verdict. Only renders in review mode. */
+.closing-verdict {
+  font-family: var(--font-hand);
+  font-size: clamp(70px, 11vw, 148px);
+  line-height: 0.92;
+  margin-bottom: 16px;
+  transform: rotate(-2deg);
+  transform-origin: center;
+  display: inline-block;
+}
+.closing-verdict.lift    { color: var(--army); }
+.closing-verdict.no-lift { color: var(--blood); }
+.closing-lights {
+  display: flex; justify-content: center;
+  gap: 14px; margin: 24px 0;
+}
+.closing-lights .light { width: 56px; height: 56px; border: 2.5px solid var(--ink); }
+.closing-lights .light.w { background: var(--paper); }
+.closing-lights .light.r { background: var(--blood); border-color: var(--blood); }
+.closing-deck {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--ink-soft);
+  max-width: 50ch;
+  margin: 0 auto 28px;
+  line-height: 1.6;
+}
+.closing-deck strong { color: var(--ink); font-style: normal; }
+/* Permanent Marker — sign-off */
+.hand-signoff {
+  font-family: var(--font-hand);
+  font-size: 28px;
+  color: var(--ink);
+  margin-top: 20px;
+  transform: rotate(-1.2deg);
+  transform-origin: center;
+  display: inline-block;
+}
+.hand-signoff em { color: var(--blood); font-style: normal; }
+.closing-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1.5px solid var(--ink);
+  padding: 14px 26px;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.closing-cta:hover { background: var(--blood); border-color: var(--blood); }
+
+/* — Footer — */
+.review-footer {
+  padding: 24px 64px 32px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.review-footer .f-sq {
+  display: inline-block;
+  width: 7px; height: 7px;
+  background: var(--blood);
+  margin: 0 6px;
+  vertical-align: 1px;
+}
+
+/* ══════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════ */
+@media (max-width: 820px) {
+  .build-view { padding: 18px 18px 32px; }
+  .prologue, .stage, .review-tease { padding-left: 18px; padding-right: 18px; }
+  .lens-summary { grid-template-columns: 1fr; }
+  .ready-bar { flex-direction: column; align-items: flex-start; }
+  .cover, .rail, .lens, .closing, .review-footer, .epic-section { padding-left: 18px; padding-right: 18px; }
+  .lens { grid-template-columns: 1fr; gap: 20px; }
+  .lens-stage { position: static; }
+  .verdict-row { grid-template-columns: 1fr; gap: 18px; }
+  .vr-stats { grid-template-columns: 1fr 1fr 1fr; text-align: left; }
+}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   DEMO DATA — replaced by engine in production
+   ══════════════════════════════════════════════════════ */
+window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)
+if (!window.SPOTTER_DATA) {
+  window.SPOTTER_DATA = {
+    mode: 'build',          // 'build' | 'iterate' | 'review'
+    epic: {
+      name: 'Add multi-tenant SSO to the customer admin dashboard.',
+      company: 'Elastic',
+      teamShape: '2 eng · 0.5 design',
+      window: '7 weeks',
+      attempt: 1,
+    },
+    user: { name: 'Mike', timestamp: '15 May 2026 · 14:22 ET' },
+    lenses: [
+      {
+        id: 'problem-clarity', n: 1, name: 'Problem clarity', category: 'Framing',
+        question: 'Is the problem sharp?',
+        judges: ['w', 'w', 'w'],
+        finding: 'Internal admins lose 20+ minutes per onboarding pass juggling per-tenant credentials. Cited in three of the last four QBRs.',
+        handNote: 'Lead with the cost, not the SSO.',
+        spotterPull: null,
+        active: false,
+      },
+      {
+        id: 'customer-truth', n: 2, name: 'Customer truth', category: 'Discovery',
+        question: 'Who is saying this?',
+        judges: ['w', 'w', 'r'],
+        finding: 'Top accounts cited: Lockheed (twice), Boeing (advisory board), Caterpillar (Loom from CISO). Tier-2 voice is thin.',
+        handNote: null,
+        spotterPull: 'Save the Loom link. Closes the room.',
+        active: false,
+      },
+      {
+        id: 'success-metrics', n: 3, name: 'Success metrics', category: 'Outcomes',
+        question: 'How will you know it worked?',
+        judges: ['w', 'w', 'w'],
+        finding: 'Median time-to-onboard drops from 22 minutes to under 5, measured weekly, baselined this sprint. Telemetry by sprint start.',
+        handNote: 'Pick the number today. Instrument before code lands.',
+        spotterPull: null,
+        active: false,
+      },
+      {
+        id: 'scope', n: 4, name: 'Scope & non-goals', category: 'Framing',
+        question: "What's explicitly out?",
+        judges: [null, null, null],
+        finding: "The Spotter is asking what's explicitly out of this epic. Reply in chat to set this lens.",
+        handNote: null, spotterPull: null, active: true,
+      },
+      { id: 'risks', n: 5, name: 'Risks & assumptions', category: 'Strategy', question: 'What could go wrong?', judges: [null,null,null], finding: 'Awaiting input.', handNote: null, spotterPull: null, active: false },
+      { id: 'dependencies', n: 6, name: 'Dependencies', category: 'Execution', question: 'What does this need?', judges: [null,null,null], finding: 'Awaiting input.', handNote: null, spotterPull: null, active: false },
+      { id: 'sequencing', n: 7, name: 'Sequencing', category: 'Execution', question: 'Does the order hold up?', judges: [null,null,null], finding: 'Awaiting input.', handNote: null, spotterPull: null, active: false },
+      { id: 'resourcing', n: 8, name: 'Resourcing', category: 'Execution', question: 'Is it staffed?', judges: [null,null,null], finding: 'Awaiting input.', handNote: null, spotterPull: null, active: false },
+      { id: 'done', n: 9, name: 'Definition of done', category: 'Outcomes', question: 'What does shipped look like?', judges: [null,null,null], finding: 'Awaiting input.', handNote: null, spotterPull: null, active: false },
+    ],
+    summary: { lensesSet: 3, totalLenses: 9, whites: 8, reds: 1, unset: 18, finalVerdict: null },
+  };
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER ENGINE
+   ══════════════════════════════════════════════════════ */
+(function () {
+
+  /* — Safety helpers — */
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function pad2(n) { return String(n || '').padStart(2, '0'); }
+
+  /* — Computed stats — */
+  function computeSummary(lenses) {
+    let lensesSet = 0, whites = 0, reds = 0, unset = 0;
+    for (const l of lenses) {
+      const j = l.judges || [null, null, null];
+      if (j.every(x => x !== null)) lensesSet++;
+      whites += j.filter(x => x === 'w').length;
+      reds   += j.filter(x => x === 'r').length;
+      unset  += j.filter(x => x === null).length;
+    }
+    return { lensesSet, totalLenses: lenses.length, whites, reds, unset };
+  }
+
+  function lensResult(judges) {
+    /* No-lift if 2 or more judges are red */
+    const j = judges || [null, null, null];
+    return j.filter(x => x === 'r').length >= 2 ? 'no-lift' : 'lift';
+  }
+
+  function overallVerdict(data, summary) {
+    if (data.summary && data.summary.finalVerdict) return data.summary.finalVerdict;
+    const noLiftCount = (data.lenses || [])
+      .filter(l => lensResult(l.judges) === 'no-lift').length;
+    if (noLiftCount === 0) return 'Good Lift';
+    if (noLiftCount <= 2) return 'Needs Polish';
+    return 'No-Lift';
+  }
+
+  /* — Cell state for platform board — */
+  function cellState(lens) {
+    const j = lens.judges || [null, null, null];
+    const allSet = j.every(x => x !== null);
+    if (lens.active && !allSet) return 'state-active';
+    if (!allSet) return '';
+    return j.filter(x => x === 'r').length >= 2 ? 'state-r' : 'state-w';
+  }
+
+  /* — Rail HTML (shared between build and transition) — */
+  function railHtml(lenses) {
+    return lenses.map((l, i) => {
+      const cls = cellState(l);
+      return `<span class="pb-cell ${cls}" data-n="${i + 1}"></span>`;
+    }).join('');
+  }
+
+  /* — Three representative head-judge lights for the cover — */
+  function headLights(noLiftCount) {
+    const lights = noLiftCount === 0 ? ['w','w','w']
+      : noLiftCount === 1            ? ['w','w','r']
+                                     : ['w','r','r'];
+    return lights.map(c => `<span class="light ${c}"></span>`).join('');
+  }
+
+  /* — Tile lights (16×16 in build mode) — */
+  function tileLightsHtml(judges) {
+    return (judges || [null, null, null]).map(j => {
+      const c = j === 'w' ? 'w' : j === 'r' ? 'r' : 'empty';
+      return `<span class="light ${c}"></span>`;
+    }).join('');
+  }
+
+  /* — Lens lights (50×50 in review mode) — */
+  function lensLightsHtml(judges) {
+    return (judges || [null, null, null]).map(j => {
+      const c = j === 'r' ? 'r' : 'w';
+      return `<span class="light ${c}"></span>`;
+    }).join('');
+  }
+
+  /* ─────────────────────────────────────────────────────
+     BUILD MODE — artifact header + platform board + tiles
+     ───────────────────────────────────────────────────── */
+  function renderBuildMode(data, summary) {
+    const lenses = data.lenses || [];
+    const epic   = data.epic   || {};
+
+    const epicTitle = esc(epic.name || 'Untitled Epic');
+    const epicMeta  = [epic.company, epic.teamShape, epic.window]
+      .filter(Boolean).map(esc).join(' · ');
+    const deckText  = epicMeta || 'drafting in conversation';
+
+    /* Platform board progress bar */
+    const progressHtml = `
+      <strong>${summary.lensesSet} of ${summary.totalLenses}</strong> set ·
+      <span class="s-lift">${summary.whites}</span> W ·
+      <span class="s-nolift">${summary.reds}</span> R ·
+      ${summary.unset} unset`;
+
+    /* Tiles */
+    const tilesHtml = lenses.map(l => {
+      const j = l.judges || [null, null, null];
+      const allSet = j.every(x => x !== null);
+      const state  = !allSet && !l.active ? 'unset' : l.active ? 'active' : '';
+      const cat    = l.active && !allSet ? 'Active' : esc(l.category || '');
+
+      let body = `<p class="tile-finding">${esc(l.finding || 'Awaiting input.')}</p>`;
+      if (allSet && l.handNote)   body += `<p class="tile-hand">${esc(l.handNote)}</p>`;
+      if (allSet && l.spotterPull) body += `<div class="tile-pull">${esc(l.spotterPull)}</div>`;
+
+      let actions = '';
+      if (l.active && !allSet) {
+        actions = `<button class="tile-action primary"
+          onclick="typeof sendPrompt==='function'&&sendPrompt('Continue with lens ${l.n}: ${esc(l.name)}')">Continue in chat</button>`;
+      } else if (allSet) {
+        actions =
+          `<button class="tile-action"
+            onclick="typeof sendPrompt==='function'&&sendPrompt('Edit lens ${l.n}')">Edit</button>` +
+          `<button class="tile-action"
+            onclick="typeof sendPrompt==='function'&&sendPrompt('Re-roll the judges on lens ${l.n}')">Re-roll judges</button>`;
+      }
+
+      return `
+<article class="tile${state ? ' ' + state : ''}">
+  <div class="tile-head">
+    <span class="tile-num"><strong>${pad2(l.n)}</strong>Lens</span>
+    <span class="tile-name">${esc(l.name)}</span>
+    <span class="tile-cat">${cat}</span>
+  </div>
+  <div class="tile-lights">${tileLightsHtml(l.judges)}</div>
+  ${body}
+  ${actions ? `<div class="tile-actions">${actions}</div>` : ''}
+</article>`;
+    }).join('\n');
+
+    return `
+<div class="build-view">
+  <header class="a-head">
+    <p class="a-kicker">Epic Under Build</p>
+    <h1>${epicTitle}<span class="sq"></span></h1>
+    <p class="a-deck">${deckText}. The platform fills in as you and the Spotter work through each lens. Final report opens when all nine are set.</p>
+  </header>
+
+  <div class="platform-board">
+    <div class="pb-head">
+      <h2 class="pb-title">The Platform</h2>
+      <span class="pb-progress">${progressHtml}</span>
+    </div>
+    <div class="pb-rail">${railHtml(lenses)}</div>
+  </div>
+
+  ${tilesHtml}
+</div>`;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     TRANSITION MODE — all 9 lenses set, before review
+     ───────────────────────────────────────────────────── */
+  function renderTransitionMode(data, summary) {
+    const lenses     = data.lenses || [];
+    const verdict    = overallVerdict(data, summary);
+    const vClass     = verdict === 'Good Lift' ? 'lift' : 'no-lift';
+    const noLiftCt   = lenses.filter(l => lensResult(l.judges) === 'no-lift').length;
+
+    const liftHeadline = verdict === 'Good Lift'
+      ? `You're loaded for a <em>good lift</em>.`
+      : verdict === 'Needs Polish'
+        ? `You're close — <em>${noLiftCt} lens${noLiftCt > 1 ? 'es' : ''}</em> need a re-rack.`
+        : `<em>${noLiftCt} lenses</em> are blocking the lift. Re-rack before you walk up.`;
+
+    const subText = verdict === 'Good Lift'
+      ? `${9 - noLiftCt} lenses are clean. Walk to the platform — I'll call the lights.`
+      : `Address the no-lifts, then walk to the platform.`;
+
+    /* Progress text for full board */
+    const progHtml = `
+      <span class="s-ok">${summary.lensesSet} of ${summary.totalLenses}</span> set ·
+      <span class="s-ok">${summary.whites}</span> W ·
+      <span class="s-warn">${summary.reds}</span> R ·
+      0 unset`;
+
+    /* Lens summary 3-col grid */
+    const lsSummary = lenses.map(l => {
+      const j = l.judges || [null, null, null];
+      const w = j.filter(x => x === 'w').length;
+      const r = j.filter(x => x === 'r').length;
+      const result = lensResult(j);
+      const lightStr = `${w}W${r > 0 ? '·' + r + 'R' : ''}`;
+      return `
+<div class="ls${result === 'no-lift' ? ' no-lift' : ''}">
+  <div class="ls-meta">
+    <span>L${pad2(l.n)}</span>
+    <span class="${result === 'lift' ? 'v-lift' : 'v-nolift'}">${lightStr}</span>
+  </div>
+  <div class="ls-name">${esc(l.name)}</div>
+</div>`;
+    }).join('');
+
+    /* Tease strip head lights */
+    const teaseLightsHtml = headLights(noLiftCt);
+
+    return `
+<section class="prologue">
+  <p class="kicker">The Moment of Truth</p>
+  <h1>Nine lenses set.<br>Time to declare the weight.</h1>
+  <p>You and the Spotter worked through every lens. The board is loaded. Run the lift to see the full verdict — the lights come up and the report is yours to save.</p>
+</section>
+
+<section class="stage">
+  <div class="platform-board full">
+    <div class="pb-head">
+      <h2 class="pb-title">The Platform</h2>
+      <span class="pb-progress">${progHtml}</span>
+    </div>
+    <div class="pb-rail">${railHtml(lenses)}</div>
+
+    <div class="ready-bar">
+      <div class="ready-text">
+        <span class="ready-k">Spotter says</span>
+        <span class="ready-h">${liftHeadline}</span>
+        <span class="ready-sub">${subText}</span>
+      </div>
+      <button class="ready-cta"
+        onclick="typeof sendPrompt==='function'&&sendPrompt('Run the lift — give me the full review report')">
+        <span>Run the Lift</span>
+        <span class="arrow">↗</span>
+      </button>
+    </div>
+    <p class="ready-alt">Or:
+      <a onclick="typeof sendPrompt==='function'&&sendPrompt('Keep iterating in chat')">keep iterating in chat</a> ·
+      <a onclick="typeof sendPrompt==='function'&&sendPrompt('Fix the no-lifts first')">fix the no-lifts first</a>
+    </p>
+
+    <div class="lens-summary">${lsSummary}</div>
+  </div>
+</section>
+
+<section class="review-tease" aria-label="Preview of full report">
+  <div class="tease-strip">
+    <p class="tease-eyebrow">What you're about to see</p>
+    <h2 class="tease-title">The Spotter<span class="sq"></span></h2>
+    <div class="tease-verdict-row">${teaseLightsHtml}</div>
+    <div class="tease-verdict ${vClass}">${esc(verdict)}</div>
+    <div class="tease-fade"></div>
+  </div>
+</section>`;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     REVIEW MODE — cinematic V2C report
+     ───────────────────────────────────────────────────── */
+  function renderReviewMode(data, summary) {
+    const lenses    = data.lenses || [];
+    const epic      = data.epic   || {};
+    const user      = data.user   || {};
+    const verdict   = overallVerdict(data, summary);
+    const vClass    = verdict === 'Good Lift' ? 'lift' : 'no-lift';
+    const noLiftCt  = lenses.filter(l => lensResult(l.judges) === 'no-lift').length;
+    const hl        = headLights(noLiftCt);
+
+    /* Sub-verdict text */
+    const subVerdict = noLiftCt === 0
+      ? 'All 9 lenses passed.'
+      : `${9 - noLiftCt} of 9 lenses passed · <span class="warn">${noLiftCt} to rerack</span>`;
+
+    /* Sticky rail dots */
+    const railDotsHtml = lenses.map(l => {
+      const result = lensResult(l.judges);
+      return `<span class="rail-dot ${result === 'no-lift' ? 'r' : 'w'}"
+        title="Lens ${l.n}: ${esc(l.name)}"></span>`;
+    }).join('');
+
+    /* Epic meta */
+    const epicMetaItems = [
+      epic.window    ? `<span><strong>Window</strong>${esc(epic.window)}</span>` : '',
+      epic.teamShape ? `<span><strong>Team</strong>${esc(epic.teamShape)}</span>` : '',
+      epic.attempt   ? `<span><strong>Attempt</strong>${epic.attempt}</span>` : '',
+    ].filter(Boolean).join('');
+
+    /* Per-lens cards */
+    const lensCards = lenses.map(l => {
+      const j      = l.judges || [null, null, null];
+      const result = lensResult(j);
+      const whites = j.filter(x => x === 'w').length;
+
+      let bodyHtml = '';
+      if (l.finding)     bodyHtml += `<p class="lens-finding">${esc(l.finding)}</p>`;
+      if (l.spotterPull) bodyHtml += `<div class="spotter-pull">${esc(l.spotterPull)}</div>`;
+      if (l.handNote)    bodyHtml += `<p class="hand-note">${esc(l.handNote)}</p>`;
+
+      const actionsHtml = result === 'no-lift' ? `
+<div class="lens-actions">
+  <button class="lens-action primary"
+    onclick="typeof sendPrompt==='function'&&sendPrompt('Help me fix lens ${l.n}: ${esc(l.name)}')">↗ Fix with Spotter</button>
+  <button class="lens-action"
+    onclick="typeof sendPrompt==='function'&&sendPrompt('Re-roll lens ${l.n}')">Re-roll this lens</button>
+</div>` : '';
+
+      return `
+<article class="lens ${result}">
+  <div class="lens-stage">
+    <p class="lens-num"><strong>${pad2(l.n)}</strong>${esc(l.category || 'Lens')}</p>
+    <h2 class="lens-title">${esc(l.name)}</h2>
+    <p class="lens-category">${esc(l.question || '')}</p>
+    <div class="lens-lights">${lensLightsHtml(l.judges)}</div>
+    <p class="lens-verdict ${result}">${result === 'lift' ? 'Good Lift' : 'No-Lift'}</p>
+    <span class="lens-verdict-sub">${whites} of 3 white</span>
+  </div>
+  <div class="lens-body">
+    ${bodyHtml}
+    ${actionsHtml}
+  </div>
+</article>`;
+    }).join('\n');
+
+    /* Closing text */
+    let closingDeck = '';
+    if (verdict === 'Good Lift') {
+      closingDeck = noLiftCt === 0
+        ? '<strong>Clean across all nine.</strong> This epic is ready for the room.'
+        : `<strong>You can rack it.</strong> Address the ${noLiftCt} no-lift${noLiftCt > 1 ? 's' : ''} before the review meeting and the bar moves cleanly.`;
+    } else if (verdict === 'Needs Polish') {
+      closingDeck = `<strong>Close, but not there yet.</strong> ${noLiftCt} lenses need work before this is ready for the room.`;
+    } else {
+      closingDeck = `<strong>Not ready to rack.</strong> ${noLiftCt} lenses are blocking the lift. Work them before the next rep.`;
+    }
+
+    const closingCtaHtml = noLiftCt > 0 ? `
+<br>
+<button class="closing-cta"
+  onclick="typeof sendPrompt==='function'&&sendPrompt('Open the no-lifts with me')">
+  ↗ Open the no-lifts with Spotter
+</button>` : '';
+
+    const epicDeckRef = epic.name
+      ? `<em>${esc(epic.name)}</em>`
+      : 'this epic';
+
+    /* Timestamp */
+    const ts = esc(user.timestamp || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }));
+
+    return `
+<section class="cover">
+  <p class="cover-greet">Hey <em>${esc(user.name || 'there')}</em>—here's what I saw on this rep.</p>
+  <div class="cover-title-row">
+    <h1 class="cover-title">The Spotter<span class="sq"></span></h1>
+  </div>
+  <p class="cover-deck">Reviewing an epic: ${epicDeckRef}. Nine lenses, three judges each. Take the reps that are there; rerack the ones that aren't.</p>
+
+  <div class="verdict-row">
+    <div class="vr-lights">${hl}</div>
+    <div class="vr-call">
+      <span class="k">Head Judge's Call</span>
+      <span class="v ${vClass}">${esc(verdict)}</span>
+      <span class="sub">${subVerdict}</span>
+    </div>
+    <div class="vr-stats">
+      <div><span class="k">Lights · W</span><span class="v lift">${summary.whites}</span></div>
+      <div><span class="k">Lights · R</span><span class="v no-lift">${summary.reds}</span></div>
+      <div><span class="k">Reviewed</span><span class="v">${summary.lensesSet}&nbsp;/&nbsp;${summary.totalLenses}</span></div>
+    </div>
+  </div>
+</section>
+
+<nav class="rail" aria-label="Lens progress">
+  <span class="rail-label">Nine Lenses</span>
+  <div class="rail-dots">${railDotsHtml}</div>
+  <span class="rail-call ${vClass}">${esc(verdict)}</span>
+</nav>
+
+<section class="epic-section">
+  <div class="epic-card">
+    <p class="epic-name">${esc(epic.name || 'Epic under review')}</p>
+    <p class="epic-meta">
+      <span><strong>Mode</strong>Review</span>
+      ${epicMetaItems}
+    </p>
+  </div>
+</section>
+
+<main>${lensCards}</main>
+
+<section class="closing">
+  <p class="closing-eyebrow">Head Judge's Final Call</p>
+  <div class="closing-verdict ${vClass}">${esc(verdict)}</div>
+  <div class="closing-lights">${hl}</div>
+  <p class="closing-deck">${closingDeck}</p>
+  <p class="hand-signoff">— <em>Spotter</em></p>
+  ${closingCtaHtml}
+</section>
+
+<footer class="review-footer">
+  <span>Mission<span class="f-sq"></span>Built · The Spotter · The Loadout · ${ts}</span>
+</footer>`;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     MAIN RENDER — reads window.SPOTTER_DATA, picks mode
+     ───────────────────────────────────────────────────── */
+  function render() {
+    const data    = window.SPOTTER_DATA || {};
+    const lenses  = data.lenses || [];
+    const summary = computeSummary(lenses);
+    const root    = document.getElementById('root');
+    if (!root) return;
+
+    /* Background texture */
+    if (data.mode === 'review') {
+      document.body.style.backgroundImage = [
+        'radial-gradient(ellipse 900px 700px at 12% 0%, rgba(248,242,224,0.7), transparent 65%)',
+        'repeating-linear-gradient(to bottom, transparent 0, transparent 39px, rgba(20,17,13,0.025) 39px, rgba(20,17,13,0.025) 40px)',
+      ].join(', ');
+    } else {
+      document.body.style.backgroundImage =
+        'radial-gradient(ellipse 900px 700px at 12% 0%, rgba(248,242,224,0.6), transparent 65%)';
+    }
+
+    /* Mode routing */
+    let html = '';
+    if (data.mode === 'review') {
+      html = renderReviewMode(data, summary);
+    } else {
+      /* build | iterate — check for transition state */
+      const isTransition = summary.lensesSet === summary.totalLenses && summary.totalLenses > 0;
+      html = isTransition
+        ? renderTransitionMode(data, summary)
+        : renderBuildMode(data, summary);
+    }
+
+    root.innerHTML = html;
+
+    /* In iterate mode, scroll active tile into view */
+    if (data.mode === 'iterate') {
+      const activeTile = root.querySelector('.tile.active');
+      if (activeTile) {
+        setTimeout(() => activeTile.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+      }
+    }
+  }
+
+  /* Public API — engine calls this after mutating SPOTTER_DATA */
+  window.spotterRender = render;
+
+  /* Initial render */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', render);
+  } else {
+    render();
+  }
+
+})();
+</script>
+</body>
+</html>
