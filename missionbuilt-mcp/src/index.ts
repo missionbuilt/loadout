@@ -217,7 +217,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_setup",
-      "Primes the agent to run The Warmup's setup flow for a new user. Walks the user through mode selection, sector/product area, company, and region, builds and reviews their source suite, saves config to WARMUP.md, and runs a test brief.",
+      "Primes the agent to run The Warmup's setup flow for a new user. Ask mode, then company name FIRST — use a web search to auto-determine sector, region, and competitors from the company name, present findings for confirmation, then ask only what could not be looked up. Saves config to WARMUP.md and runs a test brief.",
       {
         intent: z.string().describe(
           "One sentence shown in the permission dialog. Examples: 'Setting up Warmup — first time, mode not yet chosen', 'Configuring CISO mode for Healthcare sector'. Keep it under 100 characters."
@@ -241,10 +241,15 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `${modeContext}\n\n` +
                 `## How to run setup\n\n` +
                 `1. Ask which mode fits the user (CISO / Product Leader / Custom) if not already known.\n` +
-                `2. Collect the required config fields for that mode (see SKILL.md Setup section).\n` +
-                `3. Build the source suite based on their answers. Show it to the user for review.\n` +
-                `4. Save config to WARMUP.md at their project root using the schema in WARMUP.example.md.\n` +
-                `5. Run a test brief using the saved config. Deliver it as a Cowork artifact or a markdown summary.\n\n` +
+                `2. Ask the user's name for the brief header.\n` +
+                `3. Ask for company name FIRST — then run a web search to auto-determine sector, region, and competitors. Present all findings in one confirmation message. Ask only what the search could not determine.\n` +
+                `4. Build the source suite based on confirmed answers. Show it to the user for review.\n` +
+                `5. Save config to WARMUP.md at their project root using the schema in WARMUP.example.md.\n` +
+                `6. Run a test brief using the saved config. Deliver it as a Cowork artifact.\n\n` +
+                `## CRITICAL: Question order for CISO and Product Leader modes\n\n` +
+                `Mode → Name → **Company name (web search auto-fills sector/region/competitors)** → confirm findings → special interests only.\n` +
+                `Do NOT ask sector or region before asking for the company name.\n` +
+                `If the user skips company, then ask sector, region, vendors manually.\n\n` +
                 `## Voice\n\n` +
                 `Ask one question at a time. Plain language — never internal-framework prompts. ` +
                 `The user is setting up their morning routine, not configuring a system. Keep it fast.\n\n` +
