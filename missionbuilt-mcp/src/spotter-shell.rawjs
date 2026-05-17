@@ -1665,20 +1665,25 @@ ${epicSourceHtml}
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
+    // Backdrop — injected once, persists across re-renders
+    var _exportBackdrop = document.createElement('div');
+    _exportBackdrop.id = 'spotter-export-backdrop';
+    _exportBackdrop.style.cssText = 'display:none;position:fixed;inset:0;z-index:199;';
+    _exportBackdrop.addEventListener('click', function() { window.spotterCloseExport(); });
+    document.body.appendChild(_exportBackdrop);
+
     window.spotterToggleExport = function(e) {
       e && e.stopPropagation();
       var dd = document.getElementById('spotter-export-dd');
-      if (dd) dd.classList.toggle('open');
+      if (!dd) return;
+      var isOpen = dd.classList.toggle('open');
+      _exportBackdrop.style.display = isOpen ? 'block' : 'none';
     };
     window.spotterCloseExport = function() {
       var dd = document.getElementById('spotter-export-dd');
       if (dd) dd.classList.remove('open');
+      _exportBackdrop.style.display = 'none';
     };
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest || !e.target.closest('.spotter-export')) {
-        window.spotterCloseExport();
-      }
-    });
 
     /* ── Toast ── */
     function showToast(msg) {
@@ -1694,63 +1699,60 @@ ${epicSourceHtml}
       t._tid = setTimeout(function() { t.classList.remove('visible'); }, 2200);
     }
 
-    /* ── Clipboard copy for .copy-prompt buttons ── */
-    function copyText(text) {
-      // execCommand works in sandboxed iframes; clipboard API requires permissions
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;width:1px;height:1px';
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        var ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        if (ok) return true;
-      } catch (ex) { /* fall through */ }
-      // Fallback: native clipboard API
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).catch(function() {});
-        return true; // optimistic — API is async
-      }
-      return false;
-    }
-
+    /* ── Send-to-chat for .copy-prompt buttons ── */
     document.addEventListener('click', function(e) {
       var btn = e.target.closest && e.target.closest('.copy-prompt');
       if (!btn) return;
       var prompt = btn.getAttribute('data-prompt');
       if (!prompt) return;
-      var origText = btn.textContent;
-      if (copyText(prompt)) {
-        showToast('Copied — paste into chat');
-        btn.textContent = 'Copied!';
-        setTimeout(function() { btn.textContent = origText; }, 1500);
+      if (typeof sendPrompt === 'function') {
+        sendPrompt(prompt);
       } else {
-        showToast('Copy failed — try manually');
+        // Fallback when sendPrompt isn't available: try execCommand then clipboard
+        var sent = false;
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = prompt;
+          ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;width:1px;height:1px';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          sent = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch(ex) {}
+        if (!sent && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(prompt).catch(function(){});
+          sent = true;
+        }
+        showToast(sent ? 'Copied — paste into chat' : 'Prompt ready — paste into chat manually');
       }
     });
 
     /* ── Fullscreen ── */
     function setFsBtn(active) {
+      _fsActive = active;
       var btn = document.getElementById('spotter-fs-btn');
       if (btn) btn.textContent = active ? 'Exit Full' : 'Fullscreen';
-      _fsActive = active;
     }
     window.spotterToggleFullscreen = function() {
       window.spotterCloseExport();
-      if (!_fsActive) {
+      // Check actual browser state, not just our variable
+      var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (!isFs) {
         var el = document.documentElement;
-        var p = el.requestFullscreen ? el.requestFullscreen()
-              : el.webkitRequestFullscreen ? (el.webkitRequestFullscreen(), Promise.resolve())
-              : Promise.reject(new Error('no-api'));
-        p.then(function() { setFsBtn(true); }).catch(function() { setFsBtn(false); });
+        try {
+          if (el.requestFullscreen) el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        } catch(ex) {}
+        setFsBtn(true);
       } else {
-        var ex = document.exitFullscreen ? document.exitFullscreen()
-               : document.webkitExitFullscreen ? (document.webkitExitFullscreen(), Promise.resolve())
-               : Promise.resolve();
-        ex.then(function() { setFsBtn(false); }).catch(function() { setFsBtn(false); });
+        try {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch(ex) {}
+        setFsBtn(false);
       }
     };
+    // Sync button if the user exits fullscreen via Esc key or browser chrome
     function onFsChange() {
       var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       setFsBtn(isFs);
