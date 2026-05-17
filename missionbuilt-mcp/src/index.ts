@@ -744,13 +744,20 @@ Area name + category mapping (use exactly, in order):
               `The review lives entirely inside the Cowork artifact. Your chat response is ONE line, written only AFTER the artifact is registered:\n\n` +
               `  "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
               `Do not write to chat before the artifact is registered. Do not write to chat while grading. Not a word until the artifact exists.\n\n` +
-              `## STEP 1 — Determine PATH A or PATH B\n\n` +
+              `## STEP 1 — Find the workspace path and determine PATH A or PATH B\n\n` +
               `Do this FIRST, before you grade anything.\n\n` +
-              `The workspace file is always: [workspace]/spotter-[epic-slug].html\n` +
-              `  e.g. "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
+              `### 1a — Get the workspace path (REQUIRED before any file operation)\n\n` +
               `  1. Call list_artifacts.\n` +
-              `  2. If NO Spotter artifact exists for this epic → PATH B.\n` +
-              `  3. If an artifact DOES exist:\n` +
+              `  2. Look at the html_path of ANY existing artifact. The directory portion is the workspace root.\n` +
+              `     e.g. if html_path is "/Users/jane/Projects/loadout/warmup-brief.html", workspace root is "/Users/jane/Projects/loadout"\n` +
+              `  3. If no artifacts exist yet, the workspace root is the Cowork selected folder shown in your system context.\n` +
+              `  4. The target file for this review is always: [workspace-root]/spotter-[epic-slug].html\n` +
+              `     e.g. "Comments on Dashboards" → [workspace-root]/spotter-comments-on-dashboards.html\n\n` +
+              `⚠ The workspace root is NOT your working directory and NOT an outputs or sessions folder.\n` +
+              `   It is a user folder like /Users/[name]/Projects/[folder]. Never write to any path containing "Application Support", "sessions", or "outputs".\n\n` +
+              `### 1b — Determine PATH A or PATH B\n\n` +
+              `  1. If NO Spotter artifact for this epic exists in list_artifacts → PATH B.\n` +
+              `  2. If an artifact DOES exist:\n` +
               `     a. Read ONLY lines 1–3 of the workspace file (offset:0, limit:3). Cannot read → PATH B.\n` +
               `     b. Look at line 2 ONLY. Must be exactly: <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
               `     c. Exact match → PATH A. Anything else → PATH B.\n\n` +
@@ -791,15 +798,18 @@ Area name + category mapping (use exactly, in order):
               `        Do NOT fall back to reading rawjs files. Do NOT read spotter-shell.rawjs or any missionbuilt-mcp source files.\n` +
               `        Do NOT attempt to construct or reconstruct the HTML yourself under any circumstances.\n\n` +
               `     ⛔ If response begins with "[spotter_get_template ERROR", call it one more time. If it fails again, STOP.\n\n` +
-              `  b. Write file tool:\n` +
-              `       file_path: [workspace]/spotter-[epic-slug].html\n` +
+              `  b. Immediately after receiving the tool response, call the Write file tool.\n` +
+              `     Do NOT call Read, Grep, or any other tool between spotter_get_template and Write.\n` +
+              `     Do NOT read the workspace file, the rawjs, or anything else first.\n` +
+              `     The Write call must use:\n` +
+              `       file_path: [workspace-root]/spotter-[epic-slug].html    ← the workspace-root you found in STEP 1a\n` +
               `       content: <the EXACT full text returned by spotter_get_template — unmodified, verbatim>\n` +
               `     ⚠ Do NOT use bash. ⚠ Do NOT use Edit. ⚠ Do NOT compose or modify the HTML yourself.\n` +
-              `     The HTML is ~1600 lines. Write the entire thing — do not truncate.\n` +
+              `     ⚠ The file_path MUST be inside the workspace root — never inside Application Support, sessions, or outputs.\n` +
               `  c. Call create_artifact (first time) or update_artifact (re-run):\n` +
               `       id: "spotter-[epic-slug]"\n` +
-              `       html_path: "[workspace]/spotter-[epic-slug].html"\n` +
-              `     Pass the workspace file path. Do not pass an internal or outputs path.\n\n` +
+              `       html_path: [workspace-root]/spotter-[epic-slug].html    ← same path you wrote in step b\n` +
+              `     The html_path must be the same workspace-root path used in step b. Not an outputs path.\n\n` +
               `## STEP 4 — Write ONE line to chat\n\n` +
               `The artifact is registered. Now write your only chat output:\n\n` +
               `  "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
