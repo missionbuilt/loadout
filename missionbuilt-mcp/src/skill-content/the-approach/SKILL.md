@@ -338,44 +338,70 @@ optional. Write all prose in active voice, present tense, and tight sentences.
 ## RENDER Phase (Step 2)
 
 **ABSOLUTE RULE — NO EXCEPTIONS:**
-The brief HTML is ALWAYS built from the `approach-template.html` file in the skill
-directory, or from an existing artifact file. **Never write HTML from scratch.
-Never reconstruct the template from memory.** The template contains the complete
-CSS, layout, renderer, and PDF builder. Reproducing it from memory will break
-the design and the PDF export.
+**Never write HTML from scratch. Never reconstruct the template from memory.**
+The template contains the complete CSS, layout, renderer, and PDF builder.
+Reproducing it from memory will break the design and the PDF export.
 
-**Step 1 — Determine path:**
+---
 
-Call `list_artifacts` to check whether an artifact with `id: "the-approach"` exists.
+### Step 1 — Choose Path A or Path B
 
-- **First run or no artifact:** Read `approach-template.html` from this skill directory.
-  Write the filled HTML (see injection below) to the user's workspace folder as
-  `approach-artifact.html`. Then call `create_artifact` with `id: "the-approach"`.
-- **Repeat run, same target:** Grep the existing `approach-artifact.html` for
-  `<script id="approach-data">`. Read only that block. Replace it with the new
-  APPROACH_DATA. Write back. Call `update_artifact`.
-- **Different target, same session:** Always write a fresh file and call
-  `update_artifact`. The artifact shows the current brief; past briefs are gone.
+**PATH A — Repeat run (artifact file already exists on disk)**
 
-**Step 2 — Inject data:**
+Use Path A whenever `approach-artifact.html` already exists in the workspace.
+**Do NOT call `approach_get_template` on a repeat run — the response is too
+large for the context window and will be offloaded to a temp file you cannot use.**
 
-The template contains the placeholder:
+Do this instead:
 
-```html
-<script id="approach-data">
-window.APPROACH_DATA = __APPROACH_DATA__;
-</script>
+```
+a) Grep approach-artifact.html for the string: <script id="approach-data">
+   Note the line number returned.
+
+b) Read approach-artifact.html with offset=(that line number - 1) and limit=10
+   to see the block. Confirm it contains window.APPROACH_DATA.
+
+c) Edit approach-artifact.html — replace the ENTIRE block:
+     <script id="approach-data">
+     window.APPROACH_DATA = <anything here>;
+     </script>
+   with:
+     <script id="approach-data">
+     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
+     </script>
+
+d) Call update_artifact with id: "the-approach" and the file path.
+   Done. Do not call approach_get_template. Do not read or write the whole file.
 ```
 
-Replace `__APPROACH_DATA__` with `JSON.stringify(APPROACH_DATA)`. The renderer
-reads `window.APPROACH_DATA` on load and populates every section.
+---
 
-**Step 3 — Write and register:**
+**PATH B — First run (no artifact file on disk)**
 
-Write the complete HTML to `approach-artifact.html` in the user's workspace
-folder (same folder as any existing artifacts). Call `create_artifact` or
-`update_artifact` as determined in Step 1. Always deliver via `create_artifact`
-/ `update_artifact` — never a bare `computer://` file link.
+Use Path B only when `approach-artifact.html` does NOT exist yet.
+
+```
+a) Call approach_get_template with:
+     intent: "Rendering Approach brief for [company]"
+     approach_data: JSON.stringify(APPROACH_DATA)
+   The server injects the data and returns the filled HTML.
+
+b) Write the returned HTML string to approach-artifact.html in the
+   user's workspace folder (same folder as other artifacts).
+
+c) Call create_artifact with id: "the-approach" and the file path.
+```
+
+---
+
+### Step 2 — Determine which path to take
+
+Call `list_artifacts`. If an artifact with `id: "the-approach"` exists → Path A.
+If no artifact exists → Path B.
+
+If you are updating for a different target company in the same session, use Path A
+(the artifact already exists; just replace the data block). The artifact always shows
+the current brief; past briefs are not retained.
 
 ---
 
