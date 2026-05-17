@@ -738,22 +738,23 @@ Area name + category mapping (use exactly, in order):
             type: "text" as const,
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
-              `## Before you call any tool\n\n` +
-              `Write this line to chat first, then execute the steps below in order:\n\n` +
-              `  "Running The Spotter — building artifact now."\n\n` +
-              `That is the only chat output allowed until Step 4 is complete.\n\n` +
-              `## Sequence — execute in order, do not skip steps\n\n` +
-              `1. SETUP   — call list_artifacts → find workspace path → determine PATH A or B\n` +
-              `2. GRADE   — call spotter_get_skill → grade all 9 areas silently → build SPOTTER_DATA\n` +
-              `3. ARTIFACT — write the HTML file to disk and register the artifact\n` +
-              `4. CHAT    — write the grade summary to chat\n\n` +
-              `The artifact must exist before Step 4. Do not write findings, grades, or verdicts to chat before Step 4.\n\n` +
+              `## The deliverable\n\n` +
+              `The output of this review is an HTML file written to the user's workspace folder and registered in the Cowork artifact panel. That file IS the review.\n\n` +
+              `The chat message you post at the end is a summary pointer to the artifact — not the review itself.\n\n` +
+              `**Task failure:** If grades, findings, or verdicts appear in chat before the artifact file exists on disk, the task has failed. Build the artifact first. Always.\n\n` +
+              `## Sequence\n\n` +
+              `Execute steps 1 → 2 → 3 → 4. No grades, findings, or verdicts to chat until Step 4.\n\n` +
+              `1. SETUP    — call list_artifacts → find workspace path → determine PATH A or B\n` +
+              `2. GRADE    — load framework → grade all 9 areas silently → build SPOTTER_DATA\n` +
+              `3. ARTIFACT — write HTML to disk → register artifact  ← THIS IS THE DELIVERABLE\n` +
+              `4. CONFIRM  — post grade summary to chat (only after artifact exists)\n\n` +
               `## Permitted tools\n\n` +
               `Only these tools may be used. Everything else is forbidden.\n\n` +
               `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
               `        spotter_get_skill · spotter_get_examples · spotter_get_template\n` +
               `  File: Read · Write · Edit · Grep\n\n` +
               `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
+              `Note: spotter_get_template is an MCP tool call to the Loadout server — it is required and permitted. It is not a web fetch.\n\n` +
               `## Step 1 — Setup\n\n` +
               `a. Call list_artifacts.\n` +
               `b. Find workspace root: take the html_path of any existing artifact and strip the filename.\n` +
@@ -768,9 +769,9 @@ Area name + category mapping (use exactly, in order):
               `     Anything else, or cannot read → PATH B\n\n` +
               `The workspace root is always a user folder like /Users/[name]/…\n` +
               `Never use a path containing "Application Support", "sessions", "outputs", or "uploads".\n\n` +
-              `## Step 2 — Grade\n\n` +
+              `## Step 2 — Grade (silent — no chat output)\n\n` +
               `a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).\n` +
-              `b. Grade all nine areas against the epic. Do not output grades to chat.\n` +
+              `b. Grade all nine areas against the epic. Keep grades internal — do not write them to chat.\n` +
               `   ✓ Pass → ["w","w","w"]  ·  ⚠️ Needs work → ["w","w","r"]  ·  ✗ Missing → ["r","r","r"]\n` +
               `c. Area 1 has 8 sub-checks and carries disproportionate weight.\n` +
               `   Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps verdict at "Not ready."\n` +
@@ -780,7 +781,7 @@ Area name + category mapping (use exactly, in order):
               `   areas: [ { id, n, name, category, question, judges, finding (1–3 sentences),\n` +
               `              spotterPull ("you could strengthen this by…"), handNote (optional 1-liner) } ]\n` +
               `   Voice: every flag is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
-              `## Step 3 — Artifact\n\n` +
+              `## Step 3 — Artifact  ← Write the file. This is the output.\n\n` +
               `### PATH A (engine version matched — edit data block only)\n\n` +
               `a. Grep workspace file for '<script id="spotter-data">'.\n` +
               `b. Read that script block (2–3 lines).\n` +
@@ -790,7 +791,7 @@ Area name + category mapping (use exactly, in order):
               `     </script>\n` +
               `d. Call update_artifact with the workspace file path.\n\n` +
               `### PATH B (new file or engine mismatch — three tool calls, in order)\n\n` +
-              `B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA) })\n` +
+              `B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA), epicBody: [full raw epic text] })\n` +
               `     This returns a complete, self-contained HTML document with the renderer already inlined.\n` +
               `     There is nothing to fetch, verify, or modify. If it fails, retry once then STOP.\n\n` +
               `B-2. Call Write immediately — no other tool between B-1 and B-2.\n` +
@@ -798,9 +799,10 @@ Area name + category mapping (use exactly, in order):
               `     content:   the exact string returned by spotter_get_template, unmodified\n\n` +
               `B-3. Call create_artifact (first run) or update_artifact (re-run).\n` +
               `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2\n\n` +
-              `## Step 4 — Chat\n\n` +
+              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-2 and B-3 have succeeded.\n\n` +
+              `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
               `Write this and nothing else:\n\n` +
-              `  Review results below — full report is in the artifact panel.\n\n` +
+              `  Review complete — open the artifact panel to see the full report.\n\n` +
               `  **[Overall verdict]** · [N] of 9 areas passed\n\n` +
               `  | # | Area | Grade |\n` +
               `  |---|------|-------|\n` +
@@ -809,7 +811,7 @@ Area name + category mapping (use exactly, in order):
               `  [1–2 sentences: biggest strength and the single most important thing to address.]\n\n` +
               `  *Full report → artifact panel. Questions? Reply here.*\n\n` +
               `## Epic\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
-              `Execute steps 1 → 2 → 3 → 4. No chat output until step 4.`,
+              `Read all instructions above before starting. Then execute steps 1 → 2 → 3 → 4.`,
           },
         ],
       })
