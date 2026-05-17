@@ -1,0 +1,16 @@
+{
+  "name": "@loadout/agent-tests",
+  "version": "1.0.0",
+  "description": "Agent compliance tests for The Loadout MCP server — verifies instruction sequences without a deployed server.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test":                 "node run-all.mjs",
+    "test:spotter-review":  "node spotter-review.test.mjs",
+    "test:spotter-build":   "node spotter-build.test.mjs",
+    "test:warmup":          "node warmup.test.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0"
+  }
+}
