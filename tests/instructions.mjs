@@ -15,7 +15,7 @@
  */
 
 /** Must match SPOTTER_VERSION in constants.ts */
-export const SPOTTER_VERSION = "0.7.15";
+export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
 export const WARMUP_ENGINE_VERSION = "v0.3.17";
@@ -85,13 +85,17 @@ d. Determine path:
 
 ## Step 2 — Grade (silent — no chat output)
 
+Writing grades, findings, or verdicts to chat in this step is a task failure.
+Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.
+Step 4 reads grades from SPOTTER_DATA. It does not re-grade independently.
+
 a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).
-b. Grade all nine areas against the epic. Keep grades internal — do not write them to chat.
+b. Grade all nine areas against the epic silently.
    ✓ Pass → ["w","w","w"]  ·  ⚠️ Needs work → ["w","w","r"]  ·  ✗ Missing → ["r","r","r"]
 c. Area 1 has 8 sub-checks and carries disproportionate weight.
    Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps verdict at "Not ready."
 d. Call spotter_get_examples({ area: N, intent: "..." }) if you need calibration on any area.
-e. Build SPOTTER_DATA:
+e. Build SPOTTER_DATA now — this is the one and only grading pass:
    epic: { name, company, teamShape, window, attempt, epicBody (full raw epic text verbatim) }
    areas: [ { id, n, name, category, question, judges, finding (1–3 sentences),
               spotterPull ("you could strengthen this by…"), handNote (optional 1-liner) } ]
@@ -113,21 +117,24 @@ B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPO
      Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
      If the call fails, stop and report the error.
 
-B-2. Call Write immediately — the content parameter is the exact string returned by B-1.
-     file_path: [workspace-root]/spotter-[epic-slug].html
-     content:   the exact string returned by spotter_get_template, unmodified
+B-2. Get the HTML string from B-1. Two cases:
+     • Response in context: the HTML string is directly available — use it as-is.
+     • Response persisted to file: Cowork may save large responses to disk and return a file path.
+       In this case, call Read on that path to retrieve the HTML string.
+       The content is plain HTML — no JSON decoding, no bash, no other processing.
 
-     IMPORTANT: Do not Read, Grep, move, or bash the template file before writing.
-     Do not treat the template as a file on disk — it is a string in memory from B-1.
-     "Too large to read" and "needs bash to move" are not valid reasons to deviate.
-     Write the string directly. If Write fails, report the error and stop.
+B-3. Call Write — file_path: [workspace-root]/spotter-[epic-slug].html
+     content: the HTML string from B-2, unmodified.
+     Bash is never needed for this step. If Write fails, report the error and stop.
 
-B-3. Call create_artifact (first run) or update_artifact (re-run).
-     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2
+B-4. Call create_artifact (first run) or update_artifact (re-run).
+     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-3
 
-Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-2 and B-3 have succeeded.
+Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-3 and B-4 have succeeded.
 
 ## Step 4 — Confirm (artifact must already exist before this step)
+
+Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.
 
 Write this and nothing else:
 

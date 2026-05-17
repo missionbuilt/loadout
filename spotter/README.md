@@ -12,10 +12,9 @@ By [H. Michael Nichols](https://www.linkedin.com/in/hmichaelnichols) · Part of 
 
 The Spotter walks an epic through nine product-leadership lenses — empathy, competitive landscape, strategic differentiation, solution approach (with explicit AI decisions), holistic impact, packaging, launch readiness, post-launch ownership, and trust/governance/auditability — and produces structured, voice-aligned feedback in the *critique-not-criticism* tradition.
 
-It works in three modes:
+It works in two modes:
 
 - **Build mode** — guided creation from scratch, lens by lens.
-- **Iterate mode** — push a partial draft forward with targeted questions.
 - **Review mode** — verdict the epic with structured per-lens feedback, then offer to work through gaps together.
 
 The orientation throughout: every gap is framed as *"you could strengthen this by..."* — never *"you missed."*
@@ -42,38 +41,34 @@ It's also a coaching tool. When a PM disagrees with The Spotter's verdict, that 
 
 ## Install
 
-**Drop-in install (Claude Code):**
+The Spotter runs via the Mission Built MCP server — no local file copy needed.
 
-```bash
-git clone https://github.com/missionbuilt/loadout.git /tmp/loadout
-mkdir -p .claude/skills
-cp -r /tmp/loadout/spotter .claude/skills/
+**Add to Claude Code** (`~/.claude/claude.json` or your project's `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "missionbuilt": {
+      "type": "sse",
+      "url": "https://mcp.missionbuilt.io/sse"
+    }
+  }
+}
 ```
 
-**Verify it loaded:**
+**Cowork:** install the Mission Built plugin from the Cowork plugin directory.
 
-```bash
-ls .claude/skills/
-# spotter
-```
-
-Then in Claude Code, say *"run the spotter on this epic"* (after pasting one) or *"build an epic for [feature]"* — the skill triggers automatically.
-
-**Cowork:** drop the `spotter/` folder into your Cowork plugin's skills directory.
+Then say *"run the spotter on this epic"* (after pasting one) or *"build an epic for [feature]"* — the skill triggers automatically.
 
 ## How to use
 
 ### Review an existing epic
 
-Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter will produce a verdict (Ready / Needs polish / Not ready), walk all nine lenses with structured feedback, end with a *Questions to ask the PM* section, and — if the verdict is *Needs polish* or *Not ready* — offer to work through specific gaps with you. Pick a lens, work through it together, repeat for as many as you want. The review is the start of a conversation, not the end of one.
+Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter will produce a verdict (Ready / Needs polish / Not ready), walk all nine lenses with structured feedback, and — if the verdict is *Needs polish* or *Not ready* — offer to work through specific gaps with you. Pick a lens, work through it together, repeat for as many as you want. The review is the start of a conversation, not the end of one.
 
 ### Build a new epic
 
 Say *"help me build an epic for [feature]."* The Spotter walks you through the nine lenses with guiding questions, lingering on Lens 1 (empathy + current state) before moving on. Output is a polished draft epic at the end.
-
-### Iterate on a draft
-
-Say *"push this epic forward"* or *"what's missing from my epic?"* with a partial draft pasted. The Spotter engages only the lenses that have content, asks targeted questions, and offers structure where you're stuck.
 
 ## Customizing for your team
 
@@ -118,10 +113,14 @@ See [ATTRIBUTION.md](ATTRIBUTION.md) for full credits to the open-source skills 
 
 ## Part of The Loadout
 
-The Spotter is the first skill in **The Loadout** — a growing kit of open-source product leadership skills from the *Mission Built* ecosystem. The book teaches the principles; The Loadout puts the principles into operation. Future skills in the kit may include:
+The Spotter is part of **The Loadout** — a growing kit of open-source product leadership skills from the *Mission Built* ecosystem. The book teaches the principles; The Loadout puts the principles into operation. Current skills in the kit:
+
+- **The Spotter** — epic review and guided build, nine-lens framework
+- **The Warmup** — morning curation of the news and signals worth your first coffee
+
+Future skills may include:
 
 - **The Walkthrough** — customer meeting prep that pulls recent activity and predicts conversation direction
-- **The Warmup** — morning curation of the news and signals worth your first coffee
 - **The Sitrep** — status updates that respect the reader's time
 - **Form Check** — code or design review with the same lift-not-gate orientation
 - **The Cooldown** — retros and post-mortems that learn forward, not blame backward

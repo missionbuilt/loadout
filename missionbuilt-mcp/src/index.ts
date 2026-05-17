@@ -775,13 +775,16 @@ Area name + category mapping (use exactly, in order):
               `     Line 2 is exactly "<!-- spotter-engine: v${SPOTTER_VERSION} -->" → PATH A\n` +
               `     Anything else, or cannot read → PATH B\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
+              `Writing grades, findings, or verdicts to chat in this step is a task failure.\n` +
+              `Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.\n` +
+              `Step 4 reads grades from SPOTTER_DATA. It does not re-grade independently.\n\n` +
               `a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).\n` +
-              `b. Grade all nine areas against the epic. Keep grades internal — do not write them to chat.\n` +
+              `b. Grade all nine areas against the epic silently.\n` +
               `   ✓ Pass → ["w","w","w"]  ·  ⚠️ Needs work → ["w","w","r"]  ·  ✗ Missing → ["r","r","r"]\n` +
               `c. Area 1 has 8 sub-checks and carries disproportionate weight.\n` +
               `   Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps verdict at "Not ready."\n` +
               `d. Call spotter_get_examples({ area: N, intent: "..." }) if you need calibration on any area.\n` +
-              `e. Build SPOTTER_DATA:\n` +
+              `e. Build SPOTTER_DATA now — this is the one and only grading pass:\n` +
               `   epic: { name, company, teamShape, window, attempt, epicBody (full raw epic text verbatim) }\n` +
               `   areas: [ { id, n, name, category, question, judges, finding (1–3 sentences),\n` +
               `              spotterPull ("you could strengthen this by…"), handNote (optional 1-liner) } ]\n` +
@@ -800,17 +803,19 @@ Area name + category mapping (use exactly, in order):
               `     This returns a complete, self-contained HTML document with the renderer already inlined.\n` +
               `     Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
               `     If the call fails, stop and report the error.\n\n` +
-              `B-2. Call Write immediately — the content parameter is the exact string returned by B-1.\n` +
-              `     file_path: [workspace-root]/spotter-[epic-slug].html\n` +
-              `     content:   the exact string returned by spotter_get_template, unmodified\n\n` +
-              `     IMPORTANT: Do not Read, Grep, move, or bash the template file before writing.\n` +
-              `     Do not treat the template as a file on disk — it is a string in memory from B-1.\n` +
-              `     "Too large to read" and "needs bash to move" are not valid reasons to deviate.\n` +
-              `     Write the string directly. If Write fails, report the error and stop.\n\n` +
-              `B-3. Call create_artifact (first run) or update_artifact (re-run).\n` +
-              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2\n\n` +
-              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-2 and B-3 have succeeded.\n\n` +
+              `B-2. Get the HTML string from B-1. Two cases:\n` +
+              `     • Response in context: the HTML string is directly available — use it as-is.\n` +
+              `     • Response persisted to file: Cowork may save large responses to disk and return a file path.\n` +
+              `       In this case, call Read on that path to retrieve the HTML string.\n` +
+              `       The content is plain HTML — no JSON decoding, no bash, no other processing.\n\n` +
+              `B-3. Call Write — file_path: [workspace-root]/spotter-[epic-slug].html\n` +
+              `     content: the HTML string from B-2, unmodified.\n` +
+              `     Bash is never needed for this step. If Write fails, report the error and stop.\n\n` +
+              `B-4. Call create_artifact (first run) or update_artifact (re-run).\n` +
+              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-3\n\n` +
+              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-3 and B-4 have succeeded.\n\n` +
               `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
+              `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +
               `Write this and nothing else:\n\n` +
               `  Review complete — open the artifact panel to see the full report.\n\n` +
               `  **[Overall verdict]** · [N] of 9 areas passed\n\n` +
