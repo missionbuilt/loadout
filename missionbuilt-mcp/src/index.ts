@@ -794,9 +794,13 @@ Area name + category mapping (use exactly, in order):
               `B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA), epicBody: [full raw epic text] })\n` +
               `     This returns a complete, self-contained HTML document with the renderer already inlined.\n` +
               `     There is nothing to fetch, verify, or modify. If it fails, retry once then STOP.\n\n` +
-              `B-2. Call Write immediately — no other tool between B-1 and B-2.\n` +
+              `B-2. Call Write immediately — the content parameter is the exact string returned by B-1.\n` +
               `     file_path: [workspace-root]/spotter-[epic-slug].html\n` +
               `     content:   the exact string returned by spotter_get_template, unmodified\n\n` +
+              `     IMPORTANT: Do not Read, Grep, move, or bash the template file before writing.\n` +
+              `     Do not treat the template as a file on disk — it is a string in memory from B-1.\n` +
+              `     "Too large to read" and "needs bash to move" are not valid reasons to deviate.\n` +
+              `     Write the string directly. If Write fails, report the error and stop.\n\n` +
               `B-3. Call create_artifact (first run) or update_artifact (re-run).\n` +
               `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2\n\n` +
               `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-2 and B-3 have succeeded.\n\n` +
