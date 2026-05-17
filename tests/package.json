@@ -8,7 +8,11 @@
     "test":                 "node run-all.mjs",
     "test:spotter-review":  "node spotter-review.test.mjs",
     "test:spotter-build":   "node spotter-build.test.mjs",
-    "test:warmup":          "node warmup.test.mjs"
+    "test:warmup":          "node warmup.test.mjs",
+    "build:commenting":     "node run-build.mjs fixtures/spotter-build-commenting.md",
+    "build:test":           "node run-build.mjs",
+    "review:commenting":    "node run-review.mjs fixtures/spotter-review-comments-on-dashboards.md",
+    "review:test":          "node run-review.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0"

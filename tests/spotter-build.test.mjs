@@ -29,25 +29,24 @@ User: Test`;
  * 3. We check the final output for compliance
  */
 async function runBuildMode(pmReplies = []) {
-  // Turn 1: prime with instructions
   const instructions = spotterBuildInstructions(FEATURE);
-  const primeMessage =
-    `You called spotter_build and received these instructions. Follow them exactly.\n\n` +
-    instructions;
-
-  // We run with a fixed set of PM replies injected as additional turns.
-  // For compliance tests, we just need enough context to reach the draft stage.
-  const { runAgent: _run, SCHEMAS } = await import("./harness.mjs");
-
   const mocks = spotterBuildMocks();
 
-  // Simple single-pass: send instructions and a trailing PM response so the
-  // agent can reach the draft stage in one context window.
+  // If PM replies are provided, signal that the conversation is complete
+  // and the agent should proceed directly to drafting.
+  const completionSignal = pmReplies.length
+    ? `\n\n---\n` +
+      `The PM has now answered questions across all nine areas. ` +
+      `The conversation phase is complete. ` +
+      `Proceed to step 5: call spotter_get_skill({ section: "build" }) and write the polished draft epic, ` +
+      `then post the closing handoff line.\n\n` +
+      `PM answers provided:\n${pmReplies.join("\n\n")}`
+    : "";
+
   const fullMessage =
-    primeMessage +
-    (pmReplies.length
-      ? `\n\n---\nPM response to your first question:\n${pmReplies.join("\n\n")}`
-      : "");
+    `You called spotter_build and received these instructions. Follow them exactly.\n\n` +
+    instructions +
+    completionSignal;
 
   return runAgent({
     systemPrompt: SYSTEM,
