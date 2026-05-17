@@ -1008,6 +1008,32 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ══════════════════════════════════════════════════════
+   FLOATING ACTIONS — save / fullscreen
+   ══════════════════════════════════════════════════════ */
+.spotter-actions {
+  position: fixed;
+  top: 14px;
+  right: 20px;
+  z-index: 200;
+  display: flex;
+  gap: 8px;
+}
+.spotter-action-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: rgba(251,250,247,0.92);
+  border: 1px solid var(--rule);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.spotter-action-btn:hover { color: var(--blood); border-color: var(--blood); }
+@media print { .spotter-actions { display: none !important; } }
+
+/* ══════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════ */
 @media (max-width: 820px) {
@@ -1107,14 +1133,16 @@ if (!window.SPOTTER_DATA) {
   /* — Computed stats — */
   function computeSummary(areas) {
     let areasSet = 0, whites = 0, reds = 0, unset = 0;
+    let passAreas = 0, failAreas = 0;
     for (const l of areas) {
       const j = l.judges || [null, null, null];
       if (j.every(x => x !== null)) areasSet++;
       whites += j.filter(x => x === 'w').length;
       reds   += j.filter(x => x === 'r').length;
       unset  += j.filter(x => x === null).length;
+      if (areaResult(j) === 'lift') passAreas++; else failAreas++;
     }
-    return { areasSet, totalAreas: areas.length, whites, reds, unset };
+    return { areasSet, totalAreas: areas.length, whites, reds, unset, passAreas, failAreas };
   }
 
   function areaResult(judges) {
@@ -1355,8 +1383,8 @@ if (!window.SPOTTER_DATA) {
 
     /* Sub-verdict text */
     const subVerdict = noLiftCt === 0
-      ? 'All 9 areas passed.'
-      : `${9 - noLiftCt} of 9 areas passed · <span class="warn">${noLiftCt} to rerack</span>`;
+      ? `All ${summary.totalAreas} areas passed.`
+      : `${summary.passAreas} of ${summary.totalAreas} areas passed · <span class="warn">${noLiftCt} to rerack</span>`;
 
     /* Sticky rail dots */
     const railDotsHtml = areas.map(l => {
@@ -1435,6 +1463,11 @@ if (!window.SPOTTER_DATA) {
     const ts = esc(user.timestamp || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }));
 
     return `
+<div class="spotter-actions">
+  <button class="spotter-action-btn" onclick="window.spotterSavePdf()">Save PDF</button>
+  <button class="spotter-action-btn" id="spotter-fs-btn" onclick="window.spotterToggleFullscreen()">Fullscreen</button>
+</div>
+
 <section class="cover">
   <p class="cover-greet">Hey <em>${esc(user.name || 'there')}</em>—here's what I saw on this rep.</p>
   <div class="cover-title-row">
@@ -1450,8 +1483,8 @@ if (!window.SPOTTER_DATA) {
       <span class="sub">${subVerdict}</span>
     </div>
     <div class="vr-stats">
-      <div><span class="k">Lights · W</span><span class="v lift">${summary.whites}</span></div>
-      <div><span class="k">Lights · R</span><span class="v no-lift">${summary.reds}</span></div>
+      <div><span class="k">Areas · Pass</span><span class="v lift">${summary.passAreas}</span></div>
+      <div><span class="k">Areas · Fail</span><span class="v no-lift">${summary.failAreas}</span></div>
       <div><span class="k">Reviewed</span><span class="v">${summary.areasSet}&nbsp;/&nbsp;${summary.totalAreas}</span></div>
     </div>
   </div>
@@ -1535,6 +1568,23 @@ if (!window.SPOTTER_DATA) {
 
   /* Public API — engine calls this after mutating SPOTTER_DATA */
   window.spotterRender = render;
+
+  /* Action helpers — called by floating buttons */
+  window.spotterSavePdf = function() { window.print(); };
+  window.spotterToggleFullscreen = function() {
+    const btn = document.getElementById('spotter-fs-btn');
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      if (btn) btn.textContent = 'Exit Full';
+    } else {
+      document.exitFullscreen();
+      if (btn) btn.textContent = 'Fullscreen';
+    }
+  };
+  document.addEventListener('fullscreenchange', function() {
+    const btn = document.getElementById('spotter-fs-btn');
+    if (btn) btn.textContent = document.fullscreenElement ? 'Exit Full' : 'Fullscreen';
+  });
 
   /* Initial render */
   if (document.readyState === 'loading') {

@@ -1143,6 +1143,32 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ══════════════════════════════════════════════════════
+   FLOATING ACTIONS — save / fullscreen
+   ══════════════════════════════════════════════════════ */
+.spotter-actions {
+  position: fixed;
+  top: 14px;
+  right: 20px;
+  z-index: 200;
+  display: flex;
+  gap: 8px;
+}
+.spotter-action-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  background: rgba(251,250,247,0.92);
+  border: 1px solid var(--rule);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.spotter-action-btn:hover { color: var(--blood); border-color: var(--blood); }
+@media print { .spotter-actions { display: none !important; } }
+
+/* ══════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════ */
 @media (max-width: 820px) {
@@ -1931,9 +1957,10 @@ function showToast(msg) {
     const hl        = headLights(noLiftCt);
 
     /* Sub-verdict text */
+    const passCount = summary.totalAreas - noLiftCt;
     const subVerdict = noLiftCt === 0
-      ? 'All 9 areas pass.'
-      : `${9 - noLiftCt} of 9 areas pass · <span class="warn">${noLiftCt} fail</span>`;
+      ? `All ${summary.totalAreas} areas passed.`
+      : `${passCount} of ${summary.totalAreas} areas passed · <span class="warn">${noLiftCt} to rerack</span>`;
 
     /* Sticky rail dots */
     const railDotsHtml = areas.map(l => {
@@ -2017,6 +2044,11 @@ function showToast(msg) {
     const ts    = esc(dateStr + ' · ' + timeStr);
 
     return `
+<div class="spotter-actions">
+  <button class="spotter-action-btn" onclick="window.spotterSavePdf()">Save PDF</button>
+  <button class="spotter-action-btn" id="spotter-fs-btn" onclick="window.spotterToggleFullscreen()">Fullscreen</button>
+</div>
+
 <section class="cover">
   <p class="cover-greet">Here's your Spotter review, <em>${esc(user.name || 'there')}</em>.</p>
   <div class="cover-title-row">
@@ -2126,6 +2158,23 @@ function showToast(msg) {
 
   /* Public API — engine calls this after mutating SPOTTER_DATA */
   window.spotterRender = render;
+
+  /* Action helpers — called by floating buttons */
+  window.spotterSavePdf = function() { window.print(); };
+  window.spotterToggleFullscreen = function() {
+    const btn = document.getElementById('spotter-fs-btn');
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      if (btn) btn.textContent = 'Exit Full';
+    } else {
+      document.exitFullscreen();
+      if (btn) btn.textContent = 'Fullscreen';
+    }
+  };
+  document.addEventListener('fullscreenchange', function() {
+    const btn = document.getElementById('spotter-fs-btn');
+    if (btn) btn.textContent = document.fullscreenElement ? 'Exit Full' : 'Fullscreen';
+  });
 
   /* Initial render */
   if (document.readyState === 'loading') {
