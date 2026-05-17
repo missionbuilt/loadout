@@ -1128,6 +1128,12 @@ if (!window.SPOTTER_DATA) {
       .replace(/"/g, '&quot;');
   }
 
+  /* jsEsc: for values injected into JS string literals inside onclick='...'
+     Must escape single quotes (and backslashes first to avoid double-escaping). */
+  function jsEsc(s) {
+    return esc(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
   function pad2(n) { return String(n || '').padStart(2, '0'); }
 
   /* — Computed stats — */
@@ -1234,7 +1240,7 @@ if (!window.SPOTTER_DATA) {
       let actions = '';
       if (l.active && !allSet) {
         actions = `<button class="tile-action primary"
-          onclick="typeof sendPrompt==='function'&&sendPrompt('Continue with area ${l.n}: ${esc(l.name)}')">Continue in chat</button>`;
+          onclick="typeof sendPrompt==='function'&&sendPrompt('Continue with area ${l.n}: ${jsEsc(l.name)}')">Continue in chat</button>`;
       } else if (allSet) {
         actions =
           `<button class="tile-action"
@@ -1414,7 +1420,7 @@ if (!window.SPOTTER_DATA) {
       const actionsHtml = result === 'no-lift' ? `
 <div class="area-actions">
   <button class="area-action primary"
-    onclick="typeof sendPrompt==='function'&&sendPrompt('Help me fix area ${l.n}: ${esc(l.name)}')">↗ Fix with Spotter</button>
+    onclick="typeof sendPrompt==='function'&&sendPrompt('Help me fix area ${l.n}: ${jsEsc(l.name)}')">↗ Fix with Spotter</button>
   <button class="area-action"
     onclick="typeof sendPrompt==='function'&&sendPrompt('Re-roll area ${l.n}')">Re-roll this area</button>
 </div>` : '';

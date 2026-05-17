@@ -303,9 +303,13 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         //
         // XSS safety: article titles/bodies can contain </script> which would break
         // the script tag if injected verbatim. Escape before injection.
+        //
+        // Replacer-function safety: String.prototype.replace(literal, literal) interprets
+        // $', $&, $` as special sequences. Article content can contain these (e.g. stock
+        // tickers, price strings). A replacer function bypasses special-sequence expansion.
         const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
-        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, `window.WARMUP_DATA = ${safe};`);
+        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
         const injected = filled !== WARMUP_TEMPLATE_HTML;
         return {
           content: [
@@ -645,9 +649,12 @@ Area name + category mapping (use exactly, in order):
       async ({ spotter_data }) => {
         // XSS safety: epic text can contain </script> which breaks the script tag
         // if injected verbatim. Escape before injection — same as warmup_get_template.
+        //
+        // Replacer-function safety: epic text can contain $', $&, $` (price strings,
+        // technical content). A replacer function bypasses special-sequence expansion.
         const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)`;
-        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, `window.SPOTTER_DATA = ${safe};`);
+        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
         const injected = filled !== SPOTTER_TEMPLATE_HTML;
         return {
           content: [
@@ -667,7 +674,7 @@ Area name + category mapping (use exactly, in order):
       "Primes the agent to review a B2B product epic using The Spotter's nine-area framework. Returns instructions and the epic — agent loads framework sections on demand via spotter_get_skill.",
       {
         intent: intentField,
-        epic: z.string().min(50).describe("The full text of the epic to review."),
+        epic: z.string().min(50).max(20000).describe("The full text of the epic to review."),
       },
       async ({ epic }) => ({
         content: [
@@ -691,7 +698,7 @@ Area name + category mapping (use exactly, in order):
               `   The server injects the data and returns filled, artifact-ready HTML.\n` +
               `8. Write the returned HTML to disk. Call create_artifact (new review) or update_artifact (re-review).\n` +
               `9. In chat: one summary line only — the artifact is the review. No rehashing the full prose.\n\n` +
-              `## Epic to review\n\n${epic}\n\n` +
+              `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
               `Load the areas (step 1), grade all nine, then build SPOTTER_DATA and call spotter_get_template to render the artifact.`,
           },
         ],
@@ -732,7 +739,7 @@ Area name + category mapping (use exactly, in order):
       "Primes the agent to push a partial draft epic forward. The agent engages only the areas that have content, asks targeted questions for each gap, and offers structure where the PM is stuck.",
       {
         intent: intentField,
-        draft: z.string().min(50).describe("The current partial draft of the epic. Can be incomplete or rough."),
+        draft: z.string().min(50).max(20000).describe("The current partial draft of the epic. Can be incomplete or rough."),
       },
       async ({ draft }) => ({
         content: [
@@ -749,7 +756,7 @@ Area name + category mapping (use exactly, in order):
               `5. Call spotter_get_skill({ section: "iterate", intent: "Loading iterate output format" }) for the output format guidance.\n\n` +
               `## Voice\n\n` +
               `Critique, not criticism. Each suggestion uses "you could strengthen this by..." framing — never "you missed..."\n\n` +
-              `## Draft to iterate on\n\n${draft}\n\n` +
+              `## Draft to iterate on\n\n\`\`\`\n${draft}\n\`\`\`\n\n` +
               `Load the areas (step 1), then walk the areas present in the draft. Push each one forward.`,
           },
         ],
