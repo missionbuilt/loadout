@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.1.3
+version: 0.1.4
 part_of: The Loadout
 ---
 
@@ -337,22 +337,11 @@ optional. Write all prose in active voice, present tense, and tight sentences.
 
 ## RENDER Phase (Step 2)
 
-**ABSOLUTE RULE — NO EXCEPTIONS:**
-**Never write HTML from scratch. Never reconstruct the template from memory.**
-The template contains the complete CSS, layout, renderer, and PDF builder.
-Reproducing it from memory will break the design and the PDF export.
-
----
-
 ### Step 1 — Choose Path A or Path B
 
 **PATH A — Repeat run (artifact file already exists on disk)**
 
 Use Path A whenever `approach-artifact.html` already exists in the workspace.
-**Do NOT call `approach_get_template` on a repeat run — the response is too
-large for the context window and will be offloaded to a temp file you cannot use.**
-
-Do this instead:
 
 ```
 a) Grep approach-artifact.html for the string: <script id="approach-data">
@@ -371,7 +360,7 @@ c) Edit approach-artifact.html — replace the ENTIRE block:
      </script>
 
 d) Call update_artifact with id: "the-approach" and the file path.
-   Done. Do not call approach_get_template. Do not read or write the whole file.
+   Done. Do not read or write the whole file.
 ```
 
 ---
@@ -380,28 +369,32 @@ d) Call update_artifact with id: "the-approach" and the file path.
 
 Use Path B only when `approach-artifact.html` does NOT exist yet.
 
-**Do NOT call `approach_get_template`** — the server response (~131KB) is too
-large for the context window and will be offloaded to a temp file you cannot use.
-Instead, copy the template directly from disk and inject data locally.
+All CSS, layout, and the renderer are loaded at runtime from
+`mcp.missionbuilt.io/approach-shell.js` — no template read required.
+Write a single complete file with the real APPROACH_DATA already in it.
 
 ```
-a) Read approach-template.html in full using the Read file tool:
-     [workspace_folder]/the-approach/approach-template.html
-   Do not use bash or shell commands.
+a) Write the complete artifact to [workspace_folder]/approach-artifact.html
+   in one step using the Write file tool. Do not use bash, shell commands,
+   or a separate Edit step. Substitute JSON.stringify(APPROACH_DATA) directly
+   into the file where shown:
 
-b) Write the full file content to approach-artifact.html in the workspace folder
-   using the Write file tool. Do not use bash or shell commands.
-   (This is a plain copy — the placeholder is still __APPROACH_DATA__ at this point.)
+     <!DOCTYPE html>
+     <html lang="en">
+     <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title id="page-title">The Approach · Field Brief</title>
+     </head>
+     <body>
+     <script id="approach-data">
+     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
+     </script>
+     <script src="https://mcp.missionbuilt.io/approach-shell.js?v=0.1.4"></script>
+     </body>
+     </html>
 
-c) Now inject data using the same targeted-edit pattern as Path A:
-   — Grep approach-artifact.html for: <script id="approach-data">
-   — Read that block (offset+limit).
-   — Edit approach-artifact.html to replace:
-       window.APPROACH_DATA = __APPROACH_DATA__;
-     with:
-       window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
-
-d) Call create_artifact with id: "the-approach" and the path to approach-artifact.html.
+b) Call create_artifact with id: "the-approach" and the path to approach-artifact.html.
 ```
 
 ---
@@ -475,3 +468,4 @@ don't have to re-enter it next time."*
 | 0.1.1 | RENDER Phase rewrite — explicit Path A/B split. Ban approach_get_template on repeat runs. |
 | 0.1.2 | Path B rewrite — Read/Write file tools instead of approach_get_template for first run. |
 | 0.1.3 | approach_run now loads per-section via approach_get_skill. Render boundary includes Summary line. |
+| 0.1.4 | Remote shell architecture. Path B writes a 14-line skeleton; CSS and renderer load from mcp.missionbuilt.io/approach-shell.js. Zero template-read tokens on first run. |

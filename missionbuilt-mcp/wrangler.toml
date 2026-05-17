@@ -9,6 +9,12 @@ type = "Text"
 globs = ["**/*.md", "**/*.html"]
 fallthrough = true
 
+# Bundle raw JS shell assets as text (served verbatim via GET routes).
+[[rules]]
+type = "Text"
+globs = ["**/*.rawjs"]
+fallthrough = true
+
 # Durable Objects — required by agents/mcp McpAgent for SSE state.
 [[durable_objects.bindings]]
 name = "MCP_OBJECT"
