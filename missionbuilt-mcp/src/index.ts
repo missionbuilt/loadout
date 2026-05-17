@@ -737,60 +737,68 @@ Area name + category mapping (use exactly, in order):
             type: "text" as const,
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
-              `## Step 0 — Determine PATH A or PATH B (do this first, before reviewing)\n\n` +
-              `PATH A = edit only the data block (fast). PATH B = call spotter_get_template and rewrite the file.\n\n` +
+              `## Your job in one sentence\n\n` +
+              `Grade the epic, build SPOTTER_DATA, create or update the Cowork artifact — then write ONE line to chat. That is all.\n\n` +
+              `## ⚠ THE ONLY CHAT OUTPUT\n\n` +
+              `You are NOT writing a review to chat. You are NOT outputting lenses, grades, verdicts, or findings to chat.\n` +
+              `The review lives entirely inside the Cowork artifact. Your chat response is ONE line, written only AFTER the artifact is registered:\n\n` +
+              `  "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
+              `Do not write to chat before the artifact is registered. Do not write to chat while grading. Not a word until the artifact exists.\n\n` +
+              `## STEP 1 — Determine PATH A or PATH B\n\n` +
+              `Do this FIRST, before you grade anything.\n\n` +
               `The workspace file is always: [workspace]/spotter-[epic-slug].html\n` +
-              `  e.g. for "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
-              `To decide:\n` +
+              `  e.g. "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
               `  1. Call list_artifacts.\n` +
               `  2. If NO Spotter artifact exists for this epic → PATH B.\n` +
               `  3. If an artifact DOES exist:\n` +
-              `     a. Derive the workspace file path from the epic name (see slug convention above).\n` +
-              `     b. Read ONLY lines 1–3 of that workspace file (offset:0, limit:3).\n` +
-              `        If the file cannot be read (not found) → PATH B.\n` +
-              `     c. Look at line 2 ONLY. It must be exactly:\n` +
-              `          <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
-              `     d. Line 2 matches exactly → PATH A.\n` +
-              `     e. Line 2 is ANYTHING else (different version, missing, HTML tag, blank) → PATH B.\n\n` +
-              `⚠ NEVER write or reconstruct HTML yourself.\n` +
+              `     a. Read ONLY lines 1–3 of the workspace file (offset:0, limit:3). Cannot read → PATH B.\n` +
+              `     b. Look at line 2 ONLY. Must be exactly: <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
+              `     c. Exact match → PATH A. Anything else → PATH B.\n\n` +
+              `⚠ NEVER write or reconstruct HTML yourself — ever.\n` +
               `⚠ Do NOT grep for window.SPOTTER_DATA to decide the path — legacy files have it too.\n\n` +
-              `## How to review\n\n` +
-              `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }) to load the full area framework with sub-checks. Do this before grading.\n` +
-              `2. Walk all nine areas in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
-              `3. Area 1 carries disproportionate weight (foundation — 8 sub-checks). Area 9 is a gate: ✗ Missing on any B2B feature with agent action, data access, or new permission surfaces caps the verdict at Not ready.\n` +
-              `4. Voice rule: every flag uses "you could strengthen this by..." framing — never "you missed..." or "this is wrong."\n` +
-              `5. If examples are needed for calibration: call spotter_get_examples({ area: N, intent: "..." }) for a specific area only.\n` +
-              `6. Build the SPOTTER_DATA object. Judge encoding:\n` +
-              `   ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"]\n` +
-              `   For each area: id, n, name, category, question, judges, finding (1–3 sentences),\n` +
-              `   spotterPull ("you could strengthen this by..." line), handNote (1-liner, optional).\n\n` +
-              `## Produce the artifact — PATH A or PATH B\n\n` +
-              `⚠ Use file tools only (Read / Write / Edit / Grep). Do NOT use bash or shell commands.\n` +
+              `## STEP 2 — Grade internally (SPOTTER_DATA only — zero chat output)\n\n` +
+              `This step produces ONE thing: the SPOTTER_DATA object. Nothing is written to chat during this step.\n\n` +
+              `  a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).\n` +
+              `  b. Walk all nine areas against the epic. Grade each SILENTLY — do NOT output grades to chat.\n` +
+              `     ✓ Pass / ⚠️ Needs work / ✗ Missing\n` +
+              `  c. Area 1 carries disproportionate weight (foundation — 8 sub-checks).\n` +
+              `     Area 9 is a gate: ✗ Missing on any B2B feature with agent action, data access, or new permission surfaces caps the verdict at "Not ready."\n` +
+              `  d. Voice rule: every flag uses "you could strengthen this by..." — never "you missed..." or "this is wrong."\n` +
+              `  e. If you need calibration examples: call spotter_get_examples({ area: N, intent: "..." }).\n` +
+              `  f. Build SPOTTER_DATA. Judge encoding:\n` +
+              `     ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"]\n` +
+              `     For each area: id, n, name, category, question, judges, finding (1–3 sentences),\n` +
+              `     spotterPull ("you could strengthen this by..." line), handNote (1-liner, optional).\n\n` +
+              `When SPOTTER_DATA is ready: go directly to STEP 3. Do NOT write anything to chat yet.\n\n` +
+              `## STEP 3 — Create the artifact (mandatory — do not skip)\n\n` +
+              `⚠ File tools only (Read / Write / Edit / Grep). Do NOT use bash or shell commands.\n` +
               `⚠ NEVER write or reconstruct HTML yourself — the correct design lives only in spotter_get_template.\n\n` +
-              `### PATH A — Re-review (engine version matches v${SPOTTER_VERSION})\n\n` +
-              `Do NOT reload the full template. Edit only the data block:\n\n` +
-              `  a. Use the Grep tool to find the line number of '<script id="spotter-data">' in the workspace file.\n` +
-              `  b. Use the Read file tool with offset+limit to read only the\n` +
-              `     <script id="spotter-data">…</script> block (2–3 lines).\n` +
-              `  c. Use the Edit tool to replace that entire block with:\n` +
+              `### PATH A — Re-review (engine version matched)\n\n` +
+              `  a. Grep the workspace file for the line number of '<script id="spotter-data">'.\n` +
+              `  b. Read only the <script id="spotter-data">…</script> block (2–3 lines).\n` +
+              `  c. Edit tool: replace that entire block with:\n` +
               `       <script id="spotter-data">\n` +
               `       window.SPOTTER_DATA = <JSON.stringify(SPOTTER_DATA)>;\n` +
               `       </script>\n` +
-              `  d. Call update_artifact with the workspace file path. Done.\n\n` +
-              `### PATH B — First review, engine update, or legacy artifact rebuild\n\n` +
+              `  d. Call update_artifact with the workspace file path.\n\n` +
+              `### PATH B — First review, engine update, or legacy rebuild\n\n` +
               `  a. Call spotter_get_template({ intent: "...", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
-              `     Server injects SPOTTER_DATA and returns filled, artifact-ready HTML.\n` +
+              `     The tool returns a complete HTML string — this IS the file content. Nothing to extract.\n` +
               `     If response begins with "[spotter_get_template ERROR", call it again.\n` +
-              `  b. Use the Write file tool to write the HTML string to disk.\n` +
-              `     - Engine update / legacy rebuild: write to the same workspace file as before\n` +
-              `       (derive from the epic slug: [workspace]/spotter-[epic-slug].html).\n` +
-              `     - First review: write to [workspace]/spotter-[epic-slug].html.\n` +
-              `     Do NOT use bash. Do NOT use the Edit tool — use Write.\n` +
-              `  c. Call update_artifact (artifact existed) or create_artifact (first review).\n\n` +
-              `After registering the artifact: one summary line in chat only.\n` +
-              `Format: "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
+              `  b. Write file tool:\n` +
+              `       file_path: [workspace]/spotter-[epic-slug].html\n` +
+              `       content: <the EXACT full text returned by spotter_get_template — unmodified, verbatim>\n` +
+              `     ⚠ Do NOT use bash. ⚠ Do NOT use Edit. ⚠ Do NOT compose or modify the HTML yourself.\n` +
+              `  c. Call create_artifact (first time) or update_artifact (re-run):\n` +
+              `       id: "spotter-[epic-slug]"\n` +
+              `       html_path: "[workspace]/spotter-[epic-slug].html"\n` +
+              `     Pass the workspace file path. Do not pass an internal or outputs path.\n\n` +
+              `## STEP 4 — Write ONE line to chat\n\n` +
+              `The artifact is registered. Now write your only chat output:\n\n` +
+              `  "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
+              `Nothing else.\n\n` +
               `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
-              `Run Step 0, load areas (step 1), grade all nine, build SPOTTER_DATA, then Path A or Path B above.`,
+              `Execute STEP 1 → STEP 2 → STEP 3 → STEP 4 in order. No chat output until STEP 4.`,
           },
         ],
       })

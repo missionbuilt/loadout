@@ -1,15 +1,59 @@
 <!DOCTYPE html>
-<!-- spotter-engine: v0.7.0 -->
+<!-- spotter-engine: v0.0.0 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Spotter · Field Review</title>
+  <title>The Spotter · Diagnostic</title>
 </head>
 <body>
 <script>
-window.SPOTTER_DATA = null;
+(function() {
+  var log = function(msg, ok) {
+    document.body.insertAdjacentHTML('beforeend',
+      '<p style="font-family:monospace;padding:4px 12px;color:' + (ok !== false ? '#4e6018' : '#b6271d') + '">' + msg + '</p>'
+    );
+  };
+
+  log('✓ Script started');
+
+  // Test 1: can we read document.head?
+  try {
+    var h = document.head;
+    log(h ? '✓ document.head exists' : '✗ document.head is null', !!h);
+  } catch(e) { log('✗ document.head threw: ' + e, false); }
+
+  // Test 2: can we insertAdjacentHTML into head?
+  try {
+    document.head.insertAdjacentHTML('beforeend', '<meta name="x-diag" content="ok">');
+    log('✓ document.head.insertAdjacentHTML works');
+  } catch(e) { log('✗ head.insertAdjacentHTML threw: ' + e, false); }
+
+  // Test 3: can we create a style element and append to head?
+  try {
+    var s = document.createElement('style');
+    s.textContent = 'body { font-size: 15px; }';
+    document.head.appendChild(s);
+    log('✓ style element appended to head');
+  } catch(e) { log('✗ head.appendChild style threw: ' + e, false); }
+
+  // Test 4: can we create a style element in body?
+  try {
+    var s2 = document.createElement('style');
+    s2.textContent = '.diag-ok { color: #4e6018; }';
+    document.body.insertAdjacentHTML('beforeend', '<style>.diag-body-style { color: navy; }</style>');
+    log('✓ style in body via insertAdjacentHTML works');
+  } catch(e) { log('✗ body style threw: ' + e, false); }
+
+  // Test 5: can we set innerHTML on a div?
+  try {
+    document.body.insertAdjacentHTML('beforeend', '<div id="root"></div>');
+    var root = document.getElementById('root');
+    root.innerHTML = '<p style="color:#4e6018;font-family:monospace;padding:4px 12px">✓ root.innerHTML works</p>';
+  } catch(e) { log('✗ root.innerHTML threw: ' + e, false); }
+
+  log('— Diagnostic complete —');
+})();
 </script>
-<script src="https://mcp.missionbuilt.io/spotter-shell.js?v=0.7.0"></script>
 </body>
 </html>
