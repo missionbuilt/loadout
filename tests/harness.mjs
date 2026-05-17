@@ -404,9 +404,10 @@ export async function runAgent({ systemPrompt, userMessage, tools, maxTurns = MA
 
       run.callLog.push({ name: call.name, input: call.input, output });
 
-      // Clear dup tracker for tools that legitimately repeat (list_artifacts, Read)
-      // only reset if a different tool was called in between
-      if (!["list_artifacts", "Read", "Grep"].includes(call.name)) {
+      // Clear dup tracker only for tools that legitimately repeat with no limit.
+      // Write and Edit are intentionally excluded — their counts must accumulate
+      // so that looping Write calls (agent writing HTML in chunks) trigger abort.
+      if (!["list_artifacts", "Read", "Grep", "Write", "Edit"].includes(call.name)) {
         dupTracker.clear();
       }
 

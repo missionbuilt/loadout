@@ -798,7 +798,8 @@ Area name + category mapping (use exactly, in order):
               `### PATH B (new file or engine mismatch — three tool calls, in order)\n\n` +
               `B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA), epicBody: [full raw epic text] })\n` +
               `     This returns a complete, self-contained HTML document with the renderer already inlined.\n` +
-              `     There is nothing to fetch, verify, or modify. If it fails, retry once then STOP.\n\n` +
+              `     Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
+              `     If the call fails, stop and report the error.\n\n` +
               `B-2. Call Write immediately — the content parameter is the exact string returned by B-1.\n` +
               `     file_path: [workspace-root]/spotter-[epic-slug].html\n` +
               `     content:   the exact string returned by spotter_get_template, unmodified\n\n` +
@@ -832,29 +833,45 @@ Area name + category mapping (use exactly, in order):
       {
         intent: intentField,
         feature: z.string().describe("Brief description of the feature or capability the PM wants to build an epic for."),
+        answers: z.string().max(20000).optional().describe("Pre-supplied answers for all nine areas. If provided, skip the conversational phase and proceed directly to drafting."),
       },
-      async ({ feature }) => ({
-        content: [
-          {
-            type: "text" as const,
-            text:
-              `# The Spotter v${SPOTTER_VERSION} — Build Mode\n\n` +
-              `A PM is building an epic for: **${feature}**.\n\n` +
-              `## How to run build mode\n\n` +
-              `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter build framework" }) to load the area framework and sub-checks before starting.\n` +
-              `2. Walk the PM through the nine areas with guiding questions. Ask — don't lecture.\n` +
-              `3. Linger on Area 1: empathy (A), current state (B), why-not-solved (C), no solutioning (D), scope/value framing (E), assumptions surfaced (F), alternatives considered (G), epistemic openness (H). Get real answers on all eight sub-checks before moving to Area 2.\n` +
-              `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
-              `5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.\n` +
-              `6. The output at the end is a polished draft epic structured by area.\n` +
-              `7. After delivering the draft, post this exact closing line — do not paraphrase it:\n` +
-              `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?\n\n` +
-              `## Voice\n\n` +
-              `Critique, not criticism. Ask questions; don't lecture. Every flag is "you could strengthen this by..." — never "you missed..."\n\n` +
-              `Begin with Area 1. Ask about the user first.`,
-          },
-        ],
-      })
+      async ({ feature, answers }) => {
+        const conversationalMode =
+          `## How to run build mode\n\n` +
+          `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter build framework" }) to load the area framework and sub-checks before starting.\n` +
+          `2. Walk the PM through the nine areas with guiding questions. Ask — don't lecture.\n` +
+          `3. Linger on Area 1: empathy (A), current state (B), why-not-solved (C), no solutioning (D), scope/value framing (E), assumptions surfaced (F), alternatives considered (G), epistemic openness (H). Get real answers on all eight sub-checks before moving to Area 2.\n` +
+          `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
+          `5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.\n` +
+          `6. The output at the end is a polished draft epic structured by area.\n` +
+          `7. After delivering the draft, post this exact closing line — do not paraphrase it:\n` +
+          `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?`;
+
+        const directMode =
+          `## Instructions\n\n` +
+          `The PM has pre-supplied answers for all nine areas. Skip the conversational phase entirely.\n\n` +
+          `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter build framework" }) to load the framework.\n` +
+          `2. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) to load the output format.\n` +
+          `3. Using the answers below, write a polished draft epic structured by area.\n` +
+          `4. Post this exact closing line — do not paraphrase it:\n` +
+          `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?\n\n` +
+          `## PM Answers\n\n\`\`\`\n${answers}\n\`\`\``;
+
+        return ({
+          content: [
+            {
+              type: "text" as const,
+              text:
+                `# The Spotter v${SPOTTER_VERSION} — Build Mode\n\n` +
+                `A PM is building an epic for: **${feature}**.\n\n` +
+                (answers ? directMode : conversationalMode) +
+                `\n\n## Voice\n\n` +
+                `Critique, not criticism. Ask questions; don't lecture. Every flag is "you could strengthen this by..." — never "you missed..."\n\n` +
+                (answers ? `` : `Begin with Area 1. Ask about the user first.`),
+            },
+          ],
+        });
+      }
     );
 
     this.server.tool(

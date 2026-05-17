@@ -31,7 +31,7 @@ export const MOCK_SPOTTER_HTML =
 <body>
 <div id="root"></div>
 <script id="spotter-data">
-window.SPOTTER_DATA = null;
+window.SPOTTER_DATA = {"epic":{"name":"Test Epic","epicBody":""},"areas":[]};
 </script>
 </body>
 </html>`;

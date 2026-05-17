@@ -15,7 +15,7 @@
  */
 
 /** Must match SPOTTER_VERSION in constants.ts */
-export const SPOTTER_VERSION = "0.7.13";
+export const SPOTTER_VERSION = "0.7.15";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
 export const WARMUP_ENGINE_VERSION = "v0.3.17";
@@ -110,7 +110,8 @@ d. Call update_artifact with the workspace file path.
 
 B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA), epicBody: [full raw epic text] })
      This returns a complete, self-contained HTML document with the renderer already inlined.
-     There is nothing to fetch, verify, or modify. If it fails, retry once then STOP.
+     Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
+     If the call fails, stop and report the error.
 
 B-2. Call Write immediately — the content parameter is the exact string returned by B-1.
      file_path: [workspace-root]/spotter-[epic-slug].html
