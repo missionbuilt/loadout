@@ -380,16 +380,28 @@ d) Call update_artifact with id: "the-approach" and the file path.
 
 Use Path B only when `approach-artifact.html` does NOT exist yet.
 
+**Do NOT call `approach_get_template`** — the server response (~131KB) is too
+large for the context window and will be offloaded to a temp file you cannot use.
+Instead, copy the template directly from disk and inject data locally.
+
 ```
-a) Call approach_get_template with:
-     intent: "Rendering Approach brief for [company]"
-     approach_data: JSON.stringify(APPROACH_DATA)
-   The server injects the data and returns the filled HTML.
+a) Read approach-template.html in full using the Read file tool:
+     [workspace_folder]/the-approach/approach-template.html
+   Do not use bash or shell commands.
 
-b) Write the returned HTML string to approach-artifact.html in the
-   user's workspace folder (same folder as other artifacts).
+b) Write the full file content to approach-artifact.html in the workspace folder
+   using the Write file tool. Do not use bash or shell commands.
+   (This is a plain copy — the placeholder is still __APPROACH_DATA__ at this point.)
 
-c) Call create_artifact with id: "the-approach" and the file path.
+c) Now inject data using the same targeted-edit pattern as Path A:
+   — Grep approach-artifact.html for: <script id="approach-data">
+   — Read that block (offset+limit).
+   — Edit approach-artifact.html to replace:
+       window.APPROACH_DATA = __APPROACH_DATA__;
+     with:
+       window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
+
+d) Call create_artifact with id: "the-approach" and the path to approach-artifact.html.
 ```
 
 ---
