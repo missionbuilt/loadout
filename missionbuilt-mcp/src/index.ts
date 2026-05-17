@@ -716,14 +716,22 @@ Area name + category mapping (use exactly, in order):
             type: "text" as const,
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
-              `## Step 0 — Check for existing artifact (do this first)\n\n` +
-              `Call list_artifacts. If a Spotter artifact for this epic exists:\n` +
-              `  a. Note its id and html_path.\n` +
-              `  b. Read the first 3 lines of the file at html_path.\n` +
-              `  c. Find the comment on line 2: <!-- spotter-engine: vX.Y.Z -->\n` +
-              `  d. Engine version matches v${SPOTTER_VERSION} → PATH A (targeted data-line edit).\n` +
-              `  e. Engine version mismatch → PATH B (fresh copy from template).\n` +
-              `  f. No artifact exists → PATH B (first review).\n\n` +
+              `## Step 0 — Determine PATH A or PATH B (do this first, before reviewing)\n\n` +
+              `PATH A = targeted single-line data update. PATH B = write fresh skeleton.\n\n` +
+              `To decide:\n` +
+              `  1. Call list_artifacts.\n` +
+              `  2. If NO Spotter artifact exists for this epic → PATH B.\n` +
+              `  3. If an artifact DOES exist:\n` +
+              `     a. Note its html_path.\n` +
+              `     b. Read ONLY lines 1–3 of that file (offset:0, limit:3).\n` +
+              `     c. Look at line 2 ONLY. It must be exactly:\n` +
+              `          <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
+              `     d. Line 2 matches exactly → PATH A.\n` +
+              `     e. Line 2 is ANYTHING else (different version, missing, HTML tag, blank) → PATH B.\n` +
+              `        PATH B overwrites the file at html_path with the new skeleton.\n\n` +
+              `⚠ IMPORTANT: Do NOT grep for window.SPOTTER_DATA to decide the path. The presence\n` +
+              `  of that string in the file does NOT mean the file is a valid v${SPOTTER_VERSION} skeleton.\n` +
+              `  Legacy artifacts have window.SPOTTER_DATA but no engine marker — they must be rebuilt.\n\n` +
               `## How to review\n\n` +
               `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }) to load the full area framework with sub-checks. Do this before grading.\n` +
               `2. Walk all nine areas in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
@@ -747,12 +755,16 @@ Area name + category mapping (use exactly, in order):
               `     with:\n` +
               `       window.SPOTTER_DATA = <JSON.stringify(SPOTTER_DATA)>;\n` +
               `  d. Call update_artifact. Done.\n\n` +
-              `### PATH B — First review or engine update\n\n` +
+              `### PATH B — First review, engine update, or legacy artifact rebuild\n\n` +
               `All CSS, layout, and the renderer are loaded at runtime from\n` +
               `mcp.missionbuilt.io/spotter-shell.js — no template read required.\n` +
               `Write a single complete file with the real SPOTTER_DATA already in it.\n\n` +
-              `  a. Write the complete artifact to [workspace]/spotter-[epic-slug].html\n` +
-              `     in one step (Write file tool — do NOT use bash, do NOT use Edit).\n` +
+              `  Target path rules:\n` +
+              `  - If an artifact exists (engine update / legacy rebuild): write to its html_path.\n` +
+              `    This OVERWRITES the old file. Do not write to a new filename.\n` +
+              `  - If no artifact exists (first review): write to [workspace]/spotter-[epic-slug].html.\n\n` +
+              `  a. Write the complete artifact to the target path in one step\n` +
+              `     (Write file tool — do NOT use bash, do NOT use Edit).\n` +
               `     Substitute <JSON.stringify(SPOTTER_DATA)> directly into the file:\n\n` +
               `     <!DOCTYPE html>\n` +
               `     <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
@@ -769,7 +781,7 @@ Area name + category mapping (use exactly, in order):
               `     <script src="https://mcp.missionbuilt.io/spotter-shell.js?v=${SPOTTER_VERSION}"></script>\n` +
               `     </body>\n` +
               `     </html>\n\n` +
-              `  b. Call create_artifact (first review) or update_artifact (engine update).\n\n` +
+              `  b. Call update_artifact (artifact existed) or create_artifact (first review).\n\n` +
               `After registering the artifact: one summary line in chat only.\n` +
               `Format: "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
               `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
