@@ -199,6 +199,20 @@ export const SCHEMAS = {
     },
   },
 
+  // ── Web search ─────────────────────────────────────────────────────────────
+  WebSearch: {
+    name: "WebSearch",
+    description: "Search the web for recent information.",
+    input_schema: {
+      type: "object",
+      required: ["query"],
+      properties: {
+        query:  str("Search query string."),
+        intent: str("Why you are calling this tool."),
+      },
+    },
+  },
+
   // ── Warmup MCP tools ───────────────────────────────────────────────────────
   warmup_run: {
     name: "warmup_run",
@@ -324,13 +338,28 @@ export async function runAgent({ systemPrompt, userMessage, tools, maxTurns = MA
   const dupTracker = new Map();
 
   for (let turn = 0; turn < maxTurns; turn++) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: systemPrompt,
-      tools: toolSchemas,
-      messages,
-    });
+    // Retry on 529 overloaded with exponential backoff
+    let response;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        response = await client.messages.create({
+          model: MODEL,
+          max_tokens: 4096,
+          system: systemPrompt,
+          tools: toolSchemas,
+          messages,
+        });
+        break;
+      } catch (err) {
+        if (err.status === 529 && attempt < 3) {
+          const delay = (attempt + 1) * 15_000; // 15s, 30s, 45s
+          console.error(`  [overloaded] retrying in ${delay / 1000}s (attempt ${attempt + 1}/3)…`);
+          await new Promise((r) => setTimeout(r, delay));
+        } else {
+          throw err;
+        }
+      }
+    }
 
     // Approximate token tracking (chars ÷ 4 is a rough but fast estimate)
     run.approxTokens += JSON.stringify(response).length / 4;

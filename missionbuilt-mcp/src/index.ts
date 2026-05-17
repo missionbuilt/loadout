@@ -438,8 +438,14 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `# The Warmup — Run Brief\n\n` +
                 `**Engine version: ${WARMUP_ENGINE_VERSION}**\n\n` +
                 `${configNote}\n\n` +
+                `## Permitted tools\n\n` +
+                `Only these tools may be used. Everything else is forbidden.\n\n` +
+                `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
+                `        warmup_get_skill · warmup_get_template · WebSearch\n` +
+                `  File: Read · Write · Edit · Grep\n\n` +
+                `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
                 `## How to generate the brief\n\n` +
-                `1. Use the Read file tool (not bash) to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts first — the html_path from "the-warmup" reveals the workspace folder, and WARMUP.md lives there. If no artifact and no WARMUP.md, run warmup_setup first.\n` +
+                `1. Use the Read file tool to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts first — the html_path from "the-warmup" reveals the workspace folder, and WARMUP.md lives there. If no artifact and no WARMUP.md, run warmup_setup first.\n` +
                 `2. Artifact and engine check — call list_artifacts.\n` +
                 `   a) "the-warmup" does not exist → first run: set mode = "create". Proceed to step 4.\n` +
                 `   b) "the-warmup" exists → use the Read file tool to read the first 10 lines of html_path.\n` +
@@ -464,22 +470,22 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   PATH A (version match — no template reload): do NOT read the full 131KB file.\n` +
                 `     a) Use the Grep tool to find the line number of "<script id=\\"warmup-data\\">" in html_path.\n` +
                 `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
-                `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done. No bash.\n` +
+                `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
                 `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })\n` +
-                `          Server injects WARMUP_DATA and returns filled, artifact-ready HTML.\n` +
                 `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
                 `          If the call fails or returns an error string, stop and report the error.\n` +
-                `     B-2. Get the HTML string — two cases:\n` +
-                `          • Response in context: the HTML string is directly available — use it as-is.\n` +
-                `          • Response persisted to file: Cowork may save large responses to disk and return a file path.\n` +
-                `            In this case, call Read on that path to retrieve the HTML string.\n` +
-                `            The content is plain HTML — no JSON decoding, no bash, no other processing.\n` +
-                `     B-3. Call Write — file_path: [workspace-root]/warmup.html (first run) or html_path (stale engine)\n` +
-                `          content: the HTML string from B-2, unmodified. Do NOT use bash.\n` +
-                `     B-4. Call create_artifact (first run) or update_artifact (stale engine). Done.\n` +
-                `   NEVER write your own HTML. NEVER use bash for any part of the render step.\n` +
-                `   One summary line in chat — the brief is the artifact.\n\n` +
+                `     B-2. Get the HTML from B-1 — two cases:\n` +
+                `          • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
+                `          • Response looks like a file path → Cowork persisted it to disk.\n` +
+                `            Read the file in one call: Read({ file_path: [path], limit: 3500 })\n` +
+                `            The warmup template is ~3000 lines. limit:3500 captures the full file.\n` +
+                `            Do NOT summarize, truncate, or process the content in any way.\n` +
+                `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
+                `          content: the HTML string from B-2, unmodified.\n` +
+                `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
+                `          html_path: [workspace-root]/warmup.html. Done.\n` +
+                `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +

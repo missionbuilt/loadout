@@ -243,9 +243,48 @@ B-3. Call Write — file_path: [workspace-root]/[slug].html
      Bash is never needed for this step.
 ```
 
-**Status:** fixed in Spotter v0.7.16. The Warmup has the same issue — fix pending
-(apply the identical pattern to the warmup_run PATH B instructions in index.ts and
-mirror in tests/instructions.mjs).
+**Status:** fixed. Spotter v0.7.16, Warmup v0.3.20. Both skills use the same two-case
+pattern for PATH B. The warmup_run instruction also specifies `limit:3500` when Reading
+a persisted file — the warmup template is ~3000 lines and the default 2000-line limit
+would truncate it, causing agents to fall back to bash.
+
+---
+
+## Agent instruction design — the Permitted tools pattern
+
+Every skill that returns a run instruction (warmup_run, spotter_review, etc.) must include
+a single global `## Permitted tools` section near the top — not scattered per-step
+"no bash" notes. One clean statement, one place.
+
+**Why:** Per-step bash prohibitions get scattered as instructions evolve and are easy to
+miss or contradict. Agents can also rationalize compliance with a per-step rule while
+violating it for an adjacent step. A global declaration is unambiguous.
+
+**The canonical pattern (copy exactly, substituting the skill's own MCP tools):**
+
+```
+## Permitted tools
+
+Only these tools may be used. Everything else is forbidden.
+
+  MCP:  list_artifacts · create_artifact · update_artifact
+        [skill]_get_skill · [skill]_get_template
+        [WebSearch if the skill fetches live data — warmup yes, spotter no]
+  File: Read · Write · Edit · Grep
+
+  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget
+```
+
+Place it right after the engine version line and before `## How to generate the brief`
+(or equivalent first procedural section). This is where the Spotter and Warmup both put it.
+
+**When editing existing instructions:** if you see per-step bash prohibitions anywhere
+in the instruction text, remove them and replace with the global section. Do not leave
+both in place.
+
+**tests/instructions.mjs must match.** The mirror function in the test file must have the
+same Permitted tools section. If you update it in `index.ts`, update the test file in
+the same commit.
 
 ---
 

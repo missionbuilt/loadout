@@ -97,8 +97,8 @@ export function warmupArtifactExists() {
   return tool("list_artifacts", () =>
     JSON.stringify({
       artifacts: [{
-        id:        "warmup-brief",
-        html_path: `${WORKSPACE_ROOT}/warmup-brief.html`,
+        id:        "the-warmup",
+        html_path: `${WORKSPACE_ROOT}/warmup.html`,
         title:     "Daily Brief",
       }],
     })
@@ -205,6 +205,8 @@ export function warmupMocks(overrides = {}) {
                          `Written ${content?.length ?? 0} chars to ${file_path}`),
     Edit:              tool("Edit",  () => "Edit applied."),
     Grep:              tool("Grep",  () => "No matches."),
+    WebSearch:         tool("WebSearch", ({ query }) =>
+                         JSON.stringify({ results: [], query, note: "No results in test environment — skip_scan:true, proceed to render." })),
     warmup_get_skill:  tool("warmup_get_skill",   () => warmupSkillStub()),
     warmup_get_template: tool("warmup_get_template", () => MOCK_WARMUP_HTML),
     create_artifact:   tool("create_artifact",  ({ id }) => `Artifact "${id}" registered.`),
