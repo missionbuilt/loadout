@@ -1063,14 +1063,6 @@ a { color: inherit; text-decoration: none; }
 .spotter-action-btn:hover { color: var(--blood); border-color: var(--blood); }
 @media print { .spotter-actions { display: none !important; } }
 
-/* — CSS fullscreen mode — */
-body.spotter-fs {
-  position: fixed;
-  inset: 0;
-  overflow-y: scroll;
-  z-index: 9000;
-  background: var(--paper);
-}
 
 /* — Export dropdown — */
 .spotter-export { position: relative; }
@@ -1540,7 +1532,7 @@ body.spotter-fs {
       return `
 <div class="spotter-actions">
   <div class="spotter-export">
-    <button class="spotter-action-btn" onclick="window.spotterToggleExport(event)">Export &#9662;</button>
+    <button class="spotter-action-btn" onclick="window.spotterToggleExport()">Export &#9662;</button>
     <div class="spotter-export-dd" id="spotter-export-dd">
       <button class="dd-primary" onclick="window.spotterExportHTML();window.spotterCloseExport()">Export HTML</button>
       <button onclick="window.print();window.spotterCloseExport()">Print / PDF</button>
@@ -1642,8 +1634,8 @@ ${epicSourceHtml}
 
         root.innerHTML = html;
 
-        // Restore fullscreen button label after every re-render (innerHTML recreates the element)
-        if (_fsActive) {
+        // Restore fullscreen button label after re-render (innerHTML recreates the element)
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
           var fsBtn2 = document.getElementById('spotter-fs-btn');
           if (fsBtn2) fsBtn2.textContent = 'Exit Full';
         }
@@ -1674,25 +1666,21 @@ ${epicSourceHtml}
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
-    // Backdrop — injected once, persists across re-renders
-    var _exportBackdrop = document.createElement('div');
-    _exportBackdrop.id = 'spotter-export-backdrop';
-    _exportBackdrop.style.cssText = 'display:none;position:fixed;inset:0;z-index:199;';
-    _exportBackdrop.addEventListener('click', function() { window.spotterCloseExport(); });
-    document.body.appendChild(_exportBackdrop);
-
-    window.spotterToggleExport = function(e) {
-      e && e.stopPropagation();
+    window.spotterToggleExport = function() {
       var dd = document.getElementById('spotter-export-dd');
-      if (!dd) return;
-      var isOpen = dd.classList.toggle('open');
-      _exportBackdrop.style.display = isOpen ? 'block' : 'none';
+      if (dd) dd.classList.toggle('open');
     };
     window.spotterCloseExport = function() {
       var dd = document.getElementById('spotter-export-dd');
       if (dd) dd.classList.remove('open');
-      _exportBackdrop.style.display = 'none';
     };
+    // Close when clicking outside the export widget — standard dropdown pattern
+    document.addEventListener('click', function(e) {
+      var dd = document.getElementById('spotter-export-dd');
+      if (!dd || !dd.classList.contains('open')) return;
+      if (e.target.closest && e.target.closest('.spotter-export')) return;
+      window.spotterCloseExport();
+    });
 
     /* ── Toast ── */
     function showToast(msg) {
@@ -1736,14 +1724,32 @@ ${epicSourceHtml}
       }
     });
 
-    /* ── Fullscreen (CSS-based — no browser API, survives iframe constraints) ── */
-    window.spotterToggleFullscreen = function() {
-      window.spotterCloseExport();
-      _fsActive = !_fsActive;
-      document.body.classList.toggle('spotter-fs', _fsActive);
+    /* ── Fullscreen ── */
+    function syncFsBtn() {
+      _fsActive = !!(document.fullscreenElement || document.webkitFullscreenElement);
       var btn = document.getElementById('spotter-fs-btn');
       if (btn) btn.textContent = _fsActive ? 'Exit Full' : 'Fullscreen';
+      if (!_fsActive) window.spotterCloseExport();
+    }
+    window.spotterToggleFullscreen = function() {
+      window.spotterCloseExport();
+      var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      if (!isFs) {
+        var el = document.documentElement;
+        try {
+          if (el.requestFullscreen) el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        } catch(ex) {}
+      } else {
+        try {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch(ex) {}
+      }
+      // Button text is set by fullscreenchange event — not here
     };
+    document.addEventListener('fullscreenchange', syncFsBtn);
+    document.addEventListener('webkitfullscreenchange', syncFsBtn);
 
     // Root div is already in the DOM (created above before this IIFE),
     // so call render() directly — no DOMContentLoaded needed.
