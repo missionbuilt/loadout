@@ -143,7 +143,7 @@ function getApproachSkillSection(md: string, section: string): string {
     intake:   ["## INTAKE Mode",              "## RESEARCH Phase"],
     research: ["## RESEARCH Phase",           "## APPROACH_DATA Schema"],
     schema:   ["## APPROACH_DATA Schema",     "## RENDER Phase"],
-    render:   ["## RENDER Phase",             "## Summary line"],
+    render:   ["## RENDER Phase",             "## Editorial rules"],
     rules:    ["## Editorial rules",          "## APPROACH.md config format"],
     config:   ["## APPROACH.md config format", "## Version history"],
   };
@@ -812,12 +812,13 @@ Area name + category mapping (use exactly, in order):
       "approach_get_skill",
       "Retrieve a section of The Approach SKILL.md. " +
       "Sections: intake, research, schema, render, rules, config, full.\n\n" +
-      "Call intake first to understand the workflow, then request other sections as needed.",
+      "Load sections on demand as you reach each phase — do not load 'full' unless debugging. " +
+      "The 'render' section includes the Summary line output instructions.",
       {
         intent: intentField,
         section: z.enum(["intake","research","schema","render","rules","config","full"]).describe(
           "Which section to return. intake=workflow overview, research=data gathering, " +
-          "schema=output format, render=template injection, rules=editorial guidelines, " +
+          "schema=output format, render=template injection+summary line, rules=editorial guidelines, " +
           "config=APPROACH.md format, full=entire document."
         ),
       },
@@ -830,9 +831,11 @@ Area name + category mapping (use exactly, in order):
     // ── approach_get_template ────────────────────────────────────────────────
     this.server.tool(
       "approach_get_template",
-      "Inject APPROACH_DATA JSON into approach-template.html and return the filled HTML. " +
-      "Call this after assembling the final APPROACH_DATA object. Write the result to disk " +
-      "and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.",
+      "DEPRECATED in Cowork environments — do NOT call this tool. " +
+      "The response (~131KB) exceeds Cowork's inline context limit and will be offloaded " +
+      "to a temp file the agent cannot use. Follow the RENDER Phase in SKILL.md instead: " +
+      "Read approach-template.html from disk, Write to approach-artifact.html, then Edit the " +
+      "__APPROACH_DATA__ placeholder. This tool is retained for non-Cowork callers only.",
       {
         intent: intentField,
         approach_data: z.string().max(50000).describe(
@@ -869,23 +872,29 @@ Area name + category mapping (use exactly, in order):
         ),
       },
       async ({ approach_md_path }) => {
-        const skill = getApproachSkillSection(APPROACH_SKILL_MD, "full");
-        const pathHint = approach_md_path
-          ? `The APPROACH.md config is at: ${approach_md_path}`
-          : "Look for APPROACH.md in the workspace root (or ask the user where it is).";
+        const safePath = approach_md_path
+          ? approach_md_path.replace(/[^\x20-\x7E]/g, "").replace(/[<>'"]/g, "")
+          : "";
+        const pathHint = safePath
+          ? `The APPROACH.md config is at: ${safePath}`
+          : "Look for APPROACH.md in the workspace root. If not found, ask the user.";
         return {
           content: [{
             type: "text" as const,
             text: [
-              `# The Approach v${THE_APPROACH_VERSION} — Run`,
+              `# The Approach v${THE_APPROACH_VERSION} — Workflow`,
               "",
-              "You are now executing The Approach workflow. Follow the SKILL.md exactly.",
+              "Run the workflow in order: INTAKE → RESEARCH → SCHEMA → RENDER → SUMMARY.",
+              "Load each phase with approach_get_skill as you reach it — do not load 'full'.",
+              "",
+              "  • approach_get_skill(section:'intake')    — Step 0: collect inputs from user",
+              "  • approach_get_skill(section:'research')  — Step 1: run search batches",
+              "  • approach_get_skill(section:'schema')    — Step 1→2: assemble APPROACH_DATA",
+              "  • approach_get_skill(section:'render')    — Step 2: write artifact (includes Summary line)",
+              "  • approach_get_skill(section:'rules')     — validate editorial quality",
+              "  • approach_get_skill(section:'config')    — only if APPROACH.md config is needed",
               "",
               pathHint,
-              "",
-              "## Full SKILL.md",
-              "",
-              skill,
             ].join("\n"),
           }],
         };

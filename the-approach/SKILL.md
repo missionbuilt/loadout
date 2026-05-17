@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.1.0
+version: 0.1.3
 part_of: The Loadout
 ---
 
@@ -472,3 +472,6 @@ don't have to re-enter it next time."*
 | Version | Change |
 |---|---|
 | 0.1.0 | Initial release — V1 cream paper design + V2 Scout Sheet quirks. Joint AE+SE brief. |
+| 0.1.1 | RENDER Phase rewrite — explicit Path A/B split. Ban approach_get_template on repeat runs. |
+| 0.1.2 | Path B rewrite — Read/Write file tools instead of approach_get_template for first run. |
+| 0.1.3 | approach_run now loads per-section via approach_get_skill. Render boundary includes Summary line. |
