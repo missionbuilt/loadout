@@ -1063,6 +1063,15 @@ a { color: inherit; text-decoration: none; }
 .spotter-action-btn:hover { color: var(--blood); border-color: var(--blood); }
 @media print { .spotter-actions { display: none !important; } }
 
+/* — CSS fullscreen mode — */
+body.spotter-fs {
+  position: fixed;
+  inset: 0;
+  overflow-y: scroll;
+  z-index: 9000;
+  background: var(--paper);
+}
+
 /* — Export dropdown — */
 .spotter-export { position: relative; }
 .spotter-export-dd {
@@ -1727,39 +1736,14 @@ ${epicSourceHtml}
       }
     });
 
-    /* ── Fullscreen ── */
-    function setFsBtn(active) {
-      _fsActive = active;
-      var btn = document.getElementById('spotter-fs-btn');
-      if (btn) btn.textContent = active ? 'Exit Full' : 'Fullscreen';
-    }
+    /* ── Fullscreen (CSS-based — no browser API, survives iframe constraints) ── */
     window.spotterToggleFullscreen = function() {
       window.spotterCloseExport();
-      // Check actual browser state, not just our variable
-      var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      if (!isFs) {
-        var el = document.documentElement;
-        try {
-          if (el.requestFullscreen) el.requestFullscreen();
-          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        } catch(ex) {}
-        setFsBtn(true);
-      } else {
-        try {
-          if (document.exitFullscreen) document.exitFullscreen();
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        } catch(ex) {}
-        setFsBtn(false);
-      }
+      _fsActive = !_fsActive;
+      document.body.classList.toggle('spotter-fs', _fsActive);
+      var btn = document.getElementById('spotter-fs-btn');
+      if (btn) btn.textContent = _fsActive ? 'Exit Full' : 'Fullscreen';
     };
-    // Sync button if the user exits fullscreen via Esc key or browser chrome
-    function onFsChange() {
-      var isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      setFsBtn(isFs);
-      if (!isFs) window.spotterCloseExport();
-    }
-    document.addEventListener('fullscreenchange', onFsChange);
-    document.addEventListener('webkitfullscreenchange', onFsChange);
 
     // Root div is already in the DOM (created above before this IIFE),
     // so call render() directly — no DOMContentLoaded needed.
