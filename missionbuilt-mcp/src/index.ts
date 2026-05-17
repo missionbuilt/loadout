@@ -38,6 +38,7 @@ import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
 import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
+import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
 import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
 import APPROACH_TEMPLATE_HTML from "./skill-content/the-approach/approach-template.html";
 
@@ -623,9 +624,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_template",
-      `DEPRECATED in Cowork environments — do NOT call this tool. The response (~131KB) exceeds Cowork's inline context limit and will be offloaded to a temp file the agent cannot use. Follow the Path A / Path B instructions in spotter_review instead: Read the template from disk, Write to the artifact path, then Edit the SPOTTER_DATA and engine-version lines. This tool is retained for non-Cowork callers only.
-
-Original description (non-Cowork): Returns the canonical spotter-template.html with SPOTTER_DATA already injected — artifact-ready HTML, no Edit step required. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. The server replaces the placeholder and returns the filled artifact. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.
+      `Returns a complete, self-contained artifact HTML document with SPOTTER_DATA already injected — ready to write to disk and pass to create_artifact or update_artifact. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. The server inlines the renderer and returns filled, artifact-ready HTML. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself — the correct design lives only in this tool.
 
 SPOTTER_DATA schema (all fields):
 {
@@ -686,17 +685,39 @@ Area name + category mapping (use exactly, in order):
         // Replacer-function safety: epic text can contain $', $&, $` (price strings,
         // technical content). A replacer function bypasses special-sequence expansion.
         const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
-        const PLACEHOLDER = `window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)`;
-        const withVersion = SPOTTER_TEMPLATE_HTML.replace('SPOTTER_ENGINE_VERSION_MARKER', `v${SPOTTER_VERSION}`);
-        const filled = withVersion.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
-        const injected = filled !== withVersion;
+        const PLACEHOLDER = `window.SPOTTER_DATA = null; /* spotter-data-placeholder */`;
+
+        // Build the shell-inlined template at request time. Inlining the renderer
+        // (spotter-shell.rawjs) makes the artifact fully self-contained — no external
+        // script fetch needed, compatible with Cowork's Content Security Policy.
+        const shellInlined =
+          `<!DOCTYPE html>\n` +
+          `<!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
+          `<html lang="en">\n` +
+          `<head>\n` +
+          `  <meta charset="UTF-8">\n` +
+          `  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n` +
+          `  <title>The Spotter \xB7 Field Review</title>\n` +
+          `</head>\n` +
+          `<body>\n` +
+          `<script id="spotter-data">\n` +
+          `${PLACEHOLDER}\n` +
+          `</script>\n` +
+          `<script>\n` +
+          `${SPOTTER_SHELL_JS}\n` +
+          `</script>\n` +
+          `</body>\n` +
+          `</html>`;
+
+        const filled = shellInlined.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
+        const injected = filled !== shellInlined;
         return {
           content: [
             {
               type: "text" as const,
               text: injected
                 ? filled
-                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Call spotter_get_template again.]`,
+                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found — injection failed. Do NOT use raw output. Call spotter_get_template again.]`,
             },
           ],
         };
@@ -717,21 +738,22 @@ Area name + category mapping (use exactly, in order):
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
               `## Step 0 — Determine PATH A or PATH B (do this first, before reviewing)\n\n` +
-              `PATH A = targeted single-line data update. PATH B = write fresh skeleton.\n\n` +
+              `PATH A = edit only the data block (fast). PATH B = call spotter_get_template and rewrite the file.\n\n` +
+              `The workspace file is always: [workspace]/spotter-[epic-slug].html\n` +
+              `  e.g. for "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
               `To decide:\n` +
               `  1. Call list_artifacts.\n` +
               `  2. If NO Spotter artifact exists for this epic → PATH B.\n` +
               `  3. If an artifact DOES exist:\n` +
-              `     a. Note its html_path.\n` +
-              `     b. Read ONLY lines 1–3 of that file (offset:0, limit:3).\n` +
+              `     a. Derive the workspace file path from the epic name (see slug convention above).\n` +
+              `     b. Read ONLY lines 1–3 of that workspace file (offset:0, limit:3).\n` +
+              `        If the file cannot be read (not found) → PATH B.\n` +
               `     c. Look at line 2 ONLY. It must be exactly:\n` +
               `          <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
               `     d. Line 2 matches exactly → PATH A.\n` +
-              `     e. Line 2 is ANYTHING else (different version, missing, HTML tag, blank) → PATH B.\n` +
-              `        PATH B overwrites the file at html_path with the new skeleton.\n\n` +
-              `⚠ IMPORTANT: Do NOT grep for window.SPOTTER_DATA to decide the path. The presence\n` +
-              `  of that string in the file does NOT mean the file is a valid v${SPOTTER_VERSION} skeleton.\n` +
-              `  Legacy artifacts have window.SPOTTER_DATA but no engine marker — they must be rebuilt.\n\n` +
+              `     e. Line 2 is ANYTHING else (different version, missing, HTML tag, blank) → PATH B.\n\n` +
+              `⚠ NEVER write or reconstruct HTML yourself.\n` +
+              `⚠ Do NOT grep for window.SPOTTER_DATA to decide the path — legacy files have it too.\n\n` +
               `## How to review\n\n` +
               `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }) to load the full area framework with sub-checks. Do this before grading.\n` +
               `2. Walk all nine areas in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
@@ -743,45 +765,28 @@ Area name + category mapping (use exactly, in order):
               `   For each area: id, n, name, category, question, judges, finding (1–3 sentences),\n` +
               `   spotterPull ("you could strengthen this by..." line), handNote (1-liner, optional).\n\n` +
               `## Produce the artifact — PATH A or PATH B\n\n` +
-              `⚠ Do NOT call spotter_get_template — the server response (~131KB) is too large for the\n` +
-              `context window and will be offloaded to a temp file the agent cannot use.\n` +
-              `⚠ Use file tools only (Read / Write / Edit). Do NOT use bash or shell commands.\n\n` +
+              `⚠ Use file tools only (Read / Write / Edit / Grep). Do NOT use bash or shell commands.\n` +
+              `⚠ NEVER write or reconstruct HTML yourself — the correct design lives only in spotter_get_template.\n\n` +
               `### PATH A — Re-review (engine version matches v${SPOTTER_VERSION})\n\n` +
-              `  a. Grep the artifact file for: window.SPOTTER_DATA =\n` +
-              `     Note the line number.\n` +
-              `  b. Read that line (offset+limit=1) to confirm it contains SPOTTER_DATA.\n` +
-              `  c. Edit the artifact — replace the ENTIRE line:\n` +
-              `       window.SPOTTER_DATA = <anything>;\n` +
-              `     with:\n` +
+              `Do NOT reload the full template. Edit only the data block:\n\n` +
+              `  a. Use the Grep tool to find the line number of '<script id="spotter-data">' in the workspace file.\n` +
+              `  b. Use the Read file tool with offset+limit to read only the\n` +
+              `     <script id="spotter-data">…</script> block (2–3 lines).\n` +
+              `  c. Use the Edit tool to replace that entire block with:\n` +
+              `       <script id="spotter-data">\n` +
               `       window.SPOTTER_DATA = <JSON.stringify(SPOTTER_DATA)>;\n` +
-              `  d. Call update_artifact. Done.\n\n` +
+              `       </script>\n` +
+              `  d. Call update_artifact with the workspace file path. Done.\n\n` +
               `### PATH B — First review, engine update, or legacy artifact rebuild\n\n` +
-              `All CSS, layout, and the renderer are loaded at runtime from\n` +
-              `mcp.missionbuilt.io/spotter-shell.js — no template read required.\n` +
-              `Write a single complete file with the real SPOTTER_DATA already in it.\n\n` +
-              `  Target path rules:\n` +
-              `  - If an artifact exists (engine update / legacy rebuild): write to its html_path.\n` +
-              `    This OVERWRITES the old file. Do not write to a new filename.\n` +
-              `  - If no artifact exists (first review): write to [workspace]/spotter-[epic-slug].html.\n\n` +
-              `  a. Write the complete artifact to the target path in one step\n` +
-              `     (Write file tool — do NOT use bash, do NOT use Edit).\n` +
-              `     Substitute <JSON.stringify(SPOTTER_DATA)> directly into the file:\n\n` +
-              `     <!DOCTYPE html>\n` +
-              `     <!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
-              `     <html lang="en">\n` +
-              `     <head>\n` +
-              `       <meta charset="UTF-8">\n` +
-              `       <meta name="viewport" content="width=device-width, initial-scale=1.0">\n` +
-              `       <title>The Spotter · Field Review</title>\n` +
-              `     </head>\n` +
-              `     <body>\n` +
-              `     <script>\n` +
-              `     window.SPOTTER_DATA = <JSON.stringify(SPOTTER_DATA)>;\n` +
-              `     </script>\n` +
-              `     <script src="https://mcp.missionbuilt.io/spotter-shell.js?v=${SPOTTER_VERSION}"></script>\n` +
-              `     </body>\n` +
-              `     </html>\n\n` +
-              `  b. Call update_artifact (artifact existed) or create_artifact (first review).\n\n` +
+              `  a. Call spotter_get_template({ intent: "...", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
+              `     Server injects SPOTTER_DATA and returns filled, artifact-ready HTML.\n` +
+              `     If response begins with "[spotter_get_template ERROR", call it again.\n` +
+              `  b. Use the Write file tool to write the HTML string to disk.\n` +
+              `     - Engine update / legacy rebuild: write to the same workspace file as before\n` +
+              `       (derive from the epic slug: [workspace]/spotter-[epic-slug].html).\n` +
+              `     - First review: write to [workspace]/spotter-[epic-slug].html.\n` +
+              `     Do NOT use bash. Do NOT use the Edit tool — use Write.\n` +
+              `  c. Call update_artifact (artifact existed) or create_artifact (first review).\n\n` +
               `After registering the artifact: one summary line in chat only.\n` +
               `Format: "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
               `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
