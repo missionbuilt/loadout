@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title id="page-title">The Approach · Pre-Call Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+  /* ══════════════════════════════════════════════════════════════════════════
+     THE APPROACH · FIELD BRIEF  (V1/V2 blend — cream paper + V2 quirks)
+     Data-driven via window.APPROACH_DATA injection.
+     ══════════════════════════════════════════════════════════════════════════ */
+  :root {
+    color-scheme: light;
+    --paper:        #f3ecdc;
+    --paper-warm:   #ebe2cf;
+    --paper-card:   #ede5d2;
+    --paper-soft:   #efe8d6;
+    --ink:          #1a1612;
+    --ink-soft:     #3a342d;
+    --ink-dim:      #6a5f50;
+    --ink-faint:    #968974;
+    --rule:         #c8bea7;
+    --rule-soft:    #d8cfb8;
+    --blood:        #8a2017;
+    --blood-bright: #a8281e;
+    --blood-soft:   #f0d8d4;
+    --army:         #5f6e26;
+    --army-soft:    #dfe3c4;
+    --font-display: 'Oswald', sans-serif;
+    --font-serif:   'Merriweather', Georgia, serif;
+    --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+    --font-hand:    'Permanent Marker', 'Oswald', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; box-shadow: none !important; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(ellipse 900px 700px at 8% 0%, rgba(255,250,235,0.6), transparent 65%),
+      radial-gradient(ellipse 500px 380px at 92% 6%, rgba(138,32,23,0.04), transparent 70%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 120ms; }
+  a:hover { border-bottom-color: var(--blood); color: var(--blood); }
+  ::selection { background: rgba(138,32,23,0.18); color: var(--ink); }
+
+  /* ─────────────────────────────────────────────  MASTHEAD  ───────────── */
+  .masthead {
+    padding: 36px 56px 24px;
+    border-bottom: 3px double var(--ink);
+    position: relative;
+  }
+  .np-row1 {
+    display: flex; align-items: baseline; gap: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .np-row1 .latin { font-family: var(--font-serif); font-style: italic; font-weight: 300; text-transform: none; letter-spacing: 0.01em; color: var(--ink-dim); font-size: 13px; }
+  .np-row1 .sep { color: var(--ink-faint); }
+  .np-row1 .scan-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--rule); padding: 4px 10px;
+    color: var(--ink-dim);
+  }
+  .np-row1 .scan-pill .dot { width: 6px; height: 6px; background: var(--army); display: inline-block; }
+  /* V2 countdown pill — oxblood on cream */
+  .np-row1 .countdown-pill {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--blood); padding: 4px 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--blood); font-weight: 600;
+  }
+
+  /* Masthead body: stamp left + title center */
+  .masthead-body {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 36px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  /* V2 stamp adapted to cream/blood theme */
+  .approach-stamp {
+    border: 3px solid var(--blood);
+    padding: 12px 18px 8px;
+    transform: rotate(-2.5deg);
+    display: inline-block;
+    background: rgba(138,32,23,0.04);
+    flex-shrink: 0;
+  }
+  .approach-stamp .stamp-hand {
+    font-family: var(--font-hand);
+    font-size: 22px; color: var(--blood);
+    line-height: 1; display: block;
+    text-align: center;
+    margin-bottom: 3px;
+  }
+  .approach-stamp .stamp-label {
+    font-family: var(--font-display);
+    font-weight: 700; font-size: 28px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--blood); line-height: 0.95;
+    text-align: center;
+  }
+  .approach-stamp .stamp-sub {
+    font-family: var(--font-mono);
+    font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); text-align: center; margin-top: 4px;
+    display: block;
+  }
+  .masthead-center { text-align: center; }
+  .np-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(56px, 9vw, 120px);
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--ink);
+    line-height: 0.92;
+    text-align: center;
+    margin: 6px 0 8px;
+  }
+  .np-title .sq {
+    display: inline-block; width: 0.13em; height: 0.13em;
+    background: var(--blood); vertical-align: baseline; margin-left: 0.04em;
+  }
+  .np-deck {
+    font-family: var(--font-serif); font-style: italic; font-weight: 300;
+    font-size: 18px; text-align: center; color: var(--ink-soft);
+    margin-bottom: 0;
+  }
+  .np-row2 {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--rule); padding-top: 16px; gap: 24px;
+    flex-wrap: wrap; margin-top: 16px;
+  }
+  .np-greet {
+    font-family: var(--font-hand);
+    font-size: 26px; color: var(--blood);
+    transform: rotate(-1.2deg) translateY(-2px);
+    line-height: 1;
+  }
+  .np-meta {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-dim);
+    display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+  }
+  .np-meta .safety-link { color: var(--army); border-bottom: 1px dotted var(--army); }
+
+  /* ─────────────────────────────────────────────  SIGNAL BAR  ─────────── */
+  .signal {
+    background: var(--paper-warm);
+    border-bottom: 1px solid var(--rule);
+    padding: 14px 56px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+  }
+  .signal > div { padding: 4px 14px 4px 0; border-right: 1px solid var(--rule); }
+  .signal > div:last-child { border-right: none; }
+  .signal .k { display: block; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; font-weight: 500; }
+  .signal .v { font-weight: 500; color: var(--ink); }
+
+  /* ─────────────────────────────────────────────  SCOUTING SUMMARY  ───── */
+  /* V2 cut-in card concept, adapted to cream theme */
+  .scout-summary {
+    margin: 28px 56px;
+    border: 1px solid var(--rule);
+    background: var(--paper-card);
+    position: relative;
+  }
+  .scout-summary::before {
+    content: 'SCOUTING SUMMARY';
+    position: absolute; top: -10px; left: 24px;
+    background: var(--paper); padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.32em;
+    color: var(--blood); font-weight: 700;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+  }
+  .summary-col {
+    padding: 22px 26px;
+    border-right: 1px solid var(--rule-soft);
+  }
+  .summary-col:last-child { border-right: none; }
+  .summary-col h3 {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--blood); font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .summary-col p {
+    font-family: var(--font-serif);
+    font-size: 15px; color: var(--ink-soft);
+    line-height: 1.6; text-wrap: pretty;
+  }
+  .summary-col .hand {
+    font-family: var(--font-hand);
+    color: var(--blood);
+    font-size: 17px;
+    transform: rotate(-1deg);
+    display: inline-block;
+    margin-top: 10px;
+    line-height: 1.2;
+  }
+
+  /* ─────────────────────────────────────────────  PEOPLE STRIP  ───────── */
+  .people-strip {
+    padding: 0 56px 8px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .people-strip:empty { display: none; }
+  .people-strip-label {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); font-weight: 700;
+    padding: 14px 0 10px;
+  }
+  .people-cards {
+    display: flex; gap: 18px; flex-wrap: wrap;
+  }
+  .person-card {
+    background: var(--paper-card);
+    border: 1px solid var(--rule);
+    padding: 16px 18px;
+    min-width: 220px; max-width: 280px;
+    flex: 1;
+    position: relative;
+  }
+  .person-card .role-stamp {
+    position: absolute; top: 8px; right: 10px;
+    font-family: var(--font-hand);
+    font-size: 13px; color: var(--blood);
+    transform: rotate(-1deg);
+  }
+  .person-card .person-initials {
+    width: 42px; height: 42px;
+    background: var(--blood);
+    color: var(--paper);
+    font-family: var(--font-display);
+    font-weight: 700; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .person-card .person-name {
+    font-family: var(--font-display);
+    font-weight: 600; font-size: 18px; text-transform: uppercase;
+    color: var(--ink); line-height: 1.1; margin-bottom: 3px;
+  }
+  .person-card .person-title {
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 8px;
+  }
+  .person-card .person-signal {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14px; color: var(--ink-soft); line-height: 1.5;
+    border-left: 2px solid var(--blood); padding-left: 8px;
+    margin-top: 8px;
+  }
+  .person-card .person-linkedin {
+    margin-top: 8px; font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--blood); border-bottom: 1px dotted var(--blood) !important;
+  }
+
+  /* ─────────────────────────────────────────────  SCROLL NAV  ─────────── */
+  .secnav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(243,236,220,0.96);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+    padding: 10px 56px;
+    display: flex; gap: 24px; flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .secnav .group-label { color: var(--blood); font-weight: 600; letter-spacing: 0.24em; }
+  .secnav .divider { color: var(--ink-faint); }
+  .secnav a { color: var(--ink-dim); border: none; }
+  .secnav a:hover, .secnav a.on { color: var(--ink); border-bottom: 1px solid var(--blood); }
+
+  /* ─────────────────────────────────────────────  BODY  ──────────────── */
+  .body { max-width: 1180px; margin: 0 auto; padding: 0 32px 64px; }
+
+  /* ── Act marker */
+  .act-marker {
+    margin: 56px 0 0;
+    padding: 18px 0 14px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;
+  }
+  .act-marker .rule { height: 1px; background: var(--ink); }
+  .act-marker .label {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--ink); font-weight: 700;
+    display: flex; align-items: baseline; gap: 14px;
+    white-space: nowrap;
+  }
+  .act-marker .label .for {
+    font-family: var(--font-serif); font-style: italic; font-weight: 300;
+    text-transform: none; letter-spacing: 0.02em; color: var(--ink-dim); font-size: 13px;
+  }
+
+  /* ── Section */
+  section.sec { padding-top: 48px; }
+  section.sec + section.sec { border-top: 1px solid var(--rule); margin-top: 8px; }
+  .sec-eyebrow {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .sec-kicker {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); font-weight: 600;
+  }
+  .sec-label {
+    font-family: var(--font-display);
+    font-weight: 600; font-size: clamp(28px, 4vw, 40px);
+    text-transform: uppercase; letter-spacing: -0.005em;
+    color: var(--ink); line-height: 1;
+  }
+  .sec-sub {
+    font-family: var(--font-serif); font-style: italic; font-weight: 300;
+    color: var(--ink-soft); font-size: 16px;
+    flex-basis: 100%; margin-top: 2px;
+  }
+
+  /* Lead item */
+  .lead { padding: 12px 0 28px; border-bottom: 1px solid var(--rule-soft); }
+  .item-meta {
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-dim); margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .item-meta .dot { width: 9px; height: 9px; display: inline-block; }
+  .dot.d1 { background: var(--army); }
+  .dot.d2 { background: var(--blood); }
+  .dot.d3 { background: var(--ink); }
+  .dot.d4 { background: var(--ink-faint); }
+  .item-meta .src { color: var(--ink); font-weight: 500; }
+  .item-meta .date { color: var(--ink-dim); }
+  .item-meta .tag { padding: 2px 7px; border: 1px solid var(--rule); color: var(--ink-soft); letter-spacing: 0.14em; }
+  .item-meta .tag.t-cve   { background: var(--army-soft); color: var(--army); border-color: var(--army); }
+  .item-meta .tag.t-alert { background: var(--blood-soft); color: var(--blood); border-color: var(--blood); }
+  .lead .hl {
+    font-family: var(--font-display); font-weight: 600;
+    font-size: clamp(28px, 3.4vw, 40px); line-height: 1.05;
+    text-transform: none; letter-spacing: -0.01em;
+    margin-bottom: 12px; color: var(--ink);
+  }
+  .lead .deck {
+    font-family: var(--font-serif); font-style: italic; font-weight: 400;
+    color: var(--ink-soft); font-size: 18px; margin-bottom: 14px;
+  }
+  .lead .body-text {
+    font-family: var(--font-serif); font-weight: 400;
+    font-size: 16.5px; color: var(--ink-soft);
+    text-wrap: pretty; max-width: 80ch;
+  }
+  .lead .body-text::first-letter {
+    font-family: var(--font-display); font-weight: 700;
+    color: var(--blood); font-size: 3.4em;
+    line-height: 0.85; float: left;
+    padding: 0 8px 0 0; margin-top: 2px;
+  }
+  .margin-note {
+    font-family: var(--font-hand); color: var(--blood);
+    font-size: 18px; transform: rotate(-1deg);
+    display: inline-block; margin: 10px 0 0; line-height: 1.2;
+  }
+
+  /* Grid items */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding-top: 24px; }
+  .grid .item { border-top: 1px solid var(--rule-soft); padding-top: 18px; }
+  .grid .item .hl {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: 21px; line-height: 1.18; margin-bottom: 8px; color: var(--ink);
+  }
+  .grid .item .body-text { font-family: var(--font-serif); font-size: 15.5px; color: var(--ink-soft); line-height: 1.65; text-wrap: pretty; }
+
+  /* Callout */
+  .callout {
+    margin-top: 24px; border-left: 3px solid var(--army);
+    background: var(--army-soft); padding: 14px 18px;
+    font-family: var(--font-serif); font-size: 15.5px; color: var(--ink);
+  }
+  .callout .k {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--army); margin-bottom: 4px; font-weight: 600;
+  }
+
+  /* Tech stack table */
+  .integ-table { margin-top: 12px; border-top: 1px solid var(--rule); width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
+  .integ-table th, .integ-table td { border-bottom: 1px solid var(--rule-soft); text-align: left; padding: 10px 14px 10px 0; vertical-align: top; }
+  .integ-table th { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
+  .integ-table td.cat { color: var(--ink-dim); }
+  .integ-table td.tool { color: var(--ink); font-weight: 500; }
+  .integ-table td.evidence { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink-soft); }
+  .integ-table td.fit { font-weight: 600; letter-spacing: 0.12em; color: var(--army); }
+  .integ-table td.fit.gap { color: var(--blood); }
+  .integ-table td.fit.unk { color: var(--ink-faint); }
+
+  /* ─────────────────────────────────────────────  PLAYS (V2 RUN/AUDIBLE)  */
+  .plays-section { padding-top: 48px; }
+  .plays-section-eyebrow {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .plays-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  .play {
+    border: 1px solid var(--rule); background: var(--paper-card);
+    padding: 18px 20px; position: relative;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .play.p1 { grid-column: span 2; border-color: var(--blood); }
+  .play-head {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: baseline;
+    padding-bottom: 12px; border-bottom: 1px solid var(--rule-soft); margin-bottom: 12px;
+  }
+  .play-num {
+    font-family: var(--font-display); font-weight: 700; font-size: 20px;
+    color: var(--blood); letter-spacing: 0.04em; line-height: 1;
+    border: 1.5px solid var(--blood); padding: 3px 8px 1px;
+  }
+  .play.p1 .play-num { background: var(--blood); color: var(--paper); }
+  .play-title {
+    font-family: var(--font-display); font-weight: 600; font-size: 17px;
+    text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 1.15;
+  }
+  .play.p1 .play-title { font-size: 23px; }
+  .play-cat {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+  }
+  .play-finding {
+    font-family: var(--font-serif); font-style: italic;
+    color: var(--ink-soft); font-size: 15px; line-height: 1.55;
+    margin-bottom: 12px; text-wrap: pretty; flex: 1;
+  }
+  .play.p1 .play-finding { font-size: 17px; color: var(--ink-soft); }
+  .play-intel { list-style: none; margin-bottom: 12px; }
+  .play-intel li {
+    padding: 5px 0 5px 22px; position: relative;
+    font-family: var(--font-serif); font-size: 14px; color: var(--ink-soft);
+    line-height: 1.5; border-bottom: 1px dashed var(--rule-soft);
+  }
+  .play-intel li:last-child { border-bottom: none; }
+  .play-intel li::before { content: '▮'; position: absolute; left: 0; top: 5px; color: var(--blood); font-size: 10px; }
+  .play-intel li .src {
+    display: block; font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-top: 2px;
+  }
+  /* V2's signature: run-when / audible-if footer */
+  .play-foot {
+    padding-top: 10px; border-top: 1px solid var(--rule-soft);
+    display: flex; gap: 14px; align-items: baseline;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    flex-wrap: wrap;
+  }
+  .play-foot .run { color: var(--army); }
+  .play-foot .run::before { content: '▸ RUN WHEN '; color: var(--ink-faint); font-weight: 500; }
+  .play-foot .aud { color: var(--blood); margin-left: auto; }
+  .play-foot .aud::before { content: '↺ AUDIBLE '; color: var(--ink-faint); font-weight: 500; }
+  /* V2 hand note */
+  .play-hand {
+    position: absolute; bottom: 8px; right: 12px;
+    font-family: var(--font-hand); font-size: 13px;
+    color: var(--blood); transform: rotate(-2deg);
+    background: var(--paper-card); padding: 0 4px; line-height: 1;
+  }
+
+  /* ─────────────────────────────────────────────  INTERLUDE  ──────────── */
+  .interlude {
+    margin: 80px 0 12px; padding: 36px 32px;
+    background: var(--paper-warm);
+    border-top: 3px double var(--ink); border-bottom: 3px double var(--ink);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 32px; align-items: center;
+  }
+  .interlude .kicker { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--blood); font-weight: 700; }
+  .interlude h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 5vw, 64px); text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 0.95; margin-top: 4px; }
+  .interlude .deck { font-family: var(--font-serif); font-style: italic; color: var(--ink-soft); margin-top: 8px; font-size: 17px; max-width: 60ch; }
+  .interlude .stamp {
+    font-family: var(--font-hand); font-size: 28px; color: var(--blood);
+    border: 3px solid var(--blood); padding: 8px 18px 4px;
+    transform: rotate(-3deg); line-height: 1; text-align: center;
+  }
+  .interlude .stamp small { display: block; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--blood); margin-top: 4px; }
+
+  /* Risk flags */
+  .risk-list { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .risk {
+    display: grid; grid-template-columns: 90px 1fr; gap: 14px;
+    padding: 12px 14px; border-left: 3px solid var(--blood); background: var(--blood-soft);
+  }
+  .risk .level { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--blood); font-weight: 700; align-self: start; }
+  .risk.amber { border-left-color: var(--army); background: var(--army-soft); }
+  .risk.amber .level { color: var(--army); }
+  .risk h4 { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
+  .risk p { font-size: 14.5px; color: var(--ink-soft); }
+
+  /* ─────────────────────────────────────────────  CLOSING  ────────────── */
+  .closing { margin-top: 64px; padding: 36px 0 24px; border-top: 3px double var(--ink); }
+  .closing h3 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--blood); font-weight: 700; margin-bottom: 8px; }
+  .closing h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 5vw, 56px); text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 0.95; margin-bottom: 20px; }
+  .opener-script {
+    background: var(--paper-warm); border: 1px solid var(--rule);
+    padding: 24px 28px; font-family: var(--font-serif); font-size: 17px;
+    line-height: 1.7; color: var(--ink); max-width: 78ch;
+  }
+  .opener-script .quote { font-family: var(--font-serif); font-style: italic; font-size: 19px; color: var(--ink); margin-bottom: 14px; }
+  .opener-script .beat { font-family: var(--font-serif); color: var(--ink-dim); font-style: italic; }
+  .opener-script .stage { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
+  .opener-script .hand { font-family: var(--font-hand); color: var(--blood); font-size: 19px; transform: rotate(-1deg); display: inline-block; margin-top: 12px; }
+  .discovery { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .discovery ol { list-style: none; counter-reset: q; }
+  .discovery li {
+    counter-increment: q; padding: 14px 0 14px 56px;
+    position: relative; border-bottom: 1px solid var(--rule-soft);
+    font-size: 16px; color: var(--ink-soft); line-height: 1.5;
+  }
+  .discovery li::before { content: 'Q' counter(q); position: absolute; left: 0; top: 14px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--blood); font-weight: 700; }
+  .discovery .col h4 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink); font-weight: 700; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+
+  /* ─────────────────────────────────────────────  SOURCES & SAFETY  ───── */
+  .sources { margin-top: 56px; border-top: 1px solid var(--rule); padding-top: 28px; }
+  .sources h3 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink); font-weight: 700; margin-bottom: 14px; }
+  .sources-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule-soft); }
+  .sources-grid .src-row { padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule-soft); border-right: 1px solid var(--rule-soft); display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); }
+  .sources-grid .src-row:nth-child(3n) { border-right: none; padding-right: 0; }
+  .sources-grid .src-row .dot { width: 8px; height: 8px; flex-shrink: 0; }
+  .sources-grid .src-row .nm { color: var(--ink); }
+  .sources-grid .src-row .ct { margin-left: auto; color: var(--ink-faint); font-size: 10px; }
+  .safety { margin-top: 36px; padding: 14px 18px; border: 1px solid var(--army); background: var(--army-soft); font-family: var(--font-mono); font-size: 11px; color: var(--army); letter-spacing: 0.06em; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .safety .check { font-size: 18px; }
+  .safety .stat { color: var(--ink); }
+  .colophon { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule); text-align: center; font-family: var(--font-serif); font-style: italic; color: var(--ink-dim); font-size: 14px; line-height: 1.6; }
+  .colophon .brand { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-style: normal; color: var(--ink); }
+  .colophon .brand .sq { display: inline-block; width: 0.5em; height: 0.5em; background: var(--blood); vertical-align: baseline; margin-left: 0.1em; }
+
+  @media (max-width: 720px) {
+    .masthead, .signal, .secnav { padding-left: 24px; padding-right: 24px; }
+    .masthead-body { grid-template-columns: 1fr; }
+    .approach-stamp { display: none; }
+    .signal, .summary-grid { grid-template-columns: 1fr 1fr; }
+    .grid, .discovery, .sources-grid, .plays-grid { grid-template-columns: 1fr; }
+    .play.p1 { grid-column: span 1; }
+    .interlude { grid-template-columns: 1fr; }
+    .scout-summary { margin: 16px 24px; }
+    .people-strip { padding: 0 24px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     DATA INJECTION POINT — replaced at render time by The Approach skill
+     ═══════════════════════════════════════════════════════════════════════ -->
+<script id="approach-data">
+try {
+  window.APPROACH_DATA = __APPROACH_DATA__;
+} catch(e) {
+  window.APPROACH_DATA = null;
+}
+</script>
+
+<!-- ───────────────────────────  MASTHEAD  ─────────────────────────── -->
+<header class="masthead">
+  <div class="np-row1" id="np-row1">
+    <span id="vol-issue">VOL · I · NO · 1</span>
+    <span class="sep">·</span>
+    <span id="brief-date"></span>
+    <span class="sep">·</span>
+    <span class="latin">Ferrum Sumus — we are iron</span>
+    <span class="scan-pill"><span class="dot"></span><span id="scan-info">SCANNING…</span></span>
+    <span class="countdown-pill" id="countdown-pill"></span>
+  </div>
+  <div class="masthead-body">
+    <div class="approach-stamp" id="approach-stamp">
+      <span class="stamp-hand">The Approach</span>
+      <div class="stamp-label">Field Brief</div>
+      <span class="stamp-sub">Pre-Call Intel</span>
+    </div>
+    <div class="masthead-center">
+      <h1 class="np-title">The Approach<span class="sq"></span></h1>
+      <p class="np-deck" id="np-deck">Loading brief…</p>
+    </div>
+  </div>
+  <div class="np-row2">
+    <div class="np-greet" id="np-greet"></div>
+    <div class="np-meta">
+      <span id="selling-meta"></span>
+      <span>·</span>
+      <span>BRIEFED FOR · <span id="briefed-meta">AE + SE</span></span>
+      <span>·</span>
+      <a href="#safety" class="safety-link" id="safety-link">▮ Link safety</a>
+    </div>
+  </div>
+</header>
+
+<!-- ───────────────────────────  SIGNAL BAR  ───────────────────────── -->
+<div class="signal" id="signal-bar"></div>
+
+<!-- ───────────────────────────  SCOUTING SUMMARY  ─────────────────── -->
+<div class="scout-summary" id="scout-summary">
+  <div class="summary-grid">
+    <div class="summary-col">
+      <h3>Who They Are</h3>
+      <p id="scout-who"></p>
+    </div>
+    <div class="summary-col">
+      <h3>What's Changing</h3>
+      <p id="scout-changing"></p>
+    </div>
+    <div class="summary-col">
+      <h3>How We Play It</h3>
+      <p id="scout-play"></p>
+      <div class="hand" id="scout-hand"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────────────────────  PEOPLE STRIP  ─────────────────────── -->
+<div class="people-strip" id="people-strip"></div>
+
+<!-- ───────────────────────────  SCROLL NAV  ───────────────────────── -->
+<nav class="secnav" id="secnav" aria-label="Section navigation"></nav>
+
+<main class="body" id="main">
+
+  <!-- ACT I -->
+  <div class="act-marker" id="act1-marker">
+    <span class="rule"></span>
+    <span class="label">ACT I &nbsp;·&nbsp; The Read
+      <span class="for">— what the AE needs above the fold</span>
+    </span>
+    <span class="rule"></span>
+  </div>
+  <div id="act1-sections"></div>
+
+  <!-- INTERLUDE -->
+  <div class="interlude" id="interlude">
+    <div>
+      <div class="kicker">▮ ▮ ▮ &nbsp; Below the fold &nbsp; ▮ ▮ ▮</div>
+      <h2>Technical</h2>
+      <p class="deck">From here down is what your SE reads on the elevator up. Stack, plays, and everything to flag before procurement gets called in.</p>
+    </div>
+    <div></div>
+    <div class="stamp">For your SE<small id="interlude-eyes">Eyes-on</small></div>
+  </div>
+
+  <!-- ACT II -->
+  <div class="act-marker" id="act2-marker">
+    <span class="rule"></span>
+    <span class="label">ACT II &nbsp;·&nbsp; The Build
+      <span class="for">— what the SE needs under the fold</span>
+    </span>
+    <span class="rule"></span>
+  </div>
+  <div id="act2-sections"></div>
+
+  <!-- STACK TABLE (rendered if stack data present) -->
+  <div id="stack-section"></div>
+
+  <!-- PLAYS GRID (V2-style run-when/audible on cream) -->
+  <div id="plays-section"></div>
+
+  <!-- RISKS -->
+  <div id="risks-section"></div>
+
+  <!-- CLOSING: opener + discovery -->
+  <div class="closing" id="closing">
+    <h3>▮ The Opener</h3>
+    <h2>First two minutes, written down.</h2>
+    <div class="opener-script" id="opener-script"></div>
+    <h3 style="margin-top: 56px;">▮ Discovery</h3>
+    <h2>Questions, ranked.</h2>
+    <div class="discovery" id="discovery-section"></div>
+  </div>
+
+  <!-- SOURCES -->
+  <div class="sources" id="sources-section">
+    <h3 id="sources-header">▮ Sources scanned</h3>
+    <div class="sources-grid" id="sources-grid"></div>
+  </div>
+
+  <!-- LINK SAFETY -->
+  <div class="safety" id="safety">
+    <span class="check">▮</span>
+    <span id="safety-text"><strong>LINK SAFETY</strong></span>
+    <span>·</span>
+    <span class="stat" id="safety-stat">Scan pending</span>
+    <span>·</span>
+    <span id="safety-time"></span>
+  </div>
+
+  <div class="colophon" id="colophon">
+    Briefed by <span class="brand">The Approach<span class="sq"></span></span> · part of <span class="brand">The Loadout<span class="sq"></span></span> · Iron Log
+  </div>
+
+</main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   APPROACH RENDERER  v0.1
+   Reads window.APPROACH_DATA and populates every section.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Sample / fallback data shown when no injection has occurred ─── */
+const SAMPLE_DATA = {
+  config: {
+    seller: "Your Name",
+    sellerCompany: "Your Company",
+    sellerProduct: "Your Product",
+    targetCompany: "Acme Corp",
+    targetDomain: "acme.com",
+    targetIndustry: "Technology",
+    meetingWith: "Jane Smith, VP Engineering",
+    meetingContext: "First discovery call — they're evaluating observability solutions",
+    meetingDate: "",
+    meetingTime: "14:00",
+    generatedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
+    generatedDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    sourcesActive: 0,
+    sourcesQuiet: 0,
+    intelItems: 0,
+    riskFlags: 0,
+    peopleFound: 0,
+    totalLinks: 0
+  },
+  scouting: {
+    whoTheyAre: "Brief description of who this company is and what they do.",
+    whatIsChanging: "What's shifting in their business right now that creates urgency.",
+    howWePlayIt: "The one-line strategy for this call."
+  },
+  companyFacts: [
+    { k: "Founded", v: "—" },
+    { k: "Ownership", v: "—" },
+    { k: "Headcount", v: "—" },
+    { k: "Revenue", v: "—" },
+    { k: "Stack signal", v: "—" },
+    { k: "Brief generated", v: "Just now" }
+  ],
+  sections: [],
+  people: [],
+  stack: [],
+  plays: [],
+  opener: {
+    lines: [
+      { type: "quote", text: "Opening line placeholder — replace with researched opener." },
+      { type: "beat", text: "Beat. Let them respond." },
+      { type: "quote", text: "Follow-up line — tie their language back to your product." }
+    ],
+    stageDirection: "Do not open the deck for at least 8 minutes. Earn it.",
+    handNote: "— briefed by The Approach"
+  },
+  discovery: {
+    business: [
+      "What's the biggest operational bet you're making this quarter?",
+      "How do you currently measure success across your key systems?",
+      "Who else shares ownership of this problem with you?"
+    ],
+    technical: [
+      "Walk me through your current observability stack.",
+      "Where do you have visibility gaps today?",
+      "What does your incident-response process look like end-to-end?"
+    ]
+  },
+  risks: [],
+  sources: [],
+  safety: { total: 0, clean: 0, flagged: 0, scannedAt: "" }
+};
+
+/* ─── Load data ─── */
+const D = (window.APPROACH_DATA && typeof window.APPROACH_DATA === 'object') ? window.APPROACH_DATA : SAMPLE_DATA;
+const C = D.config || {};
+
+/* ─── Helpers ─── */
+const $ = id => document.getElementById(id);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+/* ─── Countdown timer ─── */
+function renderCountdown() {
+  const pill = $('countdown-pill');
+  if (!C.meetingDate || !C.meetingTime) { pill.style.display = 'none'; return; }
+  const parts = C.meetingTime.split(':');
+  const meetStr = C.meetingDate + 'T' + (parts[0]||'14').padStart(2,'0') + ':' + (parts[1]||'00').padStart(2,'0') + ':00';
+  const meetMs = new Date(meetStr).getTime();
+  if (isNaN(meetMs)) { pill.style.display = 'none'; return; }
+  function tick() {
+    const diff = meetMs - Date.now();
+    if (diff <= 0) { pill.textContent = '▮ CALL IS NOW'; return; }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    pill.textContent = `T-MINUS ${h}H ${m}M`;
+    setTimeout(tick, 30000);
+  }
+  tick();
+}
+
+/* ─── Masthead ─── */
+function renderMasthead() {
+  document.title = `The Approach · ${C.targetCompany || 'Brief'} · ${C.generatedDate || ''}`;
+  $('page-title').textContent = document.title;
+
+  const d = new Date();
+  $('vol-issue').textContent = `VOL · I · NO · ${String(d.getFullYear()).slice(-2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  $('brief-date').textContent = (C.generatedDate || '').toUpperCase();
+  $('scan-info').textContent = `SCAN ${C.generatedAt || ''} · ${C.sourcesActive || 0} SOURCES`;
+  const deck = $('np-deck');
+  deck.innerHTML = `A field brief on <strong>${esc(C.targetCompany)}</strong> — ${esc(C.meetingContext || '')}${C.meetingDate ? ' · ' + esc(C.meetingDate) : ''}${C.meetingTime ? ' · ' + esc(C.meetingTime) : ''}.`;
+
+  $('np-greet').textContent = `Walk in heavy, ${(C.seller || 'you').split(' ')[0]}.`;
+  $('selling-meta').textContent = `SELLING · ${esc(C.sellerProduct || C.sellerCompany || '—')}`;
+  $('briefed-meta').textContent = 'AE + SE';
+
+  const safetyTotal = D.safety && D.safety.total ? D.safety.total : C.totalLinks || 0;
+  const safetyClean = D.safety && D.safety.clean ? D.safety.clean : safetyTotal;
+  $('safety-link').textContent = `▮ Link safety · ${safetyClean}/${safetyTotal} clean`;
+
+  $('interlude-eyes').textContent = `Eyes-on ${(C.seller || '').split(' ')[0]}`;
+}
+
+/* ─── Signal bar ─── */
+function renderSignalBar() {
+  const bar = $('signal-bar');
+  const facts = D.companyFacts && D.companyFacts.length ? D.companyFacts : SAMPLE_DATA.companyFacts;
+  const cols = facts.slice(0, 6);
+  while (cols.length < 6) cols.push({ k: '—', v: '—' });
+  bar.innerHTML = cols.map(f => `<div><span class="k">${esc(f.k)}</span><span class="v">${f.v || '—'}</span></div>`).join('');
+}
+
+/* ─── Scouting summary ─── */
+function renderScoutSummary() {
+  const s = D.scouting || {};
+  $('scout-who').textContent = s.whoTheyAre || '—';
+  $('scout-changing').textContent = s.whatIsChanging || '—';
+  $('scout-play').textContent = s.howWePlayIt || '—';
+  const hand = $('scout-hand');
+  if (C.seller) hand.textContent = `— briefed for ${C.seller.split(' ')[0]}`;
+}
+
+/* ─── People strip ─── */
+function renderPeople() {
+  const strip = $('people-strip');
+  if (!D.people || !D.people.length) return;
+  const label = el('div', 'people-strip-label', '▮ PEOPLE ON THIS CALL');
+  const cards = el('div', 'people-cards');
+  D.people.forEach(p => {
+    const card = el('div', 'person-card');
+    if (p.meetingRole) card.innerHTML += `<div class="role-stamp">${esc(p.meetingRole)}</div>`;
+    const init = el('div', 'person-initials', esc(p.initials || (p.name || '??').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()));
+    card.appendChild(init);
+    card.innerHTML += `<div class="person-name">${esc(p.name || '—')}</div>`;
+    card.innerHTML += `<div class="person-title">${esc(p.title || '')}</div>`;
+    if (p.recentSignal) card.innerHTML += `<div class="person-signal">${esc(p.recentSignal)}</div>`;
+    if (p.linkedinUrl) card.innerHTML += `<a class="person-linkedin" href="${esc(p.linkedinUrl)}" target="_blank" rel="noopener">↗ LinkedIn</a>`;
+    cards.appendChild(card);
+  });
+  strip.appendChild(label);
+  strip.appendChild(cards);
+}
+
+/* ─── Section HTML builder ─── */
+function buildSectionHTML(sec, idx) {
+  const kicker = sec.kicker || `Section ${idx+1}`;
+  const title  = sec.title  || '—';
+  const sub    = sec.sub    || '';
+  const lead   = sec.lead   || null;
+  const items  = sec.items  || [];
+
+  let html = `<section class="sec" id="${esc(sec.id || 'sec-' + idx)}">`;
+  html += `<div class="sec-eyebrow">
+    <span class="sec-kicker">${esc(kicker)}</span>
+    <span class="sec-label">${esc(title)}</span>
+    ${sub ? `<span class="sec-sub">${esc(sub)}</span>` : ''}
+  </div>`;
+
+  if (lead) {
+    html += `<article class="lead">`;
+    html += `<div class="item-meta">
+      <span class="dot ${esc(lead.tier||'d3')}"></span>
+      <span class="src">${esc(lead.src||'')}</span>
+      ${lead.date ? `<span class="date">${esc(lead.date)}</span>` : ''}
+      ${(lead.tags||[]).map(t=>`<span class="tag t-type">${esc(t)}</span>`).join('')}
+      ${lead.url ? `<a href="${esc(lead.url)}" target="_blank" rel="noopener" class="tag">↗ Source</a>` : ''}
+    </div>`;
+    if (lead.hl)   html += `<h3 class="hl">${esc(lead.hl)}</h3>`;
+    if (lead.deck) html += `<p class="deck">${esc(lead.deck)}</p>`;
+    if (lead.body) html += `<p class="body-text">${esc(lead.body)}</p>`;
+    if (lead.marginNote) html += `<p class="margin-note">${esc(lead.marginNote)}</p>`;
+    if (lead.callout) {
+      const co = lead.callout;
+      html += `<div class="callout"><div class="k">${esc(co.label||'What to do with this')}</div>${esc(co.body||co)}</div>`;
+    }
+    html += `</article>`;
+  }
+
+  if (items.length) {
+    html += `<div class="grid">`;
+    items.forEach(it => {
+      html += `<div class="item">
+        <div class="item-meta">
+          <span class="dot ${esc(it.tier||'d3')}"></span>
+          <span class="src">${esc(it.src||'')}</span>
+          ${it.date ? `<span class="date">${esc(it.date)}</span>` : ''}
+        </div>
+        <h4 class="hl">${esc(it.hl||'—')}</h4>
+        ${it.body ? `<p class="body-text">${esc(it.body)}</p>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (sec.callout) {
+    const co = sec.callout;
+    html += `<div class="callout"><div class="k">${esc(co.label||'What to do with this')}</div>${esc(co.body||co)}</div>`;
+  }
+
+  html += `</section>`;
+  return html;
+}
+
+/* ─── Render sections by act ─── */
+function renderSections() {
+  const act1 = $('act1-sections');
+  const act2 = $('act2-sections');
+  const sections = D.sections || [];
+  sections.forEach((sec, idx) => {
+    const html = buildSectionHTML(sec, idx);
+    if (sec.act === 2) act2.innerHTML += html;
+    else act1.innerHTML += html;
+  });
+}
+
+/* ─── Stack section ─── */
+function renderStack() {
+  const wrap = $('stack-section');
+  if (!D.stack || !D.stack.length) return;
+  let html = `<section class="sec" id="stack">
+    <div class="sec-eyebrow">
+      <span class="sec-kicker">Stack</span>
+      <span class="sec-label">Tech stack &amp; integrations</span>
+      <span class="sec-sub">Inferred from job postings, BuiltWith, and public signals. Confirm in discovery.</span>
+    </div>
+    <table class="integ-table">
+      <thead><tr><th>Layer</th><th>Tool</th><th>Fit</th><th>Evidence / note</th></tr></thead>
+      <tbody>`;
+  D.stack.forEach(row => {
+    const fitClass = row.fit === 'gap' ? ' gap' : row.fit === 'unk' ? ' unk' : '';
+    html += `<tr>
+      <td class="cat">${esc(row.layer||'—')}</td>
+      <td class="tool">${esc(row.tool||'—')}</td>
+      <td class="fit${fitClass}">${esc(row.fitLabel||row.fit||'—')}</td>
+      <td class="evidence">${esc(row.evidence||row.note||'—')}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  if (D.stackCallout) html += `<div class="callout"><div class="k">For the SE</div>${esc(D.stackCallout)}</div>`;
+  html += `</section>`;
+  wrap.innerHTML = html;
+}
+
+/* ─── Plays (V2 run-when/audible style on cream) ─── */
+function renderPlays() {
+  const wrap = $('plays-section');
+  if (!D.plays || !D.plays.length) return;
+  let html = `<div class="plays-section" id="plays">
+    <div class="plays-section-eyebrow">
+      <span class="sec-kicker">Plays</span>
+      <span class="sec-label">Playbook — load these</span>
+      <span class="sec-sub" style="flex-basis:100%;margin-top:2px;">Ranked. Highest signal first. Run P1, have P2 warm, P3 is the stretch.</span>
+    </div>
+    <div class="plays-grid">`;
+  D.plays.forEach((play, idx) => {
+    const isPrimary = play.num === 1 || idx === 0;
+    const cls = `play${isPrimary ? ' p1' : ''}`;
+    html += `<div class="${cls}" id="play-${play.num||idx+1}">`;
+    html += `<div class="play-head">
+      <div class="play-num">P${play.num||idx+1}</div>
+      <div>
+        <div class="play-title">${esc(play.title||'—')}</div>
+        <div class="play-cat">${esc(play.cat||play.audience||'')}</div>
+      </div>
+    </div>`;
+    if (play.finding) html += `<p class="play-finding">${esc(play.finding)}</p>`;
+    if (play.intel && play.intel.length) {
+      html += `<ul class="play-intel">`;
+      play.intel.forEach(item => {
+        html += `<li>${esc(item.body||item)}${item.src ? `<span class="src">${esc(item.src)}${item.srcDate ? ' · ' + esc(item.srcDate) : ''}</span>` : ''}</li>`;
+      });
+      html += `</ul>`;
+    }
+    if (play.runWhen || play.audible) {
+      html += `<div class="play-foot">`;
+      if (play.runWhen) html += `<span class="run">${esc(play.runWhen)}</span>`;
+      if (play.audible) html += `<span class="aud">${esc(play.audible)}</span>`;
+      html += `</div>`;
+    }
+    if (play.handNote) html += `<div class="play-hand">${esc(play.handNote)}</div>`;
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+  wrap.innerHTML = html;
+}
+
+/* ─── Risk flags ─── */
+function renderRisks() {
+  const wrap = $('risks-section');
+  if (!D.risks || !D.risks.length) return;
+  let html = `<section class="sec" id="risk">
+    <div class="sec-eyebrow">
+      <span class="sec-kicker">Flags</span>
+      <span class="sec-label">Risk flags</span>
+      <span class="sec-sub">Compliance, contracting, and anything that should make us slow down, not speed up.</span>
+    </div>
+    <div class="risk-list">`;
+  D.risks.forEach(r => {
+    const cls = `risk${(r.level||'').toLowerCase().includes('amber') ? ' amber' : ''}`;
+    html += `<div class="${cls}">
+      <span class="level">${esc(r.level||'—')}</span>
+      <div>
+        <h4>${esc(r.title||'—')}</h4>
+        <p>${esc(r.body||'')}</p>
+      </div>
+    </div>`;
+  });
+  html += `</div></section>`;
+  wrap.innerHTML = html;
+}
+
+/* ─── Opener script ─── */
+function renderOpener() {
+  const op = D.opener || {};
+  const lines = op.lines || [];
+  let html = '';
+  lines.forEach(line => {
+    if (line.type === 'quote') html += `<div class="quote">"${esc(line.text)}"</div>`;
+    else if (line.type === 'beat') html += `<p class="beat">${esc(line.text)}</p>`;
+    else html += `<p>${esc(line.text)}</p>`;
+  });
+  if (op.stageDirection) html += `<div class="stage">${esc(op.stageDirection)}</div>`;
+  if (op.handNote) html += `<div class="hand">${esc(op.handNote)}</div>`;
+  $('opener-script').innerHTML = html;
+}
+
+/* ─── Discovery questions ─── */
+function renderDiscovery() {
+  const disc = D.discovery || {};
+  const biz = disc.business || [];
+  const tech = disc.technical || [];
+  let html = '';
+  if (biz.length) {
+    html += `<div class="col"><h4>▮ Business questions (AE)</h4><ol>`;
+    biz.forEach(q => html += `<li>${esc(q)}</li>`);
+    html += `</ol></div>`;
+  }
+  if (tech.length) {
+    html += `<div class="col"><h4>▮ Technical questions (SE)</h4><ol>`;
+    tech.forEach(q => html += `<li>${esc(q)}</li>`);
+    html += `</ol></div>`;
+  }
+  $('discovery-section').innerHTML = html;
+}
+
+/* ─── Sources ─── */
+function renderSources() {
+  const sources = D.sources || [];
+  const active = sources.filter(s => s.status !== 'quiet');
+  const quiet  = sources.filter(s => s.status === 'quiet');
+  $('sources-header').textContent = `▮ Sources scanned · ${active.length} active · ${quiet.length} quiet`;
+  const grid = $('sources-grid');
+  sources.forEach(s => {
+    const row = el('div', 'src-row');
+    row.innerHTML = `<span class="dot ${esc(s.tier||'d3')}"></span><span class="nm">${esc(s.nm||'—')}</span><span class="ct">${s.status==='quiet' ? '— quiet' : (s.ct ? s.ct + ' items' : '—')}</span>`;
+    grid.appendChild(row);
+  });
+}
+
+/* ─── Safety panel ─── */
+function renderSafety() {
+  const safety = D.safety || {};
+  const total  = safety.total  || C.totalLinks || 0;
+  const clean  = safety.clean  || total;
+  const flagged = safety.flagged || 0;
+  $('safety-text').innerHTML = `<strong>LINK SAFETY · ${clean}/${total} URLS ${flagged ? '<span style="color:var(--blood)">⚠ ' + flagged + ' FLAGGED</span>' : 'CLEAN'}</strong>`;
+  $('safety-stat').textContent = flagged ? 'See flagged domains above before forwarding.' : 'No flagged domains. No tracking redirects. No credential-harvest patterns.';
+  $('safety-time').textContent = safety.scannedAt ? `Scanned ${safety.scannedAt}` : (C.generatedAt ? `Scanned ${C.generatedAt}` : '');
+}
+
+/* ─── Colophon ─── */
+function renderColophon() {
+  $('colophon').innerHTML = `Briefed by <span class="brand">The Approach<span class="sq"></span></span> · part of <span class="brand">The Loadout<span class="sq"></span></span> · Iron Log<br>
+  Generated ${C.generatedAt || ''} on ${C.generatedDate || ''} for ${esc(C.seller||'you')} / ${esc(C.sellerCompany||'')} · Field Brief v0.1<br>
+  <em>Read it once. Walk in heavy.</em>`;
+}
+
+/* ─── Scroll nav builder ─── */
+function buildSecNav() {
+  const nav = $('secnav');
+  nav.innerHTML = '';
+  const append = (cls, text, href) => {
+    const s = el('span', cls, text);
+    if (href) { const a = el('a','',text); a.href = href; nav.appendChild(a); } else nav.appendChild(s);
+  };
+  const sections = D.sections || [];
+  const act1 = sections.filter(s => s.act !== 2);
+  const act2 = sections.filter(s => s.act === 2);
+  if (act1.length) {
+    append('group-label', 'Business ▮');
+    act1.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
+  }
+  const sep = el('span','divider','·');
+  nav.appendChild(sep);
+  if (act2.length || D.stack && D.stack.length) {
+    append('group-label', 'Technical ▮');
+    act2.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
+    if (D.stack && D.stack.length) { const a = el('a','','Stack'); a.href = '#stack'; nav.appendChild(a); }
+  }
+  if (D.plays && D.plays.length) { const a = el('a','','Plays'); a.href = '#plays'; nav.appendChild(a); }
+  if (D.risks && D.risks.length) { const a = el('a','','Risk'); a.href = '#risk'; nav.appendChild(a); }
+}
+
+/* ─── Scroll spy ─── */
+function initScrollSpy() {
+  const links = document.querySelectorAll('.secnav a[href^="#"]');
+  const map = new Map();
+  links.forEach(a => {
+    const id = a.getAttribute('href').slice(1);
+    const sec = document.getElementById(id);
+    if (sec) map.set(sec, a);
+  });
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('on'));
+        const a = map.get(e.target);
+        if (a) a.classList.add('on');
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  map.forEach((_, sec) => io.observe(sec));
+}
+
+/* ─── Boot ─── */
+renderMasthead();
+renderCountdown();
+renderSignalBar();
+renderScoutSummary();
+renderPeople();
+renderSections();
+buildSecNav();
+renderStack();
+renderPlays();
+renderRisks();
+renderOpener();
+renderDiscovery();
+renderSources();
+renderSafety();
+renderColophon();
+initScrollSpy();
+
+</script>
+</body>
+</html>

@@ -34,11 +34,18 @@ Every brief renders as a live HTML artifact — charcoal background, oxblood acc
 
 → [Read The Warmup's documentation](warmup/README.md)
 
+### [The Approach](the-approach/)
+
+A pre-meeting intelligence brief that turns a simple markdown config into a structured HTML field brief — decision makers, live signals, tech stack, competitive plays, risks, and discovery questions — rendered in the Mission Built instrument-panel style.
+
+Built for enterprise sales calls, QBRs, and executive meetings where walking in cold is not an option. Configure once per account, regenerate before every call.
+
+→ [Read The Approach's documentation](the-approach/README.md)
+
 ## Planned
 
 Future skills in the kit. Names tentative, scope under exploration:
 
-- **The Walkthrough** — customer meeting prep that pulls recent activity and predicts where the conversation may head
 - **The Sitrep** — status updates that respect the reader's time
 - **Form Check** — code or design review with the same lift-not-gate orientation
 - **The Cooldown** — retros and post-mortems that learn forward, not blame backward
