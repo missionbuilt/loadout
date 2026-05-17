@@ -785,12 +785,17 @@ Area name + category mapping (use exactly, in order):
               `  d. Call update_artifact with the workspace file path.\n\n` +
               `### PATH B — First review, engine update, or legacy rebuild\n\n` +
               `  a. Call spotter_get_template({ intent: "...", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
-              `     The tool returns a complete HTML string — this IS the file content. Nothing to extract.\n` +
-              `     If response begins with "[spotter_get_template ERROR", call it again.\n` +
+              `     The tool returns a complete, self-contained HTML string.\n\n` +
+              `     ⛔ If the tool fails, returns a network/sandbox error, or returns anything other than valid HTML:\n` +
+              `        STOP. Write to chat: "spotter_get_template failed — cannot create artifact. Please try again."\n` +
+              `        Do NOT fall back to reading rawjs files. Do NOT read spotter-shell.rawjs or any missionbuilt-mcp source files.\n` +
+              `        Do NOT attempt to construct or reconstruct the HTML yourself under any circumstances.\n\n` +
+              `     ⛔ If response begins with "[spotter_get_template ERROR", call it one more time. If it fails again, STOP.\n\n` +
               `  b. Write file tool:\n` +
               `       file_path: [workspace]/spotter-[epic-slug].html\n` +
               `       content: <the EXACT full text returned by spotter_get_template — unmodified, verbatim>\n` +
               `     ⚠ Do NOT use bash. ⚠ Do NOT use Edit. ⚠ Do NOT compose or modify the HTML yourself.\n` +
+              `     The HTML is ~1600 lines. Write the entire thing — do not truncate.\n` +
               `  c. Call create_artifact (first time) or update_artifact (re-run):\n` +
               `       id: "spotter-[epic-slug]"\n` +
               `       html_path: "[workspace]/spotter-[epic-slug].html"\n` +
