@@ -757,9 +757,16 @@ Area name + category mapping (use exactly, in order):
               `Note: spotter_get_template is an MCP tool call to the Loadout server — it is required and permitted. It is not a web fetch.\n\n` +
               `## Step 1 — Setup\n\n` +
               `a. Call list_artifacts.\n` +
-              `b. Find workspace root: take the html_path of any existing artifact and strip the filename.\n` +
-              `   e.g. "/Users/jane/Projects/loadout/warmup-brief.html" → workspace root is "/Users/jane/Projects/loadout"\n` +
-              `   If no artifacts exist, use the Cowork selected folder from your system context.\n` +
+              `b. Find workspace root:\n` +
+              `   • Artifacts exist → take the html_path of any artifact and strip the filename.\n` +
+              `     e.g. "/Users/jane/Projects/loadout/warmup-brief.html" → "/Users/jane/Projects/loadout"\n` +
+              `   • No artifacts exist → find the user's selected workspace folder in your system context.\n` +
+              `     It is the folder the user mounted in Cowork — a short, human-readable path like /Users/[name]/Projects/[folder].\n` +
+              `     It is NOT the working directory, outputs folder, or any session/temp path.\n\n` +
+              `   Validate before continuing — if the workspace root contains any of these strings, you have the WRONG path:\n` +
+              `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
+              `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
+              `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n\n` +
               `c. Set target file: [workspace-root]/spotter-[epic-slug].html\n` +
               `   e.g. epic "Comments on Dashboards" → spotter-comments-on-dashboards.html\n` +
               `d. Determine path:\n` +
@@ -767,8 +774,6 @@ Area name + category mapping (use exactly, in order):
               `   • Artifact exists → Read lines 1–3 of the workspace file (offset:0, limit:3)\n` +
               `     Line 2 is exactly "<!-- spotter-engine: v${SPOTTER_VERSION} -->" → PATH A\n` +
               `     Anything else, or cannot read → PATH B\n\n` +
-              `The workspace root is always a user folder like /Users/[name]/…\n` +
-              `Never use a path containing "Application Support", "sessions", "outputs", or "uploads".\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
               `a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).\n` +
               `b. Grade all nine areas against the epic. Keep grades internal — do not write them to chat.\n` +
