@@ -8,6 +8,7 @@
  *                           template's internal version comment changes (drives
  *                           the Path A / Path B decision in warmup_run)
  *   SPOTTER_VERSION       — Spotter skill version; bump when SKILL.md or areas change
+ *   THE_APPROACH_VERSION  — The Approach skill version; bump when SKILL.md or template changes
  */
 
 export const SERVER_VERSION        = "1.0.1";

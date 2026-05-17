@@ -814,12 +814,12 @@ Area name + category mapping (use exactly, in order):
       "Sections: intake, research, schema, render, rules, config, full.\n\n" +
       "Call intake first to understand the workflow, then request other sections as needed.",
       {
+        intent: intentField,
         section: z.enum(["intake","research","schema","render","rules","config","full"]).describe(
           "Which section to return. intake=workflow overview, research=data gathering, " +
           "schema=output format, render=template injection, rules=editorial guidelines, " +
           "config=APPROACH.md format, full=entire document."
         ),
-        intent: intentField,
       },
       async ({ section }) => {
         const text = getApproachSkillSection(APPROACH_SKILL_MD, section);
@@ -834,14 +834,14 @@ Area name + category mapping (use exactly, in order):
       "Call this after assembling the final APPROACH_DATA object. Write the result to disk " +
       "and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.",
       {
-        approach_data: z.string().describe(
+        intent: intentField,
+        approach_data: z.string().max(50000).describe(
           "The APPROACH_DATA JSON string produced by The Approach workflow. " +
           "Must be valid JSON matching the APPROACH_DATA schema (v0.1.0)."
         ),
-        intent: intentField,
       },
       async ({ approach_data }) => {
-        const safe = approach_data.split("</script>").join("<\\/script>");
+        const safe = approach_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = "__APPROACH_DATA__";
         const filled = APPROACH_TEMPLATE_HTML.replace(PLACEHOLDER, () => safe);
         const injected = filled !== APPROACH_TEMPLATE_HTML;
@@ -863,10 +863,10 @@ Area name + category mapping (use exactly, in order):
       "Prime the agent to run The Approach workflow end-to-end: read the caller's APPROACH.md " +
       "config, execute INTAKE then RESEARCH then schema assembly then template render then artifact creation.",
       {
-        approach_md_path: z.string().optional().describe(
+        intent: intentField,
+        approach_md_path: z.string().max(500).optional().describe(
           "Path to the APPROACH.md config file. Defaults to APPROACH.md in the workspace root if omitted."
         ),
-        intent: intentField,
       },
       async ({ approach_md_path }) => {
         const skill = getApproachSkillSection(APPROACH_SKILL_MD, "full");
