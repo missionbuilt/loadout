@@ -740,6 +740,19 @@ Area name + category mapping (use exactly, in order):
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
               `## Your job in one sentence\n\n` +
               `Grade the epic, build SPOTTER_DATA, create or update the Cowork artifact — then write ONE line to chat. That is all.\n\n` +
+              `## Global tool rules — apply at every step, no exceptions\n\n` +
+              `These constraints are active from the moment you start until you finish. They are not path-specific.\n\n` +
+              `1. File tools only. The only tools you may use to touch files are: Read, Write, Edit, Grep.\n` +
+              `   bash / mcp__workspace__bash is never permitted. Not in STEP 1. Not in STEP 2. Not in STEP 3. Never.\n\n` +
+              `2. No network calls. You may not fetch any URL at any point.\n` +
+              `   WebFetch, web_fetch, curl, wget, and any HTTP request are forbidden.\n` +
+              `   Do not fetch mcp.missionbuilt.io. Do not fetch the spotter shell script. Do not fetch anything.\n` +
+              `   The artifact HTML returned by spotter_get_template is fully self-contained — the renderer is already inlined.\n` +
+              `   There is nothing to fetch, verify, or supplement.\n\n` +
+              `3. No self-assembly. Never write, compose, or reconstruct HTML yourself under any circumstances.\n` +
+              `   If you cannot get valid HTML from spotter_get_template, STOP and say so in chat. That is the only option.\n\n` +
+              `4. PATH B write sequence is locked. In PATH B, after spotter_get_template returns:\n` +
+              `   The next tool call must be Write. No exceptions. Reason below in STEP 3.\n\n` +
               `## ⚠ THE ONLY CHAT OUTPUT\n\n` +
               `You are NOT writing a review to chat. You are NOT outputting lenses, grades, verdicts, or findings to chat.\n` +
               `The review lives entirely inside the Cowork artifact. Your chat response is ONE line, written only AFTER the artifact is registered:\n\n` +
@@ -781,8 +794,6 @@ Area name + category mapping (use exactly, in order):
               `     epicBody is displayed at the bottom of the report — include the complete unmodified epic text.\n\n` +
               `When SPOTTER_DATA is ready: go directly to STEP 3. Do NOT write anything to chat yet.\n\n` +
               `## STEP 3 — Create the artifact (mandatory — do not skip)\n\n` +
-              `⚠ File tools only (Read / Write / Edit / Grep). Do NOT use bash or shell commands.\n` +
-              `⚠ NEVER write or reconstruct HTML yourself — the correct design lives only in spotter_get_template.\n\n` +
               `### PATH A — Re-review (engine version matched)\n\n` +
               `  a. Grep the workspace file for the line number of '<script id="spotter-data">'.\n` +
               `  b. Read only the <script id="spotter-data">…</script> block (2–3 lines).\n` +
@@ -792,29 +803,43 @@ Area name + category mapping (use exactly, in order):
               `       </script>\n` +
               `  d. Call update_artifact with the workspace file path.\n\n` +
               `### PATH B — First review, engine update, or legacy rebuild\n\n` +
-              `  a. Call spotter_get_template({ intent: "...", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
-              `     The tool returns a complete, self-contained HTML string.\n\n` +
-              `     ⛔ If the tool fails, returns a network/sandbox error, or returns anything other than valid HTML:\n` +
-              `        STOP. Write to chat: "spotter_get_template failed — cannot create artifact. Please try again."\n` +
-              `        Do NOT fall back to reading rawjs files. Do NOT read spotter-shell.rawjs or any missionbuilt-mcp source files.\n` +
-              `        Do NOT attempt to construct or reconstruct the HTML yourself under any circumstances.\n\n` +
-              `     ⛔ If response begins with "[spotter_get_template ERROR", call it one more time. If it fails again, STOP.\n\n` +
-              `  b. Immediately after receiving the tool response, call the Write file tool.\n` +
-              `     Do NOT call Read, Grep, or any other tool between spotter_get_template and Write.\n` +
-              `     Do NOT read the workspace file, the rawjs, or anything else first.\n` +
-              `     The Write call must use:\n` +
-              `       file_path: [workspace-root]/spotter-[epic-slug].html    ← the workspace-root you found in STEP 1a\n` +
-              `       content: <the EXACT full text returned by spotter_get_template — unmodified, verbatim>\n` +
-              `     ⚠ Do NOT use bash. ⚠ Do NOT use Edit. ⚠ Do NOT compose or modify the HTML yourself.\n` +
-              `     ⚠ The file_path MUST be inside the workspace root — never inside Application Support, sessions, or outputs.\n` +
-              `  c. Call create_artifact (first time) or update_artifact (re-run):\n` +
-              `       id: "spotter-[epic-slug]"\n` +
-              `       html_path: [workspace-root]/spotter-[epic-slug].html    ← same path you wrote in step b\n` +
-              `     The html_path must be the same workspace-root path used in step b. Not an outputs path.\n\n` +
-              `## STEP 4 — Write ONE line to chat\n\n` +
-              `The artifact is registered. Now write your only chat output:\n\n` +
-              `  "[N] areas · [N] pass · [N] needs work · [N] missing · [verdict]"\n\n` +
-              `Nothing else.\n\n` +
+              `PATH B is a three-step sequence. You are only permitted to call these three tools, in this order:\n` +
+              `  spotter_get_template → Write → create_artifact (or update_artifact)\n` +
+              `Any other tool call in between is a protocol violation that will produce a blank artifact.\n\n` +
+              `STEP B-1. Call spotter_get_template.\n` +
+              `  spotter_get_template({ intent: "...", spotter_data: JSON.stringify(SPOTTER_DATA) })\n` +
+              `  This returns a complete, self-contained HTML document.\n` +
+              `  The JavaScript renderer is already fully inlined inside it — there are no external scripts to fetch.\n` +
+              `  You do not need to verify this. You do not need to fetch mcp.missionbuilt.io or any URL.\n` +
+              `  You do not need to read any rawjs file. The HTML is complete and ready to write as-is.\n\n` +
+              `  If spotter_get_template fails or returns "[spotter_get_template ERROR":\n` +
+              `    Retry once. If it fails again: write to chat "spotter_get_template failed — please try again." Then STOP.\n` +
+              `    There is no fallback. Do not attempt bash, WebFetch, file reads, or self-assembly. STOP.\n\n` +
+              `STEP B-2. Immediately call Write — the very next tool call, no exceptions.\n` +
+              `  You are not permitted to call any other tool between spotter_get_template and Write.\n` +
+              `  Not Read. Not Grep. Not bash. Not mcp__workspace__bash. Not WebFetch. Not any MCP tool.\n` +
+              `  Not "let me check the file first." Not "let me verify the path." Not anything. Write immediately.\n` +
+              `  If you find yourself reasoning about doing something else first, stop — you are making an error.\n\n` +
+              `  Write parameters:\n` +
+              `    file_path: [workspace-root]/spotter-[epic-slug].html   ← from STEP 1a, already in memory\n` +
+              `    content: the exact text returned by spotter_get_template, character for character, unmodified\n\n` +
+              `  The file_path must be the workspace root you found in STEP 1a — a user folder like /Users/[name]/…\n` +
+              `  Never write to any path containing "Application Support", "sessions", "outputs", or "uploads".\n\n` +
+              `STEP B-3. Call create_artifact (first time) or update_artifact (re-run).\n` +
+              `  id: "spotter-[epic-slug]"\n` +
+              `  html_path: the identical file_path used in STEP B-2\n\n` +
+              `## STEP 4 — Write the review summary to chat\n\n` +
+              `The artifact is registered. Now write your chat output — the full grade summary so the user can read results immediately while the report renders.\n\n` +
+              `Format it exactly like this:\n\n` +
+              `  Review results below — the full report is rendering in the artifact panel (may take a moment).\n\n` +
+              `  **[Overall verdict]** · [N] of 9 areas passed\n\n` +
+              `  | # | Area | Grade |\n` +
+              `  |---|------|-------|\n` +
+              `  | 1 | [area name] | ✓ Pass / ⚠️ Needs work / ✗ Missing |\n` +
+              `  | … | … | … |\n\n` +
+              `  [1–2 sentence closing take on the epic's biggest strength and the most important thing to address.]\n\n` +
+              `  *Full report → open the artifact panel. Questions? Reply here.*\n\n` +
+              `That is all. No prose beyond what the format above specifies.\n\n` +
               `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
               `Execute STEP 1 → STEP 2 → STEP 3 → STEP 4 in order. No chat output until STEP 4.`,
           },
