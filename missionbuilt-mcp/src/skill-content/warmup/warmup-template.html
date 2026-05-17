@@ -921,8 +921,8 @@
     cursor: pointer;
     transition: color 0.12s, border-color 0.12s;
   }
-  .btn-configure:hover, .btn-fullscreen:hover { color: var(--blood); border-color: var(--blood); }
-  .btn-fullscreen {
+  .btn-configure:hover { color: var(--blood); border-color: var(--blood); }
+  .tb-btn {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 500;
@@ -933,8 +933,12 @@
     border: 1px solid var(--rule);
     padding: 4px 11px;
     cursor: pointer;
-    transition: color 0.12s, border-color 0.12s;
+    transition: color 0.1s, border-color 0.1s, background 0.1s;
+    white-space: nowrap;
   }
+  .tb-btn:hover { color: var(--ink); background: var(--paper-tint); }
+  .tb-btn.save { color: var(--blood); }
+  .tb-btn.save:hover { color: var(--paper); background: var(--blood); border-color: var(--blood); }
   /* ── Export dropdown ── */
   .tb-export { position: relative; }
   .tb-dropdown {
@@ -962,46 +966,6 @@
   .tb-dropdown button.dd-primary { color: var(--blood); }
   .tb-dropdown button.dd-primary:hover { color: var(--paper); background: var(--blood); }
 
-  /* ── Presentation mode (CSS fallback when native fullscreen is blocked) ── */
-  html.presentation-mode {
-    position: fixed;
-    inset: 0;
-    overflow-y: auto;
-    z-index: 2147483646;
-    background: var(--paper);
-    width: 100%;
-    height: 100%;
-  }
-  html.presentation-mode body {
-    min-height: 100%;
-  }
-  html.presentation-mode .masthead-controls { display: none; }
-
-  /* Fullscreen exit button — fixed top-right corner, only visible in fullscreen */
-  .btn-fullscreen-exit {
-    display: none;
-    position: fixed;
-    top: 14px;
-    right: 18px;
-    z-index: 9999;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    padding: 4px 11px;
-    cursor: pointer;
-    transition: color 0.12s, border-color 0.12s;
-  }
-  .btn-fullscreen-exit:hover { color: var(--blood); border-color: var(--blood); }
-  :fullscreen .btn-fullscreen-exit,
-  :-webkit-full-screen .btn-fullscreen-exit { display: block; }
-  /* Hide the masthead controls row in fullscreen so they don't double up */
-  :fullscreen .masthead-controls,
-  :-webkit-full-screen .masthead-controls { display: none; }
 
   /* ════════════════════════════════════════════════════════════════════════
      OVERLAYS (Configure + Save PDF modals)
@@ -1367,7 +1331,7 @@
       gap: 6px;
       margin-bottom: 10px;
     }
-    .btn-configure, .tb-btn, .btn-fullscreen {
+    .btn-configure, .tb-btn {
       font-size: 9px;
       padding: 3px 8px;
     }
@@ -1405,9 +1369,8 @@ window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP
         <button onclick="window.print();closeExport()">Print / PDF</button>
       </div>
     </div>
-    <button type="button" class="btn-fullscreen" id="btn-fullscreen" aria-label="Enter fullscreen">Fullscreen</button>
+    <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
   </div>
-  <button type="button" class="btn-fullscreen-exit" id="btn-fullscreen-exit" aria-label="Exit fullscreen">Exit Fullscreen</button>
   <div class="masthead-inner">
     <div class="masthead-left">
       <p class="np-row1">
@@ -2979,84 +2942,27 @@ btn.textContent = 'Loading…';
   })(); } catch(e) { console.error('[Warmup:Export]', e); }
 
   // ── FULLSCREEN ──
-  // Attempts native Fullscreen API first. Artifacts run inside iframes, which
-  // may block the API depending on the host app's iframe sandbox policy.
-  // If the API call is rejected (or unavailable), we fall back to a CSS
-  // presentation mode that hides chrome and maximises the reading area.
-  try { (function () {
-    const btnEnter = document.getElementById('btn-fullscreen');
-    const btnExit  = document.getElementById('btn-fullscreen-exit');
-    if (!btnEnter) return;
-
-    let inPresentationMode = false;
-
-    function openInNewTab() {
-      // Open the brief as a standalone page in a new tab. The tab gets a full
-      // browser window so the user can hit F11 / ⌘+Ctrl+F for native fullscreen.
-      // We use a Blob URL so no document.write() or noopener flag is needed.
-      try {
-        const html = '<!DOCTYPE html>' + document.documentElement.outerHTML;
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url  = URL.createObjectURL(blob);
-        const win  = window.open(url, '_blank');
-        if (win) {
-          // Revoke after a generous delay — tab needs time to fully load
-          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
-          return true;
-        }
-        URL.revokeObjectURL(url);
-      } catch(e) { /* popup blocked or Blob API unavailable */ }
-      return false;
-    }
-
-    function applyPresentationMode() {
-      // Last-resort CSS fallback when both native fullscreen and popup are blocked.
-      inPresentationMode = true;
-      document.documentElement.classList.add('presentation-mode');
-      btnEnter.textContent = 'Exit FS';
-      if (btnExit) btnExit.style.display = 'block';
-    }
-    function removePresentationMode() {
-      inPresentationMode = false;
-      document.documentElement.classList.remove('presentation-mode');
-      btnEnter.textContent = 'Fullscreen';
-      if (btnExit) btnExit.style.display = '';
-    }
-
-    function enterFS() {
-      const el = document.documentElement;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  function toggleFullscreen() {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
       if (req) {
-        const result = req.call(el);
-        // requestFullscreen returns a Promise — if rejected (iframe sandbox blocks it),
-        // fall back to opening in a new tab. Only CSS-mode if tab also fails.
-        if (result && typeof result.catch === 'function') {
-          result.catch(() => { if (!openInNewTab()) applyPresentationMode(); });
-        }
-      } else {
-        // No native API available — try new tab first, CSS mode as last resort.
-        if (!openInNewTab()) applyPresentationMode();
+        req.call(el).catch(function(err) {
+          console.warn('[Warmup:Fullscreen] blocked —', err && err.message ? err.message : err);
+        });
       }
     }
-    function exitFS() {
-      if (inPresentationMode) { removePresentationMode(); return; }
-      const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
-      if (ex) ex.call(document);
-    }
-
-    btnEnter.addEventListener('click', () => inPresentationMode ? exitFS() : enterFS());
-    if (btnExit) btnExit.addEventListener('click', exitFS);
-
-    // Keep button label in sync when native fullscreen state changes
-    function onFSChange() {
-      const inNativeFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
-      if (!inPresentationMode) btnEnter.textContent = inNativeFS ? 'Exit FS' : 'Fullscreen';
-    }
-    document.addEventListener('fullscreenchange', onFSChange);
-    document.addEventListener('webkitfullscreenchange', onFSChange);
-    document.addEventListener('mozfullscreenchange', onFSChange);
-    document.addEventListener('MSFullscreenChange', onFSChange);
-  })(); } catch(e) { console.error('[Warmup:Fullscreen]', e); }
+  }
+  document.addEventListener('fullscreenchange', function() {
+    const btn = document.getElementById('fs-btn');
+    if (btn) btn.textContent = document.fullscreenElement ? '← Exit' : '⛶ Fullscreen';
+  });
+  document.addEventListener('webkitfullscreenchange', function() {
+    const btn = document.getElementById('fs-btn');
+    if (btn) btn.textContent = document.webkitFullscreenElement ? '← Exit' : '⛶ Fullscreen';
+  });
 </script>
 
 </body>

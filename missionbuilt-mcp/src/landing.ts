@@ -96,13 +96,13 @@ export function renderLanding(args: LandingArgs): string {
 
     <section class="mb-section">
       <p class="mb-section-label">The Spotter</p>
-      <h2 class="mb-h2">Nine lenses. One verdict. No hiding.</h2>
-      <p class="mb-p">A structured review framework for B2B product epics. Nine lenses — from user empathy to trust and governance — each graded ✓ / ⚠️ / ✗. Lens 1 is the foundation. Lens 9 is the gate. The output is a verdict, a set of targeted flags, and an offer to work through every gap.</p>
+      <h2 class="mb-h2">Nine areas. One verdict. No hiding.</h2>
+      <p class="mb-p">A structured review framework for B2B product epics. Nine review areas — from user empathy to trust and governance — each graded ✓ / ⚠️ / ✗. Area 1 is the foundation. Area 9 is the gate. The output is a verdict, a set of targeted flags, and an offer to work through every gap.</p>
       <p class="mb-p">Paste an epic and say <em>run the spotter</em>. Or start from scratch with <em>help me build an epic for [feature]</em>.</p>
 
       <ul class="mb-tool-list">
         <li><code>spotter_get_skill</code><span>Returns the full SKILL.md framework</span></li>
-        <li><code>spotter_list_lenses</code><span>Returns the nine lenses with weight notes</span></li>
+        <li><code>spotter_list_areas</code><span>Returns the nine review areas with weight notes</span></li>
         <li><code>spotter_get_examples</code><span>Returns 64 worked examples with teaching notes</span></li>
         <li><code>spotter_get_calibration_epic</code><span>Returns synthetic calibration epic #1 with deliberate gaps</span></li>
         <li><code>spotter_get_calibration_epics</code><span>Returns all three calibration epics for batch grading</span></li>

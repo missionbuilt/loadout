@@ -127,11 +127,11 @@ a { color: inherit; text-decoration: none; }
    PRINT — clean PDF output
    ══════════════════════════════════════════════════════ */
 @media print {
-  .toolbar, .rail, .lens-actions, .closing-cta { display: none !important; }
+  .toolbar, .rail, .area-actions, .closing-cta { display: none !important; }
   body { background: white !important; background-image: none !important; }
-  .lens { page-break-inside: avoid; display: block !important; }
-  .lens-body { margin-top: 16px; }
-  .lens-stage { position: static !important; }
+  .area { page-break-inside: avoid; display: block !important; }
+  .area-body { margin-top: 16px; }
+  .area-stage { position: static !important; }
   .cover, .closing { page-break-inside: avoid; }
 
   /* Preserve red square background in PDF */
@@ -157,7 +157,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ══════════════════════════════════════════════════════
-   BUILD MODE — artifact header, platform board, lens tiles
+   BUILD MODE — artifact header, platform board, area tiles
    ══════════════════════════════════════════════════════ */
 .build-view {
   padding: 28px 32px 48px;
@@ -391,8 +391,8 @@ a { color: inherit; text-decoration: none; }
 }
 .ready-alt a:hover { color: var(--blood); border-color: var(--blood); }
 
-/* — Lens summary grid — transition mode — */
-.lens-summary {
+/* — Area summary grid — transition mode — */
+.area-summary {
   margin-top: 36px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -427,7 +427,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink);
 }
 
-/* — Lens tiles — build mode — */
+/* — Area tiles — build mode — */
 .tile {
   border: 1px solid var(--rule);
   background: var(--paper);
@@ -649,7 +649,7 @@ a { color: inherit; text-decoration: none; }
 .tease-fade { height: 140px; }
 
 /* ══════════════════════════════════════════════════════
-   REVIEW MODE — cover, rail, epic card, lens cards, closing
+   REVIEW MODE — cover, rail, epic card, area cards, closing
    ══════════════════════════════════════════════════════ */
 
 /* — Cover — */
@@ -852,8 +852,8 @@ a { color: inherit; text-decoration: none; }
 }
 .epic-meta strong { color: var(--ink); margin-right: 5px; letter-spacing: 0.18em; }
 
-/* — Per-lens cards — review mode — */
-.lens {
+/* — Per-area cards — review mode — */
+.area {
   padding: 64px 64px 52px;
   border-bottom: 1px solid var(--rule);
   display: grid;
@@ -864,15 +864,15 @@ a { color: inherit; text-decoration: none; }
   max-width: 1400px;
   margin: 0 auto;
 }
-.lens.no-lift::before {
+.area.no-lift::before {
   content: '';
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 4px;
   background: var(--blood);
 }
-.lens-stage { position: sticky; top: 72px; }
-.lens-num {
+.area-stage { position: sticky; top: 72px; }
+.area-num {
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 14px;
@@ -880,8 +880,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-faint);
   margin-bottom: 10px;
 }
-.lens-num strong { color: var(--blood); margin-right: 10px; font-weight: 700; }
-.lens-title {
+.area-num strong { color: var(--blood); margin-right: 10px; font-weight: 700; }
+.area-title {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 32px;
@@ -891,7 +891,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink);
   margin-bottom: 12px;
 }
-.lens-category {
+.area-category {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.24em;
@@ -901,23 +901,23 @@ a { color: inherit; text-decoration: none; }
   padding-bottom: 20px;
   border-bottom: 1px solid var(--rule);
 }
-.lens-lights { display: flex; gap: 10px; margin-bottom: 14px; }
-.lens-lights .light {
+.area-lights { display: flex; gap: 10px; margin-bottom: 14px; }
+.area-lights .light {
   width: 50px; height: 50px;
   border: 2px solid var(--ink);
 }
-.lens-lights .light.w { background: var(--paper); }
-.lens-lights .light.r { background: var(--blood); border-color: var(--blood); }
+.area-lights .light.w { background: var(--paper); }
+.area-lights .light.r { background: var(--blood); border-color: var(--blood); }
 /* Area verdict — Permanent Marker, matching cover verdict style */
-.lens-verdict {
+.area-verdict {
   font-family: var(--font-hand);
   font-size: 32px;
   line-height: 1;
   display: inline-block;
 }
-.lens-verdict.lift    { color: var(--army); }
-.lens-verdict.no-lift { color: var(--blood); }
-.lens-verdict-sub {
+.area-verdict.lift    { color: var(--army); }
+.area-verdict.no-lift { color: var(--blood); }
+.area-verdict-sub {
   display: block;
   margin-top: 12px;
   font-family: var(--font-mono);
@@ -926,8 +926,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--ink-faint);
   font-weight: 500;
 }
-.lens-body { padding-top: 4px; }
-.lens-finding {
+.area-body { padding-top: 4px; }
+.area-finding {
   font-family: var(--font-serif);
   font-size: 20px;
   font-style: italic;
@@ -937,8 +937,8 @@ a { color: inherit; text-decoration: none; }
   margin-bottom: 20px;
   max-width: 38ch;
 }
-.lens-finding em { font-style: normal; color: var(--blood); }
-.lens-body p {
+.area-finding em { font-style: normal; color: var(--blood); }
+.area-body p {
   font-family: var(--font-serif);
   font-size: 16px;
   line-height: 1.78;
@@ -946,15 +946,15 @@ a { color: inherit; text-decoration: none; }
   max-width: 60ch;
   margin-bottom: 14px;
 }
-.lens-body p strong { color: var(--ink); font-weight: 700; }
-.lens-body p em { color: var(--ink); font-style: italic; }
-.lens-actions {
+.area-body p strong { color: var(--ink); font-weight: 700; }
+.area-body p em { color: var(--ink); font-style: italic; }
+.area-actions {
   margin-top: 22px;
   padding-top: 20px;
   border-top: 1px solid var(--rule);
   display: flex; gap: 10px; flex-wrap: wrap;
 }
-.lens-action {
+.area-action {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.18em;
@@ -966,9 +966,9 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   transition: all 0.12s;
 }
-.lens-action:hover { color: var(--paper); background: var(--ink); }
-.lens-action.primary { color: var(--paper); background: var(--ink); }
-.lens-action.primary:hover { background: var(--blood); border-color: var(--blood); }
+.area-action:hover { color: var(--paper); background: var(--ink); }
+.area-action.primary { color: var(--paper); background: var(--ink); }
+.area-action.primary:hover { background: var(--blood); border-color: var(--blood); }
 /* Permanent Marker — margin notes */
 .hand-note {
   font-family: var(--font-hand);
@@ -1148,11 +1148,11 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 820px) {
   .build-view { padding: 18px 18px 32px; }
   .prologue, .stage, .review-tease { padding-left: 18px; padding-right: 18px; }
-  .lens-summary { grid-template-columns: 1fr; }
+  .area-summary { grid-template-columns: 1fr; }
   .ready-bar { flex-direction: column; align-items: flex-start; }
-  .cover, .rail, .lens, .closing, .review-footer, .epic-section, .epic-source { padding-left: 18px; padding-right: 18px; }
-  .lens { grid-template-columns: 1fr; gap: 20px; }
-  .lens-stage { position: static; }
+  .cover, .rail, .area, .closing, .review-footer, .epic-section, .epic-source { padding-left: 18px; padding-right: 18px; }
+  .area { grid-template-columns: 1fr; gap: 20px; }
+  .area-stage { position: static; }
   .verdict-row { grid-template-columns: 1fr; gap: 18px; }
   .vr-stats { grid-template-columns: 1fr 1fr 1fr; text-align: left; }
 }
@@ -1209,7 +1209,7 @@ Open questions
 - RBAC and data residency for regulated accounts incomplete`,
   },
   user: { name: 'Mike', timestamp: '16 May 2026' },
-  lenses: [
+  areas: [
     {
       id: 'user-and-problem',
       n: 1,
@@ -1366,7 +1366,7 @@ function exportHTML() {
 
 /* ── DEAD CODE placeholder — buildSpotterPDF removed in favour of HTML export ── */
 function buildSpotterPDF(data) {
-  var lenses  = data.lenses || [];
+  var areas  = data.areas || [];
   var epic    = data.epic   || {};
   var user    = data.user   || {};
 
@@ -1376,10 +1376,10 @@ function buildSpotterPDF(data) {
   var TW = PW - ML - ML;
 
   /* — Verdict — */
-  function lensResult(judges) {
+  function areaResult(judges) {
     return (judges || []).filter(function(j){ return j === 'r'; }).length >= 2 ? 'fail' : 'pass';
   }
-  var noFail  = lenses.filter(function(l){ return lensResult(l.judges) === 'fail'; }).length;
+  var noFail  = areas.filter(function(l){ return areaResult(l.judges) === 'fail'; }).length;
   var verdict = noFail === 0 ? 'Ready' : noFail <= 2 ? 'Needs Work' : 'Not Ready';
   var now     = new Date();
   var dateStr = user.timestamp ||
@@ -1497,14 +1497,14 @@ function buildSpotterPDF(data) {
   if(epic.name){ y = block(epic.name, ML, y, TW, 16, true, C_INK, 22); y -= 8; }
   var vC = verdict==='Ready' ? C_GREEN : C_RED;
   T(verdict.toUpperCase(), ML, y, 40, true, vC); y -= 52;
-  T((lenses.length-noFail)+' areas pass  .  '+noFail+' fail  .  '+lenses.length+' total', ML, y, 11, false, C_DIM); y -= 18;
+  T((areas.length-noFail)+' areas pass  .  '+noFail+' fail  .  '+areas.length+' total', ML, y, 11, false, C_DIM); y -= 18;
   T(san(dateStr)+(user.name ? '  .  '+san(user.name) : ''), ML, y, 9, false, C_FAINT); y -= 30;
   Rect(ML, y, TW, 0.5, C_FAINT); y -= 20;
 
   /* Area grid — 3 columns */
   var colW = TW/3;
-  for(var i=0; i<lenses.length; i++){
-    var l = lenses[i], res = lensResult(l.judges);
+  for(var i=0; i<areas.length; i++){
+    var l = areas[i], res = areaResult(l.judges);
     var col = i%3, row = Math.floor(i/3);
     var ax = ML+col*colW, ay = y-row*36;
     T(res==='pass'?'PASS':'FAIL', ax, ay, 8, true, res==='pass'?C_GREEN:C_RED);
@@ -1516,31 +1516,31 @@ function buildSpotterPDF(data) {
   finalizePage();
 
   /* ── Per-area pages ── */
-  for(var ai=0; ai<lenses.length; ai++){
-    var lens = lenses[ai], ares = lensResult(lens.judges);
+  for(var ai=0; ai<areas.length; ai++){
+    var a = areas[ai], ares = areaResult(a.judges);
     startPage();
     y = PH-MT;
 
-    T(String(lens.n).padStart(2,'0')+'  .  '+(lens.category||'Area').toUpperCase(), ML, y, 8, false, C_FAINT); y -= 15;
-    y = block(lens.name||'', ML, y, TW, 20, true, C_INK, 26); y -= 4;
+    T(String(a.n).padStart(2,'0')+'  .  '+(a.category||'Area').toUpperCase(), ML, y, 8, false, C_FAINT); y -= 15;
+    y = block(a.name||'', ML, y, TW, 20, true, C_INK, 26); y -= 4;
     T(ares==='pass'?'PASS':'FAIL', ML, y, 26, true, ares==='pass'?C_GREEN:C_RED); y -= 36;
-    var judges = lens.judges||['w','w','w'];
+    var judges = a.judges||['w','w','w'];
     T(judges.map(function(j){return j==='r'?'[FAIL]':'[PASS]';}).join('  '), ML, y, 8, false, C_DIM); y -= 18;
     Rect(ML, y, TW, 0.5, C_FAINT); y -= 14;
 
-    if(lens.question){
-      y = block(lens.question, ML, y, TW, 9, false, C_FAINT, 14); y -= 10;
+    if(a.question){
+      y = block(a.question, ML, y, TW, 9, false, C_FAINT, 14); y -= 10;
     }
-    if(lens.finding){
+    if(a.finding){
       T('FINDING', ML, y, 7, true, C_FAINT); y -= 13;
-      y = block(lens.finding, ML, y, TW, 11, false, C_INK, 17); y -= 10;
+      y = block(a.finding, ML, y, TW, 11, false, C_INK, 17); y -= 10;
     }
-    if(lens.spotterPull){
+    if(a.spotterPull){
       T('SPOTTER', ML, y, 7, true, C_GREEN); y -= 13;
-      y = block(lens.spotterPull, ML+12, y, TW-12, 10, false, C_DIM, 16); y -= 10;
+      y = block(a.spotterPull, ML+12, y, TW-12, 10, false, C_DIM, 16); y -= 10;
     }
-    if(lens.handNote){
-      y = block('> '+lens.handNote, ML, y, TW, 10, false, C_RED, 16); y -= 8;
+    if(a.handNote){
+      y = block('> '+a.handNote, ML, y, TW, 10, false, C_RED, 16); y -= 8;
     }
 
     footer();
@@ -1680,21 +1680,21 @@ function showToast(msg) {
   function pad2(n) { return String(n || '').padStart(2, '0'); }
 
   /* — Computed stats — */
-  function computeSummary(lenses) {
-    let lensesSet = 0, whites = 0, reds = 0, unset = 0;
+  function computeSummary(areas) {
+    let areasSet = 0, whites = 0, reds = 0, unset = 0;
     let passAreas = 0, failAreas = 0;
-    for (const l of lenses) {
+    for (const l of areas) {
       const j = l.judges || [null, null, null];
-      if (j.every(x => x !== null)) lensesSet++;
+      if (j.every(x => x !== null)) areasSet++;
       whites += j.filter(x => x === 'w').length;
       reds   += j.filter(x => x === 'r').length;
       unset  += j.filter(x => x === null).length;
-      if (lensResult(j) === 'lift') passAreas++; else failAreas++;
+      if (areaResult(j) === 'lift') passAreas++; else failAreas++;
     }
-    return { lensesSet, totalLenses: lenses.length, whites, reds, unset, passAreas, failAreas };
+    return { areasSet, totalAreas: areas.length, whites, reds, unset, passAreas, failAreas };
   }
 
-  function lensResult(judges) {
+  function areaResult(judges) {
     /* No-lift if 2 or more judges are red */
     const j = judges || [null, null, null];
     return j.filter(x => x === 'r').length >= 2 ? 'no-lift' : 'lift';
@@ -1702,25 +1702,25 @@ function showToast(msg) {
 
   function overallVerdict(data, summary) {
     if (data.summary && data.summary.finalVerdict) return data.summary.finalVerdict;
-    const noLiftCount = (data.lenses || [])
-      .filter(l => lensResult(l.judges) === 'no-lift').length;
+    const noLiftCount = (data.areas || [])
+      .filter(l => areaResult(l.judges) === 'no-lift').length;
     if (noLiftCount === 0) return 'Ready';
     if (noLiftCount <= 2) return 'Needs Work';
     return 'Not Ready';
   }
 
   /* — Cell state for platform board — */
-  function cellState(lens) {
-    const j = lens.judges || [null, null, null];
+  function cellState(areaItem) {
+    const j = areaItem.judges || [null, null, null];
     const allSet = j.every(x => x !== null);
-    if (lens.active && !allSet) return 'state-active';
+    if (areaItem.active && !allSet) return 'state-active';
     if (!allSet) return '';
     return j.filter(x => x === 'r').length >= 2 ? 'state-r' : 'state-w';
   }
 
   /* — Rail HTML (shared between build and transition) — */
-  function railHtml(lenses) {
-    return lenses.map((l, i) => {
+  function railHtml(areas) {
+    return areas.map((l, i) => {
       const cls = cellState(l);
       return `<span class="pb-cell ${cls}" data-n="${i + 1}"></span>`;
     }).join('');
@@ -1742,8 +1742,8 @@ function showToast(msg) {
     }).join('');
   }
 
-  /* — Lens lights (50×50 in review mode) — */
-  function lensLightsHtml(judges) {
+  /* — Area lights (50×50 in review mode) — */
+  function areaLightsHtml(judges) {
     return (judges || [null, null, null]).map(j => {
       const c = j === 'r' ? 'r' : 'w';
       return `<span class="light ${c}"></span>`;
@@ -1754,7 +1754,7 @@ function showToast(msg) {
      BUILD MODE — artifact header + platform board + tiles
      ───────────────────────────────────────────────────── */
   function renderBuildMode(data, summary) {
-    const lenses = data.lenses || [];
+    const areas = data.areas || [];
     const epic   = data.epic   || {};
 
     const epicTitle = esc(epic.name || 'Untitled Epic');
@@ -1764,13 +1764,13 @@ function showToast(msg) {
 
     /* Platform board progress bar */
     const progressHtml = `
-      <strong>${summary.lensesSet} of ${summary.totalLenses}</strong> set ·
+      <strong>${summary.areasSet} of ${summary.totalAreas}</strong> set ·
       <span class="s-lift">${summary.whites}</span> W ·
       <span class="s-nolift">${summary.reds}</span> R ·
       ${summary.unset} unset`;
 
     /* Tiles */
-    const tilesHtml = lenses.map(l => {
+    const tilesHtml = areas.map(l => {
       const j = l.judges || [null, null, null];
       const allSet = j.every(x => x !== null);
       const state  = !allSet && !l.active ? 'unset' : l.active ? 'active' : '';
@@ -1818,7 +1818,7 @@ function showToast(msg) {
       <h2 class="pb-title">The Platform</h2>
       <span class="pb-progress">${progressHtml}</span>
     </div>
-    <div class="pb-rail">${railHtml(lenses)}</div>
+    <div class="pb-rail">${railHtml(areas)}</div>
   </div>
 
   ${tilesHtml}
@@ -1826,13 +1826,13 @@ function showToast(msg) {
   }
 
   /* ─────────────────────────────────────────────────────
-     TRANSITION MODE — all 9 lenses set, before review
+     TRANSITION MODE — all 9 areas set, before review
      ───────────────────────────────────────────────────── */
   function renderTransitionMode(data, summary) {
-    const lenses     = data.lenses || [];
+    const areas     = data.areas || [];
     const verdict    = overallVerdict(data, summary);
     const vClass     = verdict === 'Ready' ? 'lift' : 'no-lift';
-    const noLiftCt   = lenses.filter(l => lensResult(l.judges) === 'no-lift').length;
+    const noLiftCt   = areas.filter(l => areaResult(l.judges) === 'no-lift').length;
 
     const liftHeadline = verdict === 'Ready'
       ? `All nine areas pass.`
@@ -1846,17 +1846,17 @@ function showToast(msg) {
 
     /* Progress text for full board */
     const progHtml = `
-      <span class="s-ok">${summary.lensesSet} of ${summary.totalLenses}</span> set ·
+      <span class="s-ok">${summary.areasSet} of ${summary.totalAreas}</span> set ·
       <span class="s-ok">${summary.whites}</span> W ·
       <span class="s-warn">${summary.reds}</span> R ·
       0 unset`;
 
-    /* Lens summary 3-col grid */
-    const lsSummary = lenses.map(l => {
+    /* Area summary 3-col grid */
+    const lsSummary = areas.map(l => {
       const j = l.judges || [null, null, null];
       const w = j.filter(x => x === 'w').length;
       const r = j.filter(x => x === 'r').length;
-      const result = lensResult(j);
+      const result = areaResult(j);
       const lightStr = `${w}W${r > 0 ? '·' + r + 'R' : ''}`;
       return `
 <div class="ls${result === 'no-lift' ? ' no-lift' : ''}">
@@ -1884,7 +1884,7 @@ function showToast(msg) {
       <h2 class="pb-title">The Platform</h2>
       <span class="pb-progress">${progHtml}</span>
     </div>
-    <div class="pb-rail">${railHtml(lenses)}</div>
+    <div class="pb-rail">${railHtml(areas)}</div>
 
     <div class="ready-bar">
       <div class="ready-text">
@@ -1903,7 +1903,7 @@ function showToast(msg) {
       <a onclick="spotterChat('Fix the failing areas first')">fix failing areas first</a>
     </p>
 
-    <div class="lens-summary">${lsSummary}</div>
+    <div class="area-summary">${lsSummary}</div>
   </div>
 </section>
 
@@ -1922,12 +1922,12 @@ function showToast(msg) {
      REVIEW MODE — cinematic V2C report
      ───────────────────────────────────────────────────── */
   function renderReviewMode(data, summary) {
-    const lenses    = data.lenses || [];
+    const areas    = data.areas || [];
     const epic      = data.epic   || {};
     const user      = data.user   || {};
     const verdict   = overallVerdict(data, summary);
     const vClass    = verdict === 'Ready' ? 'lift' : 'no-lift';
-    const noLiftCt  = lenses.filter(l => lensResult(l.judges) === 'no-lift').length;
+    const noLiftCt  = areas.filter(l => areaResult(l.judges) === 'no-lift').length;
     const hl        = headLights(noLiftCt);
 
     /* Sub-verdict text */
@@ -1936,8 +1936,8 @@ function showToast(msg) {
       : `${9 - noLiftCt} of 9 areas pass · <span class="warn">${noLiftCt} fail</span>`;
 
     /* Sticky rail dots */
-    const railDotsHtml = lenses.map(l => {
-      const result = lensResult(l.judges);
+    const railDotsHtml = areas.map(l => {
+      const result = areaResult(l.judges);
       return `<span class="rail-dot ${result === 'no-lift' ? 'r' : 'w'}"
         title="Area ${l.n}: ${esc(l.name)}"></span>`;
     }).join('');
@@ -1949,14 +1949,14 @@ function showToast(msg) {
       epic.attempt   ? `<span><strong>Attempt</strong>${epic.attempt}</span>` : '',
     ].filter(Boolean).join('');
 
-    /* Per-lens cards */
-    const lensCards = lenses.map(l => {
+    /* Per-area cards */
+    const areaCards = areas.map(l => {
       const j      = l.judges || [null, null, null];
-      const result = lensResult(j);
+      const result = areaResult(j);
       const whites = j.filter(x => x === 'w').length;
 
       let bodyHtml = '';
-      if (l.finding)     bodyHtml += `<p class="lens-finding">${esc(l.finding)}</p>`;
+      if (l.finding)     bodyHtml += `<p class="area-finding">${esc(l.finding)}</p>`;
       if (l.spotterPull) bodyHtml += `<div class="spotter-pull">${esc(l.spotterPull)}</div>`;
       if (l.handNote)    bodyHtml += `<p class="hand-note">${esc(l.handNote)}</p>`;
 
@@ -1966,22 +1966,22 @@ function showToast(msg) {
         ? `Using the Spotter, fix area ${l.n} (${raw(l.name)}) from the ${epicRef} review`
         : `Using the Spotter, plan improvements to area ${l.n} (${raw(l.name)}) from the ${epicRef} review`;
       const actionsHtml = `
-<div class="lens-actions">
-  <button class="lens-action${result === 'no-lift' ? ' primary' : ''}"
+<div class="area-actions">
+  <button class="area-action${result === 'no-lift' ? ' primary' : ''}"
     onclick="spotterChat('${btnPrompt}')">${btnLabel}</button>
 </div>`;
 
       return `
-<article class="lens ${result}">
-  <div class="lens-stage">
-    <p class="lens-num"><strong>${pad2(l.n)}</strong>${esc(l.category || 'Area')}</p>
-    <h2 class="lens-title">${esc(l.name)}</h2>
-    <p class="lens-category">${esc(l.question || '')}</p>
-    <div class="lens-lights">${lensLightsHtml(l.judges)}</div>
-    <p class="lens-verdict ${result}">${result === 'lift' ? 'Pass' : 'Fail'}</p>
-    <span class="lens-verdict-sub">${whites} of 3 judges</span>
+<article class="area ${result}">
+  <div class="area-stage">
+    <p class="area-num"><strong>${pad2(l.n)}</strong>${esc(l.category || 'Area')}</p>
+    <h2 class="area-title">${esc(l.name)}</h2>
+    <p class="area-category">${esc(l.question || '')}</p>
+    <div class="area-lights">${areaLightsHtml(l.judges)}</div>
+    <p class="area-verdict ${result}">${result === 'lift' ? 'Pass' : 'Fail'}</p>
+    <span class="area-verdict-sub">${whites} of 3 judges</span>
   </div>
-  <div class="lens-body">
+  <div class="area-body">
     ${bodyHtml}
     ${actionsHtml}
   </div>
@@ -2034,7 +2034,7 @@ function showToast(msg) {
     <div class="vr-stats">
       <div><span class="k">Areas · Pass</span><span class="v lift">${summary.passAreas}</span></div>
       <div><span class="k">Areas · Fail</span><span class="v no-lift">${summary.failAreas}</span></div>
-      <div><span class="k">Reviewed</span><span class="v">${summary.lensesSet}&nbsp;/&nbsp;${summary.totalLenses}</span></div>
+      <div><span class="k">Reviewed</span><span class="v">${summary.areasSet}&nbsp;/&nbsp;${summary.totalAreas}</span></div>
     </div>
   </div>
 </section>
@@ -2055,7 +2055,7 @@ function showToast(msg) {
   </div>
 </section>
 
-<main>${lensCards}</main>
+<main>${areaCards}</main>
 
 <section class="closing">
   <p class="closing-eyebrow">Spotter's Assessment</p>
@@ -2085,8 +2085,8 @@ function showToast(msg) {
      ───────────────────────────────────────────────────── */
   function render() {
     const data    = window.SPOTTER_DATA || {};
-    const lenses  = data.lenses || [];
-    const summary = computeSummary(lenses);
+    const areas  = data.areas || [];
+    const summary = computeSummary(areas);
     const root    = document.getElementById('root');
     if (!root) return;
 
@@ -2107,7 +2107,7 @@ function showToast(msg) {
       html = renderReviewMode(data, summary);
     } else {
       /* build | iterate — check for transition state */
-      const isTransition = summary.lensesSet === summary.totalLenses && summary.totalLenses > 0;
+      const isTransition = summary.areasSet === summary.totalAreas && summary.totalAreas > 0;
       html = isTransition
         ? renderTransitionMode(data, summary)
         : renderBuildMode(data, summary);

@@ -56,20 +56,20 @@ We will measure adoption (number of accounts that view the coverage page weekly)
 
 ## Calibration notes
 
-Expected Spotter verdict against this epic: **Not ready** (under v0.1.3, where Lens 9 missing on B2B security features triggers the blocker rule).
+Expected Spotter verdict against this epic: **Not ready** (under v0.1.3, where Area 9 missing on B2B security features triggers the blocker rule).
 
-Expected lens grades:
+Expected area grades:
 
-| Lens | Expected grade | Why |
+| Area | Expected grade | Why |
 |---|---|---|
 | 1. User & problem | ⚠️ Needs work | Empathy decent and current state present, but problem scope unaddressed (which MITRE matrix?) and value framing is symptom-relief, not decision-driving. Assumption surfacing weak. |
 | 2. Competitive | ⚠️ Needs work | Three competitors named but no workflow specifics, no links, no explicit "what we do differently" sentence. |
-| 3. Moat | ✓ Pass *(with caveat)* | Acceptable "no moat but explicit" framing, though the scope-limit on Lens 1 suggests a broader problem framing could have produced a real differentiator. Press-release sentence missing. |
+| 3. Moat | ✓ Pass *(with caveat)* | Acceptable "no moat but explicit" framing, though the scope-limit on Area 1 suggests a broader problem framing could have produced a real differentiator. Press-release sentence missing. |
 | 4. Solution approach | ⚠️ Needs work | AI-considered-and-declined names only the narrow case (classification); doesn't consider AI for dynamic mapping, prioritization, recommendation. UI defaults to new view. |
 | 5. Holistic impact | ✗ Missing | Cross-product cascade not addressed. |
 | 6. Packaging & pricing | ✓ Pass | Tier rationale and competitor benchmarks present. |
 | 7. Launch readiness | ⚠️ Needs work | Hits docs/training/blog at headline level. Missing PLG, calculators, video, customer comms. |
 | 8. Post-launch ownership | ⚠️ Needs work | Three metric categories without thresholds, no telemetry, no adoption mechanics. |
-| 9. Trust, governance | ✗ Missing | RBAC, audit trail, transparency not addressed for a view-only B2B security feature. Triggers the Lens 9 blocker rule. |
+| 9. Trust, governance | ✗ Missing | RBAC, audit trail, transparency not addressed for a view-only B2B security feature. Triggers the Area 9 blocker rule. |
 
-If your install of The Spotter produces grades that diverge significantly from this calibration table, the skill has drifted. Recheck `SKILL.md` for local edits and any `CLAUDE.md` that may be overriding the lens framework.
+If your install of The Spotter produces grades that diverge significantly from this calibration table, the skill has drifted. Recheck `SKILL.md` for local edits and any `CLAUDE.md` that may be overriding the area framework.

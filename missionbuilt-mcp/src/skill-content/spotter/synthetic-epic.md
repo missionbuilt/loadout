@@ -2,9 +2,9 @@
 
 *Author: [Synthetic PM] · Status: Draft for review*
 
-> This is a deliberately gap-heavy synthetic epic used to calibrate **The Spotter**. Running the skill against this epic in **review mode** should produce a verdict of *Needs polish* with specific gaps flagged on Lenses 1, 4, 5, 6, 8, and 9. Lenses 2 and 3 should also surface as needing work (Lens 3 entirely missing). Lens 7 should grade as ⚠️ with surface-level placeholder content.
+> This is a deliberately gap-heavy synthetic epic used to calibrate **The Spotter**. Running the skill against this epic in **review mode** should produce a verdict of *Needs polish* with specific gaps flagged on Areas 1, 4, 5, 6, 8, and 9. Areas 2 and 3 should also surface as needing work (Area 3 entirely missing). Area 7 should grade as ⚠️ with surface-level placeholder content.
 >
-> The PM persona this represents: a thoughtful but mid-career B2B PM who knows the structure of an epic but hasn't internalized the deeper product-thinking lenses. The skill's job is to lift this draft into something stronger — without making the PM feel they got it wrong. They didn't. They got it partway.
+> The PM persona this represents: a thoughtful but mid-career B2B PM who knows the structure of an epic but hasn't internalized the deeper product-thinking areas. The skill's job is to lift this draft into something stronger — without making the PM feel they got it wrong. They didn't. They got it partway.
 
 ---
 
@@ -52,9 +52,9 @@ We'll track adoption rate of the autonomous mode toggle and reduced MTTR.
 
 Expected skill verdict: **Needs polish**
 
-Expected lens grades:
+Expected area grades:
 
-| Lens | Expected grade | Why |
+| Area | Expected grade | Why |
 |---|---|---|
 | 1. User & problem (not solution) | ⚠️ | Thin empathy. No diagnosis of *why* customers don't already automate (product gaps, trust gaps). Solutioning leakage in the *Approach* section. |
 | 2. Competitive landscape | ⚠️ | Names three competitors and asserts "we are behind" but does no analysis of how each handles it, where each is strong/weak, or where the space is for us. |
@@ -66,4 +66,4 @@ Expected lens grades:
 | 8. Post-launch ownership | ⚠️ | "Track adoption and MTTR" — generic, no specifics. No telemetry plan, no in-product guides, no adoption mechanism. |
 | 9. Trust, governance & auditability | ✗ | No mention of trust gradient, RBAC, audit trail, transparency, or human-on-the-loop pattern. Critical gap for a B2B security feature. |
 
-If your install of **The Spotter** produces grades that diverge significantly from this calibration table, the skill has drifted. Recheck `SKILL.md` for local edits and any `CLAUDE.md` that may be overriding the lens framework.
+If your install of **The Spotter** produces grades that diverge significantly from this calibration table, the skill has drifted. Recheck `SKILL.md` for local edits and any `CLAUDE.md` that may be overriding the area framework.

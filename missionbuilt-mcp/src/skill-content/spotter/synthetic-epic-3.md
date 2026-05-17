@@ -68,13 +68,13 @@ We will track adoption (percentage of vulnerability management customers using t
 
 ## Calibration notes
 
-Expected Spotter verdict against this epic: **Not ready** (under v0.1.3 — strong Lens 1, but Lens 9 effectively missing triggers the blocker rule).
+Expected Spotter verdict against this epic: **Not ready** (under v0.1.3 — strong Area 1, but Area 9 effectively missing triggers the blocker rule).
 
-This epic was designed to test whether The Spotter correctly recognizes strong Lens 1 work. The Problem section explicitly addresses all 8 Lens 1 sub-checks — empathy, current state, why-not-solved, no-solutioning, scope and value, assumptions, alternatives considered, and epistemic openness. Other sections are deliberately lighter so the verdict stays honest.
+This epic was designed to test whether The Spotter correctly recognizes strong Area 1 work. The Problem section explicitly addresses all 8 Area 1 sub-checks — empathy, current state, why-not-solved, no-solutioning, scope and value, assumptions, alternatives considered, and epistemic openness. Other sections are deliberately lighter so the verdict stays honest.
 
-Expected lens grades:
+Expected area grades:
 
-| Lens | Expected grade | Why |
+| Area | Expected grade | Why |
 |---|---|---|
 | 1. User & problem | ✓ Pass (strong) | All 8 sub-checks pass. This is the validation case for v0.1.2/v0.1.3 — the skill should recognize good work, not just bad. |
 | 2. Competitive | ⚠️ Needs work | Three competitors named but workflow specifics, links, and explicit "what we do differently" articulation are missing under v0.1.3's bar. |
@@ -84,6 +84,6 @@ Expected lens grades:
 | 6. Packaging & pricing | ⚠️ Needs work | Tier with rationale present, but no competitor pricing benchmarks. |
 | 7. Launch readiness | ⚠️ Needs work | Docs/training/blog hit; PLG, calculators, video, customer comms, sequencing details missing. |
 | 8. Post-launch ownership | ⚠️ Needs work | Three metric categories without thresholds, no telemetry plan, no adoption mechanics. |
-| 9. Trust, governance | ⚠️ Needs work *(borderline ✗)* | "Manual overrides with audit trail" mentioned; no RBAC, no granular trust framework, no transparency commitments. Some leaders grade this ✗ Missing, which would trigger the Lens 9 blocker rule and elevate the verdict to *Not ready*. |
+| 9. Trust, governance | ⚠️ Needs work *(borderline ✗)* | "Manual overrides with audit trail" mentioned; no RBAC, no granular trust framework, no transparency commitments. Some leaders grade this ✗ Missing, which would trigger the Area 9 blocker rule and elevate the verdict to *Not ready*. |
 
-This calibration demonstrates two things: (1) v0.1.3 correctly recognizes strong Lens 1 work without over-flagging, and (2) the Lens 9 blocker rule has bite even when most other lenses are passing or near-passing. The single most important Lens 1 result is that all 8 sub-checks pass on an epic that did the work — confirming the lens isn't a one-way ratchet that only flags problems.
+This calibration demonstrates two things: (1) v0.1.3 correctly recognizes strong Area 1 work without over-flagging, and (2) the Area 9 blocker rule has bite even when most other areas are passing or near-passing. The single most important Area 1 result is that all 8 sub-checks pass on an epic that did the work — confirming the area isn't a one-way ratchet that only flags problems.

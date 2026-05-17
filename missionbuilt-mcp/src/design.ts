@@ -313,7 +313,7 @@ pre.mb-pre code {
   line-height: 1.5;
 }
 
-/* Lens grading widgets — used in /preview and any client that renders
+/* Area grading widgets — used in /preview and any client that renders
    Spotter output as cards. */
 
 /* Section break — strong visual transition between overview and example.
@@ -391,9 +391,9 @@ pre.mb-pre code {
   border-top: 0.5px solid rgba(168, 33, 26, 0.15);
 }
 
-/* Lens chart — quick interactive overview of all 9 lenses + their lights.
+/* Area chart — quick interactive overview of all 9 areas + their lights.
    Each row is clickable, scrolls to the detailed write-up below. */
-.mb-lens-chart {
+.mb-area-chart {
   background: rgba(0, 0, 0, 0.18);
   border: 0.5px solid var(--mb-border);
   border-radius: 6px;
@@ -401,7 +401,7 @@ pre.mb-pre code {
   /* overflow: visible so tooltips on top rows aren't clipped */
 }
 
-.mb-lens-chart-row {
+.mb-area-chart-row {
   display: grid;
   grid-template-columns: 42px 1fr auto;
   gap: 14px;
@@ -414,42 +414,42 @@ pre.mb-pre code {
   color: var(--mb-text);
 }
 
-.mb-lens-chart-row:first-of-type {
+.mb-area-chart-row:first-of-type {
   border-top: none;
   border-top-left-radius: 6px;
   border-top-right-radius: 6px;
 }
 
-.mb-lens-chart-row:last-of-type {
+.mb-area-chart-row:last-of-type {
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
 }
 
-.mb-lens-chart-row:hover {
+.mb-area-chart-row:hover {
   background: rgba(168, 33, 26, 0.1);
   padding-left: 20px;
 }
 
-.mb-lens-chart-num {
+.mb-area-chart-num {
   font-family: var(--mb-font-mono);
   font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--mb-text-subtle);
 }
 
-.mb-lens-chart-name {
+.mb-area-chart-name {
   font-size: 14px;
   font-weight: 500;
   color: var(--mb-text);
 }
 
-.mb-lens-chart-status {
+.mb-area-chart-status {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.mb-lens-chart-status-label {
+.mb-area-chart-status-label {
   font-family: var(--mb-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
@@ -459,13 +459,13 @@ pre.mb-pre code {
   text-align: right;
 }
 
-.mb-lens-chart-status-label.mb-status-pass {
+.mb-area-chart-status-label.mb-status-pass {
   color: var(--mb-light-white);
 }
-.mb-lens-chart-status-label.mb-status-needs {
+.mb-area-chart-status-label.mb-status-needs {
   color: var(--mb-text-muted);
 }
-.mb-lens-chart-status-label.mb-status-missing {
+.mb-area-chart-status-label.mb-status-missing {
   color: var(--mb-light-red);
 }
 
@@ -516,8 +516,8 @@ pre.mb-pre code {
   transform: translateY(0);
 }
 
-/* Anchor scroll offset for clickable lens links */
-.mb-lens-card {
+/* Anchor scroll offset for clickable area links */
+.mb-area-card {
   scroll-margin-top: 2rem;
 }
 
@@ -661,7 +661,7 @@ pre.mb-pre code {
   background: rgba(168, 33, 26, 0.12);
 }
 
-.mb-lens-card {
+.mb-area-card {
   background: var(--mb-bg-elevated);
   border: 0.5px solid var(--mb-border);
   border-radius: 6px;
@@ -669,7 +669,7 @@ pre.mb-pre code {
   margin: 1rem 0;
 }
 
-.mb-lens-card-header {
+.mb-area-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -677,7 +677,7 @@ pre.mb-pre code {
   margin-bottom: 0.75rem;
 }
 
-.mb-lens-card-title {
+.mb-area-card-title {
   font-family: var(--mb-font-serif);
   font-size: 18px;
   font-weight: 500;
@@ -685,7 +685,7 @@ pre.mb-pre code {
   color: var(--mb-text);
 }
 
-.mb-lens-card-num {
+.mb-area-card-num {
   font-family: var(--mb-font-mono);
   font-size: 12px;
   letter-spacing: 0.08em;
@@ -693,7 +693,7 @@ pre.mb-pre code {
   text-transform: uppercase;
 }
 
-.mb-lens-card-section-label {
+.mb-area-card-section-label {
   font-family: var(--mb-font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -702,19 +702,19 @@ pre.mb-pre code {
   margin: 1rem 0 0.5rem;
 }
 
-.mb-lens-card ul {
+.mb-area-card ul {
   margin: 0.5rem 0 0.75rem;
   padding-left: 1.2rem;
 }
 
-.mb-lens-card li {
+.mb-area-card li {
   margin: 0.4rem 0;
   color: var(--mb-text);
   line-height: 1.6;
   font-size: 15px;
 }
 
-.mb-lens-card .mb-principle {
+.mb-area-card .mb-principle {
   font-family: var(--mb-font-serif);
   font-style: italic;
   color: var(--mb-text-muted);
