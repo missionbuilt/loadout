@@ -172,8 +172,8 @@ A PM is building an epic for: **${feature}**.
 4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"
 5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.
 6. The output at the end is a polished draft epic structured by area.
-7. After delivering the draft, post this closing line exactly:
-   "Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?"
+7. After delivering the draft, post this exact closing line — do not paraphrase it:
+   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?
 
 ## Voice
 

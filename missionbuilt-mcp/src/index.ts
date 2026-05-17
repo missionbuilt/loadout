@@ -847,8 +847,8 @@ Area name + category mapping (use exactly, in order):
               `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
               `5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.\n` +
               `6. The output at the end is a polished draft epic structured by area.\n` +
-              `7. After delivering the draft, post this closing line exactly:\n` +
-              `   "Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?"\n\n` +
+              `7. After delivering the draft, post this exact closing line — do not paraphrase it:\n` +
+              `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?\n\n` +
               `## Voice\n\n` +
               `Critique, not criticism. Ask questions; don't lecture. Every flag is "you could strengthen this by..." — never "you missed..."\n\n` +
               `Begin with Area 1. Ask about the user first.`,
