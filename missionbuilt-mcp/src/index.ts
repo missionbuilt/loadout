@@ -768,7 +768,9 @@ Area name + category mapping (use exactly, in order):
               `  f. Build SPOTTER_DATA. Judge encoding:\n` +
               `     ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"]\n` +
               `     For each area: id, n, name, category, question, judges, finding (1–3 sentences),\n` +
-              `     spotterPull ("you could strengthen this by..." line), handNote (1-liner, optional).\n\n` +
+              `     spotterPull ("you could strengthen this by..." line), handNote (1-liner, optional).\n` +
+              `     Include in epic object: name, company, teamShape, window, attempt, AND epicBody (the full raw epic text verbatim).\n` +
+              `     epicBody is displayed at the bottom of the report — include the complete unmodified epic text.\n\n` +
               `When SPOTTER_DATA is ready: go directly to STEP 3. Do NOT write anything to chat yet.\n\n` +
               `## STEP 3 — Create the artifact (mandatory — do not skip)\n\n` +
               `⚠ File tools only (Read / Write / Edit / Grep). Do NOT use bash or shell commands.\n` +

@@ -838,7 +838,6 @@ a { color: inherit; text-decoration: none; }
 .area-finding {
   font-family: var(--font-serif);
   font-size: 20px;
-  font-style: italic;
   font-weight: 300;
   line-height: 1.45;
   color: var(--ink);
@@ -1004,6 +1003,39 @@ a { color: inherit; text-decoration: none; }
   margin: 0 6px;
   vertical-align: 1px;
 }
+.review-footer a {
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 1px;
+}
+.review-footer a:hover { color: var(--blood); border-color: var(--blood); }
+
+/* — Epic source — */
+.epic-source {
+  margin: 0 auto;
+  max-width: 880px;
+  padding: 40px 64px 64px;
+  border-top: 1px solid var(--rule);
+}
+.epic-source-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--blood);
+  margin-bottom: 16px;
+}
+.epic-source-body {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  border-left: 2px solid var(--rule);
+  padding: 16px 20px;
+  background: var(--paper-tint);
+}
 
 /* ══════════════════════════════════════════════════════
    FLOATING ACTIONS
@@ -1031,6 +1063,56 @@ a { color: inherit; text-decoration: none; }
 .spotter-action-btn:hover { color: var(--blood); border-color: var(--blood); }
 @media print { .spotter-actions { display: none !important; } }
 
+/* — Export dropdown — */
+.spotter-export { position: relative; }
+.spotter-export-dd {
+  display: none;
+  position: absolute;
+  top: 100%; right: 0;
+  background: rgba(251,250,247,0.98);
+  border: 1px solid var(--rule);
+  border-top: none;
+  z-index: 300;
+  min-width: 160px;
+}
+.spotter-export-dd.open { display: block; }
+.spotter-export-dd button {
+  display: block; width: 100%;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-dim); background: transparent;
+  border: none; border-bottom: 1px solid var(--rule);
+  padding: 10px 16px; text-align: left; cursor: pointer;
+  white-space: nowrap; transition: color 0.1s, background 0.1s;
+}
+.spotter-export-dd button:last-child { border-bottom: none; }
+.spotter-export-dd button:hover { color: var(--ink); background: var(--paper-tint); }
+.spotter-export-dd button.dd-primary { color: var(--blood); }
+.spotter-export-dd button.dd-primary:hover { color: var(--paper); background: var(--blood); }
+
+/* — Toast — */
+#spotter-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 9999;
+}
+#spotter-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 /* ══════════════════════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════════════════════ */
@@ -1039,7 +1121,7 @@ a { color: inherit; text-decoration: none; }
   .prologue, .stage, .review-tease { padding-left: 18px; padding-right: 18px; }
   .area-summary { grid-template-columns: 1fr; }
   .ready-bar { flex-direction: column; align-items: flex-start; }
-  .cover, .rail, .area, .closing, .review-footer, .epic-section { padding-left: 18px; padding-right: 18px; }
+  .cover, .rail, .area, .closing, .review-footer, .epic-section, .epic-source { padding-left: 18px; padding-right: 18px; }
   .area { grid-template-columns: 1fr; gap: 20px; }
   .area-stage { position: static; }
   .verdict-row { grid-template-columns: 1fr; gap: 18px; }
@@ -1061,6 +1143,7 @@ a { color: inherit; text-decoration: none; }
         teamShape: '2 eng \xB7 0.5 design',
         window: '7 weeks',
         attempt: 1,
+        epicBody: 'Demo: paste the full epic text here when reviewing a real epic. The Spotter will display it at the bottom of the report for reference.',
       },
       user: { name: 'Mike', timestamp: '15 May 2026 \xB7 14:22 ET' },
       areas: [
@@ -1353,6 +1436,19 @@ a { color: inherit; text-decoration: none; }
       const noLiftCt  = areas.filter(l => areaResult(l.judges) === 'no-lift').length;
       const hl        = headLights(noLiftCt);
 
+      // No-lifts list for fix-all prompt
+      const noLiftAreas = areas.filter(l => areaResult(l.judges) === 'no-lift');
+      const fixAllPrompt = noLiftAreas.length
+        ? 'Fix all no-lifts in my Spotter review: ' +
+          noLiftAreas.map(l => 'Area ' + l.n + ': ' + (l.name || '')).join(', ')
+        : '';
+
+      // Local timestamp at render time
+      const footerTs = new Date().toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+      });
+
       const subVerdict = noLiftCt === 0
         ? `All ${summary.totalAreas} areas passed.`
         : `${summary.passAreas} of ${summary.totalAreas} areas passed \xB7 <span class="warn">${noLiftCt} to rerack</span>`;
@@ -1373,19 +1469,20 @@ a { color: inherit; text-decoration: none; }
         const j      = l.judges || [null, null, null];
         const result = areaResult(j);
         const whites = j.filter(x => x === 'w').length;
+        const isLift = result === 'lift';
 
         let bodyHtml = '';
         if (l.finding)     bodyHtml += `<p class="area-finding">${esc(l.finding)}</p>`;
         if (l.spotterPull) bodyHtml += `<div class="spotter-pull">${esc(l.spotterPull)}</div>`;
         if (l.handNote)    bodyHtml += `<p class="hand-note">${esc(l.handNote)}</p>`;
 
-        const actionsHtml = result === 'no-lift' ? `
+        const rawPrompt = (isLift ? 'Refine' : 'Fix') +
+          ' area ' + l.n + ' (' + (l.name || '') + '): ' + (l.finding || '');
+        const actionsHtml = `
 <div class="area-actions">
-  <button class="area-action primary"
-    onclick="typeof sendPrompt==='function'&&sendPrompt('Help me fix area ${l.n}: ${jsEsc(l.name)}')">&#8599; Fix with Spotter</button>
-  <button class="area-action"
-    onclick="typeof sendPrompt==='function'&&sendPrompt('Re-roll area ${l.n}')">Re-roll this area</button>
-</div>` : '';
+  <button class="area-action${isLift ? '' : ' primary'} copy-prompt"
+    data-prompt="${esc(rawPrompt)}">&#8599; ${isLift ? 'Refine with Spotter' : 'Fix with Spotter'}</button>
+</div>`;
 
         return `
 <article class="area ${result}">
@@ -1417,20 +1514,29 @@ a { color: inherit; text-decoration: none; }
 
       const closingCtaHtml = noLiftCt > 0 ? `
 <br>
-<button class="closing-cta"
-  onclick="typeof sendPrompt==='function'&&sendPrompt('Open the no-lifts with me')">
-  &#8599; Open the no-lifts with Spotter
+<button class="closing-cta copy-prompt" data-prompt="${esc(fixAllPrompt)}">
+  &#8599; Fix All No-Lifts with Spotter
 </button>` : '';
 
       const epicDeckRef = epic.name
-        ? `<em>${esc(epic.name)}</em>`
+        ? `<em><a href="#epic-source">${esc(epic.name)}</a></em>`
         : 'this epic';
 
-      const ts = esc(user.timestamp || new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }));
+      const epicSourceHtml = epic.epicBody ? `
+<section class="epic-source" id="epic-source">
+  <p class="epic-source-label">&#9654; Original Epic</p>
+  <pre class="epic-source-body">${esc(epic.epicBody)}</pre>
+</section>` : '';
 
       return `
 <div class="spotter-actions">
-  <button class="spotter-action-btn" onclick="window.spotterSavePdf()">Save PDF</button>
+  <div class="spotter-export">
+    <button class="spotter-action-btn" onclick="window.spotterToggleExport(event)">Export &#9662;</button>
+    <div class="spotter-export-dd" id="spotter-export-dd">
+      <button class="dd-primary" onclick="window.spotterExportHTML();window.spotterCloseExport()">Export HTML</button>
+      <button onclick="window.print();window.spotterCloseExport()">Print / PDF</button>
+    </div>
+  </div>
   <button class="spotter-action-btn" id="spotter-fs-btn" onclick="window.spotterToggleFullscreen()">Fullscreen</button>
 </div>
 
@@ -1464,7 +1570,7 @@ a { color: inherit; text-decoration: none; }
 
 <section class="epic-section">
   <div class="epic-card">
-    <p class="epic-name">${esc(epic.name || 'Epic under review')}</p>
+    <p class="epic-name"><a href="#epic-source">${esc(epic.name || 'Epic under review')}</a></p>
     <p class="epic-meta">
       <span><strong>Mode</strong>Review</span>
       ${epicMetaItems}
@@ -1483,8 +1589,16 @@ a { color: inherit; text-decoration: none; }
   ${closingCtaHtml}
 </section>
 
+${epicSourceHtml}
+
 <footer class="review-footer">
-  <span>Mission<span class="f-sq"></span>Built \xB7 The Spotter \xB7 The Loadout \xB7 ${ts}</span>
+  <a href="https://missionbuilt.io" target="_blank" rel="noopener">Mission Built</a>
+  <span class="f-sq"></span>
+  The Spotter
+  <span class="f-sq"></span>
+  <a href="https://github.com/missionbuilt/loadout/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+  <span class="f-sq"></span>
+  ${esc(footerTs)}
 </footer>`;
     }
 
@@ -1528,11 +1642,70 @@ a { color: inherit; text-decoration: none; }
 
     window.spotterRender = render;
 
-    window.spotterSavePdf = function() { window.print(); };
+    /* ── Export ── */
+    window.spotterExportHTML = function() {
+      var epic = (window.SPOTTER_DATA || {}).epic || {};
+      var slug = (epic.name || 'spotter').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
+      var filename = 'spotter-' + slug + '.html';
+      var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      var blob = new Blob([html], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    window.spotterToggleExport = function(e) {
+      e && e.stopPropagation();
+      var dd = document.getElementById('spotter-export-dd');
+      if (dd) dd.classList.toggle('open');
+    };
+    window.spotterCloseExport = function() {
+      var dd = document.getElementById('spotter-export-dd');
+      if (dd) dd.classList.remove('open');
+    };
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest || !e.target.closest('.spotter-export')) {
+        window.spotterCloseExport();
+      }
+    });
+
+    /* ── Toast ── */
+    function showToast(msg) {
+      var t = document.getElementById('spotter-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'spotter-toast';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.classList.add('visible');
+      clearTimeout(t._tid);
+      t._tid = setTimeout(function() { t.classList.remove('visible'); }, 2200);
+    }
+
+    /* ── Clipboard copy for .copy-prompt buttons ── */
+    document.addEventListener('click', function(e) {
+      var btn = e.target.closest && e.target.closest('.copy-prompt');
+      if (!btn) return;
+      var prompt = btn.getAttribute('data-prompt');
+      if (!prompt) return;
+      var origText = btn.textContent;
+      navigator.clipboard.writeText(prompt).then(function() {
+        showToast('Copied — paste into chat');
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = origText; }, 1500);
+      }).catch(function() {
+        showToast('Copy failed — try manually');
+      });
+    });
+
+    /* ── Fullscreen ── */
     window.spotterToggleFullscreen = function() {
-      const btn = document.getElementById('spotter-fs-btn');
+      var btn = document.getElementById('spotter-fs-btn');
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
+        document.documentElement.requestFullscreen().catch(function() {});
         if (btn) btn.textContent = 'Exit Full';
       } else {
         document.exitFullscreen();
@@ -1540,7 +1713,7 @@ a { color: inherit; text-decoration: none; }
       }
     };
     document.addEventListener('fullscreenchange', function() {
-      const btn = document.getElementById('spotter-fs-btn');
+      var btn = document.getElementById('spotter-fs-btn');
       if (btn) btn.textContent = document.fullscreenElement ? 'Exit Full' : 'Fullscreen';
     });
 
