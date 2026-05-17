@@ -223,11 +223,18 @@ Read the user's WARMUP.md from their project root before proceeding. If it does 
      b) Use Read with offset+limit to read only that script block.
      c) Use Edit to replace the block with new WARMUP_DATA. Call update_artifact. Done. No bash.
    PATH B / FIRST RUN (engine update or new artifact):
-     a) Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }).
-     b) Use the Write file tool to write the HTML string to disk.
-        Write path: existing html_path if updating stale engine; for first run, [project_root]/warmup.html.
-        The Write file tool writes directly to user's filesystem — do NOT use bash, shell, or python.
-     c) Call create_artifact (first run) or update_artifact (stale engine). Done.
+     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })
+          Server injects WARMUP_DATA and returns filled, artifact-ready HTML.
+          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
+          If the call fails or returns an error string, stop and report the error.
+     B-2. Get the HTML string — two cases:
+          • Response in context: the HTML string is directly available — use it as-is.
+          • Response persisted to file: Cowork may save large responses to disk and return a file path.
+            In this case, call Read on that path to retrieve the HTML string.
+            The content is plain HTML — no JSON decoding, no bash, no other processing.
+     B-3. Call Write — file_path: [workspace-root]/warmup.html (first run) or html_path (stale engine)
+          content: the HTML string from B-2, unmodified. Do NOT use bash.
+     B-4. Call create_artifact (first run) or update_artifact (stale engine). Done.
    NEVER write your own HTML. NEVER use bash for any part of the render step.
    One summary line in chat — the brief is the artifact.
 

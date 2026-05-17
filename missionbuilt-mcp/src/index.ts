@@ -349,7 +349,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               type: "text" as const,
               text: injected
                 ? filled
-                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Call warmup_get_template again.]`,
+                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Do not retry. Stop and report this error.]`,
             },
           ],
         };
@@ -466,9 +466,18 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
                 `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done. No bash.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
-                `     a) Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) }). Server injects WARMUP_DATA and returns filled, artifact-ready HTML. If response begins with "[warmup_get_template ERROR", call it again.\n` +
-                `     b) Use the Write file tool to write the HTML string to disk. Write path: use existing html_path if updating stale engine; for first run, write to [project_root]/warmup.html. The Write file tool writes directly to user's filesystem — do NOT use bash, shell, or python.\n` +
-                `     c) Call create_artifact (first run) or update_artifact (stale engine). Done.\n` +
+                `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })\n` +
+                `          Server injects WARMUP_DATA and returns filled, artifact-ready HTML.\n` +
+                `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
+                `          If the call fails or returns an error string, stop and report the error.\n` +
+                `     B-2. Get the HTML string — two cases:\n` +
+                `          • Response in context: the HTML string is directly available — use it as-is.\n` +
+                `          • Response persisted to file: Cowork may save large responses to disk and return a file path.\n` +
+                `            In this case, call Read on that path to retrieve the HTML string.\n` +
+                `            The content is plain HTML — no JSON decoding, no bash, no other processing.\n` +
+                `     B-3. Call Write — file_path: [workspace-root]/warmup.html (first run) or html_path (stale engine)\n` +
+                `          content: the HTML string from B-2, unmodified. Do NOT use bash.\n` +
+                `     B-4. Call create_artifact (first run) or update_artifact (stale engine). Done.\n` +
                 `   NEVER write your own HTML. NEVER use bash for any part of the render step.\n` +
                 `   One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
