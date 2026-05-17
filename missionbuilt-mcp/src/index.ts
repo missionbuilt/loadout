@@ -685,8 +685,9 @@ Area name + category mapping (use exactly, in order):
         // technical content). A replacer function bypasses special-sequence expansion.
         const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.SPOTTER_DATA = null; // ← AGENT: Edit-replace this line with your SPOTTER_DATA JSON object (see spotter_get_skill({ section: "schema" }) for the template contract)`;
-        const filled = SPOTTER_TEMPLATE_HTML.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
-        const injected = filled !== SPOTTER_TEMPLATE_HTML;
+        const withVersion = SPOTTER_TEMPLATE_HTML.replace('SPOTTER_ENGINE_VERSION_MARKER', `v${SPOTTER_VERSION}`);
+        const filled = withVersion.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
+        const injected = filled !== withVersion;
         return {
           content: [
             {
@@ -713,6 +714,13 @@ Area name + category mapping (use exactly, in order):
             type: "text" as const,
             text:
               `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
+              `## Step 0 — Engine check (do this first, before grading)\n\n` +
+              `Call list_artifacts and find any existing Spotter artifact for this epic.\n` +
+              `  a. If an artifact exists: note its id and html_path.\n` +
+              `  b. Read the first 3 lines of the file at html_path. Find the comment: <!-- spotter-engine: vX.Y.Z -->\n` +
+              `  c. If the version does NOT match v${SPOTTER_VERSION}, the engine has been updated. Flag this — you will need to write a fresh HTML file in step 8.\n` +
+              `  d. If no artifact exists: this is a first review. You will create one in step 8.\n\n` +
+              `THE SPOTTER HAS NO DATA-PATCH SHORTCUT. Unlike the Warmup (which can patch data in an existing file when the engine version matches), every Spotter review produces entirely new SPOTTER_DATA. You ALWAYS call spotter_get_template — there is no re-review path that skips it.\n\n` +
               `## How to run this review\n\n` +
               `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }) to load the full area framework with sub-checks. Do this before grading.\n` +
               `2. Walk all nine areas in order against the epic below. Grade each: ✓ Pass / ⚠️ Needs work / ✗ Missing.\n` +
@@ -720,17 +728,21 @@ Area name + category mapping (use exactly, in order):
               `4. Voice rule: every flag uses "you could strengthen this by..." framing — never "you missed..." or "this is wrong."\n` +
               `5. If examples are needed for calibration: call spotter_get_examples({ area: N, intent: "..." }) for a specific area only.\n\n` +
               `## After grading — produce the branded artifact\n\n` +
-              `TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes only from spotter_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory.\n\n` +
+              `ABSOLUTE RULE — NO EXCEPTIONS: The artifact HTML comes ONLY from spotter_get_template. NEVER write HTML from scratch. NEVER reconstruct the template from training memory. NEVER reuse the existing artifact's HTML as a base — it may have a stale engine.\n\n` +
+              `If you reach step 7 without having called spotter_get_template, STOP and call it now before continuing.\n\n` +
               `6. Build a SPOTTER_DATA object. Use the judge encoding from spotter_get_template:\n` +
               `   ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"]\n` +
               `   For each area: id, n, name, category, question (see spotter_get_template tool description for exact mapping),\n` +
               `   finding (1–3 sentence observation), spotterPull (key "you could strengthen this by..." line), handNote (most critical 1-liner, optional).\n` +
               `7. Call spotter_get_template({ intent: "Rendering Spotter review artifact", spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
-              `   The server injects the data and returns filled, artifact-ready HTML.\n` +
-              `8. Write the returned HTML to disk. Call create_artifact (new review) or update_artifact (re-review).\n` +
+              `   The server injects SPOTTER_DATA and the current engine version, and returns complete filled HTML.\n` +
+              `8. Write the returned HTML to disk using the Write file tool. Save to [workspace]/spotter-[epic-slug].html.\n` +
+              `   Do NOT write to a temp/outputs directory — it is cleared between sessions.\n` +
+              `   Then: call update_artifact (artifact existed in step 0) or create_artifact (no artifact in step 0) with the html_path.\n` +
+              `   NEVER call create_artifact if the artifact already exists. NEVER call update_artifact if it does not.\n` +
               `9. In chat: one summary line only — the artifact is the review. No rehashing the full prose.\n\n` +
               `## Epic to review\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
-              `Load the areas (step 1), grade all nine, then build SPOTTER_DATA and call spotter_get_template to render the artifact.`,
+              `Run step 0 (engine check), then load the areas (step 1), grade all nine, build SPOTTER_DATA, call spotter_get_template, and write the artifact.`,
           },
         ],
       })
