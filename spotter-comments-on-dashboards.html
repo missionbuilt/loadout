@@ -1,58 +1,22 @@
 <!DOCTYPE html>
-<!-- spotter-engine: v0.0.0 -->
+<!-- spotter-engine: v0.7.6 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Spotter · Diagnostic</title>
+  <title>Spotter · Path Test</title>
 </head>
 <body>
+<div id="root"></div>
 <script>
 (function() {
-  var log = function(msg, ok) {
-    document.body.insertAdjacentHTML('beforeend',
-      '<p style="font-family:monospace;padding:4px 12px;color:' + (ok !== false ? '#4e6018' : '#b6271d') + '">' + msg + '</p>'
-    );
-  };
-
-  log('✓ Script started');
-
-  // Test 1: can we read document.head?
-  try {
-    var h = document.head;
-    log(h ? '✓ document.head exists' : '✗ document.head is null', !!h);
-  } catch(e) { log('✗ document.head threw: ' + e, false); }
-
-  // Test 2: can we insertAdjacentHTML into head?
-  try {
-    document.head.insertAdjacentHTML('beforeend', '<meta name="x-diag" content="ok">');
-    log('✓ document.head.insertAdjacentHTML works');
-  } catch(e) { log('✗ head.insertAdjacentHTML threw: ' + e, false); }
-
-  // Test 3: can we create a style element and append to head?
-  try {
-    var s = document.createElement('style');
-    s.textContent = 'body { font-size: 15px; }';
-    document.head.appendChild(s);
-    log('✓ style element appended to head');
-  } catch(e) { log('✗ head.appendChild style threw: ' + e, false); }
-
-  // Test 4: can we create a style element in body?
-  try {
-    var s2 = document.createElement('style');
-    s2.textContent = '.diag-ok { color: #4e6018; }';
-    document.body.insertAdjacentHTML('beforeend', '<style>.diag-body-style { color: navy; }</style>');
-    log('✓ style in body via insertAdjacentHTML works');
-  } catch(e) { log('✗ body style threw: ' + e, false); }
-
-  // Test 5: can we set innerHTML on a div?
-  try {
-    document.body.insertAdjacentHTML('beforeend', '<div id="root"></div>');
-    var root = document.getElementById('root');
-    root.innerHTML = '<p style="color:#4e6018;font-family:monospace;padding:4px 12px">✓ root.innerHTML works</p>';
-  } catch(e) { log('✗ root.innerHTML threw: ' + e, false); }
-
-  log('— Diagnostic complete —');
+  var root = document.getElementById('root');
+  root.style.cssText = 'font-family:monospace;padding:32px;background:#fbfaf7;min-height:100vh';
+  root.innerHTML =
+    '<p style="color:#b6271d;font-size:13px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px">&#9654;&#9654;&#9654; SPOTTER PATH TEST &#9654;&#9654;&#9654;</p>' +
+    '<p style="color:#14110d;font-size:15px;margin-bottom:8px"><strong>If you see this: the artifact renderer works and the workspace path is correct.</strong></p>' +
+    '<p style="color:#5a5247;font-size:13px">The blank = write-path bug only. The shell content is not the problem.</p>' +
+    '<p style="color:#5a5247;font-size:13px;margin-top:16px">Path: /Users/mike/Projects/loadout/spotter-comments-on-dashboards.html</p>';
 })();
 </script>
 </body>

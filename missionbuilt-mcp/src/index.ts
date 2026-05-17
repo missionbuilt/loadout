@@ -635,6 +635,7 @@ SPOTTER_DATA schema (all fields):
     teamShape?: string,              // e.g. "3 eng · 1 design" (optional)
     window?: string,                 // e.g. "6 weeks" (optional)
     attempt?: number,                // Attempt/sprint number (optional)
+    epicBody: string,                // REQUIRED — the full verbatim epic text; rendered at the bottom of the report under "Original Epic"
   },
   user: {
     name: string,                    // PM's first name (required)
