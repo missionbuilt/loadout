@@ -38,10 +38,12 @@ import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
 import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
+import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
+import APPROACH_TEMPLATE_HTML from "./skill-content/the-approach/approach-template.html";
 
 import { brandCss } from "./design";
 import { authHandler, type UserProps } from "./auth";
-import { SERVER_VERSION, WARMUP_VERSION, WARMUP_ENGINE_VERSION, SPOTTER_VERSION } from "./constants";
+import { SERVER_VERSION, WARMUP_VERSION, WARMUP_ENGINE_VERSION, SPOTTER_VERSION, THE_APPROACH_VERSION } from "./constants";
 
 /**
  * Extract a named section from SKILL.md by heading boundary.
@@ -121,6 +123,35 @@ function getSpotterAreaExamples(md: string, area: number): string {
   if (si === -1) return `[Area ${area} not found in area-examples.md — use area:0 to load all examples]`;
   const nextMark = `## Area ${area + 1}`;
   const ei = md.indexOf(nextMark, si);
+  return md.slice(si, ei === -1 ? md.length : ei).trim();
+}
+
+/**
+ * Extract a named section from The Approach SKILL.md by heading boundary.
+ *
+ * Available sections:
+ *   "intake"   - INTAKE Mode (Step 0)
+ *   "research" - RESEARCH Phase (Step 1)
+ *   "schema"   - APPROACH_DATA schema
+ *   "render"   - RENDER Phase (Step 2)
+ *   "rules"    - Editorial rules
+ *   "config"   - APPROACH.md config format
+ *   "full"     - Entire SKILL.md
+ */
+function getApproachSkillSection(md: string, section: string): string {
+  const boundaries: Record<string, [string, string | null]> = {
+    intake:   ["## INTAKE Mode",              "## RESEARCH Phase"],
+    research: ["## RESEARCH Phase",           "## APPROACH_DATA Schema"],
+    schema:   ["## APPROACH_DATA Schema",     "## RENDER Phase"],
+    render:   ["## RENDER Phase",             "## Summary line"],
+    rules:    ["## Editorial rules",          "## APPROACH.md config format"],
+    config:   ["## APPROACH.md config format", "## Version history"],
+  };
+  if (section === "full" || !boundaries[section]) return md;
+  const [startMark, endMark] = boundaries[section];
+  const si = md.indexOf(startMark);
+  if (si === -1) return `[Section "${section}" not found in The Approach SKILL.md — use section:"full" to load everything]`;
+  const ei = endMark ? md.indexOf(endMark, si) : md.length;
   return md.slice(si, ei === -1 ? md.length : ei).trim();
 }
 
@@ -764,7 +795,106 @@ Area name + category mapping (use exactly, in order):
     );
 
     // ══════════════════════════════════════════════════════════════════════════
+    // ── approach_get_skill ──────────────────────────────────────────────────
+    this.server.tool(
+      "approach_get_skill",
+      "Retrieve a section of The Approach SKILL.md. " +
+      "Sections: intake, research, schema, render, rules, config, full.\n\n" +
+      "Call intake first to understand the workflow, then request other sections as needed.",
+      {
+        section: z.enum(["intake","research","schema","render","rules","config","full"]).describe(
+          "Which section to return. intake=workflow overview, research=data gathering, " +
+          "schema=output format, render=template injection, rules=editorial guidelines, " +
+          "config=APPROACH.md format, full=entire document."
+        ),
+        intent: intentField,
+      },
+      async ({ section }) => {
+        const text = getApproachSkillSection(APPROACH_SKILL_MD, section);
+        return { content: [{ type: "text" as const, text }] };
+      }
+    );
+
+    // ── approach_get_template ────────────────────────────────────────────────
+    this.server.tool(
+      "approach_get_template",
+      "Inject APPROACH_DATA JSON into approach-template.html and return the filled HTML. " +
+      "Call this after assembling the final APPROACH_DATA object. Write the result to disk " +
+      "and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.",
+      {
+        approach_data: z.string().describe(
+          "The APPROACH_DATA JSON string produced by The Approach workflow. " +
+          "Must be valid JSON matching the APPROACH_DATA schema (v0.1.0)."
+        ),
+        intent: intentField,
+      },
+      async ({ approach_data }) => {
+        const safe = approach_data.split("</script>").join("<\\/script>");
+        const PLACEHOLDER = "__APPROACH_DATA__";
+        const filled = APPROACH_TEMPLATE_HTML.replace(PLACEHOLDER, () => safe);
+        const injected = filled !== APPROACH_TEMPLATE_HTML;
+        if (!injected) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: "[approach_get_template] ERROR: placeholder __APPROACH_DATA__ not found in template.",
+            }],
+          };
+        }
+        return { content: [{ type: "text" as const, text: filled }] };
+      }
+    );
+
+    // ── approach_run ─────────────────────────────────────────────────────────
+    this.server.tool(
+      "approach_run",
+      "Prime the agent to run The Approach workflow end-to-end: read the caller's APPROACH.md " +
+      "config, execute INTAKE then RESEARCH then schema assembly then template render then artifact creation.",
+      {
+        approach_md_path: z.string().optional().describe(
+          "Path to the APPROACH.md config file. Defaults to APPROACH.md in the workspace root if omitted."
+        ),
+        intent: intentField,
+      },
+      async ({ approach_md_path }) => {
+        const skill = getApproachSkillSection(APPROACH_SKILL_MD, "full");
+        const pathHint = approach_md_path
+          ? `The APPROACH.md config is at: ${approach_md_path}`
+          : "Look for APPROACH.md in the workspace root (or ask the user where it is).";
+        return {
+          content: [{
+            type: "text" as const,
+            text: [
+              `# The Approach v${THE_APPROACH_VERSION} — Run`,
+              "",
+              "You are now executing The Approach workflow. Follow the SKILL.md exactly.",
+              "",
+              pathHint,
+              "",
+              "## Full SKILL.md",
+              "",
+              skill,
+            ].join("\n"),
+          }],
+        };
+      }
+    );
+
+
     // RESOURCES
+    this.server.resource(
+      "approach-skill",
+      "loadout://approach/skill",
+      { description: "The Approach SKILL.md — structured decision-brief workflow reference" },
+      async () => ({
+        contents: [{
+          uri: "loadout://approach/skill",
+          mimeType: "text/markdown",
+          text: APPROACH_SKILL_MD,
+        }],
+      })
+    );
+
     // ══════════════════════════════════════════════════════════════════════════
 
     this.server.resource(
