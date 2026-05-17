@@ -5,6 +5,9 @@
  * the agent follows the correct tool call sequence and never writes HTML from
  * scratch or calls bash.
  *
+ * Each scenario runs the agent ONCE. All assertions for that scenario share the
+ * same result — this eliminates flakiness from per-test independent agent runs.
+ *
  * MIT License — https://github.com/missionbuilt/loadout
  */
 
@@ -57,65 +60,64 @@ async function run(mocks) {
   });
 }
 
+// ─── Pre-run all scenarios once (shared results eliminate per-test flakiness) ──
+
+const grepMock = {
+  schema:  SCHEMAS.Grep,
+  handler: () => `42:  <script id="warmup-data">`,
+};
+
+console.log("  Running PATH B (new file)…");
+const pathBResult = await run(warmupMocks());
+
+console.log("  Running PATH B (stale engine)…");
+const pathBStaleResult = await run(warmupMocks({
+  list_artifacts: warmupArtifactExists(),
+  Read:           fileWithOldWarmupVersion(),
+}));
+
+console.log("  Running PATH A (engine match)…");
+const pathAResult = await run(warmupMocks({
+  list_artifacts: warmupArtifactExists(),
+  Read:           fileWithCurrentWarmupVersion(),
+  Grep:           grepMock,
+}));
+
 // ─── PATH B — new file (no existing artifact) ─────────────────────────────────
 
 const pathBTests = [
   {
     name: "PATH B · calls list_artifacts",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.called(r, "list_artifacts");
-    },
+    async fn() { return assert.called(pathBResult, "list_artifacts"); },
   },
   {
     name: "PATH B · calls warmup_get_template",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.called(r, "warmup_get_template");
-    },
+    async fn() { return assert.called(pathBResult, "warmup_get_template"); },
   },
   {
     name: "PATH B · calls Write after warmup_get_template",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.warmupTemplateBeforeWrite(r);
-    },
+    async fn() { return assert.warmupTemplateBeforeWrite(pathBResult); },
   },
   {
     name: "PATH B · calls create_artifact after Write",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.writeBeforeArtifact(r);
-    },
+    async fn() { return assert.writeBeforeArtifact(pathBResult); },
   },
   {
     name: "PATH B · artifact is registered",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.artifactRegistered(r);
-    },
+    async fn() { return assert.artifactRegistered(pathBResult); },
   },
   {
     name: "PATH B · no forbidden tool calls",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.noForbiddenTools(r);
-    },
+    async fn() { return assert.noForbiddenTools(pathBResult); },
   },
   {
     name: "PATH B · Write path does not contain banned fragments",
-    async fn() {
-      const r = await run(warmupMocks());
-      return assert.writtenToCleanPath(r);
-    },
+    async fn() { return assert.writtenToCleanPath(pathBResult); },
   },
   {
     name: "PATH B · does not write HTML from scratch (warmup_get_template must be called)",
     async fn() {
-      const r = await run(warmupMocks());
-      // If Write is called without warmup_get_template being called first,
-      // the agent wrote HTML from memory — a known anti-pattern.
-      if (r.called("Write") && !r.called("warmup_get_template")) {
+      if (pathBResult.called("Write") && !pathBResult.called("warmup_get_template")) {
         return { ok: false, message: "Write called without warmup_get_template — agent wrote HTML from scratch" };
       }
       return { ok: true, message: null };
@@ -128,28 +130,11 @@ const pathBTests = [
 const pathBStaleTests = [
   {
     name: "PATH B (stale) · calls warmup_get_template despite artifact existing",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithOldWarmupVersion(),
-        })
-      );
-      return assert.called(r, "warmup_get_template");
-    },
+    async fn() { return assert.called(pathBStaleResult, "warmup_get_template"); },
   },
   {
     name: "PATH B (stale) · calls update_artifact (not create_artifact) after Write",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithOldWarmupVersion(),
-        })
-      );
-      // For stale engine, agent should update the existing artifact, not create a new one
-      return assert.called(r, "update_artifact");
-    },
+    async fn() { return assert.called(pathBStaleResult, "update_artifact"); },
   },
 ];
 
@@ -158,77 +143,26 @@ const pathBStaleTests = [
 const pathATests = [
   {
     name: "PATH A · does NOT call warmup_get_template",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithCurrentWarmupVersion(),
-          Grep: {
-            schema:  SCHEMAS.Grep,
-            handler: () => `42:  <script id="warmup-data">`,
-          },
-        })
-      );
-      return assert.notCalled(r, "warmup_get_template");
-    },
+    async fn() { return assert.notCalled(pathAResult, "warmup_get_template"); },
   },
   {
     name: "PATH A · calls Edit to update data block",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithCurrentWarmupVersion(),
-          Grep: {
-            schema:  SCHEMAS.Grep,
-            handler: () => `42:  <script id="warmup-data">`,
-          },
-        })
-      );
-      return assert.called(r, "Edit");
-    },
+    async fn() { return assert.called(pathAResult, "Edit"); },
   },
   {
     name: "PATH A · calls update_artifact after Edit",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithCurrentWarmupVersion(),
-          Grep: {
-            schema:  SCHEMAS.Grep,
-            handler: () => `42:  <script id="warmup-data">`,
-          },
-        })
-      );
-      return assert.calledBefore(r, "Edit", "update_artifact");
-    },
+    async fn() { return assert.calledBefore(pathAResult, "Edit", "update_artifact"); },
   },
   {
     name: "PATH A · no forbidden tool calls",
-    async fn() {
-      const r = await run(
-        warmupMocks({
-          list_artifacts: warmupArtifactExists(),
-          Read:           fileWithCurrentWarmupVersion(),
-          Grep: {
-            schema:  SCHEMAS.Grep,
-            handler: () => `42:  <script id="warmup-data">`,
-          },
-        })
-      );
-      return assert.noForbiddenTools(r);
-    },
+    async fn() { return assert.noForbiddenTools(pathAResult); },
   },
 ];
 
 // ─── Capture run — saves a full report for quality review ────────────────────
 
-async function captureRun() {
-  const r = await run(warmupMocks());
-  const path = saveRunReport("warmup", r);
-  console.log(`\n   📄 Run report saved → ${path}`);
-}
+const path = saveRunReport("warmup", pathBResult);
+console.log(`\n   📄 Run report saved → ${path}`);
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
 
@@ -237,8 +171,6 @@ const allResults = [
   ...await runSuite("Warmup · PATH B (stale engine)",   pathBStaleTests),
   ...await runSuite("Warmup · PATH A (engine match)",   pathATests),
 ];
-
-await captureRun();
 
 if (process.argv[1].endsWith("warmup.test.mjs")) {
   process.exit(summarize(allResults));

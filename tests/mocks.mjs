@@ -36,6 +36,18 @@ window.SPOTTER_DATA = {"epic":{"name":"Test Epic","epicBody":""},"areas":[]};
 </body>
 </html>`;
 
+/** Minimal WARMUP.md config so Read(WARMUP.md) returns valid config, not "File not found" */
+export const MOCK_WARMUP_MD =
+`name: Test User
+timezone: America/Chicago
+search_depth: standard
+skip_scan: true
+
+## Active Sources
+
+- Hacker News | https://news.ycombinator.com | active
+- TechCrunch   | https://techcrunch.com      | active`;
+
 export const MOCK_WARMUP_HTML =
 `<!DOCTYPE html>
 <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->
@@ -116,21 +128,25 @@ export function fileWithOldSpotterVersion() {
 /**
  * Read returns file content with the CURRENT warmup engine version.
  * Triggers PATH A for the Warmup.
+ * Path-aware: WARMUP.md reads return config, HTML file reads return current-version HTML.
  */
 export function fileWithCurrentWarmupVersion() {
-  return tool("Read", () =>
-    `<!DOCTYPE html>\n<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n<html>...`
-  );
+  return tool("Read", ({ file_path }) => {
+    if (file_path && file_path.includes("WARMUP.md")) return MOCK_WARMUP_MD;
+    return `<!DOCTYPE html>\n<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n<html>...`;
+  });
 }
 
 /**
  * Read returns a file with a stale warmup engine version.
  * Triggers PATH B for the Warmup.
+ * Path-aware: WARMUP.md reads return config, HTML file reads return stale-version HTML.
  */
 export function fileWithOldWarmupVersion() {
-  return tool("Read", () =>
-    `<!DOCTYPE html>\n<!-- warmup-engine: v0.0.1 -->\n<html>...`
-  );
+  return tool("Read", ({ file_path }) => {
+    if (file_path && file_path.includes("WARMUP.md")) return MOCK_WARMUP_MD;
+    return `<!DOCTYPE html>\n<!-- warmup-engine: v0.0.1 -->\n<html>...`;
+  });
 }
 
 // ─── Standard mock sets ───────────────────────────────────────────────────────
@@ -179,7 +195,12 @@ export function spotterBuildMocks(overrides = {}) {
 export function warmupMocks(overrides = {}) {
   return {
     list_artifacts:    noArtifacts(),
-    Read:              tool("Read",  ({ file_path }) => `File not found: ${file_path}`),
+    // Path-aware: WARMUP.md returns config so the agent doesn't try to create it.
+    // Any other path (e.g. warmup.html on first run) returns "File not found".
+    Read:              tool("Read", ({ file_path }) => {
+                         if (file_path && file_path.includes("WARMUP.md")) return MOCK_WARMUP_MD;
+                         return `File not found: ${file_path}`;
+                       }),
     Write:             tool("Write", ({ file_path, content }) =>
                          `Written ${content?.length ?? 0} chars to ${file_path}`),
     Edit:              tool("Edit",  () => "Edit applied."),
