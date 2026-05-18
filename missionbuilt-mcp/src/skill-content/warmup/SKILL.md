@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.3.16
+version: 0.7.2
 part_of: The Loadout
 ---
 
@@ -607,19 +607,27 @@ Replace only the `<script id="warmup-data">` block in the existing HTML. Do NOT 
 
 > **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Grep, Read, and Edit file tools only — they accept the real macOS path from `html_path` directly.
 
-**Path B — First run or engine update:**  
+**Path B — First run or engine update:**
 
-The MCP server injects WARMUP_DATA server-side. You do NOT write the template then edit a placeholder — the placeholder is gone after injection. Call the tool with your data, get back filled HTML, write it once.
+The server returns the filled HTML in paginated 900-line chunks. Write chunk 0, then Edit each subsequent chunk in strict sequential order.
 
-1. **Call `warmup_get_template({ warmup_data: JSON.stringify(WARMUP_DATA) })`.** The server injects `WARMUP_DATA` into the engine shell before returning. The response is complete, filled HTML — no editing needed.
+1. **Call `warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })`.** The response (~20KB) is inline in context — no file read needed. Read `<!-- WARMUP_TOTAL_CHUNKS: N -->` from the response to learn N. If the call returns an `[ERROR]` string, stop and report it — do not proceed.
 
-2. **Write the filled HTML to disk.** Use the Write tool to write the response to `warmup-artifact.html` in the **user's selected/workspace folder** (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions. Do not modify the HTML before writing — write it exactly as received.
+2. **Call Write** — `file_path: [workspace-root]/warmup.html` · `content:` exactly the text from step 1, verbatim. Do NOT write to outputs or temp; that path is cleared between sessions.
 
-3. **Register the artifact.** Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
+3. **⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.**  
+   Do NOT fire Edit calls in parallel — they race on the same sentinel and corrupt the file.  
+   Repeat for i = 1, 2, … N-1:  
+   a. Call `warmup_get_template({ intent: "...", chunk: i })` — omit `warmup_data`. If it returns an `[ERROR]` string, stop and report it.  
+   b. Call Edit — `old_string: "<!-- __WARMUP_SENTINEL__ -->"` · `new_string:` [text from step a]. **Wait for Edit to succeed before starting i+1.**
+
+4. **Verify assembly** — Grep `warmup.html` for `<!-- __WARMUP_SENTINEL__ -->`. If found, assembly is incomplete — stop and report the error.
+
+5. **Register the artifact** — Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path: [workspace-root]/warmup.html`. Do NOT call this before step 4 passes.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
 
-> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write file tool only.
+> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write and Edit file tools only.
 
 **Path C — Edit in place (user requests a correction to the existing brief):**  
 Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
@@ -642,7 +650,7 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
 
 **When an engine bug is fixed:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
-2. Apply the same fix to the active `warmup-artifact.html`.
+2. Apply the same fix to the active `warmup.html`.
 3. Call `update_artifact` to push the fix into the live artifact.
 4. The fix propagates to all future reports automatically because new reports start from the template.
 
@@ -758,7 +766,7 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
 
 **On engine bugs:**
 1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
-2. Apply the same fix to the active `warmup-artifact.html`.
+2. Apply the same fix to the active `warmup.html`.
 3. Call `update_artifact` to push the fix into the live artifact.
 4. The fix propagates to all future reports automatically because new reports start from the template.
 

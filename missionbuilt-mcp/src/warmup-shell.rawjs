@@ -923,8 +923,13 @@ gap: 10px;
           '<p class="item-sum">' + item.body + '</p>' +
           '</article>';
       }
-      var lead = sec.items.length > 0 ? renderItem(sec.items[0], true) : '';
-      var rest = sec.items.slice(1).map(function(it) { return renderItem(it, false); }).join('');
+      var lead = '';
+      if (sec.items.length > 0) {
+        try { lead = renderItem(sec.items[0], true); } catch(_itemE) { console.warn('[Warmup] Lead item render error in section ' + sec.id, _itemE); }
+      }
+      var rest = sec.items.slice(1).map(function(it) {
+        try { return renderItem(it, false); } catch(_itemE) { console.warn('[Warmup] Item render error in section ' + sec.id, _itemE); return ''; }
+      }).join('');
       var restWrap = rest ? '<div class="items-grid">' + rest + '</div>' : '';
       var subHtml = sec.sub ? '<span class="sec-sub">' + sec.sub + '</span>' : '';
       var sectionWord = ['One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'][_sIdx] || (_sIdx + 1);
@@ -1709,7 +1714,24 @@ btn.textContent = 'Loading…';
     window.exportHTML   = exportHTML;
     } */ // end buildBriefPDF (removed)
 
-  })(); } catch(e) { console.error('[Warmup:Export]', e); }
+  })(); } catch(e) {
+    console.error('[Warmup] Render error:', e);
+    try {
+      var _errDiv = document.createElement('div');
+      _errDiv.style.cssText = 'padding:60px 40px;font-family:sans-serif;max-width:720px;margin:0 auto;';
+      _errDiv.innerHTML =
+        '<h2 style="font-size:22px;margin-bottom:12px;color:#c00;">Warmup render error</h2>' +
+        '<p style="margin-bottom:8px;">The brief data loaded but the renderer threw an error. ' +
+        'Check the browser console for details, or inspect the <code>warmup-data</code> script block in the HTML.</p>' +
+        '<pre style="font-size:11px;white-space:pre-wrap;background:#fff8f8;padding:12px;border:1px solid #fcc;color:#900;">' +
+          String(e) +
+        '</pre>' +
+        '<p style="margin-top:12px;font-size:13px;color:#666;">Common causes: missing ' +
+        '<code>sections[].id</code>, <code>sections[].label</code>, or <code>sections[].items</code> array; ' +
+        'item missing <code>dot</code>, <code>src</code>, <code>url</code>, <code>hl</code>, or <code>body</code>.</p>';
+      document.body.appendChild(_errDiv);
+    } catch(_) {}
+  }
 
   // ── FULLSCREEN ──
   function toggleFullscreen() {

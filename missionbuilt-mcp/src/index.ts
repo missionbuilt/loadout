@@ -319,7 +319,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the warmup artifact HTML in paginated 400-line chunks. Call with chunk:0 and warmup_data (JSON.stringify of your WARMUP_DATA) to get the first chunk with the data already injected. The response includes a <!-- WARMUP_TOTAL_CHUNKS: N --> comment so you know how many chunks to fetch. Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->. For chunks 1 through N-1, call again with only chunk:N (no warmup_data needed). Write chunk 0 to disk, then Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) for each subsequent chunk. Never reconstruct or invent the HTML yourself.",
+      "Returns the warmup artifact HTML in paginated 900-line chunks. Call with chunk:0 and warmup_data (JSON.stringify of your WARMUP_DATA) to get the first chunk with the data already injected. The response includes a <!-- WARMUP_TOTAL_CHUNKS: N --> comment so you know how many chunks to fetch. Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->. For chunks 1 through N-1, call again with only chunk:N (no warmup_data needed). Write chunk 0 to disk, then Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) for each subsequent chunk in SEQUENTIAL order — never parallel. Never reconstruct or invent the HTML yourself.",
       {
         intent: intentField,
         warmup_data: z
@@ -335,7 +335,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           .min(0)
           .optional()
           .describe(
-            "Which 400-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> " +
+            "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> " +
             "from chunk 0 to learn the total number of chunks."
           ),
       },
@@ -363,7 +363,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // Replacer-function safety: article content can contain $', $&, $` (price strings,
         // tickers, shell syntax). A replacer function bypasses special-sequence expansion.
 
-        const CHUNK_LINES  = 600;
+        const CHUNK_LINES  = 900;
         const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
         // Lines 0–12 in the preamble (includes the injected TOTAL_CHUNKS comment at index 2).
         // DOCTYPE, engine-marker, TOTAL_CHUNKS-comment, html, head, meta×2, title, /head,
@@ -393,6 +393,19 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             }
             if (!Array.isArray((parsed as any).sections) || (parsed as any).sections.length === 0) {
               return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.sections is missing or empty. The shell requires at least one section to render. Check WARMUP_DATA structure and retry.]` }] };
+            }
+            // Validate per-section required fields — missing any of these causes a blank page via
+            // silently-caught renderer error (sections[i].id → DOM id; label → heading; items → forEach).
+            for (const sec of (parsed as any).sections) {
+              if (!sec || typeof sec.id !== 'string' || !sec.id) {
+                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: every sections[] entry must have a non-empty string "id" field (used as DOM element ID). Fix WARMUP_DATA and retry.]` }] };
+              }
+              if (typeof sec.label !== 'string' || !sec.label) {
+                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: sections["${sec.id}"].label is missing or not a string. The renderer renders it as the section heading. Fix WARMUP_DATA and retry.]` }] };
+              }
+              if (!Array.isArray(sec.items)) {
+                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: sections["${sec.id}"].items is not an array. Every section needs an items array (use [] for an empty section). Fix WARMUP_DATA and retry.]` }] };
+              }
             }
             if (!parsed.config || typeof parsed.config !== 'object') {
               return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.config is missing. Check WARMUP_DATA structure and retry.]` }] };
@@ -497,7 +510,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `3. Ask for company name FIRST — then call the WebSearch tool to auto-determine sector, region, and competitors. Present all findings in one confirmation message. Ask only what the search could not determine.\n` +
                 `4. Build the source suite based on confirmed answers. Show it to the user for review.\n` +
                 `5. Use the Write file tool to save WARMUP.md at the user's project root. Use the schema in the ## WARMUP.md Config Format section of SKILL.md below — do not invent fields or omit required ones. Include showQuote: true in the Profile section.\n` +
-                `6. Run a test brief using the saved config. Deliver it as a Cowork artifact.\n\n` +
+                `6. Run the brief using the config you just saved. Call warmup_run with the config_summary parameter set to the exact WARMUP.md content you just wrote — this skips the Read step and provides the schema guidance needed to build WARMUP_DATA correctly. Do NOT build WARMUP_DATA manually or call warmup_get_template directly from setup — the warmup_run tool handles all of that.\n\n` +
                 `## CRITICAL: Question order for CISO and Product Leader modes\n\n` +
                 `After company confirmation, you MUST still ask the follow-up questions below. Do not skip them — they cannot be looked up.\n\n` +
                 `**CISO follow-ups (ask after confirmation):**\n` +
@@ -551,6 +564,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `# The Warmup — Run Brief\n\n` +
                 `**Engine version: ${WARMUP_ENGINE_VERSION}**\n\n` +
                 `${configNote}\n\n` +
+                `## Before starting\n\n` +
+                `Ensure list_artifacts, create_artifact, and update_artifact are loaded before proceeding. ` +
+                `These tools are deferred by Cowork — load them via ToolSearch now if not yet available. ` +
+                `Loading them late forces a ToolSearch roundtrip after template assembly while the user is waiting.\n\n` +
                 `## Permitted tools\n\n` +
                 `Only these tools may be used. Everything else is forbidden.\n\n` +
                 `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
@@ -567,18 +584,54 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
                 `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
                 `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes ONLY from warmup_get_template (PATH B) or the existing artifact file (PATH A). NEVER write HTML from scratch. NEVER reconstruct the template from training memory. Every time an agent generates HTML from memory, the design is wrong — wrong colors, wrong layout, invented stat labels. The correct design lives only in warmup_get_template.\n` +
-                `4. Fetch phase: for each active source, call WebSearch. Budget: check search_depth in WARMUP.md — standard (default) = top 5 results per batch, 200 words/article; deep = top 10 results, 400 words/article. Standard is recommended for daily use (~40–60K fetch tokens); deep is ~2× that for broader coverage. Reject any item where item.date < lookback_start before routing to sections. If skip_scan: true in WARMUP.md, skip the URL safety check (step 5) and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
+                `4. Fetch phase — run ALL batches concurrently in a single parallel pass, then synthesize after all return. Budget: standard (default) = top 5 results per batch, 200 words/article; deep = top 10 results, 400 words/article. Reject any item where item.date < lookback_start. If skip_scan: true in WARMUP.md, skip step 5 and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
+                `\n` +
+                `   CISO mode compound batch queries (run all concurrently — do NOT search each source individually):\n` +
+                `   | Batch | Query pattern |\n` +
+                `   |---|---|\n` +
+                `   | Gov pulse | \`(site:cisa.gov OR site:nsa.gov OR site:ic3.gov OR site:ftc.gov) advisory alert after:YYYY-MM-DD\` |\n` +
+                `   | Research | \`(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:elastic.co/security-labs OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD\` |\n` +
+                `   | CVE sweep | \`(site:nvd.nist.gov OR site:cisa.gov/known-exploited-vulnerabilities) CVE critical after:YYYY-MM-DD\` |\n` +
+                `   | News | \`(site:bleepingcomputer.com OR site:securityweek.com OR site:krebsonsecurity.com OR site:thehackernews.com OR site:darkreading.com) [sector] after:YYYY-MM-DD\` |\n` +
+                `   | Market | \`[company OR sector] acquisition OR breach OR regulatory site:reuters.com OR site:bloomberg.com after:YYYY-MM-DD\` |\n` +
+                `   | Social | \`[sector] security debate OR disclosure site:reddit.com/r/netsec after:YYYY-MM-DD\` |\n` +
+                `   | Interests | One targeted query per special interest (e.g. \`Ironman 70.3 results 2026\`) |\n` +
+                `\n` +
+                `   For Product Leader and Custom modes, call warmup_get_skill({ section: "sources", intent: "Loading batch query table" }) to get the mode-specific batch patterns.\n` +
                 `5. Run the link safety verification protocol on all URLs before including them (unless skip_scan: true — see step 4).\n` +
-                `6. Synthesize content into sections. Build WARMUP_DATA with all required fields:\n` +
-                `   - config.showQuote: true (JSON boolean — required, not optional)\n` +
-                `   - config.scanTime: current generation time as "HH:MM TZ" (use WARMUP.md timezone; default UTC if not set)\n` +
-                `   - config.vendors: copy verbatim from WARMUP.md vendors field; write "" if blank, never omit\n` +
-                `   - config.skipScan: true if skip_scan: true in WARMUP.md, otherwise omit\n` +
-                `   - config.searchDepth: copy from WARMUP.md search_depth field ("standard" or "deep"); default "standard" if not set\n` +
-                `   - safety.domains: one entry per active source — required; set [] if skipScan; empty array means safety panel does not render\n` +
-                `   - safety.totalUrls: count of verified-safe clickable URLs in the brief (must equal config.totalLinks); set 0 if skipScan\n` +
-                `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
-                `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
+                `6. Synthesize content into sections. Build WARMUP_DATA — every field below is required:\n` +
+                `\n` +
+                `   config (all fields required):\n` +
+                `     name, mode, company, sector, region — copy verbatim from WARMUP.md\n` +
+                `     reportDate: full display string e.g. "Monday, 18 May 2026" (user timezone)\n` +
+                `     updated: short display string e.g. "18 May 2026"\n` +
+                `     lastRun: ISO date "YYYY-MM-DD"\n` +
+                `     dateRange: display string e.g. "May 11 – May 18, 2026"\n` +
+                `     sourcesActive: int  sourcesQuiet: int\n` +
+                `     showQuote: true  (JSON boolean — never false, never omit)\n` +
+                `     scanTime: "HH:MM TZ" e.g. "06:14 ET" — use WARMUP.md timezone, default UTC\n` +
+                `     timezone: copy verbatim from WARMUP.md (e.g. "ET", "PT", "UTC")\n` +
+                `     totalLinks: int  (count of verified-safe clickable URLs — must equal safety.totalUrls)\n` +
+                `     vendors: copy from WARMUP.md vendors field; write "" if blank, never omit\n` +
+                `     searchDepth: "standard" | "deep" (copy from WARMUP.md; default "standard")\n` +
+                `     skipScan: true if skip_scan: true in WARMUP.md, otherwise omit\n` +
+                `\n` +
+                `   sections[] — each section MUST have all four fields or the renderer throws and the page is blank:\n` +
+                `     id: kebab-case DOM id string (e.g. "threat", "emerging", "research", "industry", "social", "interests")\n` +
+                `     label: heading string (e.g. "Threat Landscape")\n` +
+                `     sub: standing editorial deck — one sentence describing what this section covers. NOT agent instructions, NOT lookback notes.\n` +
+                `     note: null (or today-only run caveat string — never repeat sub here)\n` +
+                `     items: array — MUST be an array, even [] for a quiet section\n` +
+                `\n` +
+                `   items[] — each item MUST have all five fields:\n` +
+                `     dot: "d1" | "d2" | "d3" | "d4"  src: source name  tags: array ([] is fine)\n` +
+                `     url: verified-safe URL  hl: headline  body: 2-3 sentence summary  date: "YYYY-MM-DD"\n` +
+                `     Lead item (items[0]) only: deck — one italic "so what?" sentence\n` +
+                `\n` +
+                `   sources[] — each entry MUST have: nm (name), dom (domain), dot ("d1"-"d4"), ct ("N items" or "—"), status ("active"|"quiet"|"excluded")\n` +
+                `\n` +
+                `   safety: domains ([{domain, verdict:"ALLOWLISTED"|"CLEAN"}] — length must equal active sources count; [] if skipScan)\n` +
+                `           totalUrls: int (0 if skipScan)  flagged: int  scannedAt: ""\n` +
                 `7. Render the artifact:\n` +
                 `   PATH A (version match — no template reload):\n` +
                 `     a) Use the Grep tool to find the line number of "<script id=\\"warmup-data\\">" in html_path.\n` +
@@ -610,12 +663,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
                 `No editorializing. No hype. Keep it scannable and honest.\n\n` +
-                `## Reference sections (call warmup_get_skill with the section param when you need details)\n\n` +
-                `- Source tiers, batch query templates, sector-specific sources (Step 2 fetch phase): warmup_get_skill({ section: "sources", intent: "Loading source tiers for fetch phase" })\n` +
-                `- Report section structures — what goes in each section, lead vs grid items (Step 3 synthesis): warmup_get_skill({ section: "sections", intent: "Loading section structures for synthesis" })\n` +
-                `- WARMUP_DATA JSON schema, all field rules, date filter, sub field, safety panel (Step 4 render): warmup_get_skill({ section: "schema", intent: "Loading WARMUP_DATA schema for render" })\n` +
+                `## Reference sections (call warmup_get_skill only when needed — these are round-trips)\n\n` +
+                `- Product Leader / Custom mode batch query patterns: warmup_get_skill({ section: "sources", intent: "Loading batch queries for [mode]" })\n` +
+                `- Report section structures for CISO (section names, lead vs grid rules): warmup_get_skill({ section: "sections", intent: "Loading section structures" })\n` +
                 `- Anti-patterns, editorial voice, hard rules: warmup_get_skill({ section: "rules", intent: "Checking anti-patterns" })\n` +
-                `- Full SKILL.md (only if the above sections are collectively insufficient): warmup_get_skill({ section: "full", intent: "..." })`,
+                `- Full schema with examples and edge-case rules: warmup_get_skill({ section: "schema", intent: "Loading full schema" })\n` +
+                `- Full SKILL.md (only if the above are collectively insufficient): warmup_get_skill({ section: "full", intent: "..." })`,
             },
           ],
         };
