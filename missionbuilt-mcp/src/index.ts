@@ -31,7 +31,7 @@ import { z } from "zod";
 
 // Skill content bundled at build time via Wrangler text imports.
 import WARMUP_SKILL_MD from "./skill-content/warmup/SKILL.md";
-import WARMUP_TEMPLATE_HTML from "./skill-content/warmup/warmup-template.html";
+import WARMUP_SHELL_JS from "./warmup-shell.rawjs";
 import SPOTTER_SKILL_MD from "./skill-content/spotter/SKILL.md";
 import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
@@ -341,15 +341,38 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // tickers, price strings). A replacer function bypasses special-sequence expansion.
         const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
-        const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-        const injected = filled !== WARMUP_TEMPLATE_HTML;
+
+        // Build the shell-inlined template at request time. Inlining the renderer
+        // (warmup-shell.rawjs) makes the artifact fully self-contained — no external
+        // script fetch needed, compatible with Cowork's Content Security Policy.
+        // The shell (~1741 lines) is well under the 2000-line default Read limit,
+        // so PATH B agents never hit the large-file truncation issue.
+        const shellInlined =
+          `<!DOCTYPE html>\n` +
+          `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
+          `<html lang="en">\n` +
+          `<head>\n` +
+          `  <meta charset="utf-8">\n` +
+          `  <meta name="viewport" content="width=device-width, initial-scale=1">\n` +
+          `  <title>The Warmup \xB7 Morning Edition</title>\n` +
+          `</head>\n` +
+          `<script id="warmup-data">\n` +
+          `${PLACEHOLDER}\n` +
+          `</script>\n` +
+          `<body><script>\n` +
+          `${WARMUP_SHELL_JS}\n` +
+          `</script></body>\n` +
+          `</html>`;
+
+        const filled = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
+        const injected = filled !== shellInlined;
         return {
           content: [
             {
               type: "text" as const,
               text: injected
                 ? filled
-                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found in template — injection failed. Do NOT use the raw template. Do not retry. Stop and report this error.]`,
+                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]`,
             },
           ],
         };
@@ -467,7 +490,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   - sources[].status: "active" | "quiet" | "excluded" — exact strings only\n` +
                 `   - sources[].ct: "N items" for active sources, "—" for quiet sources\n` +
                 `7. Render the artifact:\n` +
-                `   PATH A (version match — no template reload): do NOT read the full 131KB file.\n` +
+                `   PATH A (version match — no template reload):\n` +
                 `     a) Use the Grep tool to find the line number of "<script id=\\"warmup-data\\">" in html_path.\n` +
                 `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
                 `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
@@ -478,8 +501,8 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     B-2. Get the HTML from B-1 — two cases:\n` +
                 `          • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
                 `          • Response looks like a file path → Cowork persisted it to disk.\n` +
-                `            Read the file in one call: Read({ file_path: [path], limit: 3500 })\n` +
-                `            The warmup template is ~3000 lines. limit:3500 captures the full file.\n` +
+                `            Read the file with: Read({ file_path: [path] }) — no limit parameter needed.\n` +
+                `            The response is ~1750 lines, well within the default Read limit.\n` +
                 `            Do NOT summarize, truncate, or process the content in any way.\n` +
                 `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: the HTML string from B-2, unmodified.\n` +

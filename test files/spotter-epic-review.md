@@ -1,4 +1,4 @@
-spot by epic
+spot my epic
 
 # Epic: Comments on Dashboards
 

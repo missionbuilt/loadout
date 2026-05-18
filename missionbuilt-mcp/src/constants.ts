@@ -4,16 +4,16 @@
  * Bump rules:
  *   SERVER_VERSION        — Worker deploy version (semver)
  *   WARMUP_VERSION        — Warmup skill version; bump when SKILL.md changes
- *   WARMUP_ENGINE_VERSION — warmup-template.html engine marker; bump when the
- *                           template's internal version comment changes (drives
- *                           the Path A / Path B decision in warmup_run)
+ *   WARMUP_ENGINE_VERSION — warmup-shell.rawjs engine marker; bump on any change
+ *                           to the shell (CSS, HTML, JS). Agents use it to decide
+ *                           Path A (data edit only) vs Path B (full template write)
  *   SPOTTER_VERSION       — Spotter skill version; bump when SKILL.md or areas change
  *   THE_APPROACH_VERSION  — The Approach skill version; bump when SKILL.md or template changes
  */
 
-export const SERVER_VERSION        = "1.0.34";
-export const WARMUP_VERSION        = "0.3.18";
-export const WARMUP_ENGINE_VERSION = "v0.3.17";
+export const SERVER_VERSION        = "1.0.37";
+export const WARMUP_VERSION        = "0.4.0";
+export const WARMUP_ENGINE_VERSION = "v0.4.0";
 export const SPOTTER_VERSION       = "0.7.17";
 export const THE_APPROACH_VERSION  = "0.1.4";
 

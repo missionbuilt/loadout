@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.3.17";
+export const WARMUP_ENGINE_VERSION = "v0.4.0";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 
@@ -239,8 +239,8 @@ Only these tools may be used. Everything else is forbidden.
      B-2. Get the HTML from B-1 — two cases:
           • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.
           • Response looks like a file path → Cowork persisted it to disk.
-            Read the file in one call: Read({ file_path: [path], limit: 3500 })
-            The warmup template is ~3000 lines. limit:3500 captures the full file.
+            Read the file with: Read({ file_path: [path] }) — no limit parameter needed.
+            The response is ~1750 lines, well within the default Read limit.
             Do NOT summarize, truncate, or process the content in any way.
      B-3. Call Write — file_path: [workspace-root]/warmup.html
           content: the HTML string from B-2, unmodified.

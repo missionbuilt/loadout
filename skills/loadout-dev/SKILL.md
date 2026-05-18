@@ -40,29 +40,26 @@ This keeps Mike in control of deploys, git history, and destructive operations.
 
 ---
 
-## The one rule that causes the most problems if you forget it
+## Shell files — single source of truth
 
-**Templates live in two places. Always edit canonical first, then sync the bundled copy.**
+**Both skills now use the inline-shell pattern. Each shell has ONE copy.**
 
-### Warmup template
+| Shell | Path | Purpose |
+|-------|------|---------|
+| Warmup shell | `missionbuilt-mcp/src/warmup-shell.rawjs` | CSS + HTML + JS engine, inlined at request time |
+| Spotter shell | `missionbuilt-mcp/src/spotter-shell.rawjs` | CSS + HTML + JS engine, inlined at request time |
 
-| Copy | Path |
-|------|------|
-| Canonical | `/Users/mike/Projects/loadout/warmup/warmup-template.html` |
-| Bundled | `/Users/mike/Projects/loadout/missionbuilt-mcp/src/skill-content/warmup/warmup-template.html` |
+There is no two-copy sync requirement. Edit the file directly and bump the version — that's it.
 
-### Spotter shell
+The old `warmup/warmup-template.html` and `missionbuilt-mcp/src/skill-content/warmup/warmup-template.html`
+files still exist as reference but are **not imported by the Worker**. Do not edit them expecting
+it to change anything.
 
-| Copy | Path |
-|------|------|
-| Canonical | `/Users/mike/Projects/loadout/spotter/spotter-shell.rawjs` |
-| Bundled | `/Users/mike/Projects/loadout/missionbuilt-mcp/src/skill-content/spotter/spotter-shell.rawjs` |
-
-Every CSS, HTML, and JS change goes into the canonical copy first. Then apply the
-identical change to the bundled copy. If they diverge, agents silently work against
-a stale template and the Worker serves the wrong design.
-
-After any template edit, verify both copies match with Grep before committing.
+**Why the shell pattern matters:** `warmup_get_template` and `spotter_get_template` build the
+artifact HTML at request time by inlining the shell JS into a ~14-line HTML skeleton. The result
+is ~1750 lines — well under Cowork's 2000-line default Read limit. The old monolithic template
+(2969 lines) always exceeded the limit, causing agents to use "targeted approaches" and produce
+empty or broken artifacts. The shell pattern eliminates this failure mode.
 
 ---
 
@@ -71,9 +68,9 @@ After any template edit, verify both copies match with Grep before committing.
 All version constants live in one file: `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.0.33";  // Worker deploy version (semver)
-export const WARMUP_VERSION        = "0.3.17";  // bump when SKILL.md or template changes
-export const WARMUP_ENGINE_VERSION = "v0.3.17"; // bump when warmup-template.html changes
+export const SERVER_VERSION        = "1.0.37";  // Worker deploy version (semver)
+export const WARMUP_VERSION        = "0.4.0";   // bump when SKILL.md or shell changes
+export const WARMUP_ENGINE_VERSION = "v0.4.0";  // bump when warmup-shell.rawjs changes
 export const SPOTTER_VERSION       = "0.7.17";  // bump when Spotter instructions or areas change
 export const THE_APPROACH_VERSION  = "0.1.4";   // bump when Approach SKILL.md or template changes
 export const TOOL_COUNT            = 20;        // update when adding or removing tools
@@ -83,10 +80,10 @@ export const TOOL_COUNT            = 20;        // update when adding or removin
 
 | What changed | Bump |
 |---|---|
-| `warmup-template.html` (any change) | `WARMUP_VERSION` + `WARMUP_ENGINE_VERSION` + `SERVER_VERSION` |
+| `warmup-shell.rawjs` (any change) | `WARMUP_VERSION` + `WARMUP_ENGINE_VERSION` + `SERVER_VERSION` |
 | Warmup SKILL.md or instructions only | `WARMUP_VERSION` + `SERVER_VERSION` |
 | Spotter instruction text (index.ts) | `SPOTTER_VERSION` + `SERVER_VERSION` |
-| Spotter template / shell JS | `SPOTTER_VERSION` + `SERVER_VERSION` |
+| Spotter shell JS | `SPOTTER_VERSION` + `SERVER_VERSION` |
 | New tool added or removed | `TOOL_COUNT` + `SERVER_VERSION` |
 | Worker infrastructure change | `SERVER_VERSION` only |
 
