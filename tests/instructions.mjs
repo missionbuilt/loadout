@@ -236,13 +236,15 @@ Only these tools may be used. Everything else is forbidden.
      B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })
           Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
           If the call fails or returns an error string, stop and report the error.
-     B-2. Get the HTML from B-1.
-          The response contains multiple text blocks (chunks of ~80 lines each).
-          Concatenate every content[N].text value in order — that is the full HTML.
-          If Cowork returns a file path instead of inline content:
-            Read the file once (no limit parameter). The JSON has many short entries.
-            Concatenate all content[N].text values in order. That is the full HTML.
-          No Python, no bash, no additional reads. Pass the joined HTML to B-3.
+     B-2. Assemble the HTML from B-1.
+          warmup_get_template returns the HTML in ~22 chunks (not one string).
+          Cowork will have persisted it — the response is a file path. Read the file ONCE.
+          After that single Read you can see all ~22 "text" values in your context.
+          THE HTML = chunk[0] + chunk[1] + … + chunk[21], joined in order.
+          This join happens in YOUR REASONING — no tool is needed to concatenate strings.
+          Concatenate them yourself and use the result as the content parameter in B-3.
+          Do NOT use bash, Python, or any tool to assemble the file — you already have all
+          the text in context. Do NOT re-read the file or any chunk a second time.
      B-3. Call Write — file_path: [workspace-root]/warmup.html
           content: the HTML string from B-2, unmodified.
      B-4. Call create_artifact (first run) or update_artifact (stale engine).
