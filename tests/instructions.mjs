@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.7.3";
+export const WARMUP_ENGINE_VERSION = "v0.7.4";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 
@@ -240,10 +240,18 @@ Only these tools may be used. Everything else is forbidden.
           If the call returns an error string, stop and report the error.
      B-2. Call Write — file_path: [workspace-root]/warmup.html
           content: exactly the text from B-1, verbatim.
-     B-3. Inject WARMUP_DATA — call Edit immediately after Write:
-          old_string: "window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"
-          new_string: "window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"
-          ⚠ XSS safety: escape any </script> inside the JSON as <\\/script> before injecting.
+     B-3. Inject WARMUP_DATA — call Edit immediately after Write.
+          Match the ENTIRE 3-line script block (pure ASCII, no special characters):
+          old_string (copy exactly, including newlines):
+            <script id="warmup-data">
+            window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER
+            </script>
+          new_string (substitute your actual JSON):
+            <script id="warmup-data">
+            window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];
+            </script>
+          ⚠ XSS: escape any </script> inside the JSON as <\\/script>.
+          ⚠ CRITICAL: If Edit returns any error, STOP and report it. Do NOT proceed to B-4 with WARMUP_DATA still null — the artifact will be blank.
           Wait for Edit to succeed before B-4.
      B-4. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.
           Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.

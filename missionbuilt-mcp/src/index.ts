@@ -379,7 +379,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // present), then Edits the placeholder line with JSON.stringify(WARMUP_DATA).
         // This keeps chunk 0 ≤20KB regardless of how much article content was fetched.
         if (chunk === 0) {
-          const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
+          const PLACEHOLDER = `window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER`;
 
           const shellInlined =
             `<!DOCTYPE html>\n` +
@@ -597,10 +597,18 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `          If the call returns an error string, stop and report the error.\n` +
                 `     B-2. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: exactly the text from B-1, verbatim.\n` +
-                `     B-3. Inject WARMUP_DATA — call Edit immediately after Write:\n` +
-                `          old_string: "window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"\n` +
-                `          new_string: "window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"\n` +
-                `          ⚠ XSS safety: escape any </script> inside the JSON as <\\/script> before injecting.\n` +
+                `     B-3. Inject WARMUP_DATA — call Edit immediately after Write.\n` +
+                `          Match the ENTIRE 3-line script block (pure ASCII, no special characters):\n` +
+                `          old_string (copy exactly, including newlines):\n` +
+                `            <script id="warmup-data">\n` +
+                `            window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER\n` +
+                `            </script>\n` +
+                `          new_string (substitute your actual JSON):\n` +
+                `            <script id="warmup-data">\n` +
+                `            window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];\n` +
+                `            </script>\n` +
+                `          ⚠ XSS: escape any </script> inside the JSON as <\\/script>.\n` +
+                `          ⚠ CRITICAL: If Edit returns any error, STOP and report it. Do NOT proceed to B-4 with WARMUP_DATA still null — the artifact will be blank.\n` +
                 `          Wait for Edit to succeed before B-4.\n` +
                 `     B-4. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.\n` +
                 `          Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.\n` +

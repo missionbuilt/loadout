@@ -778,7 +778,18 @@ gap: 10px;
   // ── WARMUP RENDERER (reads WARMUP_DATA, populates DOM before other scripts) ──
   try { (function() {
     const D = window.WARMUP_DATA;
-    if (!D) return;
+    if (!D) {
+      try {
+        var _nd = document.createElement('div');
+        _nd.style.cssText = 'padding:60px 40px;font-family:sans-serif;max-width:720px;margin:0 auto;background:#fff8f8;';
+        _nd.innerHTML = '<h2 style="font-size:22px;margin-bottom:12px;color:#c00;">Warmup data missing</h2>' +
+          '<p style="margin-bottom:8px;">WARMUP_DATA is null — the intelligence data was not injected into this artifact.</p>' +
+          '<p style="margin-bottom:16px;">Re-run The Warmup to regenerate, or check the browser console for details.</p>' +
+          '<p style="font-size:13px;color:#666;">If this keeps happening, tell the agent: "The warmup artifact is blank because WARMUP_DATA is null in the file."</p>';
+        document.body.appendChild(_nd);
+      } catch(_) {}
+      return;
+    }
     const DOT = {d1:'●', d2:'◉', d3:'○', d4:'◈'};
     // ── Dynamically build section structure, nav, pills, scan badge ──
     var _main = document.getElementById('main-content');

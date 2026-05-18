@@ -615,10 +615,22 @@ The server returns the shell HTML in paginated 900-line chunks. Chunk 0 contains
 
 2. **Call Write** — `file_path: [workspace-root]/warmup.html` · `content:` exactly the text from step 1, verbatim. Do NOT write to outputs or temp; that path is cleared between sessions.
 
-3. **Inject WARMUP_DATA — call Edit immediately after Write:**  
-   `old_string:` `"window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"`  
-   `new_string:` `"window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"`  
-   ⚠ XSS safety: escape any `</script>` inside the JSON as `<\/script>` before injecting.  
+3. **Inject WARMUP_DATA — call Edit immediately after Write.**  
+   Match the **entire 3-line script block** (pure ASCII, no special characters):  
+   `old_string` (copy exactly, including newlines):
+   ```
+   <script id="warmup-data">
+   window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER
+   </script>
+   ```
+   `new_string` (substitute your actual JSON):
+   ```
+   <script id="warmup-data">
+   window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];
+   </script>
+   ```
+   ⚠ XSS: escape any `</script>` inside the JSON as `<\/script>`.  
+   ⚠ **CRITICAL**: If Edit returns any error, STOP and report it. Do NOT proceed with WARMUP_DATA still null — the artifact will be blank.  
    Wait for Edit to succeed before step 4.
 
 4. **⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.**  
