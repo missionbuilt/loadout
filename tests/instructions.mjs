@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.5.0";
+export const WARMUP_ENGINE_VERSION = "v0.6.0";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 
@@ -236,10 +236,13 @@ Only these tools may be used. Everything else is forbidden.
      B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })
           Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
           If the call fails or returns an error string, stop and report the error.
-     B-2. The response from B-1 is the complete artifact HTML — use it as-is for B-3.
-          It is a short skeleton (~15 lines) with your WARMUP_DATA already injected.
-          It fits in context and does not need to be fetched, chunked, or processed.
-          If Cowork returns a file path instead, call Read on that path once and use the content as-is.
+     B-2. Get the HTML from B-1.
+          The response contains multiple text blocks (chunks of ~80 lines each).
+          Concatenate every content[N].text value in order — that is the full HTML.
+          If Cowork returns a file path instead of inline content:
+            Read the file once (no limit parameter). The JSON has many short entries.
+            Concatenate all content[N].text values in order. That is the full HTML.
+          No Python, no bash, no additional reads. Pass the joined HTML to B-3.
      B-3. Call Write — file_path: [workspace-root]/warmup.html
           content: the HTML string from B-2, unmodified.
      B-4. Call create_artifact (first run) or update_artifact (stale engine).

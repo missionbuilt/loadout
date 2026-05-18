@@ -31,6 +31,7 @@ import { z } from "zod";
 
 // Skill content bundled at build time via Wrangler text imports.
 import WARMUP_SKILL_MD from "./skill-content/warmup/SKILL.md";
+import WARMUP_SHELL_JS from "./warmup-shell.rawjs";
 import SPOTTER_SKILL_MD from "./skill-content/spotter/SKILL.md";
 import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
@@ -339,14 +340,19 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // $', $&, $` as special sequences. Article content can contain these (e.g. stock
         // tickers, price strings). A replacer function bypasses special-sequence expansion.
         const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
-        const PLACEHOLDER = `window.WARMUP_DATA = null; // WARMUP_DATA_PLACEHOLDER`;
+        const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
 
-        // Remote-shell architecture: the skeleton references warmup-shell.js via <script src>.
-        // The renderer is served from the Worker (/warmup-shell.js) and fetched by the browser
-        // at artifact open time. This keeps the warmup_get_template response to ~15 lines +
-        // WARMUP_DATA — well under Cowork's ~67KB persistence threshold — so the agent always
-        // receives the HTML inline (never as a persisted file it cannot read).
-        const skeleton =
+        // Inline-shell architecture: the renderer (warmup-shell.rawjs) is inlined into the
+        // artifact HTML at request time, making the artifact fully self-contained.
+        // Required for Cowork's Content Security Policy — external <script src> is blocked.
+        //
+        // Chunked delivery: the filled HTML is ~1750 lines / 87KB+. Cowork persists MCP
+        // responses over ~67KB to disk as a JSON envelope with one long text line, which
+        // exceeds the Read tool's ~25K token line limit. To avoid this, we split the HTML
+        // into 80-line chunks and return them as separate content blocks. When persisted,
+        // each chunk is a short JSON array entry (< 5KB). The agent concatenates all
+        // content[N].text values in order to reconstruct the full HTML before writing.
+        const shellInlined =
           `<!DOCTYPE html>\n` +
           `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
           `<html lang="en">\n` +
@@ -358,23 +364,28 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           `<script id="warmup-data">\n` +
           `${PLACEHOLDER}\n` +
           `</script>\n` +
-          `<body>\n` +
-          `<script src="https://mcp.missionbuilt.io/warmup-shell.js"></script>\n` +
-          `</body>\n` +
+          `<body><script>\n` +
+          `${WARMUP_SHELL_JS}\n` +
+          `</script></body>\n` +
           `</html>`;
 
-        const filled = skeleton.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-        const injected = filled !== skeleton;
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: injected
-                ? filled
-                : `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]`,
-            },
-          ],
-        };
+        const filled = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
+        const injected = filled !== shellInlined;
+
+        if (!injected) {
+          return {
+            content: [{ type: "text" as const, text: `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]` }],
+          };
+        }
+
+        // Split into 80-line chunks so each JSON entry stays well under the Read tool limit.
+        const CHUNK_LINES = 80;
+        const lines = filled.split('\n');
+        const content: Array<{ type: "text"; text: string }> = [];
+        for (let i = 0; i < lines.length; i += CHUNK_LINES) {
+          content.push({ type: "text" as const, text: lines.slice(i, i + CHUNK_LINES).join('\n') });
+        }
+        return { content };
       }
     );
 
@@ -497,10 +508,13 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })\n` +
                 `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
                 `          If the call fails or returns an error string, stop and report the error.\n` +
-                `     B-2. The response from B-1 is the complete artifact HTML — use it as-is for B-3.\n` +
-                `          It is a short skeleton (~15 lines) with your WARMUP_DATA already injected.\n` +
-                `          It fits in context and does not need to be fetched, chunked, or processed.\n` +
-                `          If Cowork returns a file path instead, call Read on that path once and use the content as-is.\n` +
+                `     B-2. Get the HTML from B-1.\n` +
+                `          The response contains multiple text blocks (chunks of ~80 lines each).\n` +
+                `          Concatenate every content[N].text value in order — that is the full HTML.\n` +
+                `          If Cowork returns a file path instead of inline content:\n` +
+                `            Read the file once (no limit parameter). The JSON has many short entries.\n` +
+                `            Concatenate all content[N].text values in order. That is the full HTML.\n` +
+                `          No Python, no bash, no additional reads. Pass the joined HTML to B-3.\n` +
                 `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: the HTML string from B-2, unmodified.\n` +
                 `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +

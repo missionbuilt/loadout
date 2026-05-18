@@ -18,7 +18,7 @@ export const WORKSPACE_ROOT = "/Users/test/Projects/loadout";
 export const SPOTTER_VERSION = "0.7.13";
 
 /** Keep in sync with constants.ts WARMUP_ENGINE_VERSION */
-export const WARMUP_ENGINE_VERSION = "v0.5.0";
+export const WARMUP_ENGINE_VERSION = "v0.6.0";
 
 // ─── Minimal valid HTML templates ─────────────────────────────────────────────
 
@@ -56,9 +56,9 @@ export const MOCK_WARMUP_HTML =
 <script id="warmup-data">
 window.WARMUP_DATA = null;
 </script>
-<body>
-<script src="https://mcp.missionbuilt.io/warmup-shell.js"></script>
-</body>
+<body><script>
+/* warmup-shell stub */
+</script></body>
 </html>`;
 
 // ─── Scenario builders ────────────────────────────────────────────────────────
