@@ -234,22 +234,26 @@ Only these tools may be used. Everything else is forbidden.
      c) Use Edit to replace the block with new WARMUP_DATA. Call update_artifact. Done.
    PATH B / FIRST RUN (engine update or new artifact):
      B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })
-          Each chunk is ~20KB — well under Cowork's persistence threshold, returned inline.
-          Read the <!-- WARMUP_TOTAL_CHUNKS: N --> comment in the response to get N.
+          The response is small (~20KB) and returned inline — no file read needed.
+          Read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn N.
           The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.
           If the call returns an error string, stop and report the error.
      B-2. Call Write — file_path: [workspace-root]/warmup.html
-          content: exactly the text from B-1, verbatim. Do not strip, trim, or modify it.
-     B-3. For each chunk index i from 1 to N-1 (repeat this pair of calls):
-          a. Call warmup_get_template({ intent: "...", chunk: i }) — do NOT pass warmup_data.
-             If the call returns an error string, stop and report it.
-          b. Call Edit — file_path: [workspace-root]/warmup.html
-                        old_string: "<!-- __WARMUP_SENTINEL__ -->"
-                        new_string: [text from step a]
-          Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->; the final chunk
-          ends with </html>. The Edit always replaces the one sentinel at the end of the file.
-     B-4. Call create_artifact (first run) or update_artifact (stale engine).
-          html_path: [workspace-root]/warmup.html. Done.
+          content: exactly the text from B-1, verbatim.
+     B-3. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.
+          Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.
+          Parallel Edits race to replace the same sentinel and corrupt the file.
+          Repeat for i = 1, 2, … N-1:
+            a. Call warmup_get_template({ intent: "...", chunk: i }) — omit warmup_data.
+               If the call returns an error string, stop and report it.
+            b. Call Edit — old_string: "<!-- __WARMUP_SENTINEL__ -->"
+                          new_string: [text from step a]
+               Wait for Edit to succeed before starting i+1.
+     B-4. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".
+          If found, assembly is incomplete — stop and report the error.
+     B-5. Call create_artifact (first run) or update_artifact (stale engine).
+          html_path: [workspace-root]/warmup.html
+          ⚠ Do NOT call create_artifact or update_artifact before B-4 passes.
    NEVER write your own HTML. One summary line in chat — the brief is the artifact.
 
 ## Voice

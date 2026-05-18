@@ -363,7 +363,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // Replacer-function safety: article content can contain $', $&, $` (price strings,
         // tickers, shell syntax). A replacer function bypasses special-sequence expansion.
 
-        const CHUNK_LINES  = 400;
+        const CHUNK_LINES  = 600;
         const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
         // Lines 0–12 in the preamble (includes the injected TOTAL_CHUNKS comment at index 2).
         // DOCTYPE, engine-marker, TOTAL_CHUNKS-comment, html, head, meta×2, title, /head,
@@ -569,22 +569,26 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
                 `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })\n` +
-                `          Each chunk is ~20KB — well under Cowork's persistence threshold, returned inline.\n` +
-                `          Read the <!-- WARMUP_TOTAL_CHUNKS: N --> comment in the response to get N.\n` +
+                `          The response is small (~20KB) and returned inline — no file read needed.\n` +
+                `          Read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
                 `          The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
                 `          If the call returns an error string, stop and report the error.\n` +
                 `     B-2. Call Write — file_path: [workspace-root]/warmup.html\n` +
-                `          content: exactly the text from B-1, verbatim. Do not strip, trim, or modify it.\n` +
-                `     B-3. For each chunk index i from 1 to N-1 (repeat this pair of calls):\n` +
-                `          a. Call warmup_get_template({ intent: "...", chunk: i }) — do NOT pass warmup_data.\n` +
-                `             If the call returns an error string, stop and report it.\n` +
-                `          b. Call Edit — file_path: [workspace-root]/warmup.html\n` +
-                `                        old_string: "<!-- __WARMUP_SENTINEL__ -->"\n` +
-                `                        new_string: [text from step a]\n` +
-                `          Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->; the final chunk\n` +
-                `          ends with </html>. The Edit always replaces the one sentinel at the end of the file.\n` +
-                `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
-                `          html_path: [workspace-root]/warmup.html. Done.\n` +
+                `          content: exactly the text from B-1, verbatim.\n` +
+                `     B-3. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.\n` +
+                `          Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.\n` +
+                `          Parallel Edits race to replace the same sentinel and corrupt the file.\n` +
+                `          Repeat for i = 1, 2, … N-1:\n` +
+                `            a. Call warmup_get_template({ intent: "...", chunk: i }) — omit warmup_data.\n` +
+                `               If the call returns an error string, stop and report it.\n` +
+                `            b. Call Edit — old_string: "<!-- __WARMUP_SENTINEL__ -->"\n` +
+                `                          new_string: [text from step a]\n` +
+                `               Wait for Edit to succeed before starting i+1.\n` +
+                `     B-4. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".\n` +
+                `          If found, assembly is incomplete — stop and report the error.\n` +
+                `     B-5. Call create_artifact (first run) or update_artifact (stale engine).\n` +
+                `          html_path: [workspace-root]/warmup.html\n` +
+                `          ⚠ Do NOT call create_artifact or update_artifact before B-4 passes.\n` +
                 `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +
