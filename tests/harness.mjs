@@ -238,12 +238,13 @@ export const SCHEMAS = {
   },
   warmup_get_template: {
     name: "warmup_get_template",
-    description: "Build and return a complete, self-contained Warmup HTML brief.",
+    description: "Returns the warmup shell HTML in paginated 900-line chunks. Call with chunk:0 (no warmup_data) to get the shell with placeholder. After Write, Edit the placeholder with JSON.stringify(WARMUP_DATA). Then fetch chunks 1..N-1 and Edit each sentinel sequentially.",
     input_schema: {
       type: "object",
-      required: ["warmup_data"],
+      required: [],
       properties: {
-        warmup_data: str("JSON string of WARMUP_DATA object."),
+        chunk:       { type: "number", description: "Which 900-line chunk to return (0-indexed). Default: 0." },
+        warmup_data: str("Deprecated — do not pass. Ignored on all chunks."),
         intent:      str("Why you are calling this tool."),
       },
     },

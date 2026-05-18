@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.7.1";
+export const WARMUP_ENGINE_VERSION = "v0.7.3";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 
@@ -233,27 +233,32 @@ Only these tools may be used. Everything else is forbidden.
      b) Use Read with offset+limit to read only that script block.
      c) Use Edit to replace the block with new WARMUP_DATA. Call update_artifact. Done.
    PATH B / FIRST RUN (engine update or new artifact):
-     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })
-          The response is small (~20KB) and returned inline — no file read needed.
+     B-1. Call warmup_get_template({ intent: "...", chunk: 0 }) — do NOT pass warmup_data.
+          The response is ~20KB and returned inline — no file read needed.
           Read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn N.
           The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.
           If the call returns an error string, stop and report the error.
      B-2. Call Write — file_path: [workspace-root]/warmup.html
           content: exactly the text from B-1, verbatim.
-     B-3. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.
+     B-3. Inject WARMUP_DATA — call Edit immediately after Write:
+          old_string: "window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"
+          new_string: "window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"
+          ⚠ XSS safety: escape any </script> inside the JSON as <\\/script> before injecting.
+          Wait for Edit to succeed before B-4.
+     B-4. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.
           Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.
           Parallel Edits race to replace the same sentinel and corrupt the file.
           Repeat for i = 1, 2, … N-1:
-            a. Call warmup_get_template({ intent: "...", chunk: i }) — omit warmup_data.
+            a. Call warmup_get_template({ intent: "...", chunk: i }).
                If the call returns an error string, stop and report it.
             b. Call Edit — old_string: "<!-- __WARMUP_SENTINEL__ -->"
                           new_string: [text from step a]
                Wait for Edit to succeed before starting i+1.
-     B-4. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".
+     B-5. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".
           If found, assembly is incomplete — stop and report the error.
-     B-5. Call create_artifact (first run) or update_artifact (stale engine).
+     B-6. Call create_artifact (first run) or update_artifact (stale engine).
           html_path: [workspace-root]/warmup.html
-          ⚠ Do NOT call create_artifact or update_artifact before B-4 passes.
+          ⚠ Do NOT call create_artifact or update_artifact before B-5 passes.
    NEVER write your own HTML. One summary line in chat — the brief is the artifact.
 
 ## Voice

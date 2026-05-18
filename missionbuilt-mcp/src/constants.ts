@@ -11,9 +11,9 @@
  *   THE_APPROACH_VERSION  — The Approach skill version; bump when SKILL.md or template changes
  */
 
-export const SERVER_VERSION        = "1.0.46";
-export const WARMUP_VERSION        = "0.7.2";
-export const WARMUP_ENGINE_VERSION = "v0.7.1";
+export const SERVER_VERSION        = "1.0.47";
+export const WARMUP_VERSION        = "0.7.3";
+export const WARMUP_ENGINE_VERSION = "v0.7.3";
 export const SPOTTER_VERSION       = "0.7.17";
 export const THE_APPROACH_VERSION  = "0.1.4";
 

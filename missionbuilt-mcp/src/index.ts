@@ -319,15 +319,14 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the warmup artifact HTML in paginated 900-line chunks. Call with chunk:0 and warmup_data (JSON.stringify of your WARMUP_DATA) to get the first chunk with the data already injected. The response includes a <!-- WARMUP_TOTAL_CHUNKS: N --> comment so you know how many chunks to fetch. Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->. For chunks 1 through N-1, call again with only chunk:N (no warmup_data needed). Write chunk 0 to disk, then Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) for each subsequent chunk in SEQUENTIAL order — never parallel. Never reconstruct or invent the HTML yourself.",
+      "Returns the warmup artifact HTML in paginated 900-line chunks. Call with chunk:0 (no warmup_data) to get the shell with the WARMUP_DATA placeholder intact. Write chunk 0 to disk, then immediately Edit the placeholder line: old_string='window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)', new_string='window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];'. Then for chunks 1 through N-1, call again with chunk:N and Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) SEQUENTIALLY. Never pass warmup_data — it is unused. Never reconstruct or invent the HTML yourself.",
       {
         intent: intentField,
         warmup_data: z
           .string()
           .optional()
           .describe(
-            "Required for chunk:0. The full WARMUP_DATA JSON object serialised as a string via " +
-            "JSON.stringify(). Not needed for chunks 1+."
+            "Deprecated — do not pass. Ignored on all chunks. Inject WARMUP_DATA via Edit after Write(chunk 0)."
           ),
         chunk: z
           .number()
@@ -340,28 +339,27 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           ),
       },
       async ({ warmup_data, chunk = 0 }) => {
-        // Paginated delivery architecture:
+        // Paginated delivery architecture (v0.7.3 — data-injection decoupled from chunks):
         //
         // Problem: the filled warmup HTML is ~1757 lines / 87KB+. Cowork persists MCP
-        // responses over ~67KB to disk as a JSON envelope with a single long text line,
-        // which exceeds the Read tool line limit (~25K tokens/line). Even if the agent reads
-        // it successfully, the model's output token limit prevents it from writing the
-        // assembled ~87KB HTML in one Write call.
+        // responses over ~67KB to disk as a JSON envelope. Chunk 0 used to inject WARMUP_DATA
+        // server-side, but WARMUP_DATA from 9 WebSearch calls is 20–40KB of article JSON,
+        // making chunk 0 ≈ 60KB — right at the persistence threshold. When Cowork persists
+        // chunk 0, the agent receives a file path instead of inline text, reaches for bash
+        // (forbidden), produces a corrupted or empty warmup.html, and the artifact is blank.
         //
-        // Solution: return one 400-line chunk per call (~20KB each, well under Cowork's
-        // 67KB persistence threshold). Chunk 0 injects WARMUP_DATA and ends with a sentinel
-        // comment. Chunks 1+ serve shell lines directly without needing warmup_data.
-        // Agent: Write(chunk 0) → Edit(sentinel → chunk 1) → ... → Edit(sentinel → chunk N-1)
-        // Each operation is ~20KB / ~5K tokens — well within all limits.
+        // Fix: chunk 0 returns the shell with the WARMUP_DATA placeholder intact (~20KB,
+        // always under the threshold). The agent does:
+        //   Write(chunk 0 with placeholder) → Edit(placeholder → JSON.stringify(WARMUP_DATA))
+        //   → sequential Edit(sentinel → chunk i) for i = 1..N-1
+        // The Edit tool handles arbitrary string sizes with no size threshold issues.
         //
-        // Structure of the filled HTML (after comment insertion):
+        // Structure of the shell HTML (chunk 0):
         //   Lines 0–12:  13-line preamble (DOCTYPE … <body><script>)
         //   Lines 13+:   WARMUP_SHELL_JS lines
         //   Closing:     empty line + </script></body> + </html>
         //
-        // XSS safety: article content can contain </script> — escape before injection.
-        // Replacer-function safety: article content can contain $', $&, $` (price strings,
-        // tickers, shell syntax). A replacer function bypasses special-sequence expansion.
+        // warmup_data parameter: deprecated, accepted but ignored. Do not pass it.
 
         const CHUNK_LINES  = 900;
         const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
@@ -376,50 +374,17 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         const totalLines   = PREAMBLE_LINES + shellLines.length + closingLines.length;
         const totalChunks  = Math.ceil(totalLines / CHUNK_LINES);
 
-        // ── Chunk 0: inject WARMUP_DATA and return the first chunk ──────────────
+        // ── Chunk 0: return shell with WARMUP_DATA placeholder intact ───────────
+        // WARMUP_DATA is NOT injected here. The agent Writes this to disk (placeholder
+        // present), then Edits the placeholder line with JSON.stringify(WARMUP_DATA).
+        // This keeps chunk 0 ≤20KB regardless of how much article content was fetched.
         if (chunk === 0) {
-          if (!warmup_data) {
-            return {
-              content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data is required for chunk:0. Pass JSON.stringify(WARMUP_DATA).]` }],
-            };
-          }
-
-          // Validate warmup_data is parseable JSON with required structure before
-          // injecting — prevents blank artifacts from null/malformed agent output.
-          try {
-            const parsed = JSON.parse(warmup_data) as Record<string, unknown>;
-            if (!parsed || typeof parsed !== 'object') {
-              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data must be a JSON object, got ${parsed === null ? 'null' : typeof parsed}. Build WARMUP_DATA first, then pass JSON.stringify(WARMUP_DATA).]` }] };
-            }
-            if (!Array.isArray((parsed as any).sections) || (parsed as any).sections.length === 0) {
-              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.sections is missing or empty. The shell requires at least one section to render. Check WARMUP_DATA structure and retry.]` }] };
-            }
-            // Validate per-section required fields — missing any of these causes a blank page via
-            // silently-caught renderer error (sections[i].id → DOM id; label → heading; items → forEach).
-            for (const sec of (parsed as any).sections) {
-              if (!sec || typeof sec.id !== 'string' || !sec.id) {
-                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: every sections[] entry must have a non-empty string "id" field (used as DOM element ID). Fix WARMUP_DATA and retry.]` }] };
-              }
-              if (typeof sec.label !== 'string' || !sec.label) {
-                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: sections["${sec.id}"].label is missing or not a string. The renderer renders it as the section heading. Fix WARMUP_DATA and retry.]` }] };
-              }
-              if (!Array.isArray(sec.items)) {
-                return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: sections["${sec.id}"].items is not an array. Every section needs an items array (use [] for an empty section). Fix WARMUP_DATA and retry.]` }] };
-              }
-            }
-            if (!parsed.config || typeof parsed.config !== 'object') {
-              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.config is missing. Check WARMUP_DATA structure and retry.]` }] };
-            }
-          } catch (e: any) {
-            return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data is not valid JSON — ${e?.message ?? 'parse error'}. Pass JSON.stringify(WARMUP_DATA) as the argument.]` }] };
-          }
-
-          const safe        = warmup_data.replace(/<\/script>/gi, '<\\/script>');
           const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
 
           const shellInlined =
             `<!DOCTYPE html>\n` +
             `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
+            `<!-- WARMUP_TOTAL_CHUNKS: ${totalChunks} -->\n` +
             `<html lang="en">\n` +
             `<head>\n` +
             `  <meta charset="utf-8">\n` +
@@ -434,20 +399,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             `</script></body>\n` +
             `</html>`;
 
-          const filled   = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-          const injected = filled !== shellInlined;
-
-          if (!injected) {
-            return {
-              content: [{ type: "text" as const, text: `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]` }],
-            };
-          }
-
-          // Insert TOTAL_CHUNKS comment at index 2 (after engine-version marker on line 1)
-          // so the agent can read N from the first chunk without fetching anything extra.
-          const lines = filled.split('\n');
-          lines.splice(2, 0, `<!-- WARMUP_TOTAL_CHUNKS: ${totalChunks} -->`);
-
+          const lines  = shellInlined.split('\n');
           const chunk0 = lines.slice(0, CHUNK_LINES);
           if (totalChunks > 1) chunk0.push(SENTINEL);
           return { content: [{ type: "text" as const, text: chunk0.join('\n') }] };
@@ -638,27 +590,32 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
                 `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
-                `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })\n` +
-                `          The response is small (~20KB) and returned inline — no file read needed.\n` +
+                `     B-1. Call warmup_get_template({ intent: "...", chunk: 0 }) — do NOT pass warmup_data.\n` +
+                `          The response is ~20KB and returned inline — no file read needed.\n` +
                 `          Read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
                 `          The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
                 `          If the call returns an error string, stop and report the error.\n` +
                 `     B-2. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: exactly the text from B-1, verbatim.\n` +
-                `     B-3. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.\n` +
+                `     B-3. Inject WARMUP_DATA — call Edit immediately after Write:\n` +
+                `          old_string: "window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"\n` +
+                `          new_string: "window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"\n` +
+                `          ⚠ XSS safety: escape any </script> inside the JSON as <\\/script> before injecting.\n` +
+                `          Wait for Edit to succeed before B-4.\n` +
+                `     B-4. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.\n` +
                 `          Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.\n` +
                 `          Parallel Edits race to replace the same sentinel and corrupt the file.\n` +
                 `          Repeat for i = 1, 2, … N-1:\n` +
-                `            a. Call warmup_get_template({ intent: "...", chunk: i }) — omit warmup_data.\n` +
+                `            a. Call warmup_get_template({ intent: "...", chunk: i }).\n` +
                 `               If the call returns an error string, stop and report it.\n` +
                 `            b. Call Edit — old_string: "<!-- __WARMUP_SENTINEL__ -->"\n` +
                 `                          new_string: [text from step a]\n` +
                 `               Wait for Edit to succeed before starting i+1.\n` +
-                `     B-4. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".\n` +
+                `     B-5. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".\n` +
                 `          If found, assembly is incomplete — stop and report the error.\n` +
-                `     B-5. Call create_artifact (first run) or update_artifact (stale engine).\n` +
+                `     B-6. Call create_artifact (first run) or update_artifact (stale engine).\n` +
                 `          html_path: [workspace-root]/warmup.html\n` +
-                `          ⚠ Do NOT call create_artifact or update_artifact before B-4 passes.\n` +
+                `          ⚠ Do NOT call create_artifact or update_artifact before B-5 passes.\n` +
                 `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. ` +

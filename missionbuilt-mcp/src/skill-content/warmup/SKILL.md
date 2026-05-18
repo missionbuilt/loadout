@@ -609,21 +609,27 @@ Replace only the `<script id="warmup-data">` block in the existing HTML. Do NOT 
 
 **Path B — First run or engine update:**
 
-The server returns the filled HTML in paginated 900-line chunks. Write chunk 0, then Edit each subsequent chunk in strict sequential order.
+The server returns the shell HTML in paginated 900-line chunks. Chunk 0 contains a WARMUP_DATA placeholder — inject your data via Edit after Write, then assemble remaining chunks sequentially.
 
-1. **Call `warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })`.** The response (~20KB) is inline in context — no file read needed. Read `<!-- WARMUP_TOTAL_CHUNKS: N -->` from the response to learn N. If the call returns an `[ERROR]` string, stop and report it — do not proceed.
+1. **Call `warmup_get_template({ intent: "...", chunk: 0 })` — do NOT pass `warmup_data`.** The response (~20KB) is inline in context — no file read needed. Read `<!-- WARMUP_TOTAL_CHUNKS: N -->` from the response to learn N. If the call returns an `[ERROR]` string, stop and report it — do not proceed.
 
 2. **Call Write** — `file_path: [workspace-root]/warmup.html` · `content:` exactly the text from step 1, verbatim. Do NOT write to outputs or temp; that path is cleared between sessions.
 
-3. **⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.**  
+3. **Inject WARMUP_DATA — call Edit immediately after Write:**  
+   `old_string:` `"window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)"`  
+   `new_string:` `"window.WARMUP_DATA = [full JSON.stringify(WARMUP_DATA) here];"`  
+   ⚠ XSS safety: escape any `</script>` inside the JSON as `<\/script>` before injecting.  
+   Wait for Edit to succeed before step 4.
+
+4. **⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.**  
    Do NOT fire Edit calls in parallel — they race on the same sentinel and corrupt the file.  
    Repeat for i = 1, 2, … N-1:  
-   a. Call `warmup_get_template({ intent: "...", chunk: i })` — omit `warmup_data`. If it returns an `[ERROR]` string, stop and report it.  
+   a. Call `warmup_get_template({ intent: "...", chunk: i })`. If it returns an `[ERROR]` string, stop and report it.  
    b. Call Edit — `old_string: "<!-- __WARMUP_SENTINEL__ -->"` · `new_string:` [text from step a]. **Wait for Edit to succeed before starting i+1.**
 
-4. **Verify assembly** — Grep `warmup.html` for `<!-- __WARMUP_SENTINEL__ -->`. If found, assembly is incomplete — stop and report the error.
+5. **Verify assembly** — Grep `warmup.html` for `<!-- __WARMUP_SENTINEL__ -->`. If found, assembly is incomplete — stop and report the error.
 
-5. **Register the artifact** — Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path: [workspace-root]/warmup.html`. Do NOT call this before step 4 passes.
+6. **Register the artifact** — Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path: [workspace-root]/warmup.html`. Do NOT call this before step 5 passes.
 
 Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
 
