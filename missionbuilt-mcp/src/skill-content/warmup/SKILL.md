@@ -370,9 +370,23 @@ Do not remove sources from config due to a single empty result.
 If a lookback phrase is detected, use that window instead of the computed
 window and note it in the chat summary line.
 
-### Step 1 — Read config and compute lookback window
+### Step 1 — Find workspace root, read config, compute lookback window
 
-Use the **Read file tool** (not bash) to read `WARMUP.md` from the user's project root. If you do not know the project root path, call `list_artifacts` first — the `html_path` from the `"the-warmup"` artifact reveals the workspace folder, and `WARMUP.md` lives in that same folder. If no artifact exists and no WARMUP.md is found, stop and prompt for SETUP.
+**First: find workspace root** — call `list_artifacts`:
+- `"the-warmup"` exists → take its `html_path` and strip the filename.
+  e.g. `"/Users/jane/Projects/loadout/warmup.html"` → `"/Users/jane/Projects/loadout"`
+- No `"the-warmup"` artifact → find the user's selected workspace folder in your system context.
+  It is the folder the user mounted in Cowork — a short, human-readable path like `/Users/[name]/Projects/[folder]`.
+  It is **NOT** the working directory, outputs folder, or any session/temp path.
+
+**Validate** — if the workspace root contains any of these strings, you have the WRONG path:
+`"Application Support"` · `"sessions"` · `"outputs"` · `"uploads"` · `"local-agent"` · `"tmp"`
+
+A correct workspace root looks like: `/Users/mike/Projects/loadout`
+
+If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.
+
+Then use the **Read file tool** (not bash) to read `[workspace-root]/WARMUP.md`. If WARMUP.md does not exist, stop and prompt for SETUP.
 
 Note: mode (CISO or Custom), user profile, active source list, excluded
 sources, `last_run` date, `window_override` if set.

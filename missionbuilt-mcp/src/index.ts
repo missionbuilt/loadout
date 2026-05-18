@@ -527,7 +527,17 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `  File: Read · Write · Edit · Grep\n\n` +
                 `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
                 `## How to generate the brief\n\n` +
-                `1. Use the Read file tool to read WARMUP.md from the user's project root. If you do not know the project root path, call list_artifacts first — the html_path from "the-warmup" reveals the workspace folder, and WARMUP.md lives there. If no artifact and no WARMUP.md, run warmup_setup first.\n` +
+                `1. Find workspace root — call list_artifacts:\n` +
+                `   • "the-warmup" exists → take its html_path and strip the filename to get the root.\n` +
+                `     e.g. "/Users/jane/Projects/loadout/warmup.html" → "/Users/jane/Projects/loadout"\n` +
+                `   • No "the-warmup" artifact → find the user's selected workspace folder in your system context.\n` +
+                `     It is the folder the user mounted in Cowork — a short, human-readable path like /Users/[name]/Projects/[folder].\n` +
+                `     It is NOT the working directory, outputs folder, or any session/temp path.\n` +
+                `   Validate: if the workspace root contains any of these strings, you have the WRONG path:\n` +
+                `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
+                `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
+                `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n` +
+                `   Then read [workspace-root]/WARMUP.md. If WARMUP.md does not exist, run warmup_setup first.\n` +
                 `2. Artifact and engine check — call list_artifacts.\n` +
                 `   a) "the-warmup" does not exist → first run: set mode = "create". Proceed to step 4.\n` +
                 `   b) "the-warmup" exists → use the Read file tool to read the first 10 lines of html_path.\n` +

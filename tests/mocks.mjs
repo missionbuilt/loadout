@@ -18,7 +18,7 @@ export const WORKSPACE_ROOT = "/Users/test/Projects/loadout";
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Keep in sync with constants.ts WARMUP_ENGINE_VERSION */
-export const WARMUP_ENGINE_VERSION = "v0.7.4";
+export const WARMUP_ENGINE_VERSION = "v0.7.5";
 
 // ─── Minimal valid HTML templates ─────────────────────────────────────────────
 

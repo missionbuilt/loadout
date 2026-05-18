@@ -12,7 +12,7 @@
   document.head.insertAdjacentHTML('beforeend',
     '<link rel="preconnect" href="https://fonts.googleapis.com">' +
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&display=swap">'
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Oswald:wght@400;500;700&family=Permanent+Marker&family=JetBrains+Mono:wght@400;500;700&display=swap">'
   );
 
   /* ── 2. CSS ─────────────────────────────────────────────────────────────── */
@@ -902,7 +902,8 @@ gap: 10px;
         : '';
       function renderItem(item, isLead) {
         const tags = (item.tags || []).map(function(t) {
-          return '<span class="tag ' + t.cls + '">' + t.text + '</span>';
+          if (typeof t === 'string') return '<span class="tag">' + t + '</span>';
+          return '<span class="tag ' + (t.cls || '') + '">' + (t.text || '') + '</span>';
         }).join('');
         var _dateHtml = '';
         if (item.date) {
