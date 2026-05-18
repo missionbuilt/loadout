@@ -31,7 +31,6 @@ import { z } from "zod";
 
 // Skill content bundled at build time via Wrangler text imports.
 import WARMUP_SKILL_MD from "./skill-content/warmup/SKILL.md";
-import WARMUP_SHELL_JS from "./warmup-shell.rawjs";
 import SPOTTER_SKILL_MD from "./skill-content/spotter/SKILL.md";
 import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
@@ -340,14 +339,14 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         // $', $&, $` as special sequences. Article content can contain these (e.g. stock
         // tickers, price strings). A replacer function bypasses special-sequence expansion.
         const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
-        const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
+        const PLACEHOLDER = `window.WARMUP_DATA = null; // WARMUP_DATA_PLACEHOLDER`;
 
-        // Build the shell-inlined template at request time. Inlining the renderer
-        // (warmup-shell.rawjs) makes the artifact fully self-contained — no external
-        // script fetch needed, compatible with Cowork's Content Security Policy.
-        // The shell (~1741 lines) is well under the 2000-line default Read limit,
-        // so PATH B agents never hit the large-file truncation issue.
-        const shellInlined =
+        // Remote-shell architecture: the skeleton references warmup-shell.js via <script src>.
+        // The renderer is served from the Worker (/warmup-shell.js) and fetched by the browser
+        // at artifact open time. This keeps the warmup_get_template response to ~15 lines +
+        // WARMUP_DATA — well under Cowork's ~67KB persistence threshold — so the agent always
+        // receives the HTML inline (never as a persisted file it cannot read).
+        const skeleton =
           `<!DOCTYPE html>\n` +
           `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
           `<html lang="en">\n` +
@@ -359,13 +358,13 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           `<script id="warmup-data">\n` +
           `${PLACEHOLDER}\n` +
           `</script>\n` +
-          `<body><script>\n` +
-          `${WARMUP_SHELL_JS}\n` +
-          `</script></body>\n` +
+          `<body>\n` +
+          `<script src="https://mcp.missionbuilt.io/warmup-shell.js"></script>\n` +
+          `</body>\n` +
           `</html>`;
 
-        const filled = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-        const injected = filled !== shellInlined;
+        const filled = skeleton.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
+        const injected = filled !== skeleton;
         return {
           content: [
             {
@@ -498,16 +497,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })\n` +
                 `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
                 `          If the call fails or returns an error string, stop and report the error.\n` +
-                `     B-2. Get the HTML from B-1 — two cases:\n` +
-                `          • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
-                `          • Response looks like a file path → Cowork persisted it to disk.\n` +
-                `            Read the file with: Read({ file_path: [path] }) — no limit parameter needed.\n` +
-                `            The file will be in one of two formats:\n` +
-                `            - Starts with <!DOCTYPE → plain HTML. Use the content as-is for B-3.\n` +
-                `            - Starts with { → JSON-wrapped (Cowork saved the full MCP response envelope).\n` +
-                `              Extract the HTML string from content[0].text in the JSON.\n` +
-                `              No Python, no bash, no shell commands of any kind — read the value directly.\n` +
-                `          Pass the HTML string, unmodified, to B-3.\n` +
+                `     B-2. The response from B-1 is the complete artifact HTML — use it as-is for B-3.\n` +
+                `          It is a short skeleton (~15 lines) with your WARMUP_DATA already injected.\n` +
+                `          It fits in context and does not need to be fetched, chunked, or processed.\n` +
+                `          If Cowork returns a file path instead, call Read on that path once and use the content as-is.\n` +
                 `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: the HTML string from B-2, unmodified.\n` +
                 `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
