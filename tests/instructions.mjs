@@ -237,14 +237,15 @@ Only these tools may be used. Everything else is forbidden.
           Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
           If the call fails or returns an error string, stop and report the error.
      B-2. Assemble the HTML from B-1.
-          warmup_get_template returns the HTML in ~22 chunks (not one string).
+          warmup_get_template returns the HTML split into ~22 chunks.
           Cowork will have persisted it — the response is a file path. Read the file ONCE.
           After that single Read you can see all ~22 "text" values in your context.
-          THE HTML = chunk[0] + chunk[1] + … + chunk[21], joined in order.
-          This join happens in YOUR REASONING — no tool is needed to concatenate strings.
-          Concatenate them yourself and use the result as the content parameter in B-3.
-          Do NOT use bash, Python, or any tool to assemble the file — you already have all
-          the text in context. Do NOT re-read the file or any chunk a second time.
+          THE FULL HTML = chunk[0] followed by chunk[1] followed by … followed by chunk[21].
+          The first chunk starts with <!DOCTYPE html>. The last ends with </html>.
+          Each chunk picks up exactly where the previous ended — no separator needed.
+          THE WRITE TOOL ACCEPTS STRINGS OF ANY LENGTH. There is no size limit on content.
+          Do NOT use bash. Do NOT create temp files. Do NOT use Python.
+          Do NOT re-read anything. Just call Write with the assembled HTML as content.
      B-3. Call Write — file_path: [workspace-root]/warmup.html
           content: the HTML string from B-2, unmodified.
      B-4. Call create_artifact (first run) or update_artifact (stale engine).

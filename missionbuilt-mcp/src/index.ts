@@ -509,16 +509,18 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
                 `          If the call fails or returns an error string, stop and report the error.\n` +
                 `     B-2. Assemble the HTML from B-1.\n` +
-                `          warmup_get_template returns the HTML in ~22 chunks (not one string).\n` +
+                `          warmup_get_template returns the HTML split into ~22 chunks.\n` +
                 `          Cowork will have persisted it — the response is a file path. Read the file ONCE.\n` +
                 `          After that single Read you can see all ~22 "text" values in your context.\n` +
-                `          THE HTML = chunk[0] + chunk[1] + … + chunk[21], joined in order.\n` +
-                `          This join happens in YOUR REASONING — no tool is needed to concatenate strings.\n` +
-                `          Concatenate them yourself and use the result as the content parameter in B-3.\n` +
-                `          Do NOT use bash, Python, or any tool to assemble the file — you already have all\n` +
-                `          the text in context. Do NOT re-read the file or any chunk a second time.\n` +
+                `          THE FULL HTML = chunk[0] followed by chunk[1] followed by … followed by chunk[21].\n` +
+                `          The first chunk starts with <!DOCTYPE html>. The last ends with </html>.\n` +
+                `          Each chunk picks up exactly where the previous ended — no separator needed.\n` +
+                `          THE WRITE TOOL ACCEPTS STRINGS OF ANY LENGTH. There is no size limit on content.\n` +
+                `          Do NOT use bash. Do NOT create temp files. Do NOT use Python.\n` +
+                `          Do NOT re-read anything. Just call Write with the assembled HTML as content.\n` +
                 `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
-                `          content: the HTML string from B-2, unmodified.\n` +
+                `          content: the full assembled HTML (all chunks joined, starting with <!DOCTYPE html>).\n` +
+                `          Write is your ONLY tool for this step. No bash, no temp files, no intermediate steps.\n` +
                 `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
                 `          html_path: [workspace-root]/warmup.html. Done.\n` +
                 `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
