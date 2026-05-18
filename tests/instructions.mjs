@@ -240,8 +240,12 @@ Only these tools may be used. Everything else is forbidden.
           • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.
           • Response looks like a file path → Cowork persisted it to disk.
             Read the file with: Read({ file_path: [path] }) — no limit parameter needed.
-            The response is ~1750 lines, well within the default Read limit.
-            Do NOT summarize, truncate, or process the content in any way.
+            The file will be in one of two formats:
+            - Starts with <!DOCTYPE → plain HTML. Use the content as-is for B-3.
+            - Starts with { → JSON-wrapped (Cowork saved the full MCP response envelope).
+              Extract the HTML string from content[0].text in the JSON.
+              No Python, no bash, no shell commands of any kind — read the value directly.
+          Pass the HTML string, unmodified, to B-3.
      B-3. Call Write — file_path: [workspace-root]/warmup.html
           content: the HTML string from B-2, unmodified.
      B-4. Call create_artifact (first run) or update_artifact (stale engine).

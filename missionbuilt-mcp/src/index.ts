@@ -502,8 +502,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `          • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
                 `          • Response looks like a file path → Cowork persisted it to disk.\n` +
                 `            Read the file with: Read({ file_path: [path] }) — no limit parameter needed.\n` +
-                `            The response is ~1750 lines, well within the default Read limit.\n` +
-                `            Do NOT summarize, truncate, or process the content in any way.\n` +
+                `            The file will be in one of two formats:\n` +
+                `            - Starts with <!DOCTYPE → plain HTML. Use the content as-is for B-3.\n` +
+                `            - Starts with { → JSON-wrapped (Cowork saved the full MCP response envelope).\n` +
+                `              Extract the HTML string from content[0].text in the JSON.\n` +
+                `              No Python, no bash, no shell commands of any kind — read the value directly.\n` +
+                `          Pass the HTML string, unmodified, to B-3.\n` +
                 `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
                 `          content: the HTML string from B-2, unmodified.\n` +
                 `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
@@ -842,10 +846,14 @@ Area name + category mapping (use exactly, in order):
               `     Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
               `     If the call fails, stop and report the error.\n\n` +
               `B-2. Get the HTML string from B-1. Two cases:\n` +
-              `     • Response in context: the HTML string is directly available — use it as-is.\n` +
-              `     • Response persisted to file: Cowork may save large responses to disk and return a file path.\n` +
-              `       In this case, call Read on that path to retrieve the HTML string.\n` +
-              `       The content is plain HTML — no JSON decoding, no bash, no other processing.\n\n` +
+              `     • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
+              `     • Response looks like a file path → Cowork persisted it to disk.\n` +
+              `       Call Read on that path to retrieve the content. The file will be in one of two formats:\n` +
+              `       - Starts with <!DOCTYPE → plain HTML. Use the content as-is for B-3.\n` +
+              `       - Starts with { → JSON-wrapped (Cowork saved the full MCP response envelope).\n` +
+              `         Extract the HTML string from content[0].text in the JSON.\n` +
+              `         No Python, no bash, no shell commands of any kind — read the value directly.\n` +
+              `     Pass the HTML string, unmodified, to B-3.\n\n` +
               `B-3. Call Write — file_path: [workspace-root]/spotter-[epic-slug].html\n` +
               `     content: the HTML string from B-2, unmodified.\n` +
               `     Bash is never needed for this step. If Write fails, report the error and stop.\n\n` +
