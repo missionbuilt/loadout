@@ -15,10 +15,10 @@ import { SCHEMAS } from "./harness.mjs";
 export const WORKSPACE_ROOT = "/Users/test/Projects/loadout";
 
 /** Keep in sync with constants.ts SPOTTER_VERSION */
-export const SPOTTER_VERSION = "0.7.13";
+export const SPOTTER_VERSION = "0.7.17";
 
 /** Keep in sync with constants.ts WARMUP_ENGINE_VERSION */
-export const WARMUP_ENGINE_VERSION = "v0.6.0";
+export const WARMUP_ENGINE_VERSION = "v0.7.0";
 
 // ─── Minimal valid HTML templates ─────────────────────────────────────────────
 
@@ -51,6 +51,7 @@ skip_scan: true
 export const MOCK_WARMUP_HTML =
 `<!DOCTYPE html>
 <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->
+<!-- WARMUP_TOTAL_CHUNKS: 1 -->
 <html lang="en">
 <head><meta charset="UTF-8"><title>Warmup</title></head>
 <script id="warmup-data">
@@ -125,15 +126,25 @@ export function fileWithOldSpotterVersion() {
   );
 }
 
+/** Stub warmup-data block returned when the agent reads the script block by offset. */
+const MOCK_WARMUP_DATA_BLOCK =
+`<script id="warmup-data">
+window.WARMUP_DATA = {"meta":{"generatedAt":"08:00 CDT"}};
+</script>`;
+
 /**
  * Read returns file content with the CURRENT warmup engine version.
  * Triggers PATH A for the Warmup.
- * Path-aware: WARMUP.md reads return config, HTML file reads return current-version HTML.
+ * - WARMUP.md reads return the config stub.
+ * - Offset-based reads (the agent reading the warmup-data block by line number) return
+ *   a stub script block so the agent can proceed to Edit it.
+ * - All other reads return the current-version HTML header (version check).
  */
 export function fileWithCurrentWarmupVersion() {
-  return tool("Read", ({ file_path }) => {
+  return tool("Read", ({ file_path, offset }) => {
     if (file_path && file_path.includes("WARMUP.md")) return MOCK_WARMUP_MD;
-    return `<!DOCTYPE html>\n<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n<html>...`;
+    if (offset != null && offset > 0) return MOCK_WARMUP_DATA_BLOCK;
+    return `<!DOCTYPE html>\n<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n<!-- WARMUP_TOTAL_CHUNKS: 1 -->\n<html>...`;
   });
 }
 

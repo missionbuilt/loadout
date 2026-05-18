@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.6.0";
+export const WARMUP_ENGINE_VERSION = "v0.7.0";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 
@@ -233,21 +233,21 @@ Only these tools may be used. Everything else is forbidden.
      b) Use Read with offset+limit to read only that script block.
      c) Use Edit to replace the block with new WARMUP_DATA. Call update_artifact. Done.
    PATH B / FIRST RUN (engine update or new artifact):
-     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })
-          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.
-          If the call fails or returns an error string, stop and report the error.
-     B-2. Assemble the HTML from B-1.
-          warmup_get_template returns the HTML split into ~22 chunks.
-          Cowork will have persisted it — the response is a file path. Read the file ONCE.
-          After that single Read you can see all ~22 "text" values in your context.
-          THE FULL HTML = chunk[0] followed by chunk[1] followed by … followed by chunk[21].
-          The first chunk starts with <!DOCTYPE html>. The last ends with </html>.
-          Each chunk picks up exactly where the previous ended — no separator needed.
-          THE WRITE TOOL ACCEPTS STRINGS OF ANY LENGTH. There is no size limit on content.
-          Do NOT use bash. Do NOT create temp files. Do NOT use Python.
-          Do NOT re-read anything. Just call Write with the assembled HTML as content.
-     B-3. Call Write — file_path: [workspace-root]/warmup.html
-          content: the HTML string from B-2, unmodified.
+     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })
+          Each chunk is ~20KB — well under Cowork's persistence threshold, returned inline.
+          Read the <!-- WARMUP_TOTAL_CHUNKS: N --> comment in the response to get N.
+          The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.
+          If the call returns an error string, stop and report the error.
+     B-2. Call Write — file_path: [workspace-root]/warmup.html
+          content: exactly the text from B-1, verbatim. Do not strip, trim, or modify it.
+     B-3. For each chunk index i from 1 to N-1 (repeat this pair of calls):
+          a. Call warmup_get_template({ intent: "...", chunk: i }) — do NOT pass warmup_data.
+             If the call returns an error string, stop and report it.
+          b. Call Edit — file_path: [workspace-root]/warmup.html
+                        old_string: "<!-- __WARMUP_SENTINEL__ -->"
+                        new_string: [text from step a]
+          Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->; the final chunk
+          ends with </html>. The Edit always replaces the one sentinel at the end of the file.
      B-4. Call create_artifact (first run) or update_artifact (stale engine).
           html_path: [workspace-root]/warmup.html. Done.
    NEVER write your own HTML. One summary line in chat — the brief is the artifact.

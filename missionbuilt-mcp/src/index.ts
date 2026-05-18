@@ -319,73 +319,136 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the canonical warmup-template.html engine with WARMUP_DATA already injected — artifact-ready HTML, no Edit step required. Build your complete WARMUP_DATA object first, then pass it as a JSON string. The server replaces the placeholder and returns the filled artifact. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself.",
+      "Returns the warmup artifact HTML in paginated 400-line chunks. Call with chunk:0 and warmup_data (JSON.stringify of your WARMUP_DATA) to get the first chunk with the data already injected. The response includes a <!-- WARMUP_TOTAL_CHUNKS: N --> comment so you know how many chunks to fetch. Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->. For chunks 1 through N-1, call again with only chunk:N (no warmup_data needed). Write chunk 0 to disk, then Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) for each subsequent chunk. Never reconstruct or invent the HTML yourself.",
       {
         intent: intentField,
         warmup_data: z
           .string()
+          .optional()
           .describe(
-            "The full WARMUP_DATA JSON object serialised as a string via JSON.stringify(). " +
-            "Required. The server injects it server-side and returns filled, artifact-ready HTML."
+            "Required for chunk:0. The full WARMUP_DATA JSON object serialised as a string via " +
+            "JSON.stringify(). Not needed for chunks 1+."
+          ),
+        chunk: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            "Which 400-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> " +
+            "from chunk 0 to learn the total number of chunks."
           ),
       },
-      async ({ warmup_data }) => {
-        // Inject WARMUP_DATA server-side — eliminates the fragile Write→Read→Edit cycle
-        // that caused agents to abandon the template and generate their own HTML.
+      async ({ warmup_data, chunk = 0 }) => {
+        // Paginated delivery architecture:
         //
-        // XSS safety: article titles/bodies can contain </script> which would break
-        // the script tag if injected verbatim. Escape before injection.
+        // Problem: the filled warmup HTML is ~1757 lines / 87KB+. Cowork persists MCP
+        // responses over ~67KB to disk as a JSON envelope with a single long text line,
+        // which exceeds the Read tool line limit (~25K tokens/line). Even if the agent reads
+        // it successfully, the model's output token limit prevents it from writing the
+        // assembled ~87KB HTML in one Write call.
         //
-        // Replacer-function safety: String.prototype.replace(literal, literal) interprets
-        // $', $&, $` as special sequences. Article content can contain these (e.g. stock
-        // tickers, price strings). A replacer function bypasses special-sequence expansion.
-        const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
-        const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
-
-        // Inline-shell architecture: the renderer (warmup-shell.rawjs) is inlined into the
-        // artifact HTML at request time, making the artifact fully self-contained.
-        // Required for Cowork's Content Security Policy — external <script src> is blocked.
+        // Solution: return one 400-line chunk per call (~20KB each, well under Cowork's
+        // 67KB persistence threshold). Chunk 0 injects WARMUP_DATA and ends with a sentinel
+        // comment. Chunks 1+ serve shell lines directly without needing warmup_data.
+        // Agent: Write(chunk 0) → Edit(sentinel → chunk 1) → ... → Edit(sentinel → chunk N-1)
+        // Each operation is ~20KB / ~5K tokens — well within all limits.
         //
-        // Chunked delivery: the filled HTML is ~1750 lines / 87KB+. Cowork persists MCP
-        // responses over ~67KB to disk as a JSON envelope with one long text line, which
-        // exceeds the Read tool's ~25K token line limit. To avoid this, we split the HTML
-        // into 80-line chunks and return them as separate content blocks. When persisted,
-        // each chunk is a short JSON array entry (< 5KB). The agent concatenates all
-        // content[N].text values in order to reconstruct the full HTML before writing.
-        const shellInlined =
-          `<!DOCTYPE html>\n` +
-          `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
-          `<html lang="en">\n` +
-          `<head>\n` +
-          `  <meta charset="utf-8">\n` +
-          `  <meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-          `  <title>The Warmup \xB7 Morning Edition</title>\n` +
-          `</head>\n` +
-          `<script id="warmup-data">\n` +
-          `${PLACEHOLDER}\n` +
-          `</script>\n` +
-          `<body><script>\n` +
-          `${WARMUP_SHELL_JS}\n` +
-          `</script></body>\n` +
-          `</html>`;
+        // Structure of the filled HTML (after comment insertion):
+        //   Lines 0–12:  13-line preamble (DOCTYPE … <body><script>)
+        //   Lines 13+:   WARMUP_SHELL_JS lines
+        //   Closing:     empty line + </script></body> + </html>
+        //
+        // XSS safety: article content can contain </script> — escape before injection.
+        // Replacer-function safety: article content can contain $', $&, $` (price strings,
+        // tickers, shell syntax). A replacer function bypasses special-sequence expansion.
 
-        const filled = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-        const injected = filled !== shellInlined;
+        const CHUNK_LINES  = 400;
+        const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
+        // Lines 0–12 in the preamble (includes the injected TOTAL_CHUNKS comment at index 2).
+        // DOCTYPE, engine-marker, TOTAL_CHUNKS-comment, html, head, meta×2, title, /head,
+        // script-data, warmup_data_line, /script, body+script  = 13 lines.
+        const PREAMBLE_LINES = 13;
 
-        if (!injected) {
+        const shellLines   = WARMUP_SHELL_JS.split('\n');
+        // Closing lines appended after the shell: \n before </script></body> creates an empty line.
+        const closingLines = ['', '</script></body>', '</html>'];
+        const totalLines   = PREAMBLE_LINES + shellLines.length + closingLines.length;
+        const totalChunks  = Math.ceil(totalLines / CHUNK_LINES);
+
+        // ── Chunk 0: inject WARMUP_DATA and return the first 400 lines ────────────
+        if (chunk === 0) {
+          if (!warmup_data) {
+            return {
+              content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data is required for chunk:0. Pass JSON.stringify(WARMUP_DATA).]` }],
+            };
+          }
+
+          const safe        = warmup_data.replace(/<\/script>/gi, '<\\/script>');
+          const PLACEHOLDER = `window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)`;
+
+          const shellInlined =
+            `<!DOCTYPE html>\n` +
+            `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
+            `<html lang="en">\n` +
+            `<head>\n` +
+            `  <meta charset="utf-8">\n` +
+            `  <meta name="viewport" content="width=device-width, initial-scale=1">\n` +
+            `  <title>The Warmup \xB7 Morning Edition</title>\n` +
+            `</head>\n` +
+            `<script id="warmup-data">\n` +
+            `${PLACEHOLDER}\n` +
+            `</script>\n` +
+            `<body><script>\n` +
+            `${WARMUP_SHELL_JS}\n` +
+            `</script></body>\n` +
+            `</html>`;
+
+          const filled   = shellInlined.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
+          const injected = filled !== shellInlined;
+
+          if (!injected) {
+            return {
+              content: [{ type: "text" as const, text: `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]` }],
+            };
+          }
+
+          // Insert TOTAL_CHUNKS comment at index 2 (after engine-version marker on line 1)
+          // so the agent can read N from the first chunk without fetching anything extra.
+          const lines = filled.split('\n');
+          lines.splice(2, 0, `<!-- WARMUP_TOTAL_CHUNKS: ${totalChunks} -->`);
+
+          const chunk0 = lines.slice(0, CHUNK_LINES);
+          if (totalChunks > 1) chunk0.push(SENTINEL);
+          return { content: [{ type: "text" as const, text: chunk0.join('\n') }] };
+        }
+
+        // ── Chunks 1+: serve shell lines (no warmup_data needed) ─────────────────
+        const startPos = chunk * CHUNK_LINES;
+        if (startPos >= totalLines) {
           return {
-            content: [{ type: "text" as const, text: `[warmup_get_template ERROR: WARMUP_DATA placeholder not found — injection failed. Do NOT use the raw output. Stop and report this error.]` }],
+            content: [{ type: "text" as const, text: `[warmup_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]` }],
           };
         }
 
-        // Split into 80-line chunks so each JSON entry stays well under the Read tool limit.
-        const CHUNK_LINES = 80;
-        const lines = filled.split('\n');
-        const content: Array<{ type: "text"; text: string }> = [];
-        for (let i = 0; i < lines.length; i += CHUNK_LINES) {
-          content.push({ type: "text" as const, text: lines.slice(i, i + CHUNK_LINES).join('\n') });
+        const endPos     = Math.min((chunk + 1) * CHUNK_LINES, totalLines);
+        const resultLines: string[] = [];
+
+        for (let pos = startPos; pos < endPos; pos++) {
+          const shellIdx = pos - PREAMBLE_LINES;
+          if (shellIdx < 0) {
+            // Should never occur for chunks 1+ since PREAMBLE_LINES (13) < CHUNK_LINES (400)
+            resultLines.push('');
+          } else if (shellIdx < shellLines.length) {
+            resultLines.push(shellLines[shellIdx]);
+          } else {
+            resultLines.push(closingLines[shellIdx - shellLines.length] ?? '');
+          }
         }
-        return { content };
+
+        const isLast = endPos >= totalLines;
+        if (!isLast) resultLines.push(SENTINEL);
+        return { content: [{ type: "text" as const, text: resultLines.join('\n') }] };
       }
     );
 
@@ -505,22 +568,21 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
                 `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
                 `   PATH B / FIRST RUN (engine update or new artifact):\n` +
-                `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })\n` +
-                `          Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
-                `          If the call fails or returns an error string, stop and report the error.\n` +
-                `     B-2. Assemble the HTML from B-1.\n` +
-                `          warmup_get_template returns the HTML split into ~22 chunks.\n` +
-                `          Cowork will have persisted it — the response is a file path. Read the file ONCE.\n` +
-                `          After that single Read you can see all ~22 "text" values in your context.\n` +
-                `          THE FULL HTML = chunk[0] followed by chunk[1] followed by … followed by chunk[21].\n` +
-                `          The first chunk starts with <!DOCTYPE html>. The last ends with </html>.\n` +
-                `          Each chunk picks up exactly where the previous ended — no separator needed.\n` +
-                `          THE WRITE TOOL ACCEPTS STRINGS OF ANY LENGTH. There is no size limit on content.\n` +
-                `          Do NOT use bash. Do NOT create temp files. Do NOT use Python.\n` +
-                `          Do NOT re-read anything. Just call Write with the assembled HTML as content.\n` +
-                `     B-3. Call Write — file_path: [workspace-root]/warmup.html\n` +
-                `          content: the full assembled HTML (all chunks joined, starting with <!DOCTYPE html>).\n` +
-                `          Write is your ONLY tool for this step. No bash, no temp files, no intermediate steps.\n` +
+                `     B-1. Call warmup_get_template({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA), chunk: 0 })\n` +
+                `          Each chunk is ~20KB — well under Cowork's persistence threshold, returned inline.\n` +
+                `          Read the <!-- WARMUP_TOTAL_CHUNKS: N --> comment in the response to get N.\n` +
+                `          The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
+                `          If the call returns an error string, stop and report the error.\n` +
+                `     B-2. Call Write — file_path: [workspace-root]/warmup.html\n` +
+                `          content: exactly the text from B-1, verbatim. Do not strip, trim, or modify it.\n` +
+                `     B-3. For each chunk index i from 1 to N-1 (repeat this pair of calls):\n` +
+                `          a. Call warmup_get_template({ intent: "...", chunk: i }) — do NOT pass warmup_data.\n` +
+                `             If the call returns an error string, stop and report it.\n` +
+                `          b. Call Edit — file_path: [workspace-root]/warmup.html\n` +
+                `                        old_string: "<!-- __WARMUP_SENTINEL__ -->"\n` +
+                `                        new_string: [text from step a]\n` +
+                `          Each chunk except the last ends with <!-- __WARMUP_SENTINEL__ -->; the final chunk\n` +
+                `          ends with </html>. The Edit always replaces the one sentinel at the end of the file.\n` +
                 `     B-4. Call create_artifact (first run) or update_artifact (stale engine).\n` +
                 `          html_path: [workspace-root]/warmup.html. Done.\n` +
                 `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
