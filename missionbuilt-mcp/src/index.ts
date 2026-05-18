@@ -376,12 +376,29 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         const totalLines   = PREAMBLE_LINES + shellLines.length + closingLines.length;
         const totalChunks  = Math.ceil(totalLines / CHUNK_LINES);
 
-        // ── Chunk 0: inject WARMUP_DATA and return the first 400 lines ────────────
+        // ── Chunk 0: inject WARMUP_DATA and return the first chunk ──────────────
         if (chunk === 0) {
           if (!warmup_data) {
             return {
               content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data is required for chunk:0. Pass JSON.stringify(WARMUP_DATA).]` }],
             };
+          }
+
+          // Validate warmup_data is parseable JSON with required structure before
+          // injecting — prevents blank artifacts from null/malformed agent output.
+          try {
+            const parsed = JSON.parse(warmup_data) as Record<string, unknown>;
+            if (!parsed || typeof parsed !== 'object') {
+              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data must be a JSON object, got ${parsed === null ? 'null' : typeof parsed}. Build WARMUP_DATA first, then pass JSON.stringify(WARMUP_DATA).]` }] };
+            }
+            if (!Array.isArray((parsed as any).sections) || (parsed as any).sections.length === 0) {
+              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.sections is missing or empty. The shell requires at least one section to render. Check WARMUP_DATA structure and retry.]` }] };
+            }
+            if (!parsed.config || typeof parsed.config !== 'object') {
+              return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data.config is missing. Check WARMUP_DATA structure and retry.]` }] };
+            }
+          } catch (e: any) {
+            return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: warmup_data is not valid JSON — ${e?.message ?? 'parse error'}. Pass JSON.stringify(WARMUP_DATA) as the argument.]` }] };
           }
 
           const safe        = warmup_data.replace(/<\/script>/gi, '<\\/script>');
