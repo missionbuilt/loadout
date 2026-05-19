@@ -2,15 +2,16 @@
 name: loadout-dev
 description: >
   Expert development partner for The Loadout — the Mission Built MCP server
-  (mcp.missionbuilt.io) that powers The Warmup and The Spotter skills. Use this
-  skill any time you are working on the Loadout project: adding or editing a skill,
-  modifying warmup-template.html or spotter-template.html, changing index.ts tools,
-  bumping versions, editing SKILL.md files, running a tech lead review, or preparing
-  a commit and deploy. Also use it when the user says things like "work on the warmup,"
-  "add a new loadout skill," "update the spotter," "edit the template," "bump the
-  version," or "review before we ship." This skill carries the full project architecture,
-  hard-won lessons from past sessions, and the exact collaboration model Mike and Claude
-  use — including the rule that Mike runs all terminal commands and Claude writes all code.
+  (mcp.missionbuilt.io) that powers The Warmup, The Spotter, and The Approach skills.
+  Use this skill any time you are working on the Loadout project: adding or editing a
+  skill, modifying warmup-shell.rawjs or the spotter/approach templates, changing
+  index.ts tools, bumping versions, editing SKILL.md files, running a tech lead review,
+  or preparing a commit and deploy. Also use it when the user says things like "work on
+  the warmup," "add a new loadout skill," "update the spotter," "edit the shell," "bump
+  the version," or "review before we ship." This skill carries the full project
+  architecture, hard-won lessons from past sessions, and the exact collaboration model
+  Mike and Claude use — including the rule that Mike runs all terminal commands and
+  Claude writes all code.
 ---
 
 # Loadout Dev
@@ -52,8 +53,17 @@ This keeps Mike in control of deploys, git history, and destructive operations.
 There is no two-copy sync requirement. Edit the file directly and bump the version — that's it.
 
 The old `warmup/warmup-template.html` and `missionbuilt-mcp/src/skill-content/warmup/warmup-template.html`
-files still exist as reference but are **not imported by the Worker**. Do not edit them expecting
-it to change anything.
+files were removed in v0.8.0. The runtime has lived entirely in `warmup-shell.rawjs` since v0.4.0;
+the `.html` files were stale documentation by then. Git history preserves them.
+
+**v0.8 also decoupled data from the shell.** WARMUP_DATA is no longer baked into the artifact HTML.
+The agent calls `warmup_save_data` to write the brief to KV (key `warmup:{email}:current`), and the
+artifact reads it back via `warmup_get_data` through the Cowork MCP bridge at boot and on every
+`visibilitychange` / `focus` event. There is no more inline `<script id="warmup-data">` block, no
+inline JSON injection, and no `</script>` XSS escape — those concerns moved to the KV-stored
+payload (which never enters inline script context). The spotter and the-approach templates still
+inject SPOTTER_DATA / APPROACH_DATA inline and retain the `</script>` escape + `() => replacement`
+replacer-function pattern. Don't change that for those skills.
 
 **Why the shell pattern matters:** `warmup_get_template` and `spotter_get_template` build the
 artifact HTML at request time by inlining the shell JS into a ~14-line HTML skeleton. The result
@@ -68,12 +78,12 @@ empty or broken artifacts. The shell pattern eliminates this failure mode.
 All version constants live in one file: `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.0.37";  // Worker deploy version (semver)
-export const WARMUP_VERSION        = "0.4.0";   // bump when SKILL.md or shell changes
-export const WARMUP_ENGINE_VERSION = "v0.4.0";  // bump when warmup-shell.rawjs changes
+export const SERVER_VERSION        = "1.1.0";   // Worker deploy version (semver)
+export const WARMUP_VERSION        = "0.8.0";   // bump when SKILL.md or shell changes
+export const WARMUP_ENGINE_VERSION = "v0.8.0";  // bump when warmup-shell.rawjs changes
 export const SPOTTER_VERSION       = "0.7.17";  // bump when Spotter instructions or areas change
 export const THE_APPROACH_VERSION  = "0.1.4";   // bump when Approach SKILL.md or template changes
-export const TOOL_COUNT            = 20;        // update when adding or removing tools
+export const TOOL_COUNT            = 23;        // update when adding or removing tools
 ```
 
 **What to bump for what:**
@@ -92,10 +102,14 @@ constants at the top of that file must stay in sync with `constants.ts` manually
 If they diverge, the test suite runs against stale instructions and will miss regressions.
 There is no automated sync — this is a manual discipline.
 
-**Why `WARMUP_ENGINE_VERSION` is critical:** agents use it to decide whether to reload
-the full template (Path B) or just swap out the data block (Path A). If you change
-the template but don't bump the engine version, every agent with an existing artifact
-takes Path A and never picks up your new HTML. The old layout stays frozen forever.
+**Why `WARMUP_ENGINE_VERSION` is critical:** the warmup agent reads the first 10 lines
+of the existing `warmup.html` on disk and compares the `<!-- warmup-engine: vX.Y.Z -->`
+marker against this constant. On match → `artifact_action: "skip"` (don't rewrite the
+file, just `warmup_save_data` and let the artifact auto-refresh from KV). On mismatch
+(or no file) → `artifact_action: "refresh"` / `"create"`, which fetches the new shell
+via `warmup_get_template` and rewrites the file. If you change `warmup-shell.rawjs`
+but forget to bump the engine version, every user with an existing artifact keeps
+running the old shell forever — they never download your new code.
 
 ---
 

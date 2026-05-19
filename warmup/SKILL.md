@@ -576,75 +576,64 @@ Do not add a placeholder or ask about it during RUN.
 ### Step 4 — Render phase
 
 **ABSOLUTE RULE — NO EXCEPTIONS:**
-The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (invoked in Step 1b) or from the existing artifact file. **Never write HTML from scratch. Never read warmup-template.html from disk. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design and break PDF export.
+The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (chunked, with the `dataToolName` parameter set). **Never write HTML from scratch. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, fonts, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design.
 
-If you reach this step without having invoked the `warmup_get_template` MCP tool (first run or engine update) or confirmed the existing artifact file is readable (version match), stop and invoke the `warmup_get_template` MCP tool now (tool call — not a file read) before continuing.
+**v0.8 architecture — data lives in KV, not in the HTML.**
 
-**Rule: only `WARMUP_DATA` changes between reports.** The engine (CSS, JS, PDF builder, renderer) is fixed in `warmup-template.html` and touched only when the version marker changes. Always deliver via `update_artifact` / `create_artifact` — never a `computer://` file link. The **Save PDF** button inside the artifact is the user's only download path.
+The artifact file is a pure renderer. It calls `warmup_get_data` via the Cowork MCP bridge at boot and on every visibility/focus event. WARMUP_DATA is no longer baked into the HTML. There is no `<script id="warmup-data">` placeholder anymore. There is no inline JSON injection, no `</script>` XSS escape, and no Path A vs Path B branching for data updates.
 
-**Inject and render (Step 1b already determined the base HTML):**
+A daily run is two MCP calls and (only on a fresh install or an engine bump) one template fetch.
 
-By the time you reach this step, Step 1b has already:
-- Called `list_artifacts` and determined first run vs. daily run.
-- For **daily runs with a version match:** the file exists at `html_path`.
-- For **first runs or engine version mismatches:** `warmup_get_template` was already called and the engine shell is in context.
+**The flow:**
 
-**Do not call `list_artifacts` or `warmup_get_template` again here.**
+1. **Save the brief to KV — always.** Call `warmup_save_data({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })`. The tool returns `{ ok, savedAt, bytes }`. If `ok: false`, STOP and surface the error to the user — the artifact will keep showing the previous brief until save succeeds.
 
-**Path A — Version match (daily run, no engine update):**  
-Replace only the `<script id="warmup-data">` block in the existing HTML. Do NOT read the full file — the engine is 131KB and reading it wastes ~30K tokens. Use Grep to locate the exact line, read only that block, then Edit it in place.
+2. **Ensure the artifact file exists and runs the current engine.** This is determined by Step 1b earlier in the run:
+   - **artifact_action === "skip"** → call `update_artifact({ id: "the-warmup", html_path })` to nudge Cowork. The artifact's visibilitychange/focus handler will fetch the new KV data on next focus and re-render automatically.
+   - **artifact_action === "create"** or **"refresh"** → build the artifact file (below).
 
-1. **Grep** for `<script id="warmup-data">` in `html_path` to find the line number.
-2. Use the **Read tool** with `offset` and `limit` set to read only the `<script id="warmup-data">` … `</script>` block (~10–20 lines). This gives you the exact current text to match.
-3. Use the **Edit tool** to replace the entire block (from `<script id="warmup-data">` through its closing `</script>`) with exactly:
-   ```
-   <script id="warmup-data">
-   window.WARMUP_DATA = <FULL JSON of the new WARMUP_DATA dict>;
-   </script>
-   ```
-   Touch no other part of the HTML. The Edit tool does a targeted string replacement — the rest of the 131KB engine is never read or re-emitted.
-4. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
+**Building the artifact file (only on create / refresh):**
 
-> **Do not use bash for this step.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Grep, Read, and Edit file tools only — they accept the real macOS path from `html_path` directly.
+The server returns the shell HTML in paginated 900-line chunks. Chunk 0 embeds your data-tool name in a `<script id="warmup-tools">` block — the shell reads that to call `warmup_get_data` at runtime.
 
-**Path B — First run or engine update:**  
+1. **Identify your full data-tool name.** Your loaded `warmup_get_data` tool name looks like `mcp__<uuid>__warmup_get_data`. Use that exact string as `dataToolName` below.
 
-The MCP server injects WARMUP_DATA server-side. You do NOT write the template then edit a placeholder — the placeholder is gone after injection. Call the tool with your data, get back filled HTML, write it once.
+2. **Call** `warmup_get_template({ intent: "...", chunk: 0, dataToolName: "mcp__<uuid>__warmup_get_data" })`. Read `<!-- WARMUP_TOTAL_CHUNKS: N -->` to learn N. The response ends with `<!-- __WARMUP_SENTINEL__ -->` when N > 1. If the call returns `[ERROR]`, stop and report.
 
-1. **Call `warmup_get_template({ warmup_data: JSON.stringify(WARMUP_DATA) })`.** The server injects `WARMUP_DATA` into the engine shell before returning. The response is complete, filled HTML — no editing needed.
+3. **Write chunk 0 to** `[workspace-root]/warmup.html`. Overwrite any existing file — the v0.8 engine replaces v0.7 entirely.
 
-2. **Write the filled HTML to disk.** Use the Write tool to write the response to `warmup-artifact.html` in the **user's selected/workspace folder** (e.g. `~/Documents/Claude/Projects/`). Do NOT write to the outputs or temp directory; that path is cleared between sessions. Do not modify the HTML before writing — write it exactly as received.
+4. **Apply chunks 1..N-1 sequentially** (NEVER in parallel — Edits race on the same sentinel and corrupt the file):
+   - Call `warmup_get_template({ intent: "...", chunk: i })`. `dataToolName` is ignored on chunks 1+.
+   - Edit `old_string: "<!-- __WARMUP_SENTINEL__ -->"` → `new_string: [chunk text]`.
+   - Wait for Edit to succeed before starting i+1.
 
-3. **Register the artifact.** Call `create_artifact` (first run) or `update_artifact` (engine update) with `id: "the-warmup"` and `html_path` pointing to the written file.
+5. **Verify assembly** — Grep the file for `<!-- __WARMUP_SENTINEL__ -->`. Must return 0 matches.
 
-Never call `create_artifact` when the artifact already exists — it will fail. Never call `update_artifact` when the artifact does not exist yet.
+6. **Register the artifact:**
+   - `artifact_action === "create"` → `create_artifact`.
+   - `artifact_action === "refresh"` → `update_artifact`.
+   - Pass:
+     - `id: "the-warmup"`
+     - `html_path: [workspace-root]/warmup.html`
+     - `mcp_tools: ["mcp__<uuid>__warmup_get_data", "mcp__<uuid>__warmup_get_fonts"]`
+   - Both tool names are REQUIRED in `mcp_tools`. Cowork silently blocks any `callMcpTool` call whose target isn't on this allowlist. Without `warmup_get_data` the artifact shows "No brief yet" forever; without `warmup_get_fonts` the design falls back to system fonts.
 
-> **Do not use bash for Path B.** Bash runs in a Linux sandbox where macOS file paths are remapped and will not resolve. Use the Write file tool only.
+> **Do not use bash for any of this.** Bash runs in a Linux sandbox where macOS file paths are remapped and won't resolve. Use the file tools directly with the real macOS path from `html_path`.
 
-**Path C — Edit in place (user requests a correction to the existing brief):**  
-Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running new searches. No searches. No template fetch. Extract, modify, patch.
+**User requests a correction to the existing brief (no new searches):**
 
-Step 1: Use the Read tool to read the full HTML from `html_path`.
+Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running fresh fetches.
 
-Step 2: Locate the `<script id="warmup-data">` … `</script>` block. Extract the JSON object inside it. Apply the user's requested change to the relevant field(s) in `WARMUP_DATA`. Touch nothing else.
+1. Call `warmup_get_data({ intent: "..." })`. The response is `{ data: WARMUP_DATA, savedAt }`. Extract `data`.
+2. Apply the user's requested change to the relevant field(s) in WARMUP_DATA. Touch nothing else.
+3. Call `warmup_save_data({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })`. The open artifact picks up the corrected brief on its next visibility event.
 
-Step 3: Replace the entire `<script id="warmup-data">` block with the modified version and use the Write tool to write the complete HTML back to `html_path`. Call `update_artifact` with `id: "the-warmup"` and the same `html_path`.
-
-> **Do not use bash for Path C.** Same reason as Path A — bash runs in a Linux sandbox where macOS paths do not resolve. Use the Read and Write file tools only.
-
-**Token cost summary:**
-
-| Path | Trigger | Token cost |
-|---|---|---|
-| A — Data patch | Daily run, engine match | ~1–2KB targeted Grep+Read (avoids reading the full 131KB engine) |
-| B — Full engine | First run or version mismatch | ~131KB filled HTML from MCP tool (one-time; no file read needed) |
-| C — Edit in place | User correction to existing brief | ~1–2KB targeted Grep+Read (same Grep+targeted-Read approach as Path A) |
+No file edits required. No template fetch. No `update_artifact` call needed.
 
 **When an engine bug is fixed:**
-1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
-2. Apply the same fix to the active `warmup-artifact.html`.
-3. Call `update_artifact` to push the fix into the live artifact.
-4. The fix propagates to all future reports automatically because new reports start from the template.
+1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.
+2. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user into `artifact_action: "refresh"` on their next run, which rewrites the file with the fix.
+3. Deploy. New runs pick up the fixed engine automatically.
 
 **`WARMUP_DATA` schema (v0.3.0 — Morning Edition):**
 
@@ -757,10 +746,9 @@ Step 3: Replace the entire `<script id="warmup-data">` block with the modified v
 **`scanTime` is the single timestamp source.** Write it once as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). The renderer uses it in the masthead, the Generated cell in the signal bar, the link-safety scanned-at line, and the PDF masthead. Do not write separate timestamp values anywhere else.
 
 **On engine bugs:**
-1. Apply the fix to `warmup/warmup-template.html` — this is the canonical source.
-2. Apply the same fix to the active `warmup-artifact.html`.
-3. Call `update_artifact` to push the fix into the live artifact.
-4. The fix propagates to all future reports automatically because new reports start from the template.
+1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.
+2. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user into `artifact_action: "refresh"` on their next run, which rewrites the file with the fix.
+3. Deploy. New runs pick up the fixed engine automatically.
 
 **Never build the artifact HTML from scratch.** Always start from the engine shell returned by `warmup_get_template`. Building from scratch risks re-introducing fixed bugs and diverging from the canonical engine.
 
@@ -1376,7 +1364,7 @@ artifact carries its source's tier indicator. No exceptions.
 
 ## Artifact Design Spec
 
-The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md`. It is not accessible via any MCP tool and cannot be read during a Cowork session. It is also not needed during normal operation: Path B always starts from the engine shell returned by `warmup_get_template`, which already embeds all design tokens. Do not attempt to read SKILL-DESIGN.md at runtime.
+The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md`. It is not accessible via any MCP tool and cannot be read during a Cowork session. It is also not needed during normal operation: every artifact build starts from the engine shell returned by `warmup_get_template`, which already embeds all design tokens. Do not attempt to read SKILL-DESIGN.md at runtime.
 
 ---
 

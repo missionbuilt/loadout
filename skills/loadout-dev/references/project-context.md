@@ -6,7 +6,7 @@
 /Users/mike/Projects/loadout/              ← git repo root / workspace root
 │
 ├── warmup/
-│   └── warmup-template.html              ← CANONICAL warmup template (always edit this first)
+│   └── SKILL.md                          ← CANONICAL warmup SKILL.md (sync to bundled copy)
 │
 ├── skills/
 │   └── loadout-dev/                      ← this skill
@@ -15,59 +15,75 @@
 │
 └── missionbuilt-mcp/                     ← Cloudflare Worker (deploy from here)
     ├── src/
-    │   ├── index.ts                      ← all 17 MCP tools + McpAgent class
+    │   ├── index.ts                      ← all MCP tools + McpAgent class
     │   ├── auth.ts                       ← Google OAuth 2.1 flow
     │   ├── constants.ts                  ← ALL version numbers (single source of truth)
     │   ├── design.ts                     ← brandCss() design token system
     │   ├── landing.ts                    ← / route (public landing page)
-    │   └── preview.ts                    ← /preview route (Warmup walkthrough)
+    │   ├── preview.ts                    ← /preview route (Warmup walkthrough)
+    │   ├── warmup-shell.rawjs            ← WARMUP RUNTIME (CSS + HTML + renderer JS)
+    │   ├── spotter-shell.rawjs           ← Spotter runtime
+    │   └── approach-shell.rawjs          ← The Approach runtime
     │
     ├── src/skill-content/
     │   ├── warmup/
-    │   │   ├── SKILL.md                  ← Warmup framework (~90KB, section-loadable)
-    │   │   └── warmup-template.html      ← BUNDLED COPY (must match canonical)
-    │   └── spotter/
-    │       ├── SKILL.md                  ← Spotter framework (~29KB, section-loadable)
-    │       ├── area-examples.md          ← 64 worked examples (~64KB)
-    │       ├── synthetic-epic.md         ← Calibration epic 1 (gap-heavy)
-    │       ├── synthetic-epic-2.md       ← Calibration epic 2 (well-formed)
-    │       ├── synthetic-epic-3.md       ← Calibration epic 3 (well-formed)
-    │       └── spotter-template.html     ← Spotter artifact template
+    │   │   ├── SKILL.md                  ← BUNDLED warmup SKILL.md (imported by worker)
+    │   │   ├── SKILL-DESIGN.md           ← Morning Edition design spec
+    │   │   └── fonts.css                 ← Font CSS served via warmup_get_fonts
+    │   ├── spotter/
+    │   │   ├── SKILL.md                  ← Spotter framework (~29KB, section-loadable)
+    │   │   ├── area-examples.md          ← 64 worked examples (~64KB)
+    │   │   ├── synthetic-epic.md         ← Calibration epic 1 (gap-heavy)
+    │   │   ├── synthetic-epic-2.md       ← Calibration epic 2 (well-formed)
+    │   │   ├── synthetic-epic-3.md       ← Calibration epic 3 (well-formed)
+    │   │   └── spotter-template.html     ← Spotter artifact template (still HTML-injected)
+    │   └── the-approach/
+    │       ├── SKILL.md
+    │       └── approach-template.html
     │
-    ├── ARCH.md                           ← Architecture diagram (Mermaid)
-    └── TECH-LEAD-REVIEW.md              ← Last tech lead review report
+    ├── ARCH.md                           ← Architecture diagram (auto-generated)
+    └── TECH-LEAD-REVIEW.md               ← Last tech lead review (auto-generated)
 ```
+
+**Wrangler bindings** (`missionbuilt-mcp/wrangler.toml`):
+- `MCP_OBJECT` — Durable Object for SSE state
+- `OAUTH_KV` — OAuth client registrations + tokens
+- `WARMUP_KV` — per-user warmup briefs (`warmup:{email}:current`), introduced in v0.8.0
 
 ---
 
 ## Version constants — `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.0.1";
-export const WARMUP_VERSION        = "0.3.17";
-export const WARMUP_ENGINE_VERSION = "v0.3.17";
-export const SPOTTER_VERSION       = "0.6.0";
-export const TOOL_COUNT            = 17;
+export const SERVER_VERSION        = "1.1.0";
+export const WARMUP_VERSION        = "0.8.0";
+export const WARMUP_ENGINE_VERSION = "v0.8.0";
+export const SPOTTER_VERSION       = "0.7.17";
+export const THE_APPROACH_VERSION  = "0.1.4";
+export const TOOL_COUNT            = 23;
 ```
 
 ---
 
-## Tool inventory (17 tools total)
+## Tool inventory (23 tools total)
 
-### Shared
+### Shared (2)
 | Tool | What it does |
 |------|-------------|
 | `loadout_whoami` | Returns authenticated user's email + name |
 | `loadout_get_brand_css` | Returns the Mission Built design CSS (~8KB) |
 
-### The Warmup (6 tools)
+### The Warmup (9 tools)
 | Tool | What it does | Token cost |
 |------|-------------|------------|
 | `warmup_get_skill` | Returns a SKILL.md section (or full ~90KB) | 5–90KB |
+| `warmup_get_fonts` | Returns the warmup font CSS (Oswald + Merriweather + Permanent Marker + JetBrains Mono, base64 WOFF2) | **~400KB** |
 | `warmup_list_modes` | Returns 3 modes with descriptions | ~1KB |
-| `warmup_get_template` | Injects WARMUP_DATA, returns filled 131KB HTML | **~131KB** |
+| `warmup_get_template` | Returns the warmup artifact shell in 900-line chunks (no data inline; embeds `dataToolName` in chunk 0) | ~20KB per chunk |
+| `warmup_save_data` | **v0.8** — Writes WARMUP_DATA to KV at `warmup:{email}:current`. Returns `{ok, savedAt, bytes}`. | ~1KB |
+| `warmup_get_data` | **v0.8** — Reads WARMUP_DATA from KV. Called by the artifact via Cowork bridge on every visibility event. | ~20KB |
 | `warmup_setup` | Returns setup flow instructions | ~2KB |
-| `warmup_run` | Returns run instructions + Path A/B logic | ~2KB |
+| `warmup_run` | Returns run instructions (v0.8 single-flow: save_data + optional shell refresh) | ~3KB |
 | `warmup_config` | Returns source management instructions | ~1KB |
 
 ### The Spotter (9 tools)
@@ -243,7 +259,7 @@ Claude (MCP client)
   ↓  OAuth Bearer token
 Cloudflare Worker (index.ts + auth.ts)
   ├── /authorize, /google/callback → Google OAuth
-  ├── /sse → MissionBuiltMCP Durable Object (17 tools)
+  ├── /sse → MissionBuiltMCP Durable Object (23 tools)
   └── / /preview /health /brand.css → public routes
 
 All skill content bundled at deploy time (Wrangler text imports):

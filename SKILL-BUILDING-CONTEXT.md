@@ -24,53 +24,60 @@ The server is a Cloudflare Worker + Durable Objects, using Google OAuth 2.1 for 
 /Users/mike/Projects/loadout/              ← workspace root (git repo root is here)
 │
 ├── warmup/
-│   └── warmup-template.html              ← CANONICAL warmup template (edit this first)
+│   └── SKILL.md                          ← CANONICAL warmup SKILL.md (human-readable copy)
 │
 ├── missionbuilt-mcp/                     ← Cloudflare Worker source
 │   ├── src/
-│   │   ├── index.ts                      ← 17 MCP tools, all tool handlers
+│   │   ├── index.ts                      ← All MCP tools, tool handlers, warmup_run text
 │   │   ├── auth.ts                       ← Google OAuth flow
 │   │   ├── constants.ts                  ← ALL version numbers live here
 │   │   ├── design.ts                     ← brandCss() design token system
 │   │   ├── landing.ts                    ← / route (landing page)
-│   │   └── preview.ts                    ← /preview route (walkthrough page)
+│   │   ├── preview.ts                    ← /preview route (walkthrough page)
+│   │   ├── warmup-shell.rawjs            ← WARMUP RUNTIME — CSS + HTML + renderer JS
+│   │   ├── spotter-shell.rawjs           ← Spotter runtime
+│   │   └── approach-shell.rawjs          ← The Approach runtime
 │   │
 │   └── src/skill-content/
 │       ├── warmup/
-│       │   ├── SKILL.md                  ← Warmup skill framework (~90KB)
-│       │   └── warmup-template.html      ← BUNDLED COPY (must match canonical)
-│       └── spotter/
-│           ├── SKILL.md                  ← Spotter framework (~29KB)
-│           ├── area-examples.md          ← 64 worked examples (~64KB)
-│           ├── synthetic-epic.md         ← Calibration epic 1
-│           ├── synthetic-epic-2.md       ← Calibration epic 2
-│           ├── synthetic-epic-3.md       ← Calibration epic 3
-│           └── spotter-template.html     ← Spotter HTML template
+│       │   ├── SKILL.md                  ← BUNDLED warmup SKILL.md (imported by worker)
+│       │   ├── SKILL-DESIGN.md           ← Design spec for the Morning Edition layout
+│       │   └── fonts.css                 ← Oswald / Merriweather / Permanent Marker / JetBrains Mono
+│       ├── spotter/
+│       │   ├── SKILL.md
+│       │   ├── area-examples.md
+│       │   ├── synthetic-epic.md / -2 / -3
+│       │   └── spotter-template.html     ← Spotter still uses an HTML template
+│       └── the-approach/
+│           ├── SKILL.md
+│           └── approach-template.html
 │
 ├── SKILL-BUILDING-CONTEXT.md            ← this file
-├── ARCH.md                               ← (inside missionbuilt-mcp/)
-└── TECH-LEAD-REVIEW.md                  ← (inside missionbuilt-mcp/)
+├── ARCH.md                               ← (inside missionbuilt-mcp/, auto-generated)
+└── TECH-LEAD-REVIEW.md                   ← (inside missionbuilt-mcp/, auto-generated)
 ```
+
+**Wrangler bindings** (in `missionbuilt-mcp/wrangler.toml`): `MCP_OBJECT` (Durable Object for SSE state), `OAUTH_KV` (OAuth client registrations + tokens), `WARMUP_KV` (per-user warmup briefs, v0.8+).
 
 ---
 
-## The canonical / bundled copy rule — most important rule in the project
+## The canonical / bundled rule — applies to SKILL.md only
 
-The warmup template exists in **two places**:
+The warmup **SKILL.md** exists in two places:
 
-1. **Canonical:** `/Users/mike/Projects/loadout/warmup/warmup-template.html`
-2. **Bundled:** `/Users/mike/Projects/loadout/missionbuilt-mcp/src/skill-content/warmup/warmup-template.html`
+1. **Canonical:** `/Users/mike/Projects/loadout/warmup/SKILL.md` (human-readable copy in the repo root area)
+2. **Bundled:** `/Users/mike/Projects/loadout/missionbuilt-mcp/src/skill-content/warmup/SKILL.md` (imported by the worker via Wrangler text rule)
 
-**Always edit the canonical copy first. Then apply the identical changes to the bundled copy.**
+**Always edit the canonical copy first. Then apply the identical changes to the bundled copy.** The worker only sees the bundled version, so if they diverge, agents calling `warmup_get_skill` will work against the bundled (live) text while the canonical drifts and misleads future readers.
 
-The Worker imports the bundled copy at build time. The canonical copy is what agents read/write when they render an artifact. If they diverge, the server returns the old template and agents silently work against stale HTML.
-
-**Verification after any template edit:**
+**Verification after a SKILL.md edit:**
 ```
-grep -c "Export HTML" warmup/warmup-template.html
-grep -c "Export HTML" missionbuilt-mcp/src/skill-content/warmup/warmup-template.html
+grep -c "warmup_save_data" warmup/SKILL.md
+grep -c "warmup_save_data" missionbuilt-mcp/src/skill-content/warmup/SKILL.md
 ```
 Both counts must match.
+
+> **Historical note (v0.3.x–v0.7.x):** the project also kept canonical + bundled copies of `warmup-template.html`. That template was retired in v0.8.0 — the warmup runtime now lives entirely in `warmup-shell.rawjs`, and the data flow goes through `warmup_save_data` → KV → `warmup_get_data` instead of an inline `<script>` injection. The two `.html` template files were deleted in the v0.8 cleanup. The spotter and the-approach skills still use their HTML templates.
 
 ---
 
@@ -79,44 +86,34 @@ Both counts must match.
 **File:** `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.0.1";   // Worker deploy version
-export const WARMUP_VERSION        = "0.3.17";  // bump when SKILL.md changes
-export const WARMUP_ENGINE_VERSION = "v0.3.17"; // bump when warmup-template.html changes
-export const SPOTTER_VERSION       = "0.6.0";   // bump when Spotter SKILL.md changes
-export const TOOL_COUNT            = 17;        // update when adding/removing tools
+export const SERVER_VERSION        = "1.1.0";   // Worker deploy version
+export const WARMUP_VERSION        = "0.8.0";   // bump when warmup SKILL.md or shell changes
+export const WARMUP_ENGINE_VERSION = "v0.8.0";  // bump when warmup-shell.rawjs changes
+export const SPOTTER_VERSION       = "0.7.17";  // bump when Spotter SKILL.md changes
+export const THE_APPROACH_VERSION  = "0.1.4";   // bump when Approach SKILL.md changes
+export const TOOL_COUNT            = 23;        // update when adding/removing tools
 ```
 
 **Bump rules:**
-- Change to `warmup-template.html` → bump `WARMUP_VERSION` AND `WARMUP_ENGINE_VERSION`
+- Change to `warmup-shell.rawjs` → bump `WARMUP_VERSION` AND `WARMUP_ENGINE_VERSION`
 - Change to warmup `SKILL.md` → bump `WARMUP_VERSION`
 - Change to spotter `SKILL.md` or areas → bump `SPOTTER_VERSION`
 - New tool added or removed → update `TOOL_COUNT`
 
 **Why `WARMUP_ENGINE_VERSION` matters critically:**
-The `warmup_run` tool uses a Path A / Path B strategy:
-- **Path A** (engine version matches artifact file): agent updates only the `WARMUP_DATA` script block (~20 lines). Fast, cheap.
-- **Path B** (engine mismatch or first run): agent calls `warmup_get_template` to get the full 131KB filled HTML, writes it to disk, calls `create_artifact` or `update_artifact`.
-
-If you change the template but don't bump `WARMUP_ENGINE_VERSION`, agents on Path A will keep using the old toolbar/layout forever. They'll never download the new template.
+The `warmup_run` tool reads the first 10 lines of the user's existing `warmup.html` artifact and matches the `<!-- warmup-engine: vX.Y.Z -->` marker against this constant. On a match, the agent skips rewriting the file (the artifact is already current; just call `warmup_save_data`). On a mismatch (or no file at all), the agent re-fetches the shell from `warmup_get_template` and rewrites the file with the new engine. Without the bump, agents with stale files keep running on the old engine forever.
 
 ---
 
-## How `warmup_get_template` injection works
+## How warmup data flows in v0.8
 
-The template contains exactly one placeholder line:
-```
-window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)
-```
+There is no longer an inline placeholder in the warmup HTML. The artifact is a pure renderer.
 
-The server does:
-```typescript
-const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>'); // XSS: prevent </script> break
-const filled = WARMUP_TEMPLATE_HTML.replace(PLACEHOLDER, () => `window.WARMUP_DATA = ${safe};`);
-```
+1. **Agent run:** synthesize WARMUP_DATA, then call `warmup_save_data({ warmup_data: JSON.stringify(WARMUP_DATA) })`. The server validates it parses to an object with a `config` field, then stores `{ data, savedAt }` in KV at `warmup:{email}:current`.
+2. **Artifact boot:** shell reads `window.WARMUP_TOOLS.dataTool` (baked in once at create-artifact time via `warmup_get_template({ dataToolName: "mcp__<uuid>__warmup_get_data" })`), then calls `warmup_get_data` via the Cowork MCP bridge.
+3. **Auto-refresh:** on every `visibilitychange` and `focus` event, the shell re-fetches and compares `savedAt`. Newer payload → save in-flight UI state to `sessionStorage`, `location.reload()`. The reload restores scroll position and section-done toggles from `sessionStorage`.
 
-**Critical: use a replacer function, not a literal string.** `String.prototype.replace(literal, literal)` interprets `$'`, `$&`, and `` $` `` as special sequences. Article content (price strings, stock tickers, shell commands) can contain these. The replacer function `() => replacement` bypasses all `$`-sequence expansion. This bug was fixed in v0.3.17 — don't revert it.
-
-The spotter template uses the same pattern with `SPOTTER_DATA`.
+The legacy `</script>` XSS escape and `$`-sequence replacer-function rule for warmup are obsolete since v0.8 — data never touches inline script context. **Both rules still apply to the spotter and the-approach templates**, which inject SPOTTER_DATA / APPROACH_DATA server-side via the same `replace(/<\/script>/gi, '<\\/script>')` + `() => replacement` pattern. Don't revert those.
 
 If the placeholder is missing from the template, `warmup_get_template` returns:
 ```
@@ -344,8 +341,8 @@ npx wrangler deploy   # run from missionbuilt-mcp/
 
 ## Known cleanup debt
 
-- `buildBriefPDF` function is block-commented in `warmup-template.html` (both copies). Contains Unicode font metrics tables that prevent clean Edit tool deletion. Delete the block when bash is available (`git diff` first to confirm scope).
-- `print-no-dives` CSS class exists in `@media print` but is never set by any JS since the Export dropdown change. Inert — safe to remove.
+- `buildBriefPDF` is no longer carried — the v0.8 shell drops PDF generation entirely in favour of browser-native `window.print()` from the Export dropdown.
+- `print-no-dives` CSS class exists in `@media print` in `warmup-shell.rawjs` but is never set by any JS since the Export dropdown change. Inert — safe to remove.
 - `spotter_build` `feature` param has no `.max()` bound. Low risk but inconsistent.
 - OAuth flow missing state-cookie binding (login-CSRF protection). Medium priority — see TECH-LEAD-REVIEW.md.
 

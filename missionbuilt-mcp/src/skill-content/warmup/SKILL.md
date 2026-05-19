@@ -590,7 +590,7 @@ Do not add a placeholder or ask about it during RUN.
 ### Step 4 — Render phase
 
 **ABSOLUTE RULE — NO EXCEPTIONS:**
-The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (chunked, with the `dataToolName` parameter set). **Never write HTML from scratch. Never read warmup-template.html from disk. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, fonts, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design.
+The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (chunked, with the `dataToolName` parameter set). **Never write HTML from scratch. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, fonts, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design.
 
 **v0.8 architecture — data lives in KV, not in the HTML.**
 
@@ -646,7 +646,7 @@ No file edits required. No template fetch. No `update_artifact` call needed.
 
 **When an engine bug is fixed:**
 1. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user's next run into `artifact_action: "refresh"`, which rewrites the file with the fixed engine.
-2. Apply the fix to `warmup-shell.rawjs` (the actual shell code — the `warmup-template.html` files in the repo are legacy documentation, not imported by the worker).
+2. Apply the fix to `warmup-shell.rawjs` (the actual shell code imported by the worker; the legacy `warmup-template.html` files were retired in v0.8.0).
 3. After deploy, the next daily run on each device picks up the new engine.
 
 **`WARMUP_DATA` schema (v0.3.0 — Morning Edition):**

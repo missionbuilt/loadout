@@ -147,17 +147,18 @@ Remove the old DNS entries (`warmup-mcp.missionbuilt.io`, `spotter-mcp.missionbu
 
 ## Skill content
 
-Skill content lives in `src/skill-content/` and is bundled at build time via Wrangler text imports. Canonical sources are the editorial directories — always edit there, then sync:
+Skill content lives in `src/skill-content/` and is bundled at build time via Wrangler text imports. Canonical SKILL.md copies sit in the editorial directories — always edit there first, then sync:
 
 ```bash
-# After editing warmup/SKILL.md or warmup/warmup-template.html:
+# After editing warmup/SKILL.md:
 cp warmup/SKILL.md missionbuilt-mcp/src/skill-content/warmup/SKILL.md
-cp warmup/warmup-template.html missionbuilt-mcp/src/skill-content/warmup/warmup-template.html
 
 # After editing spotter/SKILL.md or spotter/examples/:
 cp spotter/SKILL.md missionbuilt-mcp/src/skill-content/spotter/SKILL.md
 cp spotter/examples/lens-examples.md missionbuilt-mcp/src/skill-content/spotter/lens-examples.md
 ```
+
+The warmup runtime is `missionbuilt-mcp/src/warmup-shell.rawjs` (single file, no canonical/bundled split). Edit and bump `WARMUP_ENGINE_VERSION` in `constants.ts` so users pick up the new shell on their next run. The legacy `warmup-template.html` files were retired in v0.8.0 — warmup data now flows through `warmup_save_data` → KV → `warmup_get_data`.
 
 ---
 
