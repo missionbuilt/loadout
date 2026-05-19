@@ -684,7 +684,11 @@ gap: 10px;
   document.head.appendChild(_style);
 
   /* ── 3. HTML structure ──────────────────────────────────────────────────── */
-  document.body.insertAdjacentHTML('afterbegin', `
+  /* Guard: exportHTML() serialises the live DOM (incl. the injected header) into
+     the exported file. When that file is re-opened the shell re-runs, so we must
+     skip the injection if a .masthead already exists — otherwise the exported
+     HTML renders two headers: the serialised one followed by this placeholder. */
+  if (!document.querySelector('.masthead')) document.body.insertAdjacentHTML('afterbegin', `
 <a href="#main-content" class="skip-nav">Skip to main content</a>
 <header class="masthead">
 <div class="masthead-top-bar">
