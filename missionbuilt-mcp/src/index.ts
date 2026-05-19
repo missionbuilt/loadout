@@ -39,6 +39,7 @@ import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
 import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
 import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
+import WARMUP_FONTS_CSS from "./skill-content/warmup/fonts.css";
 import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
 import APPROACH_TEMPLATE_HTML from "./skill-content/the-approach/approach-template.html";
 
@@ -298,6 +299,15 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       },
       async ({ section }) => ({
         content: [{ type: "text" as const, text: getSkillSection(WARMUP_SKILL_MD, section ?? "full") }],
+      })
+    );
+
+    this.server.tool(
+      "warmup_get_fonts",
+      "Returns the warmup artifact font CSS as a JSON object { css, version }. Called by the warmup artifact at open time to load the design fonts (Oswald, Merriweather, Permanent Marker, JetBrains Mono) into the Cowork sandbox — external font CDNs are blocked in the artifact sandbox. The CSS is automatically cached in localStorage so this tool is only called once per browser profile, not on every open.",
+      { intent: intentField },
+      async () => ({
+        content: [{ type: "text" as const, text: JSON.stringify({ css: WARMUP_FONTS_CSS, version: "1.0" }) }],
       })
     );
 

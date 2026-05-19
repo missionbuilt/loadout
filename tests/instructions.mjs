@@ -18,7 +18,7 @@
 export const SPOTTER_VERSION = "0.7.17";
 
 /** Must match WARMUP_ENGINE_VERSION in constants.ts */
-export const WARMUP_ENGINE_VERSION = "v0.7.5";
+export const WARMUP_ENGINE_VERSION = "v0.7.7";
 
 // ─── Spotter Review ───────────────────────────────────────────────────────────
 

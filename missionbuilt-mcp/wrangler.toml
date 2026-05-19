@@ -3,10 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Bundle skill markdown and HTML template files as text imports.
+# Bundle skill markdown, HTML template, and CSS asset files as text imports.
 [[rules]]
 type = "Text"
-globs = ["**/*.md", "**/*.html"]
+globs = ["**/*.md", "**/*.html", "**/*.css"]
 fallthrough = true
 
 # Bundle raw JS shell assets as text (served verbatim via GET routes).
