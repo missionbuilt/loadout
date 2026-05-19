@@ -600,6 +600,8 @@ A daily run is two MCP calls and (only on a fresh install or an engine bump) one
 
 **The flow:**
 
+> **Why the file-state check is strict.** A prior run can leave a half-built artifact on disk — engine marker present at line 2, but the body truncated at `<!-- __WARMUP_SENTINEL__ -->` because chunks 1..N-1 never stitched (context limit, rate cutoff, interruption). The version marker alone is NOT proof of completeness. The `warmup_run` brief requires four checks before skipping a rebuild: marker present, sentinel absent, file ends with `</html>`, and the embedded `dataToolName` matches the current session. The post-assembly verify (step 7e) re-checks the sentinel and the `</html>` tail and resumes stitching rather than registering a broken file.
+
 1. **Save the brief to KV — always.** Call `warmup_save_data({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })`. The tool returns `{ ok, savedAt, bytes }`. If `ok: false`, STOP and surface the error to the user — the artifact will keep showing the previous brief until save succeeds.
 
 2. **Ensure the artifact file exists and runs the current engine.** This is determined by Step 1b earlier in the run:

@@ -681,9 +681,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   Read [workspace-root]/WARMUP.md. If missing, run warmup_setup first.\n\n` +
                 `2. ARTIFACT FILE STATE — decide whether you need to build the artifact HTML this run.\n` +
                 `   a) "the-warmup" does NOT exist in list_artifacts → set artifact_action = "create". Will build.\n` +
-                `   b) "the-warmup" exists → Read the first 10 lines of html_path.\n` +
-                `      - Contains <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → set artifact_action = "skip". File is current, do not rewrite.\n` +
-                `      - Any other engine version, or no marker, or file unreadable → set artifact_action = "refresh". Will rebuild.\n` +
+                `   b) "the-warmup" exists → run ALL four checks below. Every check must pass to skip; any failure → set artifact_action = "refresh". The engine-version marker alone is NOT proof the file is complete — a prior run can leave a half-built file with the marker present but the body truncated at a sentinel.\n` +
+                `      i)   Read the first 10 lines → must contain "<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->" (correct engine version).\n` +
+                `      ii)  Grep the file for "<!-- __WARMUP_SENTINEL__ -->" → must return 0 matches (no truncated chunk stitching from a prior interrupted run).\n` +
+                `      iii) Read the last 3 lines → must contain "</html>" (file wasn't cut off mid-write).\n` +
+                `      iv)  Grep the file for your full "mcp__<uuid>__warmup_get_data" tool name → must return ≥ 1 match (embedded dataToolName matches this session; defends against MCP UUID rotation across days).\n` +
+                `      All four pass → artifact_action = "skip". Any fail or file unreadable → artifact_action = "refresh".\n` +
                 `   Output one chat line: "📋 Artifact: [create / skip / refresh] · Fetching intelligence now."\n\n` +
                 `3. FETCH PHASE — run all batches concurrently in a single parallel pass. Standard depth: top 5 results / 200 words. Deep: top 10 / 400 words. Reject items where item.date < lookback_start. If skip_scan: true in WARMUP.md, skip step 4 and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0.\n\n` +
                 `   CISO mode compound batch queries (concurrent, NOT one-per-source):\n` +
@@ -739,7 +742,9 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     d) For i = 1..N-1, sequentially (never parallel):\n` +
                 `        - Call warmup_get_template({ chunk: i }) — dataToolName is ignored on chunks 1+.\n` +
                 `        - Edit replace <!-- __WARMUP_SENTINEL__ --> with the chunk content.\n` +
-                `     e) Verify: Grep the file for "<!-- __WARMUP_SENTINEL__ -->" — should return 0 matches.\n` +
+                `     e) Verify assembly. BOTH checks must pass before step 7f — never call create_artifact / update_artifact on an incomplete file:\n` +
+                `        - Grep for "<!-- __WARMUP_SENTINEL__ -->" → must return 0 matches. If > 0, the stitching loop did not finish (context limit, rate cutoff, or other interruption). Resume from step 7d at the next unfilled chunk index until the sentinel is gone.\n` +
+                `        - Read the last 3 lines → must contain "</html>". If absent, the file is truncated; restart from step 7c (re-fetch and overwrite chunk 0 fresh, then iterate 7d again).\n` +
                 `     f) artifact_action === "create" → call create_artifact. artifact_action === "refresh" → call update_artifact.\n` +
                 `        Either way, pass:\n` +
                 `          id: "the-warmup"\n` +
