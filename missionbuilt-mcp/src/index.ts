@@ -223,11 +223,31 @@ const SPOTTER_AREAS = [
 interface Env {
   MCP_OBJECT: DurableObjectNamespace;
   OAUTH_KV: KVNamespace;
+  WARMUP_KV: KVNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   COOKIE_ENCRYPTION_KEY: string;
   OAUTH_PROVIDER: OAuthHelpers;
 }
+
+// ── Warmup KV helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Derive the user's KV key from their OAuth email.
+ *
+ * Email is lowercased and stripped of whitespace before being interpolated.
+ * Lengths are bounded so an absurdly long email can't blow up the key. We do
+ * NOT URL-encode here — KV keys accept arbitrary strings, and emails contain
+ * only RFC-5322 safe chars.
+ */
+function warmupKeyFor(email: string | undefined): string {
+  const e = (email ?? "").trim().toLowerCase().slice(0, 200);
+  if (!e || e.indexOf("@") === -1) return "";
+  return `warmup:${e}:current`;
+}
+
+/** Maximum WARMUP_DATA payload accepted by warmup_save_data. */
+const WARMUP_DATA_MAX_BYTES = 250_000; // ~250KB; typical brief is ~20KB.
 
 // ── Agent ─────────────────────────────────────────────────────────────────────
 
@@ -329,15 +349,9 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the warmup artifact HTML in paginated 900-line chunks. Call with chunk:0 (no warmup_data) to get the shell with the WARMUP_DATA placeholder intact. Write chunk 0 to disk, then immediately Edit the placeholder line: old_string='window.WARMUP_DATA = null; // ← AGENT: Edit-replace this line with your WARMUP_DATA JSON object (see SKILL.md Path B)', new_string='window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];'. Then for chunks 1 through N-1, call again with chunk:N and Edit(old='<!-- __WARMUP_SENTINEL__ -->', new=chunk) SEQUENTIALLY. Never pass warmup_data — it is unused. Never reconstruct or invent the HTML yourself.",
+      "Returns the warmup artifact HTML in paginated 900-line chunks. The v0.8 shell fetches WARMUP_DATA via the Cowork MCP bridge at boot — there is no inline data injection. The artifact's only one-time configuration is the data-tool name, which must be passed as dataToolName on chunk 0. Call with chunk:0 and dataToolName='mcp__<your-uuid>__warmup_get_data' to get the shell. Write to disk, then call again with chunk:1, 2, ... N-1, replacing the <!-- __WARMUP_SENTINEL__ --> placeholder in the file with each subsequent chunk. After assembly, call create_artifact or update_artifact and warmup_save_data — the artifact pulls fresh data on every visibility event.",
       {
         intent: intentField,
-        warmup_data: z
-          .string()
-          .optional()
-          .describe(
-            "Deprecated — do not pass. Ignored on all chunks. Inject WARMUP_DATA via Edit after Write(chunk 0)."
-          ),
         chunk: z
           .number()
           .int()
@@ -347,35 +361,49 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> " +
             "from chunk 0 to learn the total number of chunks."
           ),
+        dataToolName: z
+          .string()
+          .max(200)
+          .optional()
+          .describe(
+            "Full prefixed MCP tool name for warmup_get_data — e.g. 'mcp__<uuid>__warmup_get_data'. " +
+            "Required on chunk 0. Embedded into the artifact's <script id=\"warmup-tools\"> block " +
+            "so the rendered page can call warmup_get_data via the Cowork bridge at boot. " +
+            "Ignored on chunks 1+."
+          ),
+        warmup_data: z
+          .string()
+          .optional()
+          .describe(
+            "Deprecated in v0.8 — ignored on all chunks. Data now flows through warmup_save_data → KV → warmup_get_data."
+          ),
       },
-      async ({ warmup_data, chunk = 0 }) => {
-        // Paginated delivery architecture (v0.7.3 — data-injection decoupled from chunks):
+      async ({ warmup_data: _ignoredWarmupData, chunk = 0, dataToolName }) => {
+        // Paginated delivery architecture (v0.8 — pure-renderer shell):
         //
-        // Problem: the filled warmup HTML is ~1757 lines / 87KB+. Cowork persists MCP
-        // responses over ~67KB to disk as a JSON envelope. Chunk 0 used to inject WARMUP_DATA
-        // server-side, but WARMUP_DATA from 9 WebSearch calls is 20–40KB of article JSON,
-        // making chunk 0 ≈ 60KB — right at the persistence threshold. When Cowork persists
-        // chunk 0, the agent receives a file path instead of inline text, reaches for bash
-        // (forbidden), produces a corrupted or empty warmup.html, and the artifact is blank.
+        // The shell fetches WARMUP_DATA via the Cowork MCP bridge at boot. The
+        // only one-time configuration baked into the artifact is the prefixed
+        // MCP tool name for warmup_get_data — passed as `dataToolName` here
+        // and inlined into the preamble's <script id="warmup-tools"> block.
         //
-        // Fix: chunk 0 returns the shell with the WARMUP_DATA placeholder intact (~20KB,
-        // always under the threshold). The agent does:
-        //   Write(chunk 0 with placeholder) → Edit(placeholder → JSON.stringify(WARMUP_DATA))
-        //   → sequential Edit(sentinel → chunk i) for i = 1..N-1
-        // The Edit tool handles arbitrary string sizes with no size threshold issues.
+        // Chunking remains because the filled shell is ~1900 lines / ~90KB, and
+        // Cowork persists MCP responses over ~67KB to disk (which the agent
+        // then can't read inline). Splitting into 900-line chunks keeps each
+        // response under the threshold. The agent writes chunk 0, then walks
+        // chunks 1..N-1, each replacing the <!-- __WARMUP_SENTINEL__ --> marker.
         //
         // Structure of the shell HTML (chunk 0):
         //   Lines 0–12:  13-line preamble (DOCTYPE … <body><script>)
         //   Lines 13+:   WARMUP_SHELL_JS lines
         //   Closing:     empty line + </script></body> + </html>
         //
-        // warmup_data parameter: deprecated, accepted but ignored. Do not pass it.
+        // warmup_data parameter: deprecated in v0.8, ignored. Use warmup_save_data.
 
         const CHUNK_LINES  = 900;
         const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
         // Lines 0–12 in the preamble (includes the injected TOTAL_CHUNKS comment at index 2).
         // DOCTYPE, engine-marker, TOTAL_CHUNKS-comment, html, head, meta×2, title, /head,
-        // script-data, warmup_data_line, /script, body+script  = 13 lines.
+        // script-tools, tools-line, /script, body+script  = 13 lines.
         const PREAMBLE_LINES = 13;
 
         const shellLines   = WARMUP_SHELL_JS.split('\n');
@@ -384,12 +412,19 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         const totalLines   = PREAMBLE_LINES + shellLines.length + closingLines.length;
         const totalChunks  = Math.ceil(totalLines / CHUNK_LINES);
 
-        // ── Chunk 0: return shell with WARMUP_DATA placeholder intact ───────────
-        // WARMUP_DATA is NOT injected here. The agent Writes this to disk (placeholder
-        // present), then Edits the placeholder line with JSON.stringify(WARMUP_DATA).
-        // This keeps chunk 0 ≤20KB regardless of how much article content was fetched.
+        // ── Chunk 0: return shell with the WARMUP_TOOLS config baked in ─────────
+        // No inline data injection in v0.8. The artifact reads WARMUP_TOOLS.dataTool
+        // at boot, polls for window.cowork, then calls that MCP tool to load fresh
+        // WARMUP_DATA from KV. Subsequent visibility events trigger re-fetches.
         if (chunk === 0) {
-          const PLACEHOLDER = `window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER`;
+          // dataToolName comes from agent caller — validate the shape so a
+          // bad value can't break the JSON literal in the preamble.
+          const safeToolName = (dataToolName ?? "")
+            .replace(/[^A-Za-z0-9_\-:]/g, "")
+            .slice(0, 200);
+          const toolsLine = safeToolName
+            ? `window.WARMUP_TOOLS = { dataTool: ${JSON.stringify(safeToolName)} };`
+            : `window.WARMUP_TOOLS = { dataTool: null }; /* AGENT: pass dataToolName to warmup_get_template */`;
 
           const shellInlined =
             `<!DOCTYPE html>\n` +
@@ -401,8 +436,8 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             `  <meta name="viewport" content="width=device-width, initial-scale=1">\n` +
             `  <title>The Warmup \xB7 Morning Edition</title>\n` +
             `</head>\n` +
-            `<script id="warmup-data">\n` +
-            `${PLACEHOLDER}\n` +
+            `<script id="warmup-tools">\n` +
+            `${toolsLine}\n` +
             `</script>\n` +
             `<body><script>\n` +
             `${WARMUP_SHELL_JS}\n` +
@@ -441,6 +476,101 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
         const isLast = endPos >= totalLines;
         if (!isLast) resultLines.push(SENTINEL);
         return { content: [{ type: "text" as const, text: resultLines.join('\n') }] };
+      }
+    );
+
+    this.server.tool(
+      "warmup_save_data",
+      "Stores the user's latest WARMUP_DATA brief in KV under their OAuth-authenticated email. The artifact reads the same key via warmup_get_data and auto-refreshes when it sees a newer savedAt. Replaces any prior brief — v0.8 keeps only the current. Returns {ok, savedAt, bytes} on success, or {ok:false, error} on failure. Always pass warmup_data as a JSON string (JSON.stringify your WARMUP_DATA object first).",
+      {
+        intent: intentField,
+        warmup_data: z
+          .string()
+          .max(WARMUP_DATA_MAX_BYTES, `WARMUP_DATA exceeds ${WARMUP_DATA_MAX_BYTES} bytes.`)
+          .describe(
+            "The WARMUP_DATA object as a JSON string. Must JSON-parse and contain a 'config' object. Stringify before passing — e.g. JSON.stringify(WARMUP_DATA)."
+          ),
+      },
+      async ({ warmup_data }) => {
+        const email = this.props?.email as string | undefined;
+        const key = warmupKeyFor(email);
+        if (!key) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "Not authenticated. warmup_save_data requires an active OAuth session." }, null, 2),
+            }],
+          };
+        }
+
+        let parsed: any;
+        try {
+          parsed = JSON.parse(warmup_data);
+        } catch (err) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "warmup_data is not valid JSON: " + String((err as Error).message ?? err) }, null, 2),
+            }],
+          };
+        }
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.config || typeof parsed.config !== "object") {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ ok: false, error: "warmup_data must be a JSON object with a 'config' field." }, null, 2),
+            }],
+          };
+        }
+
+        const savedAt = new Date().toISOString();
+        // Envelope holds savedAt alongside the user-supplied brief so the artifact's
+        // visibility poller can cheaply detect "is this newer than what I rendered?"
+        const envelope = JSON.stringify({ data: parsed, savedAt });
+        await this.env.WARMUP_KV.put(key, envelope);
+
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({ ok: true, savedAt, bytes: envelope.length }, null, 2),
+          }],
+        };
+      }
+    );
+
+    this.server.tool(
+      "warmup_get_data",
+      "Returns the authenticated user's latest WARMUP_DATA brief from KV. The warmup artifact calls this on load and on every visibilitychange/focus event to detect when a fresh brief has been saved. Returns {data, savedAt} when a brief exists, {empty:true} when the user has never run a warmup, or {empty:true, error} when unauthenticated.",
+      {
+        intent: intentField,
+      },
+      async () => {
+        const email = this.props?.email as string | undefined;
+        const key = warmupKeyFor(email);
+        if (!key) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ empty: true, error: "Not authenticated." }, null, 2),
+            }],
+          };
+        }
+        const raw = await this.env.WARMUP_KV.get(key);
+        if (!raw) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ empty: true }, null, 2),
+            }],
+          };
+        }
+        // raw is already a {data, savedAt} JSON envelope — pass through verbatim.
+        return {
+          content: [{
+            type: "text" as const,
+            text: raw,
+          }],
+        };
       }
     );
 
@@ -502,7 +632,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_run",
-      "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config, fetches live intelligence from each active source, synthesizes it into the five sections, runs link safety verification, and renders the output as a live HTML artifact. One summary line in chat — the brief is the artifact.",
+      "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config, fetches live intelligence from each active source, synthesizes it into sections, runs link safety verification, saves the brief to KV via warmup_save_data, and ensures the artifact file is current. The artifact auto-refreshes from KV on every visibility event — no inline HTML edits, no manual reload.",
       {
         intent: intentField,
         config_summary: z
@@ -526,39 +656,37 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `# The Warmup — Run Brief\n\n` +
                 `**Engine version: ${WARMUP_ENGINE_VERSION}**\n\n` +
                 `${configNote}\n\n` +
+                `## How v0.8 works (read this once)\n\n` +
+                `The brief lives in KV on the MCP server, keyed by your OAuth email. The artifact HTML is a pure renderer — it fetches WARMUP_DATA via the Cowork bridge at boot and on every visibilitychange/focus event. Your job each run is:\n\n` +
+                `  1. Build WARMUP_DATA from fresh searches\n` +
+                `  2. Call \`warmup_save_data\` to put it in KV\n` +
+                `  3. Make sure the artifact file exists and runs v${WARMUP_ENGINE_VERSION} — build/refresh only when missing or stale\n\n` +
+                `No inline HTML editing of the data. No </script> XSS guard. No Path A vs Path B. Just save the data and (rarely) refresh the template.\n\n` +
                 `## Before starting\n\n` +
-                `Ensure list_artifacts, create_artifact, and update_artifact are loaded before proceeding. ` +
-                `These tools are deferred by Cowork — load them via ToolSearch now if not yet available. ` +
-                `Loading them late forces a ToolSearch roundtrip after template assembly while the user is waiting.\n\n` +
+                `Ensure these deferred tools are loaded — load them now via ToolSearch if any are missing:\n\n` +
+                `- warmup_save_data, warmup_get_data\n` +
+                `- warmup_get_template (only when you need to write the artifact file)\n` +
+                `- list_artifacts, create_artifact, update_artifact (Cowork)\n` +
+                `- WebSearch\n\n` +
                 `## Permitted tools\n\n` +
-                `Only these tools may be used. Everything else is forbidden.\n\n` +
                 `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
-                `        warmup_get_skill · warmup_get_template · WebSearch\n` +
+                `        warmup_get_skill · warmup_get_template · warmup_save_data · warmup_get_data · WebSearch\n` +
                 `  File: Read · Write · Edit · Grep\n\n` +
                 `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
                 `## How to generate the brief\n\n` +
-                `1. Find workspace root — call list_artifacts:\n` +
-                `   • "the-warmup" exists → take its html_path and strip the filename to get the root.\n` +
-                `     e.g. "/Users/jane/Projects/loadout/warmup.html" → "/Users/jane/Projects/loadout"\n` +
-                `   • No "the-warmup" artifact → find the user's selected workspace folder in your system context.\n` +
-                `     It is the folder the user mounted in Cowork — a short, human-readable path like /Users/[name]/Projects/[folder].\n` +
-                `     It is NOT the working directory, outputs folder, or any session/temp path.\n` +
-                `   Validate: if the workspace root contains any of these strings, you have the WRONG path:\n` +
-                `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
-                `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
-                `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n` +
-                `   Then read [workspace-root]/WARMUP.md. If WARMUP.md does not exist, run warmup_setup first.\n` +
-                `2. Artifact and engine check — call list_artifacts.\n` +
-                `   a) "the-warmup" does not exist → first run: set mode = "create". Proceed to step 4.\n` +
-                `   b) "the-warmup" exists → use the Read file tool to read the first 10 lines of html_path.\n` +
-                `      - File cannot be read → treat as first run: set mode = "create". Proceed to step 4.\n` +
-                `      - First 10 lines contain <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → Path A (version match). Proceed to step 4.\n` +
-                `      - First 10 lines contain any other version or no marker → Path B (stale engine): set mode = "create". Proceed to step 4.\n` +
-                `   Output this line in chat before proceeding: "📋 Artifact ready · [first run / engine match / engine update] · Fetching intelligence now."\n` +
-                `3. TEMPLATE RULE — NON-NEGOTIABLE: The artifact HTML comes ONLY from warmup_get_template (PATH B) or the existing artifact file (PATH A). NEVER write HTML from scratch. NEVER reconstruct the template from training memory. Every time an agent generates HTML from memory, the design is wrong — wrong colors, wrong layout, invented stat labels. The correct design lives only in warmup_get_template.\n` +
-                `4. Fetch phase — run ALL batches concurrently in a single parallel pass, then synthesize after all return. Budget: standard (default) = top 5 results per batch, 200 words/article; deep = top 10 results, 400 words/article. Reject any item where item.date < lookback_start. If skip_scan: true in WARMUP.md, skip step 5 and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0 in WARMUP_DATA.\n` +
-                `\n` +
-                `   CISO mode compound batch queries (run all concurrently — do NOT search each source individually):\n` +
+                `1. WORKSPACE — call list_artifacts.\n` +
+                `   • "the-warmup" exists → take its html_path and strip the filename to get the workspace root.\n` +
+                `   • No "the-warmup" artifact → use the user's selected workspace folder from your system context.\n` +
+                `     A correct root looks like /Users/[name]/Projects/[folder]. It must NOT contain "Application Support", "sessions", "outputs", "uploads", "local-agent", or "tmp".\n` +
+                `   Read [workspace-root]/WARMUP.md. If missing, run warmup_setup first.\n\n` +
+                `2. ARTIFACT FILE STATE — decide whether you need to build the artifact HTML this run.\n` +
+                `   a) "the-warmup" does NOT exist in list_artifacts → set artifact_action = "create". Will build.\n` +
+                `   b) "the-warmup" exists → Read the first 10 lines of html_path.\n` +
+                `      - Contains <!-- warmup-engine: ${WARMUP_ENGINE_VERSION} --> → set artifact_action = "skip". File is current, do not rewrite.\n` +
+                `      - Any other engine version, or no marker, or file unreadable → set artifact_action = "refresh". Will rebuild.\n` +
+                `   Output one chat line: "📋 Artifact: [create / skip / refresh] · Fetching intelligence now."\n\n` +
+                `3. FETCH PHASE — run all batches concurrently in a single parallel pass. Standard depth: top 5 results / 200 words. Deep: top 10 / 400 words. Reject items where item.date < lookback_start. If skip_scan: true in WARMUP.md, skip step 4 and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0.\n\n` +
+                `   CISO mode compound batch queries (concurrent, NOT one-per-source):\n` +
                 `   | Batch | Query pattern |\n` +
                 `   |---|---|\n` +
                 `   | Gov pulse | \`(site:cisa.gov OR site:nsa.gov OR site:ic3.gov OR site:ftc.gov) advisory alert after:YYYY-MM-DD\` |\n` +
@@ -567,12 +695,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   | News | \`(site:bleepingcomputer.com OR site:securityweek.com OR site:krebsonsecurity.com OR site:thehackernews.com OR site:darkreading.com) [sector] after:YYYY-MM-DD\` |\n` +
                 `   | Market | \`[company OR sector] acquisition OR breach OR regulatory site:reuters.com OR site:bloomberg.com after:YYYY-MM-DD\` |\n` +
                 `   | Social | \`[sector] security debate OR disclosure site:reddit.com/r/netsec after:YYYY-MM-DD\` |\n` +
-                `   | Interests | One targeted query per special interest (e.g. \`Ironman 70.3 results 2026\`) |\n` +
-                `\n` +
-                `   For Product Leader and Custom modes, call warmup_get_skill({ section: "sources", intent: "Loading batch query table" }) to get the mode-specific batch patterns.\n` +
-                `5. Run the link safety verification protocol on all URLs before including them (unless skip_scan: true — see step 4).\n` +
-                `6. Synthesize content into sections. Build WARMUP_DATA — every field below is required:\n` +
-                `\n` +
+                `   | Interests | One targeted query per special interest |\n\n` +
+                `   For Product Leader and Custom modes, call warmup_get_skill({ section: "sources" }) for the mode-specific batch patterns.\n\n` +
+                `4. SAFETY — run link safety verification on every URL (unless skip_scan).\n\n` +
+                `5. SYNTHESIZE WARMUP_DATA — every field below is required:\n\n` +
                 `   config (all fields required):\n` +
                 `     name, mode, company, sector, region — copy verbatim from WARMUP.md\n` +
                 `     reportDate: full display string e.g. "Monday, 18 May 2026" (user timezone)\n` +
@@ -580,80 +706,55 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     lastRun: ISO date "YYYY-MM-DD"\n` +
                 `     dateRange: display string e.g. "May 11 – May 18, 2026"\n` +
                 `     sourcesActive: int  sourcesQuiet: int\n` +
-                `     showQuote: true  (JSON boolean — never false, never omit)\n` +
-                `     scanTime: "HH:MM TZ" e.g. "06:14 ET" — use WARMUP.md timezone, default UTC\n` +
-                `     timezone: copy verbatim from WARMUP.md (e.g. "ET", "PT", "UTC")\n` +
-                `     totalLinks: int  (count of verified-safe clickable URLs — must equal safety.totalUrls)\n` +
-                `     vendors: copy from WARMUP.md vendors field; write "" if blank, never omit\n` +
-                `     searchDepth: "standard" | "deep" (copy from WARMUP.md; default "standard")\n` +
-                `     skipScan: true if skip_scan: true in WARMUP.md, otherwise omit\n` +
-                `\n` +
-                `   sections[] — each section MUST have all four fields or the renderer throws and the page is blank:\n` +
-                `     id: kebab-case DOM id string (e.g. "threat", "emerging", "research", "industry", "social", "interests")\n` +
-                `     label: heading string (e.g. "Threat Landscape")\n` +
-                `     sub: standing editorial deck — one sentence describing what this section covers. NOT agent instructions, NOT lookback notes.\n` +
-                `     note: null (or today-only run caveat string — never repeat sub here)\n` +
-                `     items: array — MUST be an array, even [] for a quiet section\n` +
-                `\n` +
+                `     showQuote: true (JSON boolean — never false, never omit)\n` +
+                `     scanTime: "HH:MM TZ" — 24-hour, with a tz label\n` +
+                `     timezone: copy from WARMUP.md (e.g. "ET", "PT", "UTC")\n` +
+                `     totalLinks: int (must equal safety.totalUrls)\n` +
+                `     vendors: copy from WARMUP.md; "" if blank, never omit\n` +
+                `     searchDepth: "standard" | "deep" (copy from WARMUP.md)\n` +
+                `     skipScan: true if skip_scan in WARMUP.md, otherwise omit\n` +
+                `     fontToolName: full prefixed MCP name for warmup_get_fonts (e.g. "mcp__<uuid>__warmup_get_fonts") — required so the artifact can lazy-load fonts via the Cowork bridge\n\n` +
+                `   sections[] — each section MUST have all four fields or the renderer throws:\n` +
+                `     id: kebab-case DOM id (e.g. "threat", "emerging", "research", "industry", "social", "interests")\n` +
+                `     label: heading string\n` +
+                `     sub: standing editorial deck — one sentence describing the section\n` +
+                `     note: null (or today-only run caveat — never repeat sub here)\n` +
+                `     items: array — MUST be an array, even [] for a quiet section\n\n` +
                 `   items[] — each item MUST have all five fields:\n` +
                 `     dot: "d1" | "d2" | "d3" | "d4"  src: source name  tags: array ([] is fine)\n` +
                 `     url: verified-safe URL  hl: headline  body: 2-3 sentence summary  date: "YYYY-MM-DD"\n` +
-                `     Lead item (items[0]) only: deck — one italic "so what?" sentence\n` +
-                `\n` +
-                `   sources[] — each entry MUST have: nm (name), dom (domain), dot ("d1"-"d4"), ct ("N items" or "—"), status ("active"|"quiet"|"excluded")\n` +
-                `\n` +
-                `   safety: domains ([{domain, verdict:"ALLOWLISTED"|"CLEAN"}] — length must equal active sources count; [] if skipScan)\n` +
-                `           totalUrls: int (0 if skipScan)  flagged: int  scannedAt: ""\n` +
-                `7. Render the artifact:\n` +
-                `   PATH A (version match — no template reload):\n` +
-                `     a) Use the Grep tool to find the line number of "<script id=\\"warmup-data\\">" in html_path.\n` +
-                `     b) Use the Read file tool with offset+limit to read only the <script id="warmup-data">…</script> block (~10–20 lines).\n` +
-                `     c) Use the Edit tool to replace that entire block with the new WARMUP_DATA. Call update_artifact. Done.\n` +
-                `   PATH B / FIRST RUN (engine update or new artifact):\n` +
-                `     B-1. Call warmup_get_template({ intent: "...", chunk: 0 }) — do NOT pass warmup_data.\n` +
-                `          The response is ~20KB and returned inline — no file read needed.\n` +
-                `          Read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
-                `          The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
-                `          If the call returns an error string, stop and report the error.\n` +
-                `     B-2. Call Write — file_path: [workspace-root]/warmup.html\n` +
-                `          content: exactly the text from B-1, verbatim.\n` +
-                `     B-3. Inject WARMUP_DATA — call Edit immediately after Write.\n` +
-                `          Match the ENTIRE 3-line script block (pure ASCII, no special characters):\n` +
-                `          old_string (copy exactly, including newlines):\n` +
-                `            <script id="warmup-data">\n` +
-                `            window.WARMUP_DATA = null; // WARMUP-DATA-PLACEHOLDER\n` +
-                `            </script>\n` +
-                `          new_string (substitute your actual JSON):\n` +
-                `            <script id="warmup-data">\n` +
-                `            window.WARMUP_DATA = [JSON.stringify(WARMUP_DATA)];\n` +
-                `            </script>\n` +
-                `          ⚠ XSS: escape any </script> inside the JSON as <\\/script>.\n` +
-                `          ⚠ CRITICAL: If Edit returns any error, STOP and report it. Do NOT proceed to B-4 with WARMUP_DATA still null — the artifact will be blank.\n` +
-                `          Wait for Edit to succeed before B-4.\n` +
-                `     B-4. ⚠ SEQUENTIAL ONLY — apply chunks one at a time, strictly in order.\n` +
-                `          Do NOT fire Edit calls in parallel. The sentinel must be present before each Edit.\n` +
-                `          Parallel Edits race to replace the same sentinel and corrupt the file.\n` +
-                `          Repeat for i = 1, 2, … N-1:\n` +
-                `            a. Call warmup_get_template({ intent: "...", chunk: i }).\n` +
-                `               If the call returns an error string, stop and report it.\n` +
-                `            b. Call Edit — old_string: "<!-- __WARMUP_SENTINEL__ -->"\n` +
-                `                          new_string: [text from step a]\n` +
-                `               Wait for Edit to succeed before starting i+1.\n` +
-                `     B-5. Verify assembly: Grep warmup.html for "<!-- __WARMUP_SENTINEL__ -->".\n` +
-                `          If found, assembly is incomplete — stop and report the error.\n` +
-                `     B-6. Call create_artifact (first run) or update_artifact (stale engine).\n` +
+                `     Lead item (items[0]) only: deck — one italic "so what?" sentence\n\n` +
+                `   sources[] — each entry MUST have: nm, dom, dot ("d1"-"d4"), ct ("N items" or "—"), status ("active"|"quiet"|"excluded")\n\n` +
+                `   safety: domains [{domain, verdict:"ALLOWLISTED"|"CLEAN"}] — length must equal active sources count; [] if skipScan\n` +
+                `           totalUrls: int (0 if skipScan)  flagged: int  scannedAt: ""\n\n` +
+                `6. SAVE TO KV — call warmup_save_data({ warmup_data: JSON.stringify(WARMUP_DATA) }).\n` +
+                `   • If the response says ok:false, STOP and report the error to the user. The artifact will keep showing the prior brief until save succeeds.\n` +
+                `   • On ok:true, note savedAt and proceed.\n\n` +
+                `7. ARTIFACT — act on artifact_action from step 2.\n\n` +
+                `   • artifact_action === "skip" → call update_artifact({ id: "the-warmup", html_path }) with no other changes, just to nudge Cowork. Done.\n\n` +
+                `   • artifact_action === "create" or "refresh" → build the file:\n` +
+                `     a) Identify your full data-tool name. Your loaded warmup_get_data tool is named like "mcp__<uuid>__warmup_get_data". Use that exact string as dataToolName below.\n` +
+                `     b) Call warmup_get_template({ chunk: 0, dataToolName: "<your mcp__<uuid>__warmup_get_data>" }). Read <!-- WARMUP_TOTAL_CHUNKS: N --> to learn N. Response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
+                `     c) Write chunk 0 to [workspace-root]/warmup.html (the file is NEW or being REFRESHED — overwrite).\n` +
+                `     d) For i = 1..N-1, sequentially (never parallel):\n` +
+                `        - Call warmup_get_template({ chunk: i }) — dataToolName is ignored on chunks 1+.\n` +
+                `        - Edit replace <!-- __WARMUP_SENTINEL__ --> with the chunk content.\n` +
+                `     e) Verify: Grep the file for "<!-- __WARMUP_SENTINEL__ -->" — should return 0 matches.\n` +
+                `     f) artifact_action === "create" → call create_artifact. artifact_action === "refresh" → call update_artifact.\n` +
+                `        Either way, pass:\n` +
+                `          id: "the-warmup"\n` +
                 `          html_path: [workspace-root]/warmup.html\n` +
-                `          ⚠ Do NOT call create_artifact or update_artifact before B-5 passes.\n` +
-                `   NEVER write your own HTML. One summary line in chat — the brief is the artifact.\n\n` +
+                `          mcp_tools: [your warmup_get_data full name, your warmup_get_fonts full name]\n` +
+                `        Cowork blocks any callMcpTool call whose target is not in this allowlist — both names are required or the artifact silently fails to load data or fonts.\n\n` +
+                `8. DONE — one summary line in chat. The artifact picks up the new brief on its next visibilitychange/focus event. No manual reload needed.\n\n` +
                 `## Voice\n\n` +
-                `The brief is factual and labeled. Every item shows its source and trust tier. ` +
-                `No editorializing. No hype. Keep it scannable and honest.\n\n` +
-                `## Reference sections (call warmup_get_skill only when needed — these are round-trips)\n\n` +
-                `- Product Leader / Custom mode batch query patterns: warmup_get_skill({ section: "sources", intent: "Loading batch queries for [mode]" })\n` +
-                `- Report section structures for CISO (section names, lead vs grid rules): warmup_get_skill({ section: "sections", intent: "Loading section structures" })\n` +
-                `- Anti-patterns, editorial voice, hard rules: warmup_get_skill({ section: "rules", intent: "Checking anti-patterns" })\n` +
-                `- Full schema with examples and edge-case rules: warmup_get_skill({ section: "schema", intent: "Loading full schema" })\n` +
-                `- Full SKILL.md (only if the above are collectively insufficient): warmup_get_skill({ section: "full", intent: "..." })`,
+                `The brief is factual and labeled. Every item shows its source and trust tier. No editorializing. No hype. Scannable and honest.\n\n` +
+                `## Reference sections (call warmup_get_skill only when needed — round-trips)\n\n` +
+                `- Product Leader / Custom mode batch query patterns: warmup_get_skill({ section: "sources" })\n` +
+                `- Report section structures for CISO: warmup_get_skill({ section: "sections" })\n` +
+                `- Anti-patterns, editorial voice: warmup_get_skill({ section: "rules" })\n` +
+                `- Full schema with examples and edge cases: warmup_get_skill({ section: "schema" })\n` +
+                `- Full SKILL.md (only if the above are insufficient): warmup_get_skill({ section: "full" })`,
             },
           ],
         };

@@ -1,11 +1,20 @@
 /* warmup-shell.rawjs — Mission Built / The Warmup
-   Injects Google Fonts, CSS, static HTML structure, and full render engine
-   into a ~14-line skeleton artifact. No large template read or file limit needed.
+   Injects fonts, CSS, static HTML structure, and full render engine into a
+   ~14-line skeleton artifact. No large template read or file limit needed.
    Version tracked via WARMUP_ENGINE_VERSION in constants.ts.
-   Architecture: inline shell pattern — no external script fetch needed,
-   compatible with Cowork's Content Security Policy.
+
+   v0.8 architecture: WARMUP_DATA is no longer baked into the HTML. The shell
+   fetches it via Cowork's MCP bridge (window.cowork.callMcpTool) at boot,
+   caches the latest payload in localStorage for fast subsequent paints, and
+   re-checks on every visibilitychange / focus event. When a newer brief is
+   detected, in-flight state (scroll position, section-done toggles) is saved
+   to sessionStorage and the page reloads to pick up the fresh data.
+
+   The data-tool name is injected once at template-write time via the
+   <script id="warmup-tools"> block in the preamble — agents do not edit the
+   shell itself.
 */
-(function () {
+(async function () {
   'use strict';
 
   /* ── 1. Fonts: embedded as @font-face data URIs (external font URLs blocked in Cowork sandbox) */
@@ -615,6 +624,8 @@ cursor: pointer;
 .section.is-done .item-lead .item-sum::first-letter { font-size: 14px; float: none; margin: 0; color: var(--ink-faint); }
 .nav-item.nav-done { color: var(--ink-faint); opacity: 0.6; }
 .nav-item.nav-done::after { content: ' ✓'; color: var(--army); font-size: 10px; }
+.nav-item.nav-empty { color: var(--ink-faint); opacity: 0.5; pointer-events: none; cursor: default; }
+.nav-item.nav-empty::after { content: ' — quiet'; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; color: var(--ink-faint); margin-left: 4px; }
 .back-to-top { display: none; }
 .pdf-running-footer { display: none; }
 @media print {
@@ -683,6 +694,7 @@ gap: 10px;
 </p>
 <div class="masthead-controls">
 <button type="button" class="btn-configure" id="btn-configure">Configure</button>
+<button type="button" class="tb-btn" id="refresh-btn" onclick="window._warmupRefresh && window._warmupRefresh()" title="Check for a fresher brief">↻ Refresh</button>
 <div class="tb-export">
 <button class="tb-btn save" onclick="toggleExport(event)">Export ▾</button>
 <div class="tb-dropdown" id="export-dd">
@@ -766,10 +778,100 @@ gap: 10px;
 `);
 
   /* ── 4. Engine ──────────────────────────────────────────────────────────── */
+
+  /* ── v0.8 boot: fetch WARMUP_DATA via MCP, then continue to renderers ────── */
+
+  var WARMUP_TOOLS = (typeof window.WARMUP_TOOLS === 'object' && window.WARMUP_TOOLS) || {};
+  var DATA_TOOL    = WARMUP_TOOLS.dataTool || '';
+  var CACHE_KEY    = 'warmup-data-cache-v1';
+  var STATE_KEY    = 'warmup-restore-state-v1';
+
+  // Tolerant unwrap — callMcpTool may return string, object, MCP content array,
+  // or wrapped {content:[{type,text}]} shape depending on the runtime version.
+  function _unwrapMcp(raw) {
+    function tryParse(val) {
+      if (val == null) return null;
+      if (typeof val === 'string') {
+        var t = val.trim();
+        if (t.startsWith('{') || t.startsWith('[')) {
+          try { return JSON.parse(t); } catch(_) {}
+        }
+        return null;
+      }
+      return val;
+    }
+    if (typeof raw === 'string') return tryParse(raw);
+    if (raw && (raw.data || raw.empty)) return raw;
+    if (Array.isArray(raw) && raw[0] && raw[0].text) return tryParse(raw[0].text);
+    if (raw && raw.content && Array.isArray(raw.content)) {
+      var item = raw.content[0];
+      return item && item.text ? tryParse(item.text) : null;
+    }
+    return null;
+  }
+
+  // Phase 1 — fast-paint from localStorage cache if we have one. This means a
+  // re-opened artifact renders immediately with the last-known brief, even
+  // before the Cowork bridge finishes warming up.
+  try {
+    var _cachedRaw = localStorage.getItem(CACHE_KEY);
+    if (_cachedRaw) {
+      var _cached = JSON.parse(_cachedRaw);
+      if (_cached && _cached.data && _cached.savedAt) {
+        window.WARMUP_DATA = _cached.data;
+        window.__warmupSavedAt = _cached.savedAt;
+      }
+    }
+  } catch(_) { /* corrupt cache entry — ignore, will refetch */ }
+
+  // Phase 2 — foreground fetch. Await so all renderers below see fresh data.
+  // If the bridge never appears or the fetch errors, we fall through with
+  // whatever the cache gave us (possibly nothing).
+  if (DATA_TOOL) {
+    await new Promise(function(resolve) {
+      var attempts = 0;
+      function poll() {
+        if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
+          if (++attempts < 25) { setTimeout(poll, 200); return; } // up to 5s
+          resolve();
+          return;
+        }
+        window.cowork.callMcpTool(DATA_TOOL, { intent: 'Loading warmup brief' })
+          .then(function(rawResp) {
+            var payload = _unwrapMcp(rawResp);
+            if (payload && payload.empty) {
+              window.__warmupEmpty = !window.WARMUP_DATA; // empty only if we have no cache either
+            } else if (payload && payload.data && payload.savedAt) {
+              window.WARMUP_DATA = payload.data;
+              window.__warmupSavedAt = payload.savedAt;
+              try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch(_) {}
+            }
+          })
+          .catch(function(err) { console.warn('[Warmup:Boot] fetch failed', err); })
+          .finally(resolve);
+      }
+      setTimeout(poll, 50);
+    });
+  }
+
+  // Empty state — no brief saved on the server AND no localStorage cache.
+  // Render a friendly placeholder, still wire up the visibility poller so the
+  // page picks up the next saved brief automatically.
+  if (window.__warmupEmpty || !window.WARMUP_DATA) {
+    var _es = document.createElement('div');
+    _es.style.cssText = 'padding:60px 40px;max-width:600px;margin:80px auto;text-align:center;background:var(--paper-card);border:1px solid var(--rule);font-family:Georgia,serif;';
+    _es.innerHTML =
+      '<h2 style="font-family:Arial,sans-serif;font-size:26px;font-weight:600;text-transform:uppercase;letter-spacing:0.01em;color:#1a1612;margin-bottom:14px;">No brief yet</h2>' +
+      '<p style="font-size:15px;color:#3a342d;line-height:1.6;margin-bottom:18px;">Ask Claude to <em>run my warmup</em> in chat. Your brief lands here and updates automatically each run.</p>' +
+      '<p style="font-family:monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#968974;">This page auto-refreshes when a new brief is saved.</p>';
+    document.body.appendChild(_es);
+    setupAutoRefresh();
+    return;
+  }
+
   // ── WARMUP CONFIG ──
-  // Config is populated from WARMUP_DATA — see <script id="warmup-data"> above
-  // Null-guard: if WARMUP_DATA is null (template not yet populated by agent), use
-  // empty obj so subsequent scripts do not crash before the renderer null check runs.
+  // Now reads from the freshly-loaded window.WARMUP_DATA. Same line as v0.7,
+  // just executed after the await above.
   const WARMUP_CONFIG = (window.WARMUP_DATA || {}).config || {};
 
   /* ── Font loader: lazy-loads via MCP tool, caches in localStorage ─────────── *
@@ -780,80 +882,113 @@ gap: 10px;
    *  fontToolName is written into WARMUP_DATA.config by the agent at build time *
    * ─────────────────────────────────────────────────────────────────────────── */
   (function loadFonts() {
-    var CACHE_KEY  = 'warmup-fonts-v1';
+    // v0.8: cache key bumped to v2 to invalidate any partial/garbage entries
+    // left by v0.7 installs. Cached values are also validated against an
+    // @font-face presence check before being trusted.
+    var CACHE_KEY  = 'warmup-fonts-v2';
     var toolName   = WARMUP_CONFIG.fontToolName || '';
-    if (!toolName) return; // no tool name — agent didn't set it, skip
 
-    // Inject a CSS string into <head> as a <style> element
+    // Visible diagnostic banner — only shown on failure so it can't hide
+    // a working render. Each failure stage labels itself so debugging
+    // doesn't require opening DevTools (which Cowork doesn't surface).
+    function showFontError(stage, detail) {
+      try {
+        if (document.getElementById('warmup-font-err')) return;
+        var b = document.createElement('div');
+        b.id = 'warmup-font-err';
+        b.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;max-width:520px;'
+          + 'background:#fff8f8;color:#900;border:1px solid #c00;'
+          + 'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 10px;';
+        b.textContent = '[Warmup:Fonts] ' + stage + ' — ' + (detail || 'see console');
+        (document.body || document.documentElement).appendChild(b);
+      } catch(_) {}
+    }
+
+    if (!toolName) { showFontError('no fontToolName in WARMUP_DATA.config', 'agent must set fontToolName'); return; }
+
     function injectCSS(css) {
-      if (document.getElementById('warmup-fonts')) return; // already injected
+      if (document.getElementById('warmup-fonts')) return;
       var s = document.createElement('style');
       s.id          = 'warmup-fonts';
       s.textContent = css;
       document.head.insertBefore(s, document.head.firstChild);
     }
 
-    // Try localStorage cache first — instant, no MCP round-trip
+    // Try localStorage cache first — but only trust caches that actually
+    // contain @font-face rules. Defends against partial writes or unrelated
+    // values being stored under this key.
     try {
       var cached = localStorage.getItem(CACHE_KEY);
-      if (cached && cached.length > 100) { injectCSS(cached); return; }
+      if (cached && cached.length > 100 && cached.indexOf('@font-face') > -1) { injectCSS(cached); return; }
+      if (cached) { try { localStorage.removeItem(CACHE_KEY); } catch(e){} }
     } catch(e) { /* storage unavailable */ }
 
-    // Not cached — fetch from the MCP server via Cowork bridge.
-    // window.cowork is injected by the Cowork runtime AFTER the iframe loads,
-    // so we poll for it rather than checking once and bailing out.
     var _fontAttempts = 0;
     function tryFetchFonts() {
       if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
-        if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); } // poll up to 5s
+        if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); return; }
+        showFontError('window.cowork.callMcpTool never appeared', 'sandbox bridge unavailable');
         return;
       }
 
-    window.cowork.callMcpTool(toolName, { intent: 'Loading warmup fonts' })
-      .then(function(raw) {
-        try {
-          // callMcpTool may return several shapes — normalise all of them:
-          //  1. Plain JSON string  → '{"css":"...","version":"1.0"}'
-          //  2. Parsed object      → { css: "...", version: "1.0" }
-          //  3. MCP content array  → [{ type:"text", text:'{"css":"..."}' }]
-          //  4. MCP response obj   → { content:[{ type:"text", text:'{"css":"..."}' }] }
-          var css = null;
-          function tryParseCss(val) {
-            if (!val) return null;
-            if (typeof val === 'string') {
-              if (val.trim().startsWith('{')) {
-                try { var p = JSON.parse(val); return (p && p.css) ? p.css : val; } catch(e) {}
+      window.cowork.callMcpTool(toolName, { intent: 'Loading warmup fonts' })
+        .then(function(raw) {
+          try {
+            // callMcpTool may return several shapes — normalise all of them:
+            //  1. Plain JSON string  → '{"css":"...","version":"1.0"}'
+            //  2. Parsed object      → { css: "...", version: "1.0" }
+            //  3. MCP content array  → [{ type:"text", text:'{"css":"..."}' }]
+            //  4. MCP response obj   → { content:[{ type:"text", text:'{"css":"..."}' }] }
+            var css = null;
+            function tryParseCss(val) {
+              if (!val) return null;
+              if (typeof val === 'string') {
+                if (val.trim().startsWith('{')) {
+                  try { var p = JSON.parse(val); return (p && p.css) ? p.css : val; } catch(e) {}
+                }
+                return val;
               }
-              return val; // plain CSS string
+              if (val && val.css) return val.css;
+              return null;
             }
-            if (val && val.css) return val.css;
-            return null;
+            if (typeof raw === 'string') {
+              css = tryParseCss(raw);
+            } else if (raw && raw.css) {
+              css = raw.css;
+            } else if (Array.isArray(raw) && raw[0] && raw[0].text) {
+              css = tryParseCss(raw[0].text);
+            } else if (raw && raw.content && Array.isArray(raw.content)) {
+              var item = raw.content[0];
+              css = item ? tryParseCss(item.text) : null;
+            }
+            if (!css) {
+              var shape;
+              try { shape = JSON.stringify(raw).slice(0, 200); } catch(_) { shape = String(raw).slice(0, 200); }
+              console.warn('[Warmup:Fonts] unrecognized response shape', raw);
+              showFontError('unrecognized response shape from callMcpTool', shape);
+              return;
+            }
+            if (css.length < 100) {
+              showFontError('css too short (' + css.length + ' chars)', css.slice(0, 80));
+              return;
+            }
+            if (css.indexOf('@font-face') === -1) {
+              showFontError('css has no @font-face rules', css.slice(0, 80));
+              return;
+            }
+            injectCSS(css);
+            try { localStorage.setItem(CACHE_KEY, css); } catch(e) { console.warn('[Warmup:Fonts] localStorage write failed', e); }
+          } catch(e) {
+            console.error('[Warmup:Fonts] parse error', e);
+            showFontError('parse error', String(e && e.message || e));
           }
-          if (typeof raw === 'string') {
-            css = tryParseCss(raw);
-          } else if (raw && raw.css) {
-            css = raw.css;
-          } else if (Array.isArray(raw) && raw[0] && raw[0].text) {
-            css = tryParseCss(raw[0].text);
-          } else if (raw && raw.content && Array.isArray(raw.content)) {
-            var item = raw.content[0];
-            css = item ? tryParseCss(item.text) : null;
-          }
-          if (!css || css.length < 100) {
-            console.warn('[Warmup:Fonts] Unexpected response shape:', typeof raw, raw && Object.keys(raw));
-            return;
-          }
-          injectCSS(css);
-          try { localStorage.setItem(CACHE_KEY, css); } catch(e) {}
-        } catch(e) {
-          console.warn('[Warmup:Fonts] Failed to parse font response:', e);
-        }
-      })
-      .catch(function(err) {
-        console.warn('[Warmup:Fonts] MCP font load failed:', err);
-      });
-    } // end tryFetchFonts
-    setTimeout(tryFetchFonts, 100); // small initial delay to let Cowork runtime initialize
+        })
+        .catch(function(err) {
+          console.error('[Warmup:Fonts] MCP call rejected', err);
+          showFontError('MCP call rejected', String(err && err.message || err));
+        });
+    }
+    setTimeout(tryFetchFonts, 100);
   })();
 
 
@@ -890,10 +1025,32 @@ gap: 10px;
       _main.appendChild(_safety);
     }
 
+    // v0.8: pre-compute which sections will render items inside the lookback
+    // window. Quiet sections keep their title in the nav but are styled as
+    // " — quiet" (unclickable) and the body renumbers visible sections
+    // sequentially so it never reads "Section One ... Section Three".
+    var _depthDays = ((D.config && D.config.searchDepth) === 'deep') ? 10 : 4;
+    function _secVisible(sec) {
+      if (!sec.items || sec.items.length === 0) return false;
+      return sec.items.some(function(it) {
+        if (!it || !it.date) return true;
+        var _pd = new Date(it.date + 'T12:00:00Z');
+        var _diff = Math.round((new Date() - _pd) / 86400000);
+        return _diff <= _depthDays;
+      });
+    }
+    var _seqOf = {}; var _seqN = 0;
+    D.sections.forEach(function(sec) { if (_secVisible(sec)) { _seqN++; _seqOf[sec.id] = _seqN; } });
+    var _firstLive = (D.sections.find(function(s){ return _seqOf[s.id]; }) || {}).id || null;
+
     var _nav = document.getElementById('section-nav');
     if (_nav) {
-      _nav.innerHTML = D.sections.map(function(sec, i) {
-        return '<a href="#' + sec.id + '" class="nav-item' + (i === 0 ? ' active' : '') + '">' + sec.label + '</a>';
+      _nav.innerHTML = D.sections.map(function(sec) {
+        var _live = !!_seqOf[sec.id];
+        var _cls  = 'nav-item' + (_live && sec.id === _firstLive ? ' active' : '') + (_live ? '' : ' nav-empty');
+        var _href = _live ? ('#' + sec.id) : '#';
+        var _attr = _live ? '' : ' aria-disabled="true" tabindex="-1"';
+        return '<a href="' + _href + '" class="' + _cls + '"' + _attr + '>' + sec.label + '</a>';
       }).join('\n  ') + '\n  <a href="#sources" class="nav-item">Sources</a>';
     }
 
@@ -1030,7 +1187,11 @@ gap: 10px;
       var rest = allRendered.slice(1).join('');
       var restWrap = rest ? '<div class="items-grid">' + rest + '</div>' : '';
       var subHtml = sec.sub ? '<span class="sec-sub">' + sec.sub + '</span>' : '';
-      var sectionWord = ['One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'][_sIdx] || (_sIdx + 1);
+      // v0.8: number sections by the live-section index (computed before the
+      // nav build above) so "Section One, Two, Three" reads sequentially even
+      // when one is quiet today.
+      var _seqIdx = _seqOf[sec.id] || (_sIdx + 1);
+      var sectionWord = ['One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten'][_seqIdx - 1] || _seqIdx;
       el.innerHTML =
         '<h2 class="s-eyebrow">' +
           '<span class="sec-kicker">Section ' + sectionWord + '</span>' +
@@ -1871,5 +2032,80 @@ btn.textContent = 'Loading…';
 
   // Expose inline-onclick handler (script-scope in template, must be window in IIFE)
   window.toggleFullscreen = toggleFullscreen;
+
+  /* ── v0.8: Wire up post-render auto-refresh + restore in-flight state ───── */
+  setupAutoRefresh();
+  restoreFromSavedState();
+
+  /**
+   * Polls warmup_get_data on every visibilitychange/focus (throttled). If the
+   * server has a newer savedAt than the brief we rendered, caches the new
+   * payload, saves in-flight UI state to sessionStorage, and reloads. The
+   * reload boots the shell fresh against the new cache; restoreFromSavedState
+   * below then puts the user back where they were.
+   */
+  function setupAutoRefresh() {
+    var THROTTLE_MS = 15000;
+    var lastCheck   = 0;
+    var inFlight    = false;
+    function checkForUpdate() {
+      if (!DATA_TOOL) return;
+      if (inFlight) return;
+      if (Date.now() - lastCheck < THROTTLE_MS) return;
+      if (document.visibilityState !== 'visible') return;
+      if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') return;
+      lastCheck = Date.now();
+      inFlight  = true;
+      window.cowork.callMcpTool(DATA_TOOL, { intent: 'Checking for fresher warmup brief' })
+        .then(function(rawResp) {
+          var payload = _unwrapMcp(rawResp);
+          if (!payload || payload.empty || !payload.savedAt) return;
+          if (payload.savedAt <= (window.__warmupSavedAt || '')) return;
+          // Newer brief — cache it, save in-flight UI state, reload.
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch(_) {}
+          try {
+            sessionStorage.setItem(STATE_KEY, JSON.stringify({
+              scrollY: window.scrollY || window.pageYOffset || 0,
+              sectionsDone: [].slice.call(document.querySelectorAll('.section.is-done')).map(function(s){ return s.id; }),
+            }));
+          } catch(_) {}
+          location.reload();
+        })
+        .catch(function(err) { console.warn('[Warmup:Refresh] check failed', err); })
+        .finally(function() { inFlight = false; });
+    }
+    document.addEventListener('visibilitychange', checkForUpdate);
+    window.addEventListener('focus', checkForUpdate);
+    // Refresh button in the masthead bypasses the throttle and forces a check.
+    window._warmupRefresh = function() { lastCheck = 0; checkForUpdate(); };
+  }
+
+  /**
+   * After a reload triggered by setupAutoRefresh, restores scroll position
+   * and any sections the user had marked Done. Section collapse listeners
+   * attach during the renderer pass that just ran, so the section toggle
+   * buttons exist by the time we click them (one extra tick is enough).
+   */
+  function restoreFromSavedState() {
+    var raw;
+    try { raw = sessionStorage.getItem(STATE_KEY); } catch(_) { return; }
+    if (!raw) return;
+    try { sessionStorage.removeItem(STATE_KEY); } catch(_) {}
+    var s;
+    try { s = JSON.parse(raw); } catch(_) { return; }
+    if (!s) return;
+    setTimeout(function() {
+      (s.sectionsDone || []).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el || el.classList.contains('is-done')) return;
+        var btn = el.querySelector('.section-toggle');
+        if (btn) btn.click();
+      });
+      setTimeout(function() {
+        try { window.scrollTo({ top: s.scrollY || 0, behavior: 'instant' }); }
+        catch(_) { window.scrollTo(0, s.scrollY || 0); }
+      }, 30);
+    }, 0);
+  }
 
 })();
