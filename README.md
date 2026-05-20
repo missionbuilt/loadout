@@ -59,7 +59,7 @@ Future skills in the kit. Names tentative, scope under exploration:
 
 Each skill in The Loadout is a markdown-based skill compatible with Claude Code, Cowork, and other agents that support the SKILL.md convention. They're plain text — no installer, no runtime, no API key required. You can fork them, adapt them for your team, and ship your own derivatives under the same MIT license.
 
-Skills are also available through the hosted MCP server — one connection gives you both skills, OAuth-protected and ready to use from any MCP-compatible agent.
+Skills are also available through the hosted MCP server — one connection gives you all three skills, OAuth-protected and ready to use from any MCP-compatible agent.
 
 ## Install
 
