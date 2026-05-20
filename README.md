@@ -42,6 +42,10 @@ Built for enterprise sales calls, QBRs, and executive meetings where walking in 
 
 → [Read The Approach's documentation](the-approach/README.md)
 
+## See it in action
+
+Each skill has a live click-through demo on its page at [missionbuilt.io/loadout](https://missionbuilt.io/loadout). The demos are built from the actual skill templates — same HTML, same data schema, same layout as a live agent run. They're maintained in the `missionbuilt-site` repo under `scripts/build_demos.py`.
+
 ## Planned
 
 Future skills in the kit. Names tentative, scope under exploration:
