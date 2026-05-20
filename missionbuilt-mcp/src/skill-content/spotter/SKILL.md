@@ -3,7 +3,7 @@ name: spotter
 description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine areas spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
 license: MIT
 author: H. Michael Nichols
-version: 0.7.0
+version: 1.0.0
 part_of: The Loadout
 ---
 
@@ -313,6 +313,135 @@ When the client requests structured output (e.g., the user asks for "JSON output
 - The `status` enum uses `pass`, `needs_work`, `missing` — corresponding to the ✓ / ⚠️ / ✗ visual encoding in the markdown output.
 
 This schema is designed to be forward-compatible with the Phase 2 MCP server that will render branded UI cards per area. The MCP server reads the same SKILL.md and area-examples.md content; the structured output is the contract between the agent's reasoning and the rendering surface.
+
+## Worksheet artifact (v1.0) — MCP tool flow
+
+The Spotter v1.0 renders as an **interactive worksheet artifact** rather than a static report. The worksheet lets the PM work each area one at a time: accept Spotter's read, iterate on it by sending a short note, or mark it blocked. When all areas are settled, an export button activates.
+
+### How the agent builds the worksheet
+
+1. Read the epic fully.
+2. For each of the nine areas, produce your analysis per SKILL.md criteria (same depth as review mode).
+3. Build the SPOTTER_DATA object (schema below).
+4. Call `spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA) })`.
+5. Write the returned HTML to disk.
+6. Call `create_artifact` (first run) or `update_artifact` (subsequent runs) with the file path.
+
+Never reconstruct the HTML yourself. The design lives in the template served by `spotter_get_template`.
+
+When calling `spotter_get_template`, always include `mcp_tools: ["mcp__<uuid>__spotter_get_template"]` in your tool call so Cowork grants permission.
+
+### SPOTTER_DATA v1.0 schema
+
+```json
+{
+  "config": {
+    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
+  },
+  "meta": {
+    "epicTitle": "Comments on Dashboards",
+    "epicDeck": "A review of Mike's epic. Nine areas, three judges each.",
+    "author": "Mike",
+    "date": "21 May 2026"
+  },
+  "areas": [
+    {
+      "id": "a01",
+      "num": "01",
+      "cat": "Problem space",
+      "title": "User & Problem",
+      "deck": "Does the epic show deep understanding of the user's reality?",
+      "verdict": "good",
+      "verdictLabel": "Good lift",
+      "pips": ["w", "w", "r"],
+      "pipSub": "2 of 3 white",
+      "excerpt": "The verbatim section of the epic relevant to this area.",
+      "excerptLabel": "Problem section",
+      "excerptMeta": "82 words · unchanged",
+      "isEmpty": false,
+      "notes": [
+        { "type": "missing",     "body": "Load-bearing assumptions aren't named." },
+        { "type": "suggest",     "body": "Add a kill-criteria clause." },
+        { "type": "recommend",   "body": "Name the three alternatives considered." },
+        { "type": "observation", "body": "Strong opening signal. Evidence is real." }
+      ],
+      "chips": ["Name the assumptions", "Add kill criteria", "More specific"]
+    }
+  ]
+}
+```
+
+**Field-by-field reference:**
+
+`config.fontToolName` — Required. The fully-qualified MCP tool name for loading fonts, e.g. `"mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts"`. Read it from your available tools list before building SPOTTER_DATA.
+
+`meta.epicTitle` — The epic name as written. Used in the page `<h1>` and browser title.
+
+`meta.epicDeck` — One sentence describing the epic and review. Shown under the title. Include the author's name if known.
+
+`meta.author` — The PM's first name or full name. Shown in the masthead.
+
+`meta.date` — Human-readable date, e.g. `"21 May 2026"`.
+
+`areas[n].id` — Element anchor. Use `"a01"` through `"a09"` in order.
+
+`areas[n].num` — Display number. Use `"01"` through `"09"`.
+
+`areas[n].cat` — Category label. Use the standard labels from the area mapping below.
+
+`areas[n].title` — Area name. Use the standard titles from the area mapping below.
+
+`areas[n].deck` — The area's one-line question. Shown in italic under the title.
+
+`areas[n].verdict` — `"good"` (2+ pips white) or `"no-lift"` (2+ pips red).
+
+`areas[n].verdictLabel` — Display label: `"Good lift"` or `"No-lift"`.
+
+`areas[n].pips` — Array of three strings. Each is `"w"` (white/pass) or `"r"` (red/fail). Map from your per-judge assessment:
+- ✓ Pass → `"w"`
+- ✗ Missing → `"r"`
+
+`areas[n].pipSub` — Summary string, e.g. `"2 of 3 white"` or `"0 of 3 white · blocker"`.
+
+`areas[n].excerpt` — The verbatim text from the epic for this area. If the epic has no content for this area, set `isEmpty: true` and leave `excerpt` as an empty string.
+
+`areas[n].excerptLabel` — Label for the excerpt panel, e.g. `"Problem section"` or `"Solution approach"`.
+
+`areas[n].excerptMeta` — Metadata string, e.g. `"82 words · unchanged"` or `"Added — was missing from epic"`.
+
+`areas[n].isEmpty` — `true` if this area has no content in the epic. The worksheet shows an italic placeholder instead of the excerpt.
+
+`areas[n].notes` — Array of 2–5 critique notes. Each has:
+- `type`: one of `"missing"`, `"suggest"`, `"recommend"`, `"observation"`
+- `body`: 1–2 sentences, specific and actionable
+
+Note type guidance:
+- `missing` — A required element that isn't present (red)
+- `suggest` — A specific suggested edit the PM could make (red-bright)
+- `recommend` — A strategic recommendation or next investigation (amber)
+- `observation` — Something that's working well or worth noting (army green)
+
+`areas[n].chips` — Short suggestion chip labels shown in the iterate editor. When the PM sends a note, these chips pre-fill the textarea with the chip text. Keep each chip under 5 words. 2–3 chips per area is ideal.
+
+### Standard area mapping (use exactly)
+
+| id  | num | cat | title |
+|-----|-----|-----|-------|
+| a01 | 01 | Problem space | User & Problem |
+| a02 | 02 | Market | Competitive Landscape |
+| a03 | 03 | Strategy | Strategic Differentiation |
+| a04 | 04 | Solution | Solution Approach |
+| a05 | 05 | Impact | Holistic Impact |
+| a06 | 06 | Business | Packaging & Pricing |
+| a07 | 07 | Launch | Launch Readiness |
+| a08 | 08 | Post-launch | Post-Launch Ownership |
+| a09 | 09 | Governance | Trust, Governance & Auditability |
+
+### Worksheet interaction model (agent awareness)
+
+The worksheet artifact handles iteration entirely in the browser via `window.cowork.askClaude`. The agent does **not** need to handle iterate or rerun calls after the artifact is created — the PM works the worksheet directly. The agent's job is to produce a thorough first-read SPOTTER_DATA object and create the artifact.
+
+If the PM asks the agent to re-run the Spotter on a revised epic (outside the worksheet), treat it as a new review run: build a fresh SPOTTER_DATA, call `spotter_get_template`, and call `update_artifact`.
 
 ## Anti-patterns
 

@@ -10,12 +10,15 @@ By [H. Michael Nichols](https://www.linkedin.com/in/hmichaelnichols) · Part of 
 
 ## What this is
 
-The Spotter walks an epic through nine product-leadership lenses — empathy, competitive landscape, strategic differentiation, solution approach (with explicit AI decisions), holistic impact, packaging, launch readiness, post-launch ownership, and trust/governance/auditability — and produces structured, voice-aligned feedback in the *critique-not-criticism* tradition.
+The Spotter walks an epic through nine product-leadership areas — user and problem, competitive landscape, strategic differentiation, solution approach (with explicit AI decisions), holistic impact, packaging and pricing, launch readiness, post-launch ownership, and trust, governance, and auditability — and produces a structured, interactive worksheet in the *critique-not-criticism* tradition.
 
-It works in two modes:
+The output is a live HTML artifact. Each area shows the relevant excerpt from your epic alongside per-note feedback — typed as *missing*, *suggest*, *recommend*, or *observation*. You accept or skip individual notes, carry accepted ones as context into a refine pass, and watch the worksheet close area by area as you work through it. When all areas are closed, the export unlocks.
 
-- **Build mode** — guided creation from scratch, lens by lens.
-- **Review mode** — verdict the epic with structured per-lens feedback, then offer to work through gaps together.
+Three modes for different entry points:
+
+- **Review mode** — paste your epic, get a fully populated worksheet with per-area critiques, one click away from iterating on any area.
+- **Build mode** — guided creation from scratch, area by area. Output is a polished draft epic.
+- **Iterate mode** — push a partial draft further, one area at a time, with coaching questions to surface gaps you haven't hit yet.
 
 The orientation throughout: every gap is framed as *"you could strengthen this by..."* — never *"you missed."*
 
@@ -64,11 +67,15 @@ Then say *"run the spotter on this epic"* (after pasting one) or *"build an epic
 
 ### Review an existing epic
 
-Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter will produce a verdict (Ready / Needs polish / Not ready), walk all nine lenses with structured feedback, and — if the verdict is *Needs polish* or *Not ready* — offer to work through specific gaps with you. Pick a lens, work through it together, repeat for as many as you want. The review is the start of a conversation, not the end of one.
+Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter evaluates the epic across all nine areas, builds a SPOTTER_DATA payload, and calls `spotter_get_template` to produce a worksheet artifact. Each area shows the relevant excerpt from your epic, a verdict pip trio, and typed critique notes. Accept notes you've addressed, skip ones you're setting aside, then hit **Send to Spotter** to refine a given area. When every area is closed, the export button unlocks.
 
 ### Build a new epic
 
-Say *"help me build an epic for [feature]."* The Spotter walks you through the nine lenses with guiding questions, lingering on Lens 1 (empathy + current state) before moving on. Output is a polished draft epic at the end.
+Say *"help me build an epic for [feature]."* The Spotter walks you through the nine areas with guiding questions, lingering on Area 1 (user and problem) before moving on. Output is a polished draft epic.
+
+### Iterate on a draft
+
+Say *"iterate on this epic"* with a partial draft. The Spotter uses coaching questions to surface gaps in whichever areas are weakest, then pushes the draft forward with you.
 
 ## Customizing for your team
 
@@ -81,9 +88,11 @@ This keeps the open-source skill clean while letting your team's instance carry 
 
 ## Calibration
 
-The repo includes a synthetic B2B security epic at `examples/synthetic-epic.md` — a deliberately gap-heavy "thoughtful PM, but with real failure modes" draft. Running The Spotter against this synthetic epic should produce a verdict of **Needs polish** with specific gaps flagged on Lenses 1, 4, 5, 6, 8, and 9.
+The server includes three synthetic calibration epics, accessible via `spotter_get_calibration_epic` (epic 1) or `spotter_get_calibration_epics` (all three). Epic 1 is a deliberately gap-heavy "thoughtful PM, but with real failure modes" B2B security draft — running The Spotter against it should produce a worksheet with flags on Areas 1, 4, 5, 6, 8, and 9.
 
-If your install produces a wildly different verdict, the skill has drifted — recheck your CLAUDE.md and any local edits to SKILL.md.
+Epics 2 and 3 are well-formed security platform epics for grading range calibration.
+
+If your install produces a wildly different result on Epic 1, the skill has drifted — recheck your CLAUDE.md and any local edits to SKILL.md.
 
 ## Contributing
 
@@ -115,12 +124,12 @@ See [ATTRIBUTION.md](ATTRIBUTION.md) for full credits to the open-source skills 
 
 The Spotter is part of **The Loadout** — a growing kit of open-source product leadership skills from the *Mission Built* ecosystem. The book teaches the principles; The Loadout puts the principles into operation. Current skills in the kit:
 
-- **The Spotter** — epic review and guided build, nine-lens framework
-- **The Warmup** — morning curation of the news and signals worth your first coffee
+- **The Spotter** — epic review and guided build, nine-area framework, interactive worksheet artifact
+- **The Warmup** — morning intelligence brief for the first coffee, three modes, live HTML artifact
+- **The Approach** — pre-meeting intelligence brief for enterprise sales calls, QBRs, and executive meetings
 
 Future skills may include:
 
-- **The Walkthrough** — customer meeting prep that pulls recent activity and predicts conversation direction
 - **The Sitrep** — status updates that respect the reader's time
 - **Form Check** — code or design review with the same lift-not-gate orientation
 - **The Cooldown** — retros and post-mortems that learn forward, not blame backward

@@ -37,8 +37,8 @@ import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
-// SPOTTER_TEMPLATE_HTML import removed — spotter-shell.rawjs is the canonical source.
-// skill-content/spotter/spotter-template.html is an orphaned older copy; it is not used.
+import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
+// spotter-shell.rawjs kept for reference during v1.0 transition; not used by spotter_get_template.
 import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
 import WARMUP_FONTS_CSS from "./skill-content/warmup/fonts.css";
 import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
@@ -905,101 +905,94 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_template",
-      `Returns a complete, self-contained artifact HTML document with SPOTTER_DATA already injected — ready to write to disk and pass to create_artifact or update_artifact. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. The server inlines the renderer and returns filled, artifact-ready HTML. Write the result to disk and call create_artifact or update_artifact. Never reconstruct or invent the HTML yourself — the correct design lives only in this tool.
+      `Returns a complete, self-contained artifact HTML document (the v1.0 worksheet) with SPOTTER_DATA already injected — ready to write to disk and pass to create_artifact or update_artifact. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. Never reconstruct or invent the HTML yourself — the correct design lives only in this tool.
 
-SPOTTER_DATA schema (all fields):
+SPOTTER_DATA schema (v1.0 — worksheet format):
 {
-  mode: "review",                    // always "review" for a completed review
-  epic: {
-    name: string,                    // Epic title (required)
-    company?: string,                // Company name (optional)
-    teamShape?: string,              // e.g. "3 eng · 1 design" (optional)
-    window?: string,                 // e.g. "6 weeks" (optional)
-    attempt?: number,                // Attempt/sprint number (optional)
-    epicBody: string,                // REQUIRED — the full verbatim epic text; rendered at the bottom of the report under "Original Epic"
+  config: {
+    fontToolName: string,           // REQUIRED — MCP tool name for font loading, e.g. "mcp__<uuid>__warmup_get_fonts"
   },
-  user: {
-    name: string,                    // PM's first name (required)
-    timestamp?: string,              // e.g. "16 May 2026 · 14:22 ET" (optional, defaults to today)
+  meta: {
+    epicTitle: string,              // Epic title shown in header (required)
+    epicDeck: string,               // One-sentence description shown under title (required)
+    author: string,                 // PM name, e.g. "Mike" (required)
+    date: string,                   // Human date, e.g. "21 May 2026" (required)
   },
   areas: Array<{
-    id: string,                      // kebab-case slug, e.g. "user-and-problem"
-    n: number,                       // 1–9
-    name: string,                    // Display name (use SKILL.md area names exactly)
-    category: string,                // Grouping label — see mapping below
-    question: string,                // The one-line area question
-    judges: [string|null, string|null, string|null],  // 3 vote slots: "w" (white), "r" (red), or null
-    finding: string,                 // The main review observation (1–3 sentences)
-    spotterPull?: string|null,       // Key pull quote — the "you could strengthen this by..." insight (optional)
-    handNote?: string|null,          // Most critical 1-liner, rendered in Permanent Marker (optional — use sparingly)
-    active?: boolean,                // false for a completed review
+    id: string,                     // Element ID, e.g. "a01" through "a09" (required)
+    num: string,                    // Display number, e.g. "01" (required)
+    cat: string,                    // Category label, e.g. "Problem space" (required)
+    title: string,                  // Area name, e.g. "User & Problem" (required)
+    deck: string,                   // Area question (required)
+    verdict: string,                // "good" | "no-lift" (required)
+    verdictLabel: string,           // Display label, e.g. "Good lift" | "No-lift" (required)
+    pips: string[],                 // 3-element array of "w" (pass) or "r" (fail), e.g. ["w","w","r"]
+    pipSub: string,                 // e.g. "2 of 3 white" (required)
+    excerpt: string,                // Relevant section from the epic (required)
+    excerptLabel: string,           // e.g. "Problem section" (required)
+    excerptMeta: string,            // e.g. "82 words · unchanged" (required)
+    isEmpty: boolean,               // true if this area has no content in the epic
+    notes: Array<{
+      type: "missing"|"suggest"|"recommend"|"observation",
+      body: string,                 // 1-2 sentences, specific and actionable
+    }>,
+    chips: Array<string|{label:string,suggest:string}>,  // Suggestion chip text for the iterate editor
   }>
 }
 
-Judge encoding — map SKILL.md grades to the three-light system:
-  ✓ Pass       → ["w", "w", "w"]   (all white — Good Lift)
-  ⚠️ Needs work → ["w", "w", "r"]   (two white, one red — still a Lift, but one judge flagged)
-  ✗ Missing    → ["r", "r", "r"]   (all red — No-Lift, triggers rerack)
+Pip encoding — map your per-judge grades to the three-pip system:
+  ✓ Pass       → "w"   (white/army green pip — passed this judge)
+  ✗ Missing    → "r"   (red pip — failed this judge)
 
-Area name + category mapping (use exactly, in order):
-  n:1  id:"user-and-problem"       name:"The user & the problem"          category:"Foundation"
-  n:2  id:"competitive-landscape"  name:"Competitive landscape"           category:"Strategy"
-  n:3  id:"strategic-moat"         name:"Strategic differentiation"       category:"Strategy"
-  n:4  id:"solution-approach"      name:"Solution approach"               category:"Solution"
-  n:5  id:"holistic-impact"        name:"Holistic impact"                 category:"Impact"
-  n:6  id:"packaging-pricing"      name:"Packaging & pricing"             category:"GTM"
-  n:7  id:"launch-readiness"       name:"Launch readiness"                category:"Launch"
-  n:8  id:"post-launch-ownership"  name:"Post-launch ownership"           category:"Post-launch"
-  n:9  id:"trust-governance"       name:"Trust, governance & auditability" category:"Governance"`,
+Verdict logic: if 2+ pips are "w" → verdict:"good", verdictLabel:"Good lift"
+               if 2+ pips are "r" → verdict:"no-lift", verdictLabel:"No-lift"
+
+Area ID + category mapping (use exactly, in order):
+  id:"a01"  cat:"Problem space"   title:"User & Problem"
+  id:"a02"  cat:"Market"          title:"Competitive Landscape"
+  id:"a03"  cat:"Strategy"        title:"Strategic Differentiation"
+  id:"a04"  cat:"Solution"        title:"Solution Approach"
+  id:"a05"  cat:"Impact"          title:"Holistic Impact"
+  id:"a06"  cat:"Business"        title:"Packaging & Pricing"
+  id:"a07"  cat:"Launch"          title:"Launch Readiness"
+  id:"a08"  cat:"Post-launch"     title:"Post-Launch Ownership"
+  id:"a09"  cat:"Governance"      title:"Trust, Governance & Auditability"`,
       {
         intent: intentField,
         spotter_data: z
           .string()
+          .max(120000)
           .describe(
             "The full SPOTTER_DATA JSON object serialised as a string via JSON.stringify(). " +
-            "Required. The server injects it server-side and returns filled, artifact-ready HTML."
+            "Required. The server injects it into the worksheet template and returns filled, artifact-ready HTML."
           ),
       },
       async ({ spotter_data }) => {
-        // XSS safety: epic text can contain </script> which breaks the script tag
-        // if injected verbatim. Escape before injection — same as warmup_get_template.
-        //
-        // Replacer-function safety: epic text can contain $', $&, $` (price strings,
-        // technical content). A replacer function bypasses special-sequence expansion.
+        // Validate JSON before injection
+        try { JSON.parse(spotter_data); } catch(e) {
+          return { content: [{ type: "text" as const, text: `[spotter_get_template] ERROR: spotter_data is not valid JSON — ${String(e)}. Fix the SPOTTER_DATA object and retry.` }] };
+        }
+
+        // XSS safety: data can contain </script> which breaks the script tag.
+        // Replacer function bypasses $-sequence expansion in String.prototype.replace.
         const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
-        const PLACEHOLDER = `window.SPOTTER_DATA = null; /* spotter-data-placeholder */`;
 
-        // Build the shell-inlined template at request time. Inlining the renderer
-        // (spotter-shell.rawjs) makes the artifact fully self-contained — no external
-        // script fetch needed, compatible with Cowork's Content Security Policy.
-        const shellInlined =
-          `<!DOCTYPE html>\n` +
-          `<!-- spotter-engine: v${SPOTTER_VERSION} -->\n` +
-          `<html lang="en">\n` +
-          `<head>\n` +
-          `  <meta charset="UTF-8">\n` +
-          `  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n` +
-          `  <title>The Spotter \xB7 Field Review</title>\n` +
-          `</head>\n` +
-          `<body>\n` +
-          `<script id="spotter-data">\n` +
-          `${PLACEHOLDER}\n` +
-          `</script>\n` +
-          `<script>\n` +
-          `${SPOTTER_SHELL_JS}\n` +
-          `</script>\n` +
-          `</body>\n` +
-          `</html>`;
+        // Stamp the engine version into the template comment
+        const stamped = SPOTTER_TEMPLATE_HTML.replace(
+          'SPOTTER_ENGINE_VERSION_MARKER',
+          () => `v${SPOTTER_VERSION}`
+        );
 
-        const filled = shellInlined.replace(PLACEHOLDER, () => `window.SPOTTER_DATA = ${safe};`);
-        const injected = filled !== shellInlined;
+        const PLACEHOLDER = `__SPOTTER_DATA__`;
+        const filled = stamped.replace(PLACEHOLDER, () => safe);
+        const injected = filled !== stamped;
         return {
           content: [
             {
               type: "text" as const,
               text: injected
                 ? filled
-                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found — injection failed. Do NOT use raw output. Call spotter_get_template again.]`,
+                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found in template — injection failed. Do NOT use raw output. Report this to the developer.]`,
             },
           ],
         };

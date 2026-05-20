@@ -1,8 +1,8 @@
 # missionbuilt-mcp
 
-The unified MCP server for The Loadout — exposes The Warmup and The Spotter through a single OAuth-protected endpoint at `mcp.missionbuilt.io`.
+The unified MCP server for The Loadout — exposes The Warmup, The Spotter, and The Approach through a single OAuth-protected endpoint at `mcp.missionbuilt.io`.
 
-**14 tools. 2 skills. 1 connection.**
+**23 tools. 3 skills. 1 connection.**
 
 ---
 
@@ -19,24 +19,37 @@ The unified MCP server for The Loadout — exposes The Warmup and The Spotter th
 
 | Tool | Description |
 |---|---|
-| `warmup_get_skill` | Returns the full Warmup SKILL.md framework |
+| `warmup_get_skill` | Returns a section of the Warmup SKILL.md (use `section` param to load only what you need) |
+| `warmup_get_fonts` | Returns font CSS for the artifact sandbox (cached in localStorage after first load) |
 | `warmup_list_modes` | Returns the three modes with section descriptions |
-| `warmup_get_template` | Returns the canonical Iron Log HTML engine |
-| `warmup_setup` | Primes the agent to run the setup flow |
-| `warmup_run` | Primes the agent to generate a brief |
-| `warmup_config` | Primes the agent to manage sources |
+| `warmup_get_template` | Returns the warmup artifact HTML in paginated chunks |
+| `warmup_save_data` | Stores the user's WARMUP_DATA brief in KV (artifact auto-refreshes on next open) |
+| `warmup_get_data` | Returns the user's latest WARMUP_DATA brief from KV |
+| `warmup_setup` | Primes the agent to run the first-time setup flow |
+| `warmup_run` | Primes the agent to fetch intelligence and generate a brief |
+| `warmup_config` | Primes the agent to manage sources in WARMUP.md |
 
 ### The Spotter
 
 | Tool | Description |
 |---|---|
-| `spotter_get_skill` | Returns the full Spotter SKILL.md framework |
-| `spotter_list_lenses` | Returns the nine lenses with weight notes |
-| `spotter_get_examples` | Returns 64 worked lens examples with teaching notes |
-| `spotter_get_calibration_epic` | Returns the synthetic calibration epic |
-| `spotter_review` | Primes the agent to review an epic |
+| `spotter_get_skill` | Returns a section of the Spotter SKILL.md (use `section` param to load only what you need) |
+| `spotter_list_areas` | Returns the nine review areas with names and weight notes |
+| `spotter_get_examples` | Returns worked area examples (strong, needs-work, missing) with teaching notes |
+| `spotter_get_calibration_epic` | Returns synthetic calibration epic #1 (gap-heavy — target verdict: Needs polish) |
+| `spotter_get_calibration_epics` | Returns all three synthetic calibration epics for batch grading range tests |
+| `spotter_get_template` | Returns the v1.0 worksheet HTML with SPOTTER_DATA injected — write to disk, pass to artifact |
+| `spotter_review` | Primes the agent to review an epic and produce a worksheet |
 | `spotter_build` | Primes the agent to build an epic from scratch |
 | `spotter_iterate` | Primes the agent to push a partial draft forward |
+
+### The Approach
+
+| Tool | Description |
+|---|---|
+| `approach_get_skill` | Returns the Approach SKILL.md — run flow, schema, output format |
+| `approach_get_template` | Returns the Approach artifact HTML with APPROACH_DATA injected |
+| `approach_run` | Primes the agent to research an account and produce a pre-meeting brief |
 
 ---
 
@@ -155,10 +168,17 @@ cp warmup/SKILL.md missionbuilt-mcp/src/skill-content/warmup/SKILL.md
 
 # After editing spotter/SKILL.md or spotter/examples/:
 cp spotter/SKILL.md missionbuilt-mcp/src/skill-content/spotter/SKILL.md
-cp spotter/examples/lens-examples.md missionbuilt-mcp/src/skill-content/spotter/lens-examples.md
+cp spotter/examples/area-examples.md missionbuilt-mcp/src/skill-content/spotter/area-examples.md
+
+# After editing the-approach/SKILL.md:
+cp the-approach/SKILL.md missionbuilt-mcp/src/skill-content/approach/SKILL.md
 ```
 
-The warmup runtime is `missionbuilt-mcp/src/warmup-shell.rawjs` (single file, no canonical/bundled split). Edit and bump `WARMUP_ENGINE_VERSION` in `constants.ts` so users pick up the new shell on their next run. The legacy `warmup-template.html` files were retired in v0.8.0 — warmup data now flows through `warmup_save_data` → KV → `warmup_get_data`.
+**Warmup:** The runtime is `src/warmup-shell.rawjs` (no canonical/bundled split). Edit and bump `WARMUP_ENGINE_VERSION` in `constants.ts` so users pick up the new shell on their next run. Warmup data flows through `warmup_save_data` → KV → `warmup_get_data`; the artifact is a pure renderer with no inline data.
+
+**Spotter:** As of v1.0, The Spotter produces a fully interactive worksheet artifact rather than text output. The template lives at `src/skill-content/spotter/spotter-template.html` — edit it directly (no canonical/bundled split). Bump `SPOTTER_VERSION` in `constants.ts` after any template or SKILL.md change.
+
+**The Approach:** Template lives at `src/skill-content/approach/approach-template.html`. Bump `THE_APPROACH_VERSION` in `constants.ts` after any template or SKILL.md change.
 
 ---
 

@@ -20,7 +20,7 @@ Give it a company name and a line of context. It researches the target across ni
 
 ## What you get
 
-**The brief renders as a live HTML artifact** in the Mission Built editorial style: cream paper, oxblood accents, Oswald display type, Merriweather body, JetBrains Mono for labels and metadata. No rounded corners. No drop shadows. Reads like a field document, not a CRM screen.
+**The brief renders as a live HTML artifact** in the Mission Built Iron Log style: charcoal background, oxblood accents, Oswald display type, Merriweather body, JetBrains Mono for labels and metadata. No rounded corners. No drop shadows. Reads like a field document, not a CRM screen.
 
 **Brief structure:**
 

@@ -18,7 +18,7 @@ Each skill is self-contained. Drop one into your `.claude/skills/` folder and it
 
 ### [The Spotter](spotter/)
 
-A skill for reviewing, building, and iterating on B2B product epics across nine product-leadership lenses — empathy, competitive landscape, strategic differentiation, solution approach, holistic impact, packaging, launch readiness, post-launch ownership, and trust/governance/auditability. Produces structured *critique-not-criticism* feedback in three modes (review, build, iterate).
+A skill for reviewing, building, and iterating on B2B product epics across nine product-leadership areas — user and problem, competitive landscape, strategic differentiation, solution approach, holistic impact, packaging and pricing, launch readiness, post-launch ownership, and trust/governance/auditability. Produces a fully interactive worksheet artifact with per-area critique notes, an accept/skip refinement loop, and an export that unlocks when every area is closed.
 
 A spotter in powerlifting watches your form, catches the bar if something breaks down, and gives you the confidence to attempt a lift you couldn't safely attempt alone. They lift *you*, not the bar. This skill does the same for an epic.
 
