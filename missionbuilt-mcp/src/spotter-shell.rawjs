@@ -7,13 +7,7 @@
 (function () {
   'use strict';
 
-  /* ── 1. Google Fonts ─────────────────────────────────────────────────── */
-  document.head.insertAdjacentHTML('beforeend',
-    '<link rel="preconnect" href="https://fonts.googleapis.com">' +
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=JetBrains+Mono:wght@400;500;700&family=Permanent+Marker&display=swap">'
-  );
-
-  /* ── 2. CSS ──────────────────────────────────────────────────────────── */
+  /* ── 1. CSS ──────────────────────────────────────────────────────────── */
   var _style = document.createElement('style');
   _style.textContent = `
 /* ══════════════════════════════════════════════════════
@@ -1131,6 +1125,94 @@ a { color: inherit; text-decoration: none; }
   `;
   document.head.appendChild(_style);
 
+  /* ── 2. Font loader: lazy-loads via MCP tool, caches in localStorage ────── *
+   *  Cowork's CSP blocks external font CDNs (Google Fonts, jsDelivr, etc).   *
+   *  Fonts are served by the Loadout MCP server via warmup_get_fonts instead. *
+   *  Same four font families as The Warmup — shares the same localStorage     *
+   *  cache key so warmup → spotter (or vice versa) gets fonts from cache.     *
+   *  fontToolName is written into SPOTTER_DATA.config by the agent.           *
+   * ─────────────────────────────────────────────────────────────────────── */
+  (function loadFonts() {
+    var FONT_CACHE_KEY = 'warmup-fonts-v2'; // shared with warmup — identical fonts
+    var cfg      = (window.SPOTTER_DATA && window.SPOTTER_DATA.config) || {};
+    var toolName = cfg.fontToolName || '';
+
+    function showFontError(stage, detail) {
+      try {
+        if (document.getElementById('spotter-font-err')) return;
+        var b = document.createElement('div');
+        b.id = 'spotter-font-err';
+        b.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;max-width:520px;'
+          + 'background:#fff8f8;color:#900;border:1px solid #c00;'
+          + 'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 10px;';
+        b.textContent = '[Spotter:Fonts] ' + stage + ' — ' + (detail || 'see console');
+        (document.body || document.documentElement).appendChild(b);
+      } catch(_) {}
+    }
+
+    if (!toolName) { showFontError('no fontToolName in SPOTTER_DATA.config', 'agent must set config.fontToolName'); return; }
+    // Fonts are already embedded in exported/standalone HTML — skip the MCP poll.
+    // Also fires if The Warmup loaded fonts first in the same browser session.
+    if (document.getElementById('warmup-fonts')) return;
+
+    function injectCSS(css) {
+      if (document.getElementById('warmup-fonts')) return;
+      var s = document.createElement('style');
+      s.id          = 'warmup-fonts'; // shared id — consistent element across both skills
+      s.textContent = css;
+      document.head.insertBefore(s, document.head.firstChild);
+    }
+
+    // Try localStorage cache — only trust entries with real @font-face rules.
+    try {
+      var cached = localStorage.getItem(FONT_CACHE_KEY);
+      if (cached && cached.length > 100 && cached.indexOf('@font-face') > -1) { injectCSS(cached); return; }
+      if (cached) { try { localStorage.removeItem(FONT_CACHE_KEY); } catch(e){} }
+    } catch(e) { /* storage unavailable */ }
+
+    var _fontAttempts = 0;
+    function tryFetchFonts() {
+      if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
+        if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); return; }
+        showFontError('window.cowork.callMcpTool never appeared', 'sandbox bridge unavailable');
+        return;
+      }
+      window.cowork.callMcpTool(toolName, { intent: 'Loading spotter fonts' })
+        .then(function(raw) {
+          try {
+            var css = null;
+            function tryParseCss(val) {
+              if (!val) return null;
+              if (typeof val === 'string') {
+                if (val.trim().charAt(0) === '{') {
+                  try { var p = JSON.parse(val); return (p && p.css) ? p.css : val; } catch(e) {}
+                }
+                return val;
+              }
+              if (val && val.css) return val.css;
+              return null;
+            }
+            if (typeof raw === 'string')                                    { css = tryParseCss(raw); }
+            else if (raw && raw.css)                                        { css = raw.css; }
+            else if (Array.isArray(raw) && raw[0] && raw[0].text)          { css = tryParseCss(raw[0].text); }
+            else if (raw && raw.content && Array.isArray(raw.content))     { var item = raw.content[0]; css = item ? tryParseCss(item.text) : null; }
+            if (!css || css.length < 100 || css.indexOf('@font-face') === -1) {
+              var shape; try { shape = JSON.stringify(raw).slice(0, 200); } catch(_) { shape = String(raw).slice(0, 200); }
+              showFontError('unexpected font response', shape); return;
+            }
+            injectCSS(css);
+            try { localStorage.setItem(FONT_CACHE_KEY, css); } catch(e) { console.warn('[Spotter:Fonts] localStorage write failed', e); }
+          } catch(e) {
+            showFontError('parse error', String(e && e.message || e));
+          }
+        })
+        .catch(function(err) {
+          showFontError('MCP call rejected', String(err && err.message || err));
+        });
+    }
+    tryFetchFonts();
+  })();
+
   /* ── 3. Root element ─────────────────────────────────────────────────── */
   document.body.insertAdjacentHTML('beforeend', '<div id="root"></div>');
 
@@ -1463,7 +1545,7 @@ a { color: inherit; text-decoration: none; }
       const epicMetaItems = [
         epic.window    ? `<span><strong>Window</strong>${esc(epic.window)}</span>` : '',
         epic.teamShape ? `<span><strong>Team</strong>${esc(epic.teamShape)}</span>` : '',
-        epic.attempt   ? `<span><strong>Attempt</strong>${epic.attempt}</span>` : '',
+        epic.attempt   ? `<span><strong>Attempt</strong>${esc(epic.attempt)}</span>` : '',
       ].filter(Boolean).join('');
 
       const areaCards = areas.map(l => {
@@ -1654,10 +1736,21 @@ ${epicSourceHtml}
 
     /* ── Export ── */
     window.spotterExportHTML = function() {
+      window.spotterCloseExport();
       var epic = (window.SPOTTER_DATA || {}).epic || {};
       var slug = (epic.name || 'spotter').replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 40);
       var filename = 'spotter-' + slug + '.html';
       var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      // Bake SPOTTER_DATA into the exported file so it works offline
+      if (window.SPOTTER_DATA) {
+        try {
+          var dataStr = JSON.stringify(window.SPOTTER_DATA).replace(/<\/script>/gi, '<\\/script>');
+          html = html.replace(
+            /<script id="spotter-data">[\s\S]*?<\/script>/,
+            function() { return '<script id="spotter-data">\nwindow.SPOTTER_DATA = ' + dataStr + ';\n<' + '/script>'; }
+          );
+        } catch(exportErr) { console.warn('[Spotter:Export] data injection failed', exportErr); }
+      }
       var blob = new Blob([html], { type: 'text/html' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');

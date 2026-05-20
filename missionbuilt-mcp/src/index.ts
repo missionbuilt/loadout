@@ -37,7 +37,8 @@ import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
-import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
+// SPOTTER_TEMPLATE_HTML import removed — spotter-shell.rawjs is the canonical source.
+// skill-content/spotter/spotter-template.html is an orphaned older copy; it is not used.
 import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
 import WARMUP_FONTS_CSS from "./skill-content/warmup/fonts.css";
 import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
@@ -1068,6 +1069,9 @@ Area name + category mapping (use exactly, in order):
               `   epic: { name, company, teamShape, window, attempt, epicBody (full raw epic text verbatim) }\n` +
               `   areas: [ { id, n, name, category, question, judges, finding (1–3 sentences),\n` +
               `              spotterPull ("you could strengthen this by…"), handNote (optional 1-liner) } ]\n` +
+              `   config: { fontToolName: the full prefixed name of warmup_get_fonts,\n` +
+              `             e.g. "mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts" }\n` +
+              `   The artifact uses warmup_get_fonts to load fonts — Cowork blocks Google Fonts CDN.\n` +
               `   Voice: every flag is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
               `## Step 3 — Artifact  ← Write the file. This is the output.\n\n` +
               `### PATH A (engine version matched — edit data block only)\n\n` +
@@ -1096,7 +1100,10 @@ Area name + category mapping (use exactly, in order):
               `     content: the HTML string from B-2, unmodified.\n` +
               `     Bash is never needed for this step. If Write fails, report the error and stop.\n\n` +
               `B-4. Call create_artifact (first run) or update_artifact (re-run).\n` +
-              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-3\n\n` +
+              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-3\n` +
+              `     mcp_tools: [the full prefixed name of warmup_get_fonts]\n` +
+              `     The artifact calls warmup_get_fonts at open time to load fonts — it must be in mcp_tools\n` +
+              `     or Cowork will block the font call and the report will render in fallback fonts.\n\n` +
               `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-3 and B-4 have succeeded.\n\n` +
               `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
               `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +
