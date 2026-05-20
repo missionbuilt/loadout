@@ -698,12 +698,11 @@ gap: 10px;
 </p>
 <div class="masthead-controls">
 <button type="button" class="btn-configure" id="btn-configure">Configure</button>
-<button type="button" class="tb-btn" id="refresh-btn" onclick="window._warmupRefresh && window._warmupRefresh()" title="Check for a fresher brief">↻ Refresh</button>
 <div class="tb-export">
 <button class="tb-btn save" onclick="toggleExport(event)">Export ▾</button>
 <div class="tb-dropdown" id="export-dd">
-<button class="dd-primary" onclick="exportHTML();closeExport()">Export HTML</button>
-<button onclick="window.print();closeExport()">Print / PDF</button>
+<button class="dd-primary" onclick="exportHTML()">Export HTML</button>
+<button onclick="closeExport();window.print()">Print / PDF</button>
 </div>
 </div>
 <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
@@ -889,7 +888,7 @@ gap: 10px;
     // v0.8: cache key bumped to v2 to invalidate any partial/garbage entries
     // left by v0.7 installs. Cached values are also validated against an
     // @font-face presence check before being trusted.
-    var CACHE_KEY  = 'warmup-fonts-v2';
+    var FONT_CACHE_KEY  = 'warmup-fonts-v2';
     var toolName   = WARMUP_CONFIG.fontToolName || '';
 
     // Visible diagnostic banner — only shown on failure so it can't hide
@@ -909,6 +908,8 @@ gap: 10px;
     }
 
     if (!toolName) { showFontError('no fontToolName in WARMUP_DATA.config', 'agent must set fontToolName'); return; }
+    // Fonts are already embedded in exported/standalone HTML — skip the MCP poll
+    if (document.getElementById('warmup-fonts')) return;
 
     function injectCSS(css) {
       if (document.getElementById('warmup-fonts')) return;
@@ -922,9 +923,9 @@ gap: 10px;
     // contain @font-face rules. Defends against partial writes or unrelated
     // values being stored under this key.
     try {
-      var cached = localStorage.getItem(CACHE_KEY);
+      var cached = localStorage.getItem(FONT_CACHE_KEY);
       if (cached && cached.length > 100 && cached.indexOf('@font-face') > -1) { injectCSS(cached); return; }
-      if (cached) { try { localStorage.removeItem(CACHE_KEY); } catch(e){} }
+      if (cached) { try { localStorage.removeItem(FONT_CACHE_KEY); } catch(e){} }
     } catch(e) { /* storage unavailable */ }
 
     var _fontAttempts = 0;
@@ -981,7 +982,7 @@ gap: 10px;
               return;
             }
             injectCSS(css);
-            try { localStorage.setItem(CACHE_KEY, css); } catch(e) { console.warn('[Warmup:Fonts] localStorage write failed', e); }
+            try { localStorage.setItem(FONT_CACHE_KEY, css); } catch(e) { console.warn('[Warmup:Fonts] localStorage write failed', e); }
           } catch(e) {
             console.error('[Warmup:Fonts] parse error', e);
             showFontError('parse error', String(e && e.message || e));
@@ -995,6 +996,16 @@ gap: 10px;
     setTimeout(tryFetchFonts, 100);
   })();
 
+
+  // ── SECURITY HELPERS ─────────────────────────────────────────────────────────
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function safeUrl(url) {
+    var u = String(url == null ? '' : url).trim();
+    return /^javascript:/i.test(u) ? '#' : u;
+  }
 
   // ── WARMUP RENDERER (reads WARMUP_DATA, populates DOM before other scripts) ──
   try { (function() {
@@ -1054,7 +1065,7 @@ gap: 10px;
         var _cls  = 'nav-item' + (_live && sec.id === _firstLive ? ' active' : '') + (_live ? '' : ' nav-empty');
         var _href = _live ? ('#' + sec.id) : '#';
         var _attr = _live ? '' : ' aria-disabled="true" tabindex="-1"';
-        return '<a href="' + _href + '" class="' + _cls + '"' + _attr + '>' + sec.label + '</a>';
+        return '<a href="' + _href + '" class="' + _cls + '"' + _attr + '>' + escapeHtml(sec.label) + '</a>';
       }).join('\n  ') + '\n  <a href="#sources" class="nav-item">Sources</a>';
     }
 
@@ -1135,12 +1146,12 @@ gap: 10px;
       const el = document.getElementById(sec.id);
       if (!el) return;
       const note = sec.note
-        ? '<p class="s-note">' + sec.note + '</p>'
+        ? '<p class="s-note">' + escapeHtml(sec.note) + '</p>'
         : '';
       function renderItem(item, isLead) {
         const tags = (item.tags || []).map(function(t) {
-          if (typeof t === 'string') return '<span class="tag">' + t + '</span>';
-          return '<span class="tag ' + (t.cls || '') + '">' + (t.text || '') + '</span>';
+          if (typeof t === 'string') return '<span class="tag">' + escapeHtml(t) + '</span>';
+          return '<span class="tag ' + escapeHtml(t.cls || '') + '">' + escapeHtml(t.text || '') + '</span>';
         }).join('');
         // Filter items beyond the lookback window — don't render them at all
         var _maxAgeDays = (_cfg.searchDepth === 'deep') ? 10 : 4;
@@ -1164,18 +1175,18 @@ gap: 10px;
         }
         var deckHtml = '';
         if (isLead && item.deck) {
-          deckHtml = '<p class="item-deck" style="font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:19px;line-height:1.5;color:var(--ink-soft);margin-bottom:18px;max-width:60ch;">' + item.deck + '</p>';
+          deckHtml = '<p class="item-deck" style="font-family:var(--font-serif);font-style:italic;font-weight:300;font-size:19px;line-height:1.5;color:var(--ink-soft);margin-bottom:18px;max-width:60ch;">' + escapeHtml(item.deck) + '</p>';
         }
         return '<article class="item' + (isLead ? ' item-lead' : '') + '"' + (item.date ? ' data-date="' + item.date + '"' : '') + '>' +
           '<div class="item-meta">' +
             '<span class="dot ' + item.dot + '" aria-hidden="true">' + DOT[item.dot] + '</span>' +
-            '<span class="src">' + item.src + '</span>' +
+            '<span class="src">' + escapeHtml(item.src) + '</span>' +
             tags +
           '</div>' +
           _dateHtml +
-          '<h3 class="item-hl"><a href="' + item.url + '">' + item.hl + '</a></h3>' +
+          '<h3 class="item-hl"><a href="' + safeUrl(item.url) + '">' + escapeHtml(item.hl) + '</a></h3>' +
           deckHtml +
-          '<p class="item-sum">' + item.body + '</p>' +
+          '<p class="item-sum">' + escapeHtml(item.body) + '</p>' +
           '</article>';
       }
       // Render items — renderItem returns '' for anything beyond the lookback window
@@ -1190,7 +1201,7 @@ gap: 10px;
       var lead = allRendered[0];
       var rest = allRendered.slice(1).join('');
       var restWrap = rest ? '<div class="items-grid">' + rest + '</div>' : '';
-      var subHtml = sec.sub ? '<span class="sec-sub">' + sec.sub + '</span>' : '';
+      var subHtml = sec.sub ? '<span class="sec-sub">' + escapeHtml(sec.sub) + '</span>' : '';
       // v0.8: number sections by the live-section index (computed before the
       // nav build above) so "Section One, Two, Three" reads sequentially even
       // when one is quiet today.
@@ -1199,7 +1210,7 @@ gap: 10px;
       el.innerHTML =
         '<h2 class="s-eyebrow">' +
           '<span class="sec-kicker">Section ' + sectionWord + '</span>' +
-          '<span class="sec-label">' + sec.label + '</span>' +
+          '<span class="sec-label">' + escapeHtml(sec.label) + '</span>' +
           subHtml +
         '</h2>' +
         note +
@@ -1221,8 +1232,8 @@ gap: 10px;
         var stLabel = s.status === 'active' ? 'Active' : 'Quiet';
         return '<div class="src-row">' +
           '<span class="dot ' + s.dot + '" aria-hidden="true">' + DOT[s.dot] + '</span>' +
-          '<span class="src-nm">' + s.nm + '</span>' +
-          '<span class="src-dom">' + s.dom + '</span>' +
+          '<span class="src-nm">' + escapeHtml(s.nm) + '</span>' +
+          '<span class="src-dom">' + escapeHtml(s.dom) + '</span>' +
           '<span class="src-ct">' + s.ct + '</span>' +
           '<span class="src-st st-' + st + '">' + stLabel + '</span>' +
           '</div>';
@@ -1301,7 +1312,7 @@ gap: 10px;
         var _cntHtml = _cnt > 1 ? '<span class="safety-url-ct">' + _cnt + ' urls</span>' : '';
         return '<div class="safety-domain-row">' +
           '<span class="safety-chk" aria-label="Clean">✓</span>' +
-          '<span class="safety-dom">' + d.domain + '</span>' +
+          '<span class="safety-dom">' + escapeHtml(d.domain) + '</span>' +
           _cntHtml +
           '<span class="safety-verdict">' + _verdict + '</span>' +
           '</div>';
@@ -1318,7 +1329,7 @@ gap: 10px;
         : '<span class="safety-warn" style="color:var(--blood);font-weight:700;">⚠ ' + _derivedFlagged + ' domain' + (_derivedFlagged > 1 ? 's' : '') + ' flagged and excluded from this brief</span>';
       safetyPanel.innerHTML =
         '<h2 class="s-eyebrow"><span class="sec-kicker">Verification</span><span class="sec-label">Link Safety</span><span class="sec-sub">Every URL in this brief, scanned at the moment of generation.</span></h2>' +
-        '<p class="safety-meta">' + _metaStatus + ' Report compiled &amp; links scanned · ' + sf.scannedAt + ' · ' +
+        '<p class="safety-meta">' + _metaStatus + ' Report compiled &amp; links scanned · ' + escapeHtml(sf.scannedAt) + ' · ' +
         _uniqueDomains.length + ' domains · ' + sf.totalUrls + ' URLs · ' + _derivedFlagged + ' flagged · Allowlist verified + URLScan.io checked at generation time</p>' +
         '<div class="safety-domain-grid">' + domainRows + '</div>' +
         '<p class="safety-disclaimer"><strong>How this works</strong> Link safety is verified at report generation time using a two-tier approach. First, each domain is checked against a curated allowlist of authoritative sources — government agencies, established security vendors, and major news organizations. Domains on the allowlist are verified instantly with no external call. Second, any domain not on the allowlist is queried against URLScan.io\'s public API, which returns community scan results and a maliciousness verdict. No API key is required, and no URL data is transmitted beyond the domain name.</p>' +
@@ -1632,7 +1643,7 @@ gap: 10px;
       </div>
       <div class="profile-fields-wrap" id="profile-fields-wrap" style="display:none">
         ${fields.map(([k, v]) =>
-          `<div class="profile-field"><span class="profile-key">${k}</span><span class="profile-val">${v}</span></div>`
+          `<div class="profile-field"><span class="profile-key">${escapeHtml(k)}</span><span class="profile-val">${escapeHtml(v)}</span></div>`
         ).join('')}
       </div>`;
 
@@ -1670,15 +1681,27 @@ gap: 10px;
         const prompt = btn.dataset.prompt;
         const label = btn.querySelector('.action-label');
         const prev = label.textContent;
-        try { navigator.clipboard.writeText(prompt).catch(() => {}); } catch(e) {}
-        label.textContent = '✓ Copied';
-        card.querySelector('#profile-next-step').classList.add('active');
-        nextText.textContent = '✓ Prompt copied — paste it into chat to apply.';
-        setTimeout(() => {
-          label.textContent = prev;
-          nextText.textContent = 'Copy a prompt above, then paste it into chat to apply the change.';
-          card.querySelector('#profile-next-step').classList.remove('active');
-        }, 4000);
+        function onCopied() {
+          label.textContent = '✓ Copied';
+          card.querySelector('#profile-next-step').classList.add('active');
+          nextText.textContent = '✓ Prompt copied — paste it into chat to apply.';
+          setTimeout(() => {
+            label.textContent = prev;
+            nextText.textContent = 'Copy a prompt above, then paste it into chat to apply the change.';
+            card.querySelector('#profile-next-step').classList.remove('active');
+          }, 4000);
+        }
+        function onFailed() {
+          label.textContent = '↗ Paste into chat';
+          card.querySelector('#profile-next-step').classList.add('active');
+          nextText.textContent = prompt;
+          setTimeout(() => {
+            label.textContent = prev;
+            nextText.textContent = 'Copy a prompt above, then paste it into chat to apply the change.';
+            card.querySelector('#profile-next-step').classList.remove('active');
+          }, 6000);
+        }
+        try { navigator.clipboard.writeText(prompt).then(onCopied).catch(onFailed); } catch(e) { onFailed(); }
       });
     });
 
@@ -1693,18 +1716,17 @@ gap: 10px;
       chip.addEventListener('click', () => {
         const prompt = chip.dataset.prompt;
         const prev = chip.textContent;
-        try {
-          navigator.clipboard.writeText(prompt).then(() => {
-            chip.textContent = '✓ Copied';
-            setTimeout(() => { chip.textContent = prev; }, 2000);
-          }).catch(() => {
-            chip.textContent = '✓ Copied';
-            setTimeout(() => { chip.textContent = prev; }, 2000);
-          });
-        } catch(e) {
+        function chipCopied() {
           chip.textContent = '✓ Copied';
           setTimeout(() => { chip.textContent = prev; }, 2000);
         }
+        function chipFailed() {
+          chip.textContent = '↗ Copy blocked';
+          setTimeout(() => { chip.textContent = prev; }, 2000);
+        }
+        try {
+          navigator.clipboard.writeText(prompt).then(chipCopied).catch(chipFailed);
+        } catch(e) { chipFailed(); }
       });
     });
 
@@ -1917,7 +1939,7 @@ btn.textContent = 'Loading…';
         srcHeader.href = url || '#';
         srcHeader.target = '_blank';
         srcHeader.rel = 'noopener';
-        srcHeader.innerHTML = `<span class="src-arrow">↗</span>${source || 'Source'} — Deep Dive`;
+        srcHeader.innerHTML = `<span class="src-arrow">↗</span>${escapeHtml(source || 'Source')} — Deep Dive`;
         resultDiv.innerHTML = renderMd(String(text));
         resultDiv.prepend(srcHeader);
         resultDiv.appendChild(closeBtn);
@@ -1963,6 +1985,7 @@ btn.textContent = 'Loading…';
     });
 
     function exportHTML() {
+      closeExport();
       const now  = new Date();
       const tz   = WARMUP_CONFIG.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const co   = (WARMUP_CONFIG.company || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
@@ -1975,7 +1998,17 @@ btn.textContent = 'Loading…';
         isoDate = isoFmt.format(now);
       } catch (e) { isoDate = ''; }
       const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}.html`;
-      const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      // Bake WARMUP_DATA into the exported file so it works offline
+      if (window.WARMUP_DATA) {
+        try {
+          const dataStr = JSON.stringify(window.WARMUP_DATA).replace(/<\/script>/gi, '<\\/script>');
+          html = html.replace(
+            /<script id="warmup-tools">[\s\S]*?<\/script>/,
+            () => '<script id="warmup-tools">\nwindow.WARMUP_TOOLS = { dataTool: \'\' };\nwindow.WARMUP_DATA = ' + dataStr + ';\n<' + '/script>'
+          );
+        } catch (exportErr) { console.warn('[Warmup:Export] data injection failed', exportErr); }
+      }
       const blob = new Blob([html], { type: 'text/html' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');

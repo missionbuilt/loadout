@@ -12,8 +12,8 @@
  */
 
 export const SERVER_VERSION        = "1.1.1";
-export const WARMUP_VERSION        = "0.8.1";
-export const WARMUP_ENGINE_VERSION = "v0.8.1";
+export const WARMUP_VERSION        = "0.8.2";
+export const WARMUP_ENGINE_VERSION = "v0.8.2";
 export const SPOTTER_VERSION       = "0.7.17";
 export const THE_APPROACH_VERSION  = "0.1.4";
 
