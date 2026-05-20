@@ -873,9 +873,7 @@ function renderMasthead() {
   var forStr = esc(cfg.seller || '');
   if (cfg.se) forStr += ' + ' + esc(cfg.se);
   $('h-meta-for').innerHTML     = forStr || '—';
-  var sources = M.sources || [];
-  var srcStr = sources.length ? sources.length + ' source' + (sources.length !== 1 ? 's' : '') : '—';
-  $('h-meta-sources').innerHTML = srcStr;
+  $('h-meta-sources').textContent = M.sourceCount || '—';
   $('h-meta-gen').textContent   = M.generated   || '—';
   $('h-meta-read').textContent  = M.readingTime || '—';
 
@@ -948,9 +946,10 @@ function renderProseItem(item) {
     }
 
     case 'pull': {
-      return '<div class="pull">'
-        + '<q>' + rich(item.text || '') + '</q>'
-        + '</div>';
+      var ph = '<div class="pull">'
+        + '<q>' + rich(item.text || '') + '</q>';
+      if (item.cite) ph += '<cite>' + esc(item.cite) + '</cite>';
+      return ph + '</div>';
     }
 
     case 'facts': {
@@ -992,7 +991,10 @@ function renderProseItem(item) {
 
     case 'questions': {
       var qs = (item.items || []).map(function(q) {
-        return '<li>' + esc(typeof q === 'string' ? q : (q.text || '')) + '</li>';
+        var chipHtml = (q && q.chip && q.chip.text)
+          ? '<span class="mp-chip ' + esc(q.chip.status || '') + '">' + esc(q.chip.text) + '</span>'
+          : '';
+        return '<li>' + chipHtml + esc(typeof q === 'string' ? q : (q.text || '')) + '</li>';
       }).join('');
       var label = item.label ? '<div class="k">' + esc(item.label) + '</div>' : '';
       return label + '<ol class="questions">' + qs + '</ol>';
@@ -1056,7 +1058,9 @@ function renderSections() {
 /* ── colophon ── */
 function renderColophon() {
   var sub = [];
-  if (C.seller)    sub.push(esc(C.seller));
+  var cfg = C.config || {};
+  if (cfg.seller)  sub.push(esc(cfg.seller));
+  if (cfg.se)      sub.push(esc(cfg.se));
   if (C.product)   sub.push(esc(C.product));
   if (M.generated) sub.push('Generated ' + esc(M.generated));
   var subEl = $('col-sub');

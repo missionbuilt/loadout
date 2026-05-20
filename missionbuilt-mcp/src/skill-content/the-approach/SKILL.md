@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.2.3
+version: 0.2.4
 part_of: The Loadout
 ---
 
@@ -174,8 +174,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "briefNumber":   "001",
     "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
     "sourceCount":   "14",
-    "sourceStatus":  "all green",
-    "generatedAt":   "20 May 2026",
+    "generated":     "20 May 2026",
     "readingTime":   "~14 min"
   },
 
@@ -266,21 +265,21 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         },
         {
           "type": "pull",
-          "quote": "$45M expansion broke ground in March — five more years of demand we already have on the books.",
+          "text": "$45M expansion broke ground in March — five more years of demand we already have on the books.",
           "cite": "Bill Henniger to Columbus Business First, 12 March 2026"
         },
         {
           "type": "pull",
           "chip": { "text": "I · Pain", "status": "confirmed" },
-          "quote": "Quote that directly names the pain.",
+          "text": "Quote that directly names the pain.",
           "cite": "Source name · date"
         },
         {
           "type": "facts",
           "items": [
-            { "label": "Revenue",   "value": "$700M+", "note": "FY24, triangulated" },
-            { "label": "Headcount", "value": "~1,400", "note": "Columbus, hiring fast" },
-            { "label": "Capex",     "value": "$45M",   "note": "West Jefferson, Mar 2026" }
+            { "k": "Revenue",   "v": "$700M+", "note": "FY24, triangulated" },
+            { "k": "Headcount", "v": "~1,400", "note": "Columbus, hiring fast" },
+            { "k": "Capex",     "v": "$45M",   "note": "West Jefferson, Mar 2026" }
           ]
         },
         {
@@ -294,8 +293,8 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         },
         {
           "type": "opener",
-          "text": "The verbatim opener text the AE reads aloud — ~90 seconds. Root it in a specific public signal from the contact.",
-          "beat": "Pause. Let him redirect if needed. Either answer maps to a demo."
+          "script": "The verbatim opener text the AE reads aloud — ~90 seconds. Root it in a specific public signal from the contact.",
+          "beats": ["Pause. Let him redirect if needed. Either answer maps to a demo."]
         },
         {
           "type": "questions",
@@ -322,7 +321,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
   },
 
   "product": "Elastic Security pre-call brief",
-  "version": "v0.2.3"
+  "version": "v0.2.4"
 }
 ```
 
@@ -349,10 +348,10 @@ The `actDivider` renders automatically before the first `"the SE"` section. Sect
 | `type` | Required fields | Optional fields |
 |---|---|---|
 | `p` | `text` (string, supports rich tokens) | `source.text`, `source.tier` |
-| `pull` | `quote`, `cite` | `chip.text`, `chip.status` |
-| `facts` | `items[]` → `label`, `value` | `note` per item |
+| `pull` | `text`, `cite` | `chip.text`, `chip.status` |
+| `facts` | `items[]` → `k`, `v` | `note` per item |
 | `table` | `rows[]` → `layer`, `tool`, `status`, `note` | `statusClass` ("gap" or "unk") |
-| `opener` | `text` | `beat` |
+| `opener` | `script` | `beats[]` (array of strings) |
 | `questions` | `items[]` → `text` | `chip.text`, `chip.status` per item |
 
 ### MEDDPICC cell `status` values
@@ -455,3 +454,6 @@ don't have to re-enter it next time."*
 | 0.1.4 | Remote shell architecture. Path B writes a 14-line skeleton; CSS and renderer load from mcp.missionbuilt.io/approach-shell.js. Zero template-read tokens on first run. |
 | 0.1.5 | MCP font loader replaces Google Fonts CDN (blocked by Cowork CSP). Add config.fontToolName to APPROACH_DATA schema. Pass mcp_tools on create_artifact. XSS escaping fixes: buildSecNav nav link text, colophon date fields. |
 | 0.2.0 | Inline template architecture. approach_get_template now returns complete filled HTML — no remote shell, no Path A/B. Single-path render: call approach_get_template → write HTML → create_artifact. Font loader baked into template. Schema fixes: act field is number (2=SE), plays.num is number not string. |
+| 0.2.1 | C1 editorial redesign — Oswald/Merriweather/JetBrains Mono type scale, cream paper palette, full MEDDPICC scorecard at end of report, act divider, facts strip, pull quote, stack table, opener box, TL;DR card, action footer. |
+| 0.2.2 | Section heading structure: sec-num → sec-title (kicker) → sec-subtitle (title) → sec-deck. Foot style matches Warmup/Spotter double-rule colophon. Footer links to missionbuilt.io. |
+| 0.2.3 | Renderer field name fixes (silent blank output): pull text, facts k/v, opener script/beats[], questions chip, meta generated/sourceCount. Colophon seller path corrected to C.config.seller. JSON validation in approach_get_template. |

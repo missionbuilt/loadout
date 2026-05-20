@@ -1236,6 +1236,15 @@ Area name + category mapping (use exactly, in order):
         ),
       },
       async ({ approach_data }) => {
+        // Validate JSON before injection — malformed data produces a near-blank silent brief otherwise.
+        try { JSON.parse(approach_data); } catch (e) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `[approach_get_template] ERROR: approach_data is not valid JSON — ${String(e)}. Fix the APPROACH_DATA object and retry.`,
+            }],
+          };
+        }
         // XSS safety: article/intel text can contain </script> — escape before injection.
         // Replacer-function safety: content can contain $', $&, $` — replacer bypasses expansion.
         const safe = approach_data.replace(/<\/script>/gi, '<\\/script>');
