@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.1.4
+version: 0.2.0
 part_of: The Loadout
 ---
 
@@ -178,7 +178,7 @@ optional. Write all prose in active voice, present tense, and tight sentences.
   "sections": [
     {
       "id": "snapshot",
-      "act": "business",
+      "act": 1,
       "kicker": "Section one",
       "title": "Company snapshot",
       "sub": "What they do, how they make money, and what shape they're in this quarter.",
@@ -247,7 +247,7 @@ optional. Write all prose in active voice, present tense, and tight sentences.
 
   "plays": [
     {
-      "num": "P1",
+      "num": 1,
       "audience": "ae",
       "priority": "featured",
       "title": "Open on the Dec 2025 dwell period.",
@@ -338,86 +338,32 @@ optional. Write all prose in active voice, present tense, and tight sentences.
 
 ## RENDER Phase (Step 2)
 
-### Step 1 — Choose Path A or Path B
-
-**PATH A — Repeat run (artifact file already exists on disk)**
-
-Use Path A whenever `approach-artifact.html` already exists in the workspace.
+Every Approach brief is built fresh from `approach_get_template`. There is no Path A / Path B and no engine version check — one path, every time.
 
 ```
-a) Grep approach-artifact.html for the string: <script id="approach-data">
-   Note the line number returned.
+a) Identify your loaded warmup_get_fonts tool name. It looks like:
+      "mcp__<uuid>__warmup_get_fonts"
+   The UUID prefix changes per session — use the exact name from your loaded tool list.
 
-b) Read approach-artifact.html with offset=(that line number - 1) and limit=10
-   to see the block. Confirm it contains window.APPROACH_DATA.
+b) Ensure config.fontToolName is set in APPROACH_DATA:
+      "config": {
+        "fontToolName": "mcp__<uuid>__warmup_get_fonts",
+        ... (all other config fields)
+      }
 
-c) Edit approach-artifact.html — replace the ENTIRE block:
-     <script id="approach-data">
-     window.APPROACH_DATA = <anything here>;
-     </script>
-   with:
-     <script id="approach-data">
-     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
-     </script>
+c) Call approach_get_template({ approach_data: JSON.stringify(APPROACH_DATA) }).
+   The server injects the data, escapes </script> sequences, and returns the
+   complete filled HTML (~150KB). Do not double-escape — the server handles it.
 
-d) Call update_artifact with id: "the-approach" and the file path.
-   Done. Do not read or write the whole file.
-```
+d) Write the returned HTML to [workspace_root]/approach-brief.html using the
+   Write file tool. Write it exactly as returned — do not edit the content.
 
----
-
-**PATH B — First run (no artifact file on disk)**
-
-Use Path B only when `approach-artifact.html` does NOT exist yet.
-
-All CSS, layout, and the renderer are loaded at runtime from
-`mcp.missionbuilt.io/approach-shell.js` — no template read required.
-Write a single complete file with the real APPROACH_DATA already in it.
-
-```
-a) Write the complete artifact to [workspace_folder]/approach-artifact.html
-   in one step using the Write file tool. Do not use bash, shell commands,
-   or a separate Edit step. Substitute JSON.stringify(APPROACH_DATA) directly
-   into the file where shown:
-
-     <!DOCTYPE html>
-     <html lang="en">
-     <head>
-       <meta charset="UTF-8">
-       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title id="page-title">The Approach · Field Brief</title>
-     </head>
-     <body>
-     <script id="approach-data">
-     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
-     </script>
-     <script src="https://mcp.missionbuilt.io/approach-shell.js?v=0.1.5"></script>
-     </body>
-     </html>
-
-   IMPORTANT — </script> guard: if APPROACH_DATA contains </script> anywhere (e.g. in
-   an article body or epic text), it will close the script tag early and break the page.
-   Before writing, replace every occurrence in the JSON string:
-     JSON.stringify(APPROACH_DATA).replace(/<\/script>/gi, '<\\/script>')
-
-b) Call create_artifact with:
-     id: "the-approach"
-     html_path: the path to approach-artifact.html
-     mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
-   Replace <uuid> with your actual warmup_get_fonts tool UUID prefix.
+e) Call create_artifact (or update_artifact if re-running for the same company):
+      id: "the-approach"
+      html_path: [path to approach-brief.html]
+      mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
    Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
 ```
-
----
-
-### Step 2 — Determine which path to take
-
-Call `list_artifacts`. If an artifact with `id: "the-approach"` exists → Path A.
-If no artifact exists → Path B.
-
-If you are updating for a different target company in the same session, use Path A
-(the artifact already exists; just replace the data block). The artifact always shows
-the current brief; past briefs are not retained.
 
 ---
 
@@ -481,3 +427,4 @@ don't have to re-enter it next time."*
 | 0.1.3 | approach_run now loads per-section via approach_get_skill. Render boundary includes Summary line. |
 | 0.1.4 | Remote shell architecture. Path B writes a 14-line skeleton; CSS and renderer load from mcp.missionbuilt.io/approach-shell.js. Zero template-read tokens on first run. |
 | 0.1.5 | MCP font loader replaces Google Fonts CDN (blocked by Cowork CSP). Add config.fontToolName to APPROACH_DATA schema. Pass mcp_tools on create_artifact. XSS escaping fixes: buildSecNav nav link text, colophon date fields. |
+| 0.2.0 | Inline template architecture. approach_get_template now returns complete filled HTML — no remote shell, no Path A/B. Single-path render: call approach_get_template → write HTML → create_artifact. Font loader baked into template. Schema fixes: act field is number (2=SE), plays.num is number not string. |

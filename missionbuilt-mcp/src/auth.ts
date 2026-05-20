@@ -21,7 +21,6 @@ import { brandCss, STENCIL } from "./design";
 import { renderLanding } from "./landing";
 import { renderPreview } from "./preview";
 import { SERVER_VERSION } from "./constants";
-import APPROACH_SHELL_JS from "./approach-shell.rawjs";
 import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
 
 // ── Google API response schemas ───────────────────────────────────────────────
@@ -144,19 +143,7 @@ export const authHandler = {
     }
 
     // Shell JS assets — served verbatim so artifact HTML can load them via <script src>
-    if (url.pathname === "/approach-shell.js") {
-      if (request.method !== "GET" && request.method !== "HEAD") {
-        return new Response("Method Not Allowed", { status: 405, headers: { "Allow": "GET, HEAD" } });
-      }
-      return new Response(request.method === "HEAD" ? null : APPROACH_SHELL_JS, {
-        headers: {
-          "Content-Type": "application/javascript; charset=utf-8",
-          "Cache-Control": "public, max-age=3600",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
+    // Note: /approach-shell.js route removed — The Approach now uses inline template via approach_get_template.
     if (url.pathname === "/spotter-shell.js") {
       if (request.method !== "GET" && request.method !== "HEAD") {
         return new Response("Method Not Allowed", { status: 405, headers: { "Allow": "GET, HEAD" } });

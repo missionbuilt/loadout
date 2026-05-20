@@ -1224,19 +1224,20 @@ Area name + category mapping (use exactly, in order):
     // ── approach_get_template ────────────────────────────────────────────────
     this.server.tool(
       "approach_get_template",
-      "DEPRECATED in Cowork environments — do NOT call this tool. " +
-      "The response (~131KB) exceeds Cowork's inline context limit and will be offloaded " +
-      "to a temp file the agent cannot use. Follow the RENDER Phase in SKILL.md instead: " +
-      "Read approach-template.html from disk, Write to approach-artifact.html, then Edit the " +
-      "__APPROACH_DATA__ placeholder. This tool is retained for non-Cowork callers only.",
+      "Return the complete, data-filled HTML for a The Approach field brief artifact. " +
+      "Call this once with the assembled APPROACH_DATA JSON — the server injects it into the " +
+      "inline template and returns the full HTML. Write the response to disk, then call " +
+      "create_artifact (passing warmup_get_fonts in mcp_tools). Single-path flow — no Path A/B.",
       {
         intent: intentField,
-        approach_data: z.string().max(50000).describe(
+        approach_data: z.string().max(300000).describe(
           "The APPROACH_DATA JSON string produced by The Approach workflow. " +
-          "Must be valid JSON matching the APPROACH_DATA schema (v0.1.0)."
+          "Must be valid JSON matching the APPROACH_DATA schema."
         ),
       },
       async ({ approach_data }) => {
+        // XSS safety: article/intel text can contain </script> — escape before injection.
+        // Replacer-function safety: content can contain $', $&, $` — replacer bypasses expansion.
         const safe = approach_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = "__APPROACH_DATA__";
         const filled = APPROACH_TEMPLATE_HTML.replace(PLACEHOLDER, () => safe);
@@ -1245,7 +1246,7 @@ Area name + category mapping (use exactly, in order):
           return {
             content: [{
               type: "text" as const,
-              text: "[approach_get_template] ERROR: placeholder __APPROACH_DATA__ not found in template.",
+              text: "[approach_get_template] ERROR: placeholder __APPROACH_DATA__ not found in template. Report this to the developer.",
             }],
           };
         }
@@ -1289,6 +1290,18 @@ Area name + category mapping (use exactly, in order):
               "",
               pathHint,
               "",
+              "## Render — inline template (single path)",
+              "",
+              "Every Approach brief is built from scratch using approach_get_template. There is no",
+              "Path A / Path B and no engine version check — always the full flow:",
+              "",
+              "  1. Assemble the complete APPROACH_DATA object (see approach_get_skill section:'schema').",
+              "  2. Call approach_get_template({ approach_data: JSON.stringify(APPROACH_DATA) }).",
+              "     The server returns the complete, data-filled HTML.",
+              "  3. Write the HTML to [workspace-root]/approach-brief.html using the Write file tool.",
+              "     Guard against </script> injection: the server handles this — do not double-escape.",
+              "  4. Call create_artifact({ html_path: '...approach-brief.html', mcp_tools: ['mcp__<uuid>__warmup_get_fonts'] }).",
+              "",
               "## Font loading — required",
               "",
               "Cowork's CSP blocks Google Fonts CDN. The artifact loads fonts via the Cowork bridge",
@@ -1302,7 +1315,7 @@ Area name + category mapping (use exactly, in order):
               "     Your loaded warmup_get_fonts tool is named like \"mcp__<uuid>__warmup_get_fonts\".",
               "     Use that exact string — the UUID prefix changes per session.",
               "",
-              "  2. Pass warmup_get_fonts in mcp_tools when calling create_artifact or update_artifact:",
+              "  2. Pass warmup_get_fonts in mcp_tools when calling create_artifact:",
               "       mcp_tools: [\"mcp__<uuid>__warmup_get_fonts\"]",
               "     Without this, Cowork blocks the font call and the brief renders in fallback fonts.",
             ].join("\n"),

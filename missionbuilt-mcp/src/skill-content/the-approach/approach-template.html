@@ -591,6 +591,98 @@ try {
 }
 </script>
 
+<script>
+/* ── Font loader — lazy-loads fonts via MCP tool, caches in localStorage ─── *
+ *  Cowork's CSP blocks external font CDNs (Google Fonts, jsDelivr, etc).    *
+ *  Fonts are served by the Loadout MCP server via warmup_get_fonts instead.  *
+ *  Same four font families as The Warmup and The Spotter — shares the same   *
+ *  localStorage cache key so any skill's load covers the others.             *
+ *  fontToolName is written into APPROACH_DATA.config by the agent.           *
+ * ─────────────────────────────────────────────────────────────────────────── */
+(function loadFonts() {
+  var FONT_CACHE_KEY = 'warmup-fonts-v2'; // shared with warmup + spotter
+  var cfg      = (window.APPROACH_DATA && window.APPROACH_DATA.config) || {};
+  var toolName = cfg.fontToolName || '';
+
+  function showFontError(stage, detail) {
+    try {
+      if (document.getElementById('approach-font-err')) return;
+      var b = document.createElement('div');
+      b.id = 'approach-font-err';
+      b.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;max-width:520px;'
+        + 'background:#fff8f8;color:#900;border:1px solid #c00;'
+        + 'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 10px;';
+      b.textContent = '[Approach:Fonts] ' + stage + ' — ' + (detail || 'see console');
+      (document.body || document.documentElement).appendChild(b);
+    } catch(_) {}
+  }
+
+  if (!toolName) { showFontError('no fontToolName in APPROACH_DATA.config', 'agent must set config.fontToolName'); return; }
+  // Fonts already present in DOM — another skill loaded them first, or this is an exported file.
+  if (document.getElementById('warmup-fonts')) return;
+
+  function injectCSS(css) {
+    if (document.getElementById('warmup-fonts')) return;
+    var s = document.createElement('style');
+    s.id          = 'warmup-fonts'; // shared id — consistent across all skills
+    s.textContent = css;
+    document.head.insertBefore(s, document.head.firstChild);
+  }
+
+  // Try localStorage cache first — only trust entries with real @font-face rules.
+  try {
+    var cached = localStorage.getItem(FONT_CACHE_KEY);
+    if (cached && cached.length > 100 && cached.indexOf('@font-face') > -1) { injectCSS(cached); return; }
+    if (cached) { try { localStorage.removeItem(FONT_CACHE_KEY); } catch(e){} }
+  } catch(e) { /* storage unavailable */ }
+
+  var _fontAttempts = 0;
+  function tryFetchFonts() {
+    if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
+      if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); return; }
+      showFontError('window.cowork.callMcpTool never appeared', 'sandbox bridge unavailable');
+      return;
+    }
+    // Sanitize toolName before use — defense-in-depth against malformed config values.
+    var safeToolName = toolName.replace(/[^A-Za-z0-9_\-:]/g, '').slice(0, 200);
+    if (!safeToolName) { showFontError('invalid fontToolName', toolName.slice(0, 40)); return; }
+    window.cowork.callMcpTool(safeToolName, { intent: 'Loading approach fonts' })
+      .then(function(raw) {
+        try {
+          var css = null;
+          function tryParseCss(val) {
+            if (!val) return null;
+            if (typeof val === 'string') {
+              if (val.trim().charAt(0) === '{') {
+                try { var p = JSON.parse(val); return (p && p.css) ? p.css : val; } catch(e) {}
+              }
+              return val;
+            }
+            if (val && val.css) return val.css;
+            return null;
+          }
+          if (typeof raw === 'string')                                    { css = tryParseCss(raw); }
+          else if (raw && raw.css)                                        { css = raw.css; }
+          else if (Array.isArray(raw) && raw[0] && raw[0].text)          { css = tryParseCss(raw[0].text); }
+          else if (raw && raw.content && Array.isArray(raw.content))     { var item = raw.content[0]; css = item ? tryParseCss(item.text) : null; }
+          if (!css || css.length < 100 || css.indexOf('@font-face') === -1) {
+            var shape; try { shape = JSON.stringify(raw).slice(0, 200); } catch(_) { shape = String(raw).slice(0, 200); }
+            showFontError('unexpected font response', shape); return;
+          }
+          injectCSS(css);
+          try { localStorage.setItem(FONT_CACHE_KEY, css); } catch(e) { console.warn('[Approach:Fonts] localStorage write failed', e); }
+        } catch(e) {
+          showFontError('parse error', String(e && e.message || e));
+        }
+      })
+      .catch(function(err) {
+        showFontError('MCP call rejected', String(err && err.message || err));
+      });
+  }
+  tryFetchFonts();
+})();
+</script>
+
 <!-- ───────────────────────────  MASTHEAD  ─────────────────────────── -->
 <header class="masthead">
   <div class="np-row1" id="np-row1">
@@ -805,7 +897,8 @@ const C = D.config || {};
 /* ─── Helpers ─── */
 const $ = id => document.getElementById(id);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
-const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const safeUrl = u => { if (!u) return null; const s = String(u).trim(); return /^https?:\/\//i.test(s) ? s : null; };
 
 /* ─── Countdown timer ─── */
 function renderCountdown() {
@@ -829,7 +922,7 @@ function renderCountdown() {
 /* ─── Masthead ─── */
 function renderMasthead() {
   document.title = `The Approach · ${C.targetCompany || 'Brief'} · ${C.generatedDate || ''}`;
-  $('page-title').textContent = document.title;
+  const pt = $('page-title'); if (pt) pt.textContent = document.title;
 
   const d = new Date();
   $('vol-issue').textContent = `VOL · I · NO · ${String(d.getFullYear()).slice(-2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
@@ -855,7 +948,7 @@ function renderSignalBar() {
   const facts = D.companyFacts && D.companyFacts.length ? D.companyFacts : SAMPLE_DATA.companyFacts;
   const cols = facts.slice(0, 6);
   while (cols.length < 6) cols.push({ k: '—', v: '—' });
-  bar.innerHTML = cols.map(f => `<div><span class="k">${esc(f.k)}</span><span class="v">${f.v || '—'}</span></div>`).join('');
+  bar.innerHTML = cols.map(f => `<div><span class="k">${esc(f.k)}</span><span class="v">${esc(f.v || '—')}</span></div>`).join('');
 }
 
 /* ─── Scouting summary ─── */
@@ -882,7 +975,8 @@ function renderPeople() {
     card.innerHTML += `<div class="person-name">${esc(p.name || '—')}</div>`;
     card.innerHTML += `<div class="person-title">${esc(p.title || '')}</div>`;
     if (p.recentSignal) card.innerHTML += `<div class="person-signal">${esc(p.recentSignal)}</div>`;
-    if (p.linkedinUrl) card.innerHTML += `<a class="person-linkedin" href="${esc(p.linkedinUrl)}" target="_blank" rel="noopener">↗ LinkedIn</a>`;
+    const liUrl = safeUrl(p.linkedinUrl);
+      if (liUrl) card.innerHTML += `<a class="person-linkedin" href="${esc(liUrl)}" target="_blank" rel="noopener">&#8599; LinkedIn</a>`;
     cards.appendChild(card);
   });
   strip.appendChild(label);
@@ -905,14 +999,15 @@ function buildSectionHTML(sec, idx) {
   </div>`;
 
   if (lead) {
-    html += `<article class="lead">`;
-    html += `<div class="item-meta">
-      <span class="dot ${esc(lead.tier||'d3')}"></span>
-      <span class="src">${esc(lead.src||'')}</span>
-      ${lead.date ? `<span class="date">${esc(lead.date)}</span>` : ''}
-      ${(lead.tags||[]).map(t=>`<span class="tag t-type">${esc(t)}</span>`).join('')}
-      ${lead.url ? `<a href="${esc(lead.url)}" target="_blank" rel="noopener" class="tag">↗ Source</a>` : ''}
-    </div>`;
+      const leadSafeUrl = safeUrl(lead.url);
+      html += `<article class="lead">`;
+      html += `<div class="item-meta">
+        <span class="dot ${esc(lead.tier||'d3')}"></span>
+        <span class="src">${esc(lead.src||'')}</span>
+        ${lead.date ? `<span class="date">${esc(lead.date)}</span>` : ''}
+        ${(lead.tags||[]).map(t=>`<span class="tag t-type">${esc(t)}</span>`).join('')}
+        ${leadSafeUrl ? `<a href="${esc(leadSafeUrl)}" target="_blank" rel="noopener" class="tag">&#8599; Source</a>` : ''}
+      </div>`;
     if (lead.hl)   html += `<h3 class="hl">${esc(lead.hl)}</h3>`;
     if (lead.deck) html += `<p class="deck">${esc(lead.deck)}</p>`;
     if (lead.body) html += `<p class="body-text">${esc(lead.body)}</p>`;
@@ -1119,7 +1214,7 @@ function renderSafety() {
 /* ─── Colophon ─── */
 function renderColophon() {
   $('colophon').innerHTML = `Briefed by <span class="brand">The Approach<span class="sq"></span></span> · part of <span class="brand">The Loadout<span class="sq"></span></span> · Iron Log<br>
-  Generated ${C.generatedAt || ''} on ${C.generatedDate || ''} for ${esc(C.seller||'you')} / ${esc(C.sellerCompany||'')} · Field Brief v0.1<br>
+  Generated ${esc(C.generatedAt || '')} on ${esc(C.generatedDate || '')} for ${esc(C.seller||'you')} / ${esc(C.sellerCompany||'')} · Field Brief v0.1<br>
   <em>Read it once. Walk in heavy.</em>`;
 }
 
@@ -1136,13 +1231,13 @@ function buildSecNav() {
   const act2 = sections.filter(s => s.act === 2);
   if (act1.length) {
     append('group-label', 'Business ▮');
-    act1.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
+    act1.forEach(s => { const a = el('a','',esc(s.title||s.id||'')); a.href = '#' + (s.id||''); nav.appendChild(a); });
   }
-  const sep = el('span','divider','·');
+  const sep = el('span','divider','\xB7');
   nav.appendChild(sep);
   if (act2.length || D.stack && D.stack.length) {
     append('group-label', 'Technical ▮');
-    act2.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
+    act2.forEach(s => { const a = el('a','',esc(s.title||s.id||'')); a.href = '#' + (s.id||''); nav.appendChild(a); });
     if (D.stack && D.stack.length) { const a = el('a','','Stack'); a.href = '#stack'; nav.appendChild(a); }
   }
   if (D.plays && D.plays.length) { const a = el('a','','Plays'); a.href = '#plays'; nav.appendChild(a); }
@@ -1171,22 +1266,29 @@ function initScrollSpy() {
 }
 
 /* ─── Boot ─── */
-renderMasthead();
-renderCountdown();
-renderSignalBar();
-renderScoutSummary();
-renderPeople();
-renderSections();
-buildSecNav();
-renderStack();
-renderPlays();
-renderRisks();
-renderOpener();
-renderDiscovery();
-renderSources();
-renderSafety();
-renderColophon();
-initScrollSpy();
+try {
+  renderMasthead();
+  renderCountdown();
+  renderSignalBar();
+  renderScoutSummary();
+  renderPeople();
+  renderSections();
+  buildSecNav();
+  renderStack();
+  renderPlays();
+  renderRisks();
+  renderOpener();
+  renderDiscovery();
+  renderSources();
+  renderSafety();
+  renderColophon();
+  initScrollSpy();
+} catch (err) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<p style="position:fixed;top:0;left:0;right:0;padding:12px 16px;background:#b6271d;color:#fff;font-family:monospace;font-size:13px;z-index:9999">' +
+    'The Approach render error — ' + String(err) + '</p>'
+  );
+}
 
 </script>
 </body>
