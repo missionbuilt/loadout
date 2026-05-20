@@ -156,7 +156,8 @@ optional. Write all prose in active voice, present tense, and tight sentences.
     "intelItems": 18,
     "riskFlags": 3,
     "peopleFound": 2,
-    "totalLinks": 22
+    "totalLinks": 22,
+    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
   },
 
   "scouting": {
@@ -390,11 +391,21 @@ a) Write the complete artifact to [workspace_folder]/approach-artifact.html
      <script id="approach-data">
      window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
      </script>
-     <script src="https://mcp.missionbuilt.io/approach-shell.js?v=0.1.4"></script>
+     <script src="https://mcp.missionbuilt.io/approach-shell.js?v=0.1.5"></script>
      </body>
      </html>
 
-b) Call create_artifact with id: "the-approach" and the path to approach-artifact.html.
+   IMPORTANT — </script> guard: if APPROACH_DATA contains </script> anywhere (e.g. in
+   an article body or epic text), it will close the script tag early and break the page.
+   Before writing, replace every occurrence in the JSON string:
+     JSON.stringify(APPROACH_DATA).replace(/<\/script>/gi, '<\\/script>')
+
+b) Call create_artifact with:
+     id: "the-approach"
+     html_path: the path to approach-artifact.html
+     mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
+   Replace <uuid> with your actual warmup_get_fonts tool UUID prefix.
+   Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
 ```
 
 ---
@@ -469,3 +480,4 @@ don't have to re-enter it next time."*
 | 0.1.2 | Path B rewrite — Read/Write file tools instead of approach_get_template for first run. |
 | 0.1.3 | approach_run now loads per-section via approach_get_skill. Render boundary includes Summary line. |
 | 0.1.4 | Remote shell architecture. Path B writes a 14-line skeleton; CSS and renderer load from mcp.missionbuilt.io/approach-shell.js. Zero template-read tokens on first run. |
+| 0.1.5 | MCP font loader replaces Google Fonts CDN (blocked by Cowork CSP). Add config.fontToolName to APPROACH_DATA schema. Pass mcp_tools on create_artifact. XSS escaping fixes: buildSecNav nav link text, colophon date fields. |
