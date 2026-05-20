@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.2.0
+version: 0.2.3
 part_of: The Loadout
 ---
 
@@ -131,208 +131,235 @@ Try `"[CONTACT NAME]" "[TARGET]" site:linkedin.com` — if a photo URL is return
 
 ---
 
-## APPROACH_DATA Schema (v0.1.0)
+## APPROACH_DATA Schema (v0.2 · C1 editorial design)
 
-Build this object during synthesis. Every field below is required unless marked
-optional. Write all prose in active voice, present tense, and tight sentences.
+Build this object during synthesis. Every field is required unless marked optional.
+Write all prose in active voice, present tense, tight sentences.
+
+### Text formatting tokens (used inside string fields)
+
+| Token | Renders as |
+|---|---|
+| `**text**` | `<strong>text</strong>` (bold) |
+| `_text_` | `<em>text</em>` (italic) |
+| `{chip:confirmed:I · Pain}` | Green MEDDPICC chip |
+| `{chip:partial:C · Champion}` | Amber MEDDPICC chip |
+| `{chip:unknown:D · Process}` | Grey MEDDPICC chip |
+
+Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr`, `sections[].action`, and `prose[].text` (type "p" items only).
+
+### Source tier dot classes
+
+| `tier` value | Dot color | Use for |
+|---|---|---|
+| `"company"` | blood-red | Company's own site, press release, official blog |
+| `"press"` | dark ink | Tier-1 press, trade pubs, analyst reports |
+| `"social"` | faint | LinkedIn, X, Reddit, podcasts |
+| `""` (omit) | army-green | Regulatory (CISA, SEC), third-party data |
 
 ```json
 {
   "config": {
-    "seller": "Mike",
-    "sellerCompany": "Elastic",
-    "sellerProduct": "Elastic Security",
-    "targetCompany": "Acme Financial Group",
-    "targetDomain": "acmefinancial.com",
-    "targetIndustry": "Financial Services",
-    "meetingWith": "Rebecca Torres, CISO · Marcus Webb, VP IT Ops",
-    "meetingContext": "Agentic security operations",
-    "meetingDate": "Friday, 16 May 2026",
-    "meetingTime": "14:30 ET",
-    "generatedAt": "09:14 ET",
-    "generatedDate": "16 May 2026",
-    "sourcesActive": 24,
-    "sourcesQuiet": 6,
-    "intelItems": 18,
-    "riskFlags": 3,
-    "peopleFound": 2,
-    "totalLinks": 22,
     "fontToolName": "mcp__<uuid>__warmup_get_fonts"
   },
 
-  "scouting": {
-    "whoTheyAre": "One or two sentences: company in plain terms.",
-    "whatIsChanging": "One or two sentences: what is different THIS quarter.",
-    "howWePlayIt": "One sentence: the tactical read. What to lead with."
+  "meta": {
+    "company":       "Rogue Fitness",
+    "contact":       "Jock Padgett",
+    "contactTitle":  "Chief Technology Officer",
+    "seller":        "Mike (AE)",
+    "se":            "Sarah (SE)",
+    "callTime":      "14:30 ET",
+    "callDate":      "Wed 20 May 2026",
+    "briefNumber":   "001",
+    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
+    "sourceCount":   "14",
+    "sourceStatus":  "all green",
+    "generatedAt":   "20 May 2026",
+    "readingTime":   "~14 min"
   },
 
-  "companyFacts": [
-    { "k": "Founded", "v": "2006 · Columbus OH" },
-    { "k": "Ownership", "v": "Private · founder-led" },
-    { "k": "Headcount", "v": "~1,400" },
-    { "k": "Revenue", "v": "$700M+ est. · FY24" },
-    { "k": "Stack signal", "v": "Shopify Plus · AWS · NetSuite" },
-    { "k": "Generated", "v": "09:14 ET · 16 May 2026" }
-  ],
-
-  "sections": [
-    {
-      "id": "snapshot",
-      "act": 1,
-      "kicker": "Section one",
-      "title": "Company snapshot",
-      "sub": "What they do, how they make money, and what shape they're in this quarter.",
-      "lead": {
-        "tier": "d2",
-        "src": "acmefinancial.com / About",
-        "date": "2026-05-12",
-        "tags": [
-          { "cls": "t-type", "text": "PROFILE" }
-        ],
-        "url": "https://example.com",
-        "hl": "Lead headline — the single most important fact about this company right now.",
-        "deck": "One italic sentence — the 'so what?' of the lead.",
-        "body": "Two to three paragraph summary in plain prose. Drop cap on the first letter is automatic.",
-        "marginNote": null,
-        "callout": "What to do with this: specific, tactical, one to three sentences."
+  "meddpicc": {
+    "title": "Where we stand on the deal.",
+    "deck": "Eight dimensions, scored from public intel. **Pain** is confirmed — Padgett named it publicly.",
+    "cells": [
+      {
+        "letter":   "M",
+        "label":    "Metrics",
+        "status":   "partial",
+        "headline": "Breach cost, OT downtime, MILO fleet exposure",
+        "evidence": "No named baseline yet. Peer breach data gives proxy numbers to anchor the conversation.",
+        "next":     "Ask: \'What does an hour of OT downtime cost you, ballpark?\'"
       },
-      "items": [
-        {
-          "tier": "d3",
-          "src": "Bloomberg",
-          "date": "2026-05-08",
-          "tags": [],
-          "url": "https://example.com",
-          "hl": "Supporting item headline.",
-          "body": "Two to three sentence summary."
-        }
-      ]
-    }
-  ],
-
-  "people": [
-    {
-      "name": "Rebecca Torres",
-      "title": "CISO",
-      "initials": "RT",
-      "linkedinUrl": "https://linkedin.com/in/example",
-      "photoUrl": null,
-      "background": "Ex-JPMorgan (12 yrs). Splunk and CrowdStrike background. Detection fidelity obsessed.",
-      "recentSignal": "Publicly said 'my tolerance for SIEM noise is zero' on a podcast in March.",
-      "keyQuote": "My tolerance for SIEM noise is zero.",
-      "priorStack": "Splunk Enterprise, CrowdStrike",
-      "meetingRole": "primary",
-      "audienceFor": "both"
-    }
-  ],
-
-  "stack": [
-    {
-      "layer": "SIEM",
-      "tool": "Splunk Enterprise",
-      "fit": "competitor",
-      "fitLabel": "COMPETITOR",
-      "evidence": "Multiple job postings reference Splunk administration. CISO background is Splunk.",
-      "note": "Frame around Splunk's detection gaps, not feature comparison."
-    },
-    {
-      "layer": "EDR",
-      "tool": "CrowdStrike",
-      "fit": "supported",
-      "fitLabel": "INTEGRATED",
-      "evidence": "Job postings list CrowdStrike as required skill.",
-      "note": null
-    }
-  ],
-
-  "plays": [
-    {
-      "num": 1,
-      "audience": "ae",
-      "priority": "featured",
-      "title": "Open on the Dec 2025 dwell period.",
-      "cat": "Incident history · Credibility",
-      "finding": "The LockBit 3.0 incident had a 19-day dwell period. Their legacy SIEM missed it. That is the reason for this call — everything downstream flows from that failure.",
-      "intel": [
-        {
-          "body": "Name the dwell period first. 'We know 19 days is a long time to not know you have a problem.' Then stop.",
-          "src": "internal · call strategy",
-          "srcDate": null
-        },
-        {
-          "body": "Do not pitch features. Pitch the answer to the specific failure: lateral movement detection the SIEM didn't surface.",
-          "src": "SEC 8-K · Dec 14 2025",
-          "srcDate": "2025-12-14"
-        }
-      ],
-      "runWhen": "first 90 seconds, before any product talk",
-      "audible": "if Torres opens with Splunk pricing questions, acknowledge and come back to this",
-      "handNote": "★ this is the call"
-    }
-  ],
-
-  "opener": {
-    "lines": [
-      { "type": "quote", "text": "Rebecca — thanks for making time. Before we get into anything else, I want to ask about December." },
-      { "type": "beat", "text": "Beat. Let her respond." },
-      { "type": "quote", "text": "Nineteen days is a long time to not know you have a problem. That's what we're here to talk about — what would have caught it, and how quickly." },
-      { "type": "beat", "text": "Beat. Hand it to her." }
-    ],
-    "stageDirection": "Do not open the deck for at least 8 minutes after this. Earn the deck.",
-    "handNote": "— briefed by The Approach, 09:14 ET"
-  },
-
-  "discovery": {
-    "business": [
-      "What does success look like for you in the next 90 days — not the project, the feeling?",
-      "Who else needs to bless a security tooling change at this point in your tenure?",
-      "Where is the budget for security infrastructure living — your line, a shared one, or post-incident capital?",
-      "How long is your decision cycle for something in this price band?",
-      "What does the board want to hear after December — and have you had that conversation yet?"
-    ],
-    "technical": [
-      "What was the detection coverage gap that allowed the 19-day dwell — do you have a postmortem?",
-      "What is your current SIEM data retention and ingestion cap, and are you bumping against it?",
-      "How is your CrowdStrike telemetry flowing into the SIEM today — is there a connector, or manual export?",
-      "Who owns detection rule tuning, and how often does the team touch them?",
-      "What does your alert-to-incident workflow look like — where does the human get involved?",
-      "What integrations exist between your IR platform and your ticketing system?"
+      {
+        "letter":   "E",
+        "label":    "Economic Buyer",
+        "status":   "partial",
+        "headline": "Padgett likely owns infra security — Henniger above $1M",
+        "evidence": "CFO seat is vacant; Bill acting. Threshold unknown.",
+        "next":     "Confirm signing authority in back half of call."
+      },
+      {
+        "letter":   "D",
+        "label":    "Decision Criteria",
+        "status":   "unknown",
+        "headline": "Not formalised — opportunity to shape",
+        "evidence": "No public RFP. Conference talk emphasises operational visibility.",
+        "next":     "Ask: \'How will you know which platform is the right fit?\'"
+      },
+      {
+        "letter":   "D",
+        "label":    "Decision Process",
+        "status":   "unknown",
+        "headline": "Founder-led, fast — mechanics unknown",
+        "evidence": "No board, no PE. Bill makes calls quickly.",
+        "next":     "Ask: \'Walk me through how a decision like this gets made here.\'"
+      },
+      {
+        "letter":   "P",
+        "label":    "Paper Process",
+        "status":   "unknown",
+        "headline": "Procurement, legal — all air",
+        "evidence": "Private company. No SOC 2 mandate visible.",
+        "next":     "Defer to call 2 unless raised."
+      },
+      {
+        "letter":   "I",
+        "label":    "Identify Pain",
+        "status":   "confirmed",
+        "headline": "Named publicly at DefCon — OT/IT convergence, MILO fleet, PCI scope",
+        "evidence": "DefCon 31 (Aug 2023): \'Security has to live where the work happens.\'",
+        "next":     "Quote his DefCon phrase. Don\'t re-discover what he already named."
+      },
+      {
+        "letter":   "C",
+        "label":    "Champion",
+        "status":   "partial",
+        "headline": "Padgett = likely buyer and champion in one",
+        "evidence": "Military background, broad mandate, publicly committed to the problem.",
+        "next":     "Identify one SecOps ally by call 2."
+      },
+      {
+        "letter":   "C",
+        "label":    "Competition",
+        "status":   "partial",
+        "headline": "Splunk incumbent inferred",
+        "evidence": "3 job posts require \'Splunk or equivalent SIEM experience.\'",
+        "next":     "Ask: \'What are you running today for SIEM and endpoint?\'"
+      }
     ]
   },
 
-  "risks": [
+  "sections": [
     {
-      "level": "red",
-      "type": "contract",
-      "title": "New CISO on day one of tenure.",
-      "body": "Torres starts June 1. She will not sign a contract before she has had her first all-hands. Do not push for a fast close — you will lose trust. Run a discovery-heavy call one, earn call two."
-    },
-    {
-      "level": "amber",
-      "type": "competitor",
-      "title": "Splunk incumbent. Deep roots.",
-      "body": "The team knows Splunk. The CISO came from a Splunk shop. Do not position against Splunk by name — position around the detection failure that Splunk missed."
+      "id":     "snapshot",
+      "number": "01",
+      "for":    "the AE",
+      "title":  "Company snapshot.",
+      "deck":   "What they do, how they make money, and what shape they\'re in.",
+      "tldr":   "Founder-led. Private. **$700M+ revenue**. DTC e-commerce is the spine. **$45M manufacturing expansion** broke ground March 2026.",
+      "prose":  [
+        {
+          "type": "p",
+          "text": "Founded 2006. ~1,400 employees in Columbus OH. **Rogue Fitness** is the dominant US strength-equipment maker.",
+          "source": { "text": "roguefitness.com · Apr 2026", "tier": "company" }
+        },
+        {
+          "type": "pull",
+          "quote": "$45M expansion broke ground in March — five more years of demand we already have on the books.",
+          "cite": "Bill Henniger to Columbus Business First, 12 March 2026"
+        },
+        {
+          "type": "pull",
+          "chip": { "text": "I · Pain", "status": "confirmed" },
+          "quote": "Quote that directly names the pain.",
+          "cite": "Source name · date"
+        },
+        {
+          "type": "facts",
+          "items": [
+            { "label": "Revenue",   "value": "$700M+", "note": "FY24, triangulated" },
+            { "label": "Headcount", "value": "~1,400", "note": "Columbus, hiring fast" },
+            { "label": "Capex",     "value": "$45M",   "note": "West Jefferson, Mar 2026" }
+          ]
+        },
+        {
+          "type": "table",
+          "rows": [
+            { "layer": "Storefront", "tool": "Shopify Plus", "status": "Native",  "statusClass": "",    "note": "Out of the box." },
+            { "layer": "ERP",        "tool": "NetSuite",     "status": "Native",  "statusClass": "",    "note": "Standard connector." },
+            { "layer": "IoT",        "tool": "MILO fleet",   "status": "Paired",  "statusClass": "gap", "note": "2-3 week sprint." },
+            { "layer": "SIEM",       "tool": "Splunk (inf.)", "status": "Confirm", "statusClass": "unk", "note": "Confirm in discovery." }
+          ]
+        },
+        {
+          "type": "opener",
+          "text": "The verbatim opener text the AE reads aloud — ~90 seconds. Root it in a specific public signal from the contact.",
+          "beat": "Pause. Let him redirect if needed. Either answer maps to a demo."
+        },
+        {
+          "type": "questions",
+          "items": [
+            {
+              "chip": { "text": "I · Pain", "status": "confirmed" },
+              "text": "Discovery question targeting the confirmed pain dimension."
+            },
+            {
+              "chip": { "text": "D · Criteria", "status": "unknown" },
+              "text": "Discovery question targeting an unknown MEDDPICC cell."
+            }
+          ]
+        }
+      ],
+      "action": "What the AE or SE should _do_ with this section. One to three sentences, specific to this company and this contact."
     }
   ],
 
-  "sources": [
-    { "nm": "SEC EDGAR", "tier": "d1", "ct": "3 items", "status": "active" },
-    { "nm": "CISA KEV", "tier": "d1", "ct": "2 items", "status": "active" },
-    { "nm": "acmefinancial.com", "tier": "d2", "ct": "4 items", "status": "active" },
-    { "nm": "LinkedIn · Rebecca Torres", "tier": "d4", "ct": "7 items", "status": "active" },
-    { "nm": "Bloomberg", "tier": "d3", "ct": "1 item", "status": "active" },
-    { "nm": "BleepingComputer", "tier": "d3", "ct": "2 items", "status": "active" },
-    { "nm": "Reddit · r/netsec", "tier": "d4", "ct": "—", "status": "quiet" }
-  ],
+  "actDivider": {
+    "kicker": "Handoff · For Sarah, the SE",
+    "title":  "Technical posture.",
+    "deck":   "Stack, security events, demo prep, and risk flags. What the SE reads on the elevator up."
+  },
 
-  "safety": {
-    "total": 22,
-    "clean": 22,
-    "flagged": 0,
-    "scannedAt": "09:14 ET"
-  }
+  "product": "Elastic Security pre-call brief",
+  "version": "v0.2.3"
 }
 ```
+
+### Sections reference
+
+Build 9 sections in this order. Use the IDs and `for` values exactly:
+
+| # | id | for | title |
+|---|---|---|---|
+| 01 | `snapshot`   | `the AE` | Company snapshot. |
+| 02 | `leadership` | `the AE` | Leadership & the buyer. |
+| 03 | `financial`  | `the AE` | Financial posture. |
+| 04 | `industry`   | `the AE` | Industry context. |
+| 05 | `signal`     | `the AE` | Recent signal. |
+| 06 | `stack`      | `the SE` | Stack & integrations. |
+| 07 | `security`   | `the SE` | Public security events. |
+| 08 | `demos`      | `the SE` | Demo prep. |
+| 09 | `opener`     | `both`   | Opener & discovery. |
+
+The `actDivider` renders automatically before the first `"the SE"` section. Section 09 (`opener`) must contain prose items of type `opener` and `questions`.
+
+### Prose item type reference
+
+| `type` | Required fields | Optional fields |
+|---|---|---|
+| `p` | `text` (string, supports rich tokens) | `source.text`, `source.tier` |
+| `pull` | `quote`, `cite` | `chip.text`, `chip.status` |
+| `facts` | `items[]` → `label`, `value` | `note` per item |
+| `table` | `rows[]` → `layer`, `tool`, `status`, `note` | `statusClass` ("gap" or "unk") |
+| `opener` | `text` | `beat` |
+| `questions` | `items[]` → `text` | `chip.text`, `chip.status` per item |
+
+### MEDDPICC cell `status` values
+
+`"confirmed"` — evidence is in hand, public, datable.
+`"partial"` — evidence exists but requires confirmation on the call.
+`"unknown"` — no signal; the call must generate it.
 
 ---
 
