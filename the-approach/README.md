@@ -10,34 +10,51 @@ By H. Michael Nichols
 
 ## What this is
 
-In powerlifting, the approach to the bar is not incidental — it is deliberate. You know your opener. You know your second and your third. You have studied the competition. You walk up already inside the lift.
+In the gym, the approach to the bar is not incidental — it is deliberate. You know your opener. You know your second and your third. You have studied the competition. You walk up already inside the lift.
 
 The Approach does the same thing before a sales call. Before the deck. Before the discovery script. Before the awkward first silence. You know who is in the room, what they have said in public, what has already hit their stack, and what the three moves are before you dial in.
 
-You give it a company name and a line of context. It researches the target across nine concurrent source batches — incidents, filings, earnings, leadership signals, tech stack, social posts, competitor footprint — and renders a structured field brief with two acts: business intelligence for the AE above the fold, technical depth for the SE below. Both halves travel in one document. Both get read before the call.
+Give it a company name and a line of context. It researches the target across nine concurrent source categories — company snapshot, leadership, financials, industry context, social signal, tech stack, security events, demo prep, and discovery — then renders a structured field brief with two acts: business intelligence for the AE above the fold, technical depth for the SE below. Both halves travel in one document. Both get read before the call.
 
 ---
 
 ## What you get
 
-**The brief renders as a live HTML artifact** following the Iron Log design language from [missionbuilt.io](https://missionbuilt.io): cream paper, oxblood accents, Oswald/Merriweather/JetBrains Mono typography. No rounded corners, no drop shadows. Reads like a field document, not a CRM.
+**The brief renders as a live HTML artifact** in the Mission Built editorial style: cream paper, oxblood accents, Oswald display type, Merriweather body, JetBrains Mono for labels and metadata. No rounded corners. No drop shadows. Reads like a field document, not a CRM screen.
 
-**Sections covered:**
+**Brief structure:**
 
-- **Scouting summary** — three-column card: who they are, what's changing this quarter, how you play it
-- **Company snapshot** — founding, ownership, headcount, revenue signal, key products, motion this quarter
-- **Leadership & org signals** — named contact bios, prior stack, recent public statements, buying signal vocabulary
-- **Financial posture** — public filings (SEC 10-K/10-Q/8-K) or private triangulation from trade press
-- **Industry context** — competitor incidents, regulatory moves, analyst sentiment, sector tailwinds
-- **Social signal** — what the contact posted this week; verbatim quotes with engagement context
-- **Tech stack & integrations** — inferred from job postings, BuiltWith, blogs; fit table with evidence
-- **Security events** — known breaches, active CVEs on their stack, CISA KEV hits, SEC cyber disclosures
-- **Plays** — 2–4 ranked demo/moment recommendations tied to specific findings, with *run when* and *audible if* footers
-- **Risk flags** — RED/AMBER flags for procurement complexity, timing, stakeholder gaps, integration difficulty
-- **The opener** — scripted first 2 minutes, grounded in a real public signal from the contact
-- **Discovery questions** — 5–6 ranked questions for the AE, 5–6 for the SE, drawn from what the research surfaced
+- **Header** — company name, eyebrow with brief number and call date, meta row showing who it's for, source count, generated date, and reading time
+- **Table of contents** — numbered jump links to all nine sections
+- **Nine sections across two acts:**
 
-**Every source cited** is labeled with its trust tier (d1–d4). The brief footer shows a full list of sources scanned and a link safety summary.
+| # | Section | Act |
+|---|---|---|
+| 01 | Company snapshot | AE |
+| 02 | Leadership & the buyer | AE |
+| 03 | Financial posture | AE |
+| 04 | Industry context | AE |
+| 05 | Recent signal | AE |
+| 06 | Stack & integrations | SE |
+| 07 | Public security events | SE |
+| 08 | Demo prep | SE |
+| 09 | Opener & discovery | Both |
+
+An act divider separates the AE sections from the SE sections.
+
+- **MEDDPICC scorecard** — eight qualification dimensions (Metrics, Economic Buyer, Decision Criteria, Decision Process, Paper Process, Identify Pain, Champion, Competition), each scored Confirmed / Partial / Unknown from public intel with a specific next action
+- **Footer** — source count, generation date, Mission Built link
+
+**Prose item types used within sections:**
+
+- Paragraph with inline source attribution
+- Pull quote with cite line and optional MEDDPICC chip
+- Facts strip (key/value pairs)
+- Tech stack table (layer → tool → status → note)
+- Suggested opener script (~90 seconds, grounded in a real public signal)
+- Discovery questions list with optional MEDDPICC chips
+
+**Export:** The toolbar includes Export HTML (standalone file with all data baked in) and Print / PDF.
 
 ---
 
@@ -50,6 +67,18 @@ Connect the Loadout MCP server once and The Approach is available immediately:
 ```bash
 # Claude Code
 claude mcp add loadout https://mcp.missionbuilt.io/sse
+```
+
+Or add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "loadout": {
+      "url": "https://mcp.missionbuilt.io/sse"
+    }
+  }
+}
 ```
 
 Then say `"run the approach on [company]"` and follow the intake questions.
@@ -78,15 +107,7 @@ or
 prep me for my call with Acme Financial — we're at Elastic, talking agentic security ops, call is Friday 14:30 ET
 ```
 
-The skill collects four quick inputs (company, contacts, context, date/time) and then runs. You'll see a single status line in chat as it researches, then the full brief renders as a persistent artifact.
-
-### Repeat run (same target, updated intel)
-
-```
-refresh the approach for Rogue Fitness
-```
-
-The artifact updates in place with fresh intelligence. Sources are re-scanned; the countdown timer resets to the new meeting time.
+The skill collects up to five quick inputs (company, contacts, context, date/time, seller name) then runs nine concurrent research batches. You'll see a single status line in chat as it works, then the full brief renders as a persistent artifact.
 
 ### Saving your seller context
 
@@ -96,7 +117,7 @@ After your first run, say:
 save approach config
 ```
 
-The skill writes your name, company, and product to `APPROACH.md` in your workspace. Repeat runs skip those intake questions. See `APPROACH.example.md` for the full schema.
+The skill writes your name, company, product, and default SE to `APPROACH.md` in your workspace. Repeat runs skip those intake questions automatically. See `APPROACH.example.md` for the full schema.
 
 ---
 
@@ -117,22 +138,9 @@ Any of these will start The Approach:
 
 ## Config: APPROACH.md
 
-Your personal context — seller name, company, product, default SE — lives in `APPROACH.md` at your project root. The skill reads it automatically on startup and skips those intake questions.
+Your personal context — seller name, company, product, default SE — lives in `APPROACH.md` at your project root. The skill reads it on startup and skips any fields already defined there.
 
-Copy `APPROACH.example.md` from this directory to your project root as `APPROACH.md` and fill in your fields. It is gitignored and never leaves your machine.
-
----
-
-## Output
-
-The brief is a live HTML artifact that stays open across runs. It follows the Iron Log design language from missionbuilt.io — cream paper background, oxblood accents, JetBrains Mono instrument-panel labels, no rounded corners, no drop shadows. It reads like a field document, not a dashboard.
-
-Key V2 quirks layered into the V1 cream-paper base:
-
-- **Rotated stamp** — "The Approach / Field Brief" in the masthead corner
-- **T-minus countdown** — time until the call, counting down live
-- **Scouting summary card** — three-column cut-in card above the fold: who they are / what's changing / how you play it
-- **Run when / audible if** — every play has a run condition and an audible fallback, V2 coach's-playbook style
+Copy `APPROACH.example.md` from this directory to your project root as `APPROACH.md` and fill in your fields. It is gitignored and stays on your machine.
 
 ---
 
@@ -142,4 +150,4 @@ MIT. Use it, fork it, adapt it for your organization. Attribution per the MIT te
 
 ---
 
-Part of the Mission Built ecosystem. The book teaches the principles. The Loadout puts the principles into operation.
+*Part of the Mission Built ecosystem. The book teaches the principles. The Loadout puts the principles into operation.*
