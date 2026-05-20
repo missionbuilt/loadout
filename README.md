@@ -16,14 +16,6 @@ Each skill is self-contained. Drop one into your `.claude/skills/` folder and it
 
 ## Available now
 
-### [The Spotter](spotter/)
-
-A skill for reviewing, building, and iterating on B2B product epics across nine product-leadership areas — user and problem, competitive landscape, strategic differentiation, solution approach, holistic impact, packaging and pricing, launch readiness, post-launch ownership, and trust/governance/auditability. Produces a fully interactive worksheet artifact with per-area critique notes, an accept/skip refinement loop, and an export that unlocks when every area is closed.
-
-A spotter in powerlifting watches your form, catches the bar if something breaks down, and gives you the confidence to attempt a lift you couldn't safely attempt alone. They lift *you*, not the bar. This skill does the same for an epic.
-
-→ [Read The Spotter's documentation](spotter/README.md)
-
 ### [The Warmup](warmup/)
 
 A daily intelligence brief for the first coffee. Know what moved before you open your inbox.
@@ -41,6 +33,14 @@ A pre-meeting intelligence brief that turns a simple markdown config into a stru
 Built for enterprise sales calls, QBRs, and executive meetings where walking in cold is not an option. Configure once per account, regenerate before every call.
 
 → [Read The Approach's documentation](the-approach/README.md)
+
+### [The Spotter](spotter/)
+
+A skill for reviewing, building, and iterating on B2B product epics across nine product-leadership areas — user and problem, competitive landscape, strategic differentiation, solution approach, holistic impact, packaging and pricing, launch readiness, post-launch ownership, and trust/governance/auditability. Produces a fully interactive worksheet artifact with per-area critique notes, an accept/skip refinement loop, and an export that unlocks when every area is closed.
+
+A spotter in powerlifting watches your form, catches the bar if something breaks down, and gives you the confidence to attempt a lift you couldn't safely attempt alone. They lift *you*, not the bar. This skill does the same for an epic.
+
+→ [Read The Spotter's documentation](spotter/README.md)
 
 ## See it in action
 
