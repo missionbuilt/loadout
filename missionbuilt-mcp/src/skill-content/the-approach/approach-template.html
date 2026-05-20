@@ -83,17 +83,17 @@
   .head .eyebrow {
     font-family: var(--font-mono);
     font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--blood); font-weight: 500;
+    color: var(--blood); font-weight: 700;
     margin-bottom: 24px;
     display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   }
-  .head .eyebrow .sep { color: var(--ink-faint); }
+  .head .eyebrow .sep { color: var(--ink-dim); }
   .head h1 {
     font-family: var(--font-display);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 72px;
-    letter-spacing: -0.01em;
-    line-height: 0.96;
+    letter-spacing: -0.02em;
+    line-height: 0.94;
     color: var(--ink);
     margin-bottom: 20px;
   }
@@ -114,14 +114,14 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 24px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 14px;
   }
   .head .meta .k {
-    font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-dim); font-weight: 500;
-    margin-bottom: 4px; display: block;
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+    margin-bottom: 6px; display: block;
   }
-  .head .meta .v { color: var(--ink); font-weight: 500; }
+  .head .meta .v { color: var(--ink); font-weight: 600; }
 
   /* ── TABLE OF CONTENTS ──────────────────────────────────────────────── */
   .toc {
@@ -132,7 +132,7 @@
   .toc .label {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--ink-faint); font-weight: 500;
+    color: var(--ink-soft); font-weight: 700;
     margin-bottom: 18px;
   }
   .toc ol { list-style: none; counter-reset: toc; columns: 2; column-gap: 32px; }
@@ -140,15 +140,15 @@
     counter-increment: toc;
     padding: 8px 0;
     font-family: var(--font-display);
-    font-size: 18px; font-weight: 500;
-    color: var(--ink-soft);
+    font-size: 20px; font-weight: 600;
+    color: var(--ink);
     display: flex; gap: 14px; align-items: baseline;
     break-inside: avoid;
   }
   .toc li::before {
     content: counter(toc, decimal-leading-zero);
     font-family: var(--font-mono); font-size: 11px;
-    color: var(--blood); font-weight: 500;
+    color: var(--blood); font-weight: 700;
     letter-spacing: 0.1em;
     flex-shrink: 0;
   }
@@ -164,15 +164,15 @@
   .meddpicc .kicker {
     font-family: var(--font-mono);
     font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--blood); font-weight: 500;
+    color: var(--blood); font-weight: 700;
     margin-bottom: 8px; display: block;
   }
   .meddpicc h2 {
     font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 36px;
-    letter-spacing: -0.01em;
-    line-height: 1.05;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
     color: var(--ink);
     margin: 6px 0 6px;
   }
@@ -195,7 +195,8 @@
   .meddpicc .ring .leg {
     font-family: var(--font-mono);
     font-size: 10.5px; letter-spacing: 0.16em;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
+    font-weight: 600;
     display: flex; align-items: center; gap: 8px;
   }
   .meddpicc .ring .leg .pip {
@@ -249,13 +250,13 @@
   .mp .body .k {
     font-family: var(--font-mono);
     font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase;
-    color: var(--ink-faint); font-weight: 500;
+    color: var(--ink-soft); font-weight: 700;
     display: block;
     margin-bottom: 2px;
   }
   .mp .body h3 {
     font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 600;
     font-size: 17px;
     line-height: 1.2;
     color: var(--ink);
@@ -265,7 +266,7 @@
     font-family: var(--font-serif);
     font-size: 13.5px;
     line-height: 1.5;
-    color: var(--ink-soft);
+    color: var(--ink-dim);
     margin-bottom: 6px;
     text-wrap: pretty;
   }
@@ -274,6 +275,7 @@
     font-size: 10.5px;
     letter-spacing: 0.02em;
     color: var(--blood);
+    font-weight: 600;
     display: block;
     line-height: 1.4;
   }
@@ -324,22 +326,22 @@
   .sec-num {
     font-family: var(--font-mono);
     font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--blood); font-weight: 500;
-    margin-bottom: 8px;
+    color: var(--blood); font-weight: 700;
+    margin-bottom: 10px;
     display: flex; gap: 12px; align-items: baseline;
   }
-  .sec-num .pipe { color: var(--ink-faint); }
+  .sec-num .pipe { color: var(--ink-dim); }
   .sec-num .for {
-    font-family: var(--font-serif); font-style: italic; font-weight: 300;
+    font-family: var(--font-serif); font-style: italic; font-weight: 400;
     text-transform: none; letter-spacing: 0.01em;
-    color: var(--ink-dim); font-size: 13px;
+    color: var(--ink-soft); font-size: 13px;
   }
   .sec-title {
     font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 36px;
-    letter-spacing: -0.01em;
-    line-height: 1.08;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
     color: var(--ink);
     margin-bottom: 10px;
   }
@@ -401,7 +403,8 @@
   .prose .source {
     font-family: var(--font-mono);
     font-size: 11px; letter-spacing: 0.04em;
-    color: var(--ink-faint);
+    color: var(--ink);
+    font-weight: 600;
     margin: -16px 0 22px;
     display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
   }
@@ -435,7 +438,8 @@
   .pull cite {
     font-family: var(--font-mono);
     font-size: 11px; letter-spacing: 0.1em;
-    color: var(--ink-dim);
+    color: var(--ink);
+    font-weight: 600;
     font-style: normal;
     display: block;
   }
@@ -455,12 +459,12 @@
   .facts .f .k {
     font-family: var(--font-mono);
     font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-faint); font-weight: 500;
+    color: var(--ink-soft); font-weight: 700;
     margin-bottom: 6px; display: block;
   }
   .facts .f .v {
     font-family: var(--font-display);
-    font-size: 22px; font-weight: 500;
+    font-size: 22px; font-weight: 700;
     color: var(--ink); line-height: 1.15;
     display: block; margin-bottom: 4px;
   }
@@ -502,13 +506,13 @@
   .act-divider .k {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase;
-    color: var(--ink-faint); font-weight: 500;
+    color: var(--ink-dim); font-weight: 700;
     margin-bottom: 8px;
   }
   .act-divider h2 {
     font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 36px;
+    font-weight: 700;
+    font-size: 40px;
     letter-spacing: -0.005em;
     line-height: 1;
     color: var(--ink);
@@ -531,7 +535,7 @@
   .stack-table th {
     text-align: left;
     font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-faint); font-weight: 500;
+    color: var(--ink-soft); font-weight: 700;
     padding: 0 16px 10px 0;
     border-bottom: 1px solid var(--rule);
   }
@@ -540,12 +544,12 @@
     border-bottom: 1px solid var(--rule-soft);
     vertical-align: top;
   }
-  .stack-table td.layer { color: var(--ink-faint); width: 18%; }
-  .stack-table td.tool { color: var(--ink); font-weight: 500; width: 22%; }
-  .stack-table td.status { width: 14%; font-size: 10px; letter-spacing: 0.16em; color: var(--army); font-weight: 600; }
-  .stack-table td.status.unk { color: var(--ink-faint); }
+  .stack-table td.layer { color: var(--ink-soft); width: 18%; font-weight: 600; }
+  .stack-table td.tool { color: var(--ink); font-weight: 600; width: 22%; }
+  .stack-table td.status { width: 14%; font-size: 10px; letter-spacing: 0.16em; color: var(--army); font-weight: 700; }
+  .stack-table td.status.unk { color: var(--ink-dim); font-weight: 600; }
   .stack-table td.status.gap { color: var(--blood); }
-  .stack-table td.note { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink-soft); line-height: 1.55; }
+  .stack-table td.note { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink); line-height: 1.55; }
 
   /* ── DISCOVERY QUESTIONS ────────────────────────────────────────────── */
   .questions {
@@ -599,7 +603,8 @@
   .opener .beat {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--ink-faint);
+    color: var(--ink-dim);
+    font-weight: 600;
     margin-top: 14px;
     padding-top: 12px;
     border-top: 1px solid var(--rule-soft);
@@ -617,9 +622,12 @@
     font-size: 10.5px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--ink-dim);
+    color: var(--ink-soft);
+    font-weight: 600;
     line-height: 1.8;
   }
+  .colophon a { color: inherit; text-decoration: none; cursor: pointer; }
+  .colophon a:hover { color: var(--blood); }
   .colophon .f-sq {
     display: inline-block;
     width: 6px; height: 6px;
@@ -807,7 +815,7 @@ try {
 
 <!-- ── COLOPHON ─────────────────────────────────────────────────────────── -->
 <footer class="colophon">
-  <div id="col-text"><a href="https://missionbuilt.io" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Mission<span class="f-sq"></span>Built</a> <span class="f-sq"></span> The Approach <span class="f-sq"></span> The Loadout</div>
+  <div id="col-text"><a href="https://missionbuilt.io" target="_blank" rel="noopener">Mission<span class="f-sq"></span>Built</a> <span class="f-sq"></span> The Approach <span class="f-sq"></span> The Loadout</div>
   <div class="col-sub" id="col-sub"></div>
 </footer>
 
@@ -861,18 +869,19 @@ function renderMasthead() {
   }).join(' ');
   $('h-eyebrow').innerHTML = eyeHtml;
 
-  // H1 — company name with trailing period
+  // H1 — company name with trailing red-square period
   var company = esc(M.company || 'Brief');
-  $('h-title').textContent = (M.company || 'Brief') + '.';
+  $('h-title').innerHTML = company + '<span class="f-sq" style="display:inline-block;width:14px;height:14px;background:var(--blood);margin-left:6px;vertical-align:2px;flex-shrink:0;"></span>';
 
   // Deck
   $('h-deck').innerHTML = rich(M.deck || '');
 
   // Meta
   var cfg = C.config || {};
-  var forStr = esc(cfg.seller || '');
-  if (cfg.se) forStr += ' + ' + esc(cfg.se);
-  $('h-meta-for').innerHTML     = forStr || '—';
+  var forParts = [];
+  if (cfg.seller) forParts.push(esc(cfg.seller));
+  if (cfg.se)     forParts.push(esc(cfg.se));
+  $('h-meta-for').innerHTML = forParts.length ? forParts.join('<br>') : '—';
   $('h-meta-sources').textContent = M.sourceCount || '—';
   $('h-meta-gen').textContent   = M.generated   || '—';
   $('h-meta-read').textContent  = M.readingTime || '—';
