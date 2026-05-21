@@ -559,6 +559,12 @@ main { max-width: 880px; margin: 0 auto; padding: 0 32px 56px; }
 .rev-notes-list .rev-note .icon { text-align: center; font-family: var(--font-display); font-size: 13px; font-weight: 600; }
 .rev-notes-list .rev-note .lbl { letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; font-size: 9.5px; }
 .rev-notes-list .rev-note .txt { color: var(--ink); font-family: var(--font-serif); font-size: 13.5px; line-height: 1.5; }
+.rev-grade { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; margin: 6px 0 2px; color: var(--ink-soft); }
+.rev-grade .gr-before { color: var(--blood); }
+.rev-grade .gr-after  { color: var(--army); }
+.rev-grade .gr-same   { color: var(--ink-dim); }
+.rev.rerun-card { background: var(--paper-soft); border-left: 2px solid var(--ink-faint); padding: 8px 12px; }
+.rev.rerun-card .meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px; }
 
 /* ── ACTIONS ──────────────────────────────────────── */
 .actions {
@@ -931,6 +937,41 @@ function now_hhmm() {
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
+/* ── GRADE HELPERS ───────────────────────────────────────────────────────── */
+var VALID_GRADES = { 'pass': 1, 'needs-work': 1, 'missing': 1 };
+function safeGrade(g) { return VALID_GRADES[g] ? g : null; }
+
+function gradeInfo(grade) {
+  if (grade === 'pass')    return { verdict: 'good',    label: 'Pass',       pip: 'w' };
+  if (grade === 'missing') return { verdict: 'no-lift', label: 'Missing',    pip: 'r' };
+  return                          { verdict: 'no-lift', label: 'Needs work', pip: 'r' };
+}
+
+function readAreaGradeLabel(areaEl) {
+  var v = areaEl.querySelector('.status .verdict');
+  return v ? v.textContent.trim() : '';
+}
+
+function applyAreaGrade(areaEl, grade) {
+  var info = gradeInfo(grade);
+  var verdictEl = areaEl.querySelector('.status .verdict');
+  if (verdictEl) { verdictEl.textContent = info.label; verdictEl.className = 'verdict ' + info.verdict; }
+  var pipsEl = areaEl.querySelector('.status .pips');
+  if (pipsEl) { pipsEl.querySelectorAll('.pip').forEach(function(p) { p.className = 'pip ' + info.pip; }); }
+  var tk = document.querySelector('.tk[data-for="' + areaEl.id + '"]');
+  if (tk) tk.setAttribute('data-verdict', info.verdict);
+  var D = window.SPOTTER_DATA;
+  if (D && D.areas) {
+    var areaData = D.areas.find(function(a) { return a.id === areaEl.id; });
+    if (areaData) {
+      areaData.verdict = info.verdict;
+      areaData.verdictLabel = info.label;
+      var n = pipsEl ? pipsEl.querySelectorAll('.pip').length : 3;
+      areaData.judges = Array(n).fill(info.pip);
+    }
+  }
+}
+
 /* ── NOTE HELPERS ────────────────────────────────────────────────────────── */
 var VALID_NOTE_TYPES = { missing: 1, suggest: 1, recommend: 1, observation: 1 };
 function safeNoteType(t) { return VALID_NOTE_TYPES[t] ? t : 'observation'; }
@@ -1125,9 +1166,12 @@ function syncTracker() {
 }
 
 /* ── REVISION THREAD ─────────────────────────────────────────────────────── */
-function appendRevision(area, userNote, revData) {
+function appendRevision(area, userNote, revData, gradeBefore) {
   var excerpt = (revData && revData.excerpt) || '';
   var newNotes = (revData && revData.notes) || [];
+  var newGrade = revData && safeGrade(revData.grade);
+  /* Apply the new grade to pips, verdict badge, and SPOTTER_DATA */
+  if (newGrade) applyAreaGrade(area, newGrade);
   var thread = area.querySelector('.thread');
   if (!thread) return;
   var list = thread.querySelector('.thread-list');
@@ -1148,9 +1192,21 @@ function appendRevision(area, userNote, revData) {
   }
 
   var hhmm = now_hhmm();
+  var gradeAfterLabel = newGrade ? gradeInfo(newGrade).label : '';
+  var gradeHtml = '';
+  if (gradeBefore || gradeAfterLabel) {
+    var before = gradeBefore || '—';
+    var after  = gradeAfterLabel || '—';
+    if (before === after) {
+      gradeHtml = '<div class="rev-grade">Grade: <span class="gr-same">' + esc(after) + ' (unchanged)</span></div>';
+    } else {
+      gradeHtml = '<div class="rev-grade">Grade: <span class="gr-before">' + esc(before) + '</span> → <span class="gr-after">' + esc(after) + '</span></div>';
+    }
+  }
   var revCard = document.createElement('div');
   revCard.className = 'rev';
   revCard.innerHTML = '<div class="meta"><span class="num">Rev ' + next + '</span> \xB7 Your refinement <span class="time">' + hhmm + '</span></div>'
+    + gradeHtml
     + '<div class="user-note">' + esc(userNote || 'No specific note — Spotter tightened the framing.') + '</div>'
     + '<div class="excerpt"><span class="excerpt-label">New excerpt drafted by Spotter</span>' + esc(excerpt) + '</div>'
     + buildNotesSummary(newNotes);
@@ -1215,7 +1271,8 @@ function callSpotterAI(userNote, area) {
     + notesContext + '\n\n'
     + 'Rewrite the excerpt so it directly addresses the user\'s note. Write in the PM\'s voice — concrete, no hedging, 150-300 words.\n\n'
     + 'Respond with ONLY a JSON object (no markdown fences, no commentary):\n'
-    + '{"excerpt":"revised text here","notes":[{"type":"observation|suggest|recommend|missing","body":"1-2 sentence critique"}]}';
+    + '{"grade":"pass|needs-work|missing","excerpt":"revised text here","notes":[{"type":"observation|suggest|recommend|missing","body":"1-2 sentence critique"}]}\n\n'
+    + 'grade: "pass" = area fully meets the bar, "needs-work" = gaps remain, "missing" = critical content absent.';
 
   if (!window.cowork || typeof window.cowork.askClaude !== 'function') {
     return Promise.resolve({
@@ -1268,8 +1325,9 @@ function rerunSpotterAI(area) {
     + 'Area question: ' + (areaData.deck || '') + '\n'
     + '\nCurrent excerpt:\n---\n' + currentExcerpt + '\n---\n'
     + notesContext + '\n\n'
-    + 'Return ONLY a JSON object with updated critique notes (no markdown fences):\n'
-    + '{"notes":[{"type":"missing|suggest|recommend|observation","body":"1-2 sentence critique"}]}';
+    + 'Return ONLY a JSON object with your re-evaluation (no markdown fences):\n'
+    + '{"grade":"pass|needs-work|missing","notes":[{"type":"missing|suggest|recommend|observation","body":"1-2 sentence critique"}]}\n\n'
+    + 'grade: "pass" = area fully meets the bar now, "needs-work" = gaps remain, "missing" = critical content absent.';
 
   if (!window.cowork || typeof window.cowork.askClaude !== 'function') {
     return Promise.resolve({ notes: [{ type: 'observation', body: 'AI bridge not available. window.cowork.askClaude is required in Cowork artifacts.' }] });
@@ -1327,13 +1385,37 @@ function wireArea(areaEl) {
       if (act === 'refine') {
         refineWithSpotter(areaEl);
       } else if (act === 'rerun') {
-        /* Rerun: re-evaluate current excerpt */
+        /* Rerun: re-evaluate current excerpt, update grade */
+        var gradeBefore = readAreaGradeLabel(areaEl);
         btn.disabled = true;
         btn.textContent = '↻ Running…';
         rerunSpotterAI(areaEl).then(function(revData) {
           btn.disabled = false;
           btn.textContent = '↻ Rerun Spotter';
           replaceNotesPane(areaEl, revData.notes || []);
+          var newGrade = revData && safeGrade(revData.grade);
+          var gradeAfterLabel = newGrade ? gradeInfo(newGrade).label : '';
+          if (newGrade) applyAreaGrade(areaEl, newGrade);
+          /* Append a lightweight rerun card to the thread */
+          var thread = areaEl.querySelector('.thread');
+          var list = thread && thread.querySelector('.thread-list');
+          if (list) {
+            var hhmm = now_hhmm();
+            var gradeChange = (gradeBefore && gradeAfterLabel && gradeBefore !== gradeAfterLabel)
+              ? 'Grade: <span class="gr-before">' + esc(gradeBefore) + '</span> → <span class="gr-after">' + esc(gradeAfterLabel) + '</span>'
+              : (gradeAfterLabel ? 'Grade: <span class="gr-same">' + esc(gradeAfterLabel) + ' (unchanged)</span>' : '');
+            var rerunCard = document.createElement('div');
+            rerunCard.className = 'rev rerun-card';
+            rerunCard.innerHTML = '<div class="meta">↻ Rerun · ' + hhmm + '</div>'
+              + (gradeChange ? '<div class="rev-grade">' + gradeChange + '</div>' : '');
+            list.appendChild(rerunCard);
+            if (thread) {
+              thread.setAttribute('data-empty', 'false');
+              thread.setAttribute('data-open', 'true');
+              var ctEl = thread.querySelector('.thread-head .ct');
+              if (ctEl) ctEl.textContent = String(list.querySelectorAll('.rev').length);
+            }
+          }
           var touched = areaEl.querySelector('[data-touched]');
           if (touched) touched.textContent = 'Spotter re-ran at ' + now_hhmm();
           updateSaveStatus();
@@ -1360,6 +1442,9 @@ function wireArea(areaEl) {
       var ta = areaEl.querySelector('.iterate-editor textarea');
       var userNote = ta ? ta.value.trim() : '';
 
+      /* Snapshot grade before AI rewrites the excerpt */
+      var gradeBefore = readAreaGradeLabel(areaEl);
+
       /* Disable UI, show loading */
       sendBtn.disabled = true;
       sendBtn.textContent = 'Asking Spotter…';
@@ -1368,7 +1453,7 @@ function wireArea(areaEl) {
       if (aiStatus) { aiStatus.textContent = 'Spotter is rewriting…'; aiStatus.classList.add('visible'); }
 
       callSpotterAI(userNote, areaEl).then(function(revData) {
-        appendRevision(areaEl, userNote, revData);
+        appendRevision(areaEl, userNote, revData, gradeBefore);
         setAreaState(areaEl, 'revised');
         if (ta) { ta.value = ''; ta.disabled = false; }
         sendBtn.disabled = false;
