@@ -976,7 +976,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `4. CONFIRM  — post grade summary to chat (only after artifact exists)\n\n` +
               `## Permitted tools\n\n` +
               `Only these tools may be used. Everything else is forbidden.\n\n` +
-              `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
+              `  MCP:  list_artifacts · create_artifact · update_artifact · request_cowork_directory\n` +
               `        spotter_get_skill · spotter_get_examples · spotter_get_template\n` +
               `  File: Read · Write · Edit · Grep\n\n` +
               `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
@@ -992,7 +992,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `   Validate before continuing — if the workspace root contains any of these strings, you have the WRONG path:\n` +
               `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
               `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
-              `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n\n` +
+              `   If you cannot determine a valid workspace root, call request_cowork_directory (no arguments) to prompt the user to select a folder, then use the path they approve.\n\n` +
               `c. Set target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD].html\n` +
               `   Use today's date for YYYY-MM-DD. e.g. epic "Comments on Dashboards" on 21 May 2026 → spotter-comments-on-dashboards-2026-05-21.html\n` +
               `   A date suffix guarantees a new artifact panel each session — without it Cowork reuses the cached webview.\n\n` +
