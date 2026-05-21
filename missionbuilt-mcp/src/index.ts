@@ -1007,13 +1007,24 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `   Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps verdict at "Not ready."\n` +
               `d. Call spotter_get_examples({ area: N, intent: "..." }) if you need calibration on any area.\n` +
               `e. Build SPOTTER_DATA now — this is the one and only grading pass:\n` +
-              `   epic: { name, company, teamShape, window, attempt, epicBody (full raw epic text verbatim) }\n` +
-              `   areas: [ { id, n, name, category, question, judges, finding (1–3 sentences),\n` +
-              `              spotterPull ("you could strengthen this by…"), handNote (optional 1-liner) } ]\n` +
+              `   meta: { epicTitle, epicDeck ("A Spotter review · Nine areas, three judges each."),\n` +
+              `           author (PM name or "PM"), date ("21 May 2026") }\n` +
+              `   areas: [ { id ("a01"–"a09"), num ("01"–"09"),\n` +
+              `              cat (from standard mapping), title (from standard mapping),\n` +
+              `              deck (area's one-line question),\n` +
+              `              verdict ("good" for Pass, "no-lift" for Needs work or Missing),\n` +
+              `              verdictLabel ("Pass" / "Needs work" / "Missing"),\n` +
+              `              pips (["w","w","w"] / ["w","w","r"] / ["r","r","r"]),\n` +
+              `              pipSub ("3 of 3 white" / "2 of 3 white" / "0 of 3 white"),\n` +
+              `              excerpt (verbatim epic text for this area, or "" if isEmpty),\n` +
+              `              excerptLabel (e.g. "Problem section"), excerptMeta (e.g. "82 words"),\n` +
+              `              isEmpty (true if epic has no content for this area),\n` +
+              `              notes: [{ type ("missing"|"suggest"|"recommend"|"observation"), body }],\n` +
+              `              chips: ["short chip label"] } ]\n` +
               `   config: { fontToolName: the full prefixed name of warmup_get_fonts,\n` +
               `             e.g. "mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts" }\n` +
               `   The artifact uses warmup_get_fonts to load fonts — Cowork blocks Google Fonts CDN.\n` +
-              `   Voice: every flag is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
+              `   Voice: every note body is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
               `## Step 3 — Artifact  ← Write the file. This is the output.\n\n` +
               `Always write a fresh file every session — this guarantees the artifact loads clean without stale state from a prior session.\n\n` +
               `B-1. Fetch the template in chunks. Call spotter_get_template({ intent: "…", chunk: 0 }).\n` +
@@ -1032,7 +1043,10 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     b. Read that script block (2–3 lines).\n` +
               `     c. Edit: replace the entire block (use exact content from Read as old_string) with:\n` +
               `          <script id="spotter-data">\n` +
-              `          window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
+              `          window.SPOTTER_DATA = JSON_TEXT_HERE;\n` +
+`        JSON_TEXT_HERE means: paste the literal JSON text from JSON.stringify(SPOTTER_DATA)\n` +
+`        directly — no brackets, no outer quotes, no variable reference. Result looks like:\n` +
+`          window.SPOTTER_DATA = {"config":{...},"meta":{...},"areas":[...]};\n` +
               `          </script>\n\n` +
               `B-5. Call create_artifact — always create, never update_artifact.\n` +
               `     id: "spotter-[epic-slug]-[YYYY-MM-DD-HH-MM]"   html_path: the same file_path used in B-2\n` +

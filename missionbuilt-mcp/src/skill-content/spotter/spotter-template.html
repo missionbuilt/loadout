@@ -1223,7 +1223,7 @@ function appendRevision(area, userNote, revData, gradeBefore) {
   thread.setAttribute('data-empty', 'false');
   thread.setAttribute('data-open', 'true');
   var ctEl = thread.querySelector('.thread-head .ct');
-  if (ctEl && list) ctEl.textContent = String(list.querySelectorAll('.rev').length);
+  if (ctEl && list) ctEl.textContent = String(list.querySelectorAll('.rev:not(.rerun-card)').length);
 
   /* Update epic-excerpt block */
   var mainEpic = area.querySelector('.epic-excerpt');
@@ -1291,7 +1291,7 @@ function callSpotterAI(userNote, area) {
       text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       try {
         var parsed = JSON.parse(text);
-        if (parsed && parsed.excerpt && parsed.notes) return parsed;
+        if (parsed && parsed.notes) return parsed;
       } catch(e) {}
       return { excerpt: text || '[No response from Spotter]', notes: [{ type: 'observation', body: 'Spotter drafted a revision. Review the excerpt above.' }] };
     })
@@ -1413,7 +1413,7 @@ function wireArea(areaEl) {
               thread.setAttribute('data-empty', 'false');
               thread.setAttribute('data-open', 'true');
               var ctEl = thread.querySelector('.thread-head .ct');
-              if (ctEl) ctEl.textContent = String(list.querySelectorAll('.rev').length);
+              if (ctEl) ctEl.textContent = String(list.querySelectorAll('.rev:not(.rerun-card)').length);
             }
           }
           var touched = areaEl.querySelector('[data-touched]');
@@ -1549,7 +1549,6 @@ function buildAreaHtml(area, idx) {
 
     + '<div class="actions">'
     + '<button class="btn primary" data-act="refine">↗ Refine with Spotter</button>'
-    + '<button class="btn rerun" data-act="rerun">↻ Rerun Spotter</button>'
     + '<button class="btn accept" data-act="accept">✓ Accept</button>'
     + '<button class="btn block" data-act="block">⊘ Skip</button>'
     + '<button class="btn reopen" data-act="reopen">↺ Reopen</button>'

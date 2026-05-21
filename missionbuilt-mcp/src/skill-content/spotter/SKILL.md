@@ -320,16 +320,16 @@ The Spotter v1.0 renders as an **interactive worksheet artifact** rather than a 
 
 ### How the agent builds the worksheet
 
-1. Read the epic fully.
-2. For each of the nine areas, produce your analysis per SKILL.md criteria (same depth as review mode).
-3. Build the SPOTTER_DATA object (schema below).
-4. Call `spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA) })`.
-5. Write the returned HTML to disk.
-6. Call `create_artifact` (first run) or `update_artifact` (subsequent runs) with the file path.
+The worksheet artifact is assembled from template chunks — the full procedure is in `spotter_review`. Summary:
+
+1. Grade all nine areas and build the SPOTTER_DATA object (schema below).
+2. Call `spotter_get_template({ intent: "…", chunk: 0 })`. Read `<!-- SPOTTER_TOTAL_CHUNKS: N -->` from the response to learn how many chunks there are.
+3. Write chunk 0 to disk at `[workspace-root]/spotter-[slug]-[YYYY-MM-DD-HH-MM].html`.
+4. For each remaining chunk (1 to N−1): call `spotter_get_template({ chunk: i })`, then Edit the file — replace `<!-- __SPOTTER_SENTINEL__ -->` with the chunk content.
+5. Inject SPOTTER_DATA: Edit the `<script id="spotter-data">` block and set `window.SPOTTER_DATA = <literal JSON text>;`.
+6. Call `create_artifact` with the file path, a timestamp-stamped ID, and `mcp_tools` containing the full prefixed name of `warmup_get_fonts`.
 
 Never reconstruct the HTML yourself. The design lives in the template served by `spotter_get_template`.
-
-When calling `spotter_get_template`, always include `mcp_tools: ["mcp__<uuid>__spotter_get_template"]` in your tool call so Cowork grants permission.
 
 ### SPOTTER_DATA v1.0 schema
 
@@ -351,8 +351,8 @@ When calling `spotter_get_template`, always include `mcp_tools: ["mcp__<uuid>__s
       "cat": "Problem space",
       "title": "User & Problem",
       "deck": "Does the epic show deep understanding of the user's reality?",
-      "verdict": "good",
-      "verdictLabel": "Good lift",
+      "verdict": "no-lift",
+      "verdictLabel": "Needs work",
       "pips": ["w", "w", "r"],
       "pipSub": "2 of 3 white",
       "excerpt": "The verbatim section of the epic relevant to this area.",
@@ -393,9 +393,9 @@ When calling `spotter_get_template`, always include `mcp_tools: ["mcp__<uuid>__s
 
 `areas[n].deck` — The area's one-line question. Shown in italic under the title.
 
-`areas[n].verdict` — `"good"` (2+ pips white) or `"no-lift"` (2+ pips red).
+`areas[n].verdict` — CSS class driver: `"good"` for a passing area (all pips white), `"no-lift"` for a failing area (any pips red).
 
-`areas[n].verdictLabel` — Display label: `"Good lift"` or `"No-lift"`.
+`areas[n].verdictLabel` — Display label shown in the badge: `"Pass"` (all white), `"Needs work"` (mixed), or `"Missing"` (all red).
 
 `areas[n].pips` — Array of three strings. Each is `"w"` (white/pass) or `"r"` (red/fail). Map from your per-judge assessment:
 - ✓ Pass → `"w"`
@@ -441,7 +441,7 @@ Note type guidance:
 
 The worksheet artifact handles iteration entirely in the browser via `window.cowork.askClaude`. The agent does **not** need to handle iterate or rerun calls after the artifact is created — the PM works the worksheet directly. The agent's job is to produce a thorough first-read SPOTTER_DATA object and create the artifact.
 
-If the PM asks the agent to re-run the Spotter on a revised epic (outside the worksheet), treat it as a new review run: build a fresh SPOTTER_DATA, call `spotter_get_template`, and call `update_artifact`.
+If the PM asks the agent to re-run the Spotter on a revised epic (outside the worksheet), treat it as a new review run: call `spotter_review` from scratch with the revised epic.
 
 ## Anti-patterns
 
