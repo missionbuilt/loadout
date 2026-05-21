@@ -993,8 +993,9 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
               `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
               `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n\n` +
-              `c. Set target file: [workspace-root]/spotter-[epic-slug].html\n` +
-              `   e.g. epic "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
+              `c. Set target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD].html\n` +
+              `   Use today's date for YYYY-MM-DD. e.g. epic "Comments on Dashboards" on 21 May 2026 → spotter-comments-on-dashboards-2026-05-21.html\n` +
+              `   A date suffix guarantees a new artifact panel each session — without it Cowork reuses the cached webview.\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
               `Writing grades, findings, or verdicts to chat in this step is a task failure.\n` +
               `Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.\n` +
@@ -1020,7 +1021,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     Call it exactly once per chunk. Do not re-call any chunk for any reason.\n` +
               `     If a chunk call fails, stop and report the error.\n\n` +
               `B-2. Write chunk 0 to disk:\n` +
-              `     file_path: [workspace-root]/spotter-[epic-slug].html\n` +
+              `     file_path: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD].html  (same path as Step 1c)\n` +
               `     content: the chunk 0 string, exactly as returned — do not modify it.\n\n` +
               `B-3. For i = 1 to N-1, sequentially (never parallel):\n` +
               `     a. Call spotter_get_template({ chunk: i }).\n` +
@@ -1033,11 +1034,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `          <script id="spotter-data">\n` +
               `          window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
               `          </script>\n\n` +
-              `B-5. Call create_artifact (first run) or update_artifact (re-run).\n` +
-              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2\n` +
+              `B-5. Call create_artifact — always create, never update_artifact.\n` +
+              `     id: "spotter-[epic-slug]-[YYYY-MM-DD]"   html_path: the same file_path used in B-2\n` +
               `     mcp_tools: [the full prefixed name of warmup_get_fonts]\n` +
               `     The artifact calls warmup_get_fonts at open time to load fonts — it must be in mcp_tools\n` +
-              `     or Cowork will block the font call and the report will render in fallback fonts.\n\n` +
+              `     or Cowork will block the font call and the report will render in fallback fonts.\n` +
+              `     Using create_artifact with a date-stamped ID ensures Cowork opens a fresh panel, not a cached one.\n\n` +
               `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until B-3, B-4, and B-5 have all succeeded.\n\n` +
               `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
               `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +

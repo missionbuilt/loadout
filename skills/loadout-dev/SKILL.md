@@ -4,13 +4,16 @@ description: >
   Expert development partner for The Loadout — the Mission Built MCP server
   (mcp.missionbuilt.io) that powers The Warmup and The Spotter skills. Use this
   skill any time you are working on the Loadout project: adding or editing a skill,
-  modifying warmup-shell.rawjs or spotter-shell.rawjs, changing index.ts tools,
+  modifying warmup-template.html or spotter-template.html, changing index.ts tools,
   bumping versions, editing SKILL.md files, running a tech lead review, or preparing
   a commit and deploy. Also use it when the user says things like "work on the warmup,"
   "add a new loadout skill," "update the spotter," "edit the template," "bump the
   version," or "review before we ship." This skill carries the full project architecture,
   hard-won lessons from past sessions, and the exact collaboration model Mike and Claude
   use — including the rule that Mike runs all terminal commands and Claude writes all code.
+  DO NOT invoke for end-user requests to RUN the skills — "spot my epic," "run my
+  warmup," "run the approach for [company]" are handled by the MCP tools directly,
+  not by this development skill.
 ---
 
 # Loadout Dev

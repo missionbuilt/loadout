@@ -14,7 +14,7 @@
 export const SERVER_VERSION        = "1.2.0";
 export const WARMUP_VERSION        = "0.8.5";
 export const WARMUP_ENGINE_VERSION = "v0.8.5";
-export const SPOTTER_VERSION       = "1.0.5";
+export const SPOTTER_VERSION       = "1.0.6";
 export const THE_APPROACH_VERSION  = "0.2.6";
 
 /** Total number of registered MCP tools. Update when adding/removing tools. */
