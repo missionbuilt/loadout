@@ -993,9 +993,9 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
               `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
               `   If you cannot determine a valid workspace root, call request_cowork_directory (no arguments) to prompt the user to select a folder, then use the path they approve.\n\n` +
-              `c. Set target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD].html\n` +
-              `   Use today's date for YYYY-MM-DD. e.g. epic "Comments on Dashboards" on 21 May 2026 → spotter-comments-on-dashboards-2026-05-21.html\n` +
-              `   A date suffix guarantees a new artifact panel each session — without it Cowork reuses the cached webview.\n\n` +
+              `c. Set target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html\n` +
+              `   Use today's date and current HH-MM (24h). e.g. epic "Comments on Dashboards" at 14:23 on 21 May 2026 → spotter-comments-on-dashboards-2026-05-21-14-23.html\n` +
+              `   Including the time guarantees a fresh Cowork panel on every run — date-only fails when the same epic is reviewed twice in one day.\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
               `Writing grades, findings, or verdicts to chat in this step is a task failure.\n` +
               `Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.\n` +
@@ -1035,11 +1035,11 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `          window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
               `          </script>\n\n` +
               `B-5. Call create_artifact — always create, never update_artifact.\n` +
-              `     id: "spotter-[epic-slug]-[YYYY-MM-DD]"   html_path: the same file_path used in B-2\n` +
+              `     id: "spotter-[epic-slug]-[YYYY-MM-DD-HH-MM]"   html_path: the same file_path used in B-2\n` +
               `     mcp_tools: [the full prefixed name of warmup_get_fonts]\n` +
               `     The artifact calls warmup_get_fonts at open time to load fonts — it must be in mcp_tools\n` +
               `     or Cowork will block the font call and the report will render in fallback fonts.\n` +
-              `     Using create_artifact with a date-stamped ID ensures Cowork opens a fresh panel, not a cached one.\n\n` +
+              `     The HH-MM timestamp guarantees a fresh Cowork panel on every run — date-only fails when the same epic is reviewed more than once in a day.\n\n` +
               `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until B-3, B-4, and B-5 have all succeeded.\n\n` +
               `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
               `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +
