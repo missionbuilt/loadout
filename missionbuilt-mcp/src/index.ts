@@ -905,97 +905,49 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_template",
-      `Returns a complete, self-contained artifact HTML document (the v1.0 worksheet) with SPOTTER_DATA already injected — ready to write to disk and pass to create_artifact or update_artifact. Build your complete SPOTTER_DATA object first, then pass it as a JSON string. Never reconstruct or invent the HTML yourself — the correct design lives only in this tool.
-
-SPOTTER_DATA schema (v1.0 — worksheet format):
-{
-  config: {
-    fontToolName: string,           // REQUIRED — MCP tool name for font loading, e.g. "mcp__<uuid>__warmup_get_fonts"
-  },
-  meta: {
-    epicTitle: string,              // Epic title shown in header (required)
-    epicDeck: string,               // One-sentence description shown under title (required)
-    author: string,                 // PM name, e.g. "Mike" (required)
-    date: string,                   // Human date, e.g. "21 May 2026" (required)
-  },
-  areas: Array<{
-    id: string,                     // Element ID, e.g. "a01" through "a09" (required)
-    num: string,                    // Display number, e.g. "01" (required)
-    cat: string,                    // Category label, e.g. "Problem space" (required)
-    title: string,                  // Area name, e.g. "User & Problem" (required)
-    deck: string,                   // Area question (required)
-    verdict: string,                // "good" | "no-lift" (required)
-    verdictLabel: string,           // Display label, e.g. "Good lift" | "No-lift" (required)
-    pips: string[],                 // 3-element array of "w" (pass) or "r" (fail), e.g. ["w","w","r"]
-    pipSub: string,                 // e.g. "2 of 3 white" (required)
-    excerpt: string,                // Relevant section from the epic (required)
-    excerptLabel: string,           // e.g. "Problem section" (required)
-    excerptMeta: string,            // e.g. "82 words · unchanged" (required)
-    isEmpty: boolean,               // true if this area has no content in the epic
-    notes: Array<{
-      type: "missing"|"suggest"|"recommend"|"observation",
-      body: string,                 // 1-2 sentences, specific and actionable
-    }>,
-    chips: Array<string|{label:string,suggest:string}>,  // Suggestion chip text for the iterate editor
-  }>
-}
-
-Pip encoding — map your per-judge grades to the three-pip system:
-  ✓ Pass       → "w"   (white/army green pip — passed this judge)
-  ✗ Missing    → "r"   (red pip — failed this judge)
-
-Verdict logic: if 2+ pips are "w" → verdict:"good", verdictLabel:"Good lift"
-               if 2+ pips are "r" → verdict:"no-lift", verdictLabel:"No-lift"
-
-Area ID + category mapping (use exactly, in order):
-  id:"a01"  cat:"Problem space"   title:"User & Problem"
-  id:"a02"  cat:"Market"          title:"Competitive Landscape"
-  id:"a03"  cat:"Strategy"        title:"Strategic Differentiation"
-  id:"a04"  cat:"Solution"        title:"Solution Approach"
-  id:"a05"  cat:"Impact"          title:"Holistic Impact"
-  id:"a06"  cat:"Business"        title:"Packaging & Pricing"
-  id:"a07"  cat:"Launch"          title:"Launch Readiness"
-  id:"a08"  cat:"Post-launch"     title:"Post-Launch Ownership"
-  id:"a09"  cat:"Governance"      title:"Trust, Governance & Auditability"`,
+      "Returns the Spotter worksheet HTML in paginated 900-line chunks for disk assembly. No data injection — SPOTTER_DATA is written client-side by the agent after assembly. Call with chunk:0 first; read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn how many chunks to fetch. Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i and Edit-replace <!-- __SPOTTER_SENTINEL__ --> with each chunk. After assembly, Edit the <script id=\"spotter-data\"> block to inject window.SPOTTER_DATA, then call create_artifact or update_artifact.",
       {
         intent: intentField,
-        spotter_data: z
-          .string()
-          .max(120000)
+        chunk: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
           .describe(
-            "The full SPOTTER_DATA JSON object serialised as a string via JSON.stringify(). " +
-            "Required. The server injects it into the worksheet template and returns filled, artifact-ready HTML."
+            "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- SPOTTER_TOTAL_CHUNKS: N --> " +
+            "from chunk 0 to learn the total number of chunks."
           ),
       },
-      async ({ spotter_data }) => {
-        // Validate JSON before injection
-        try { JSON.parse(spotter_data); } catch(e) {
-          return { content: [{ type: "text" as const, text: `[spotter_get_template] ERROR: spotter_data is not valid JSON — ${String(e)}. Fix the SPOTTER_DATA object and retry.` }] };
+      async ({ chunk = 0 }) => {
+        const CHUNK_LINES = 900;
+        const SENTINEL    = '<!-- __SPOTTER_SENTINEL__ -->';
+
+        // Pre-process: stamp engine version and inject total-chunks comment after it.
+        // The \n in the replacement inserts a second line — allLines[2] becomes that line.
+        const processed = SPOTTER_TEMPLATE_HTML.replace(
+          '<!-- spotter-engine: SPOTTER_ENGINE_VERSION_MARKER -->',
+          () => `<!-- spotter-engine: v${SPOTTER_VERSION} -->\n<!-- SPOTTER_TOTAL_CHUNKS: PLACEHOLDER -->`
+        );
+        const allLines    = processed.split('\n');
+        const totalLines  = allLines.length;
+        const totalChunks = Math.ceil(totalLines / CHUNK_LINES);
+        allLines[2]       = `<!-- SPOTTER_TOTAL_CHUNKS: ${totalChunks} -->`;
+
+        if (chunk >= totalChunks) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `[spotter_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]`,
+            }],
+          };
         }
 
-        // XSS safety: data can contain </script> which breaks the script tag.
-        // Replacer function bypasses $-sequence expansion in String.prototype.replace.
-        const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
+        const start  = chunk * CHUNK_LINES;
+        const end    = Math.min(start + CHUNK_LINES, totalLines);
+        const result = allLines.slice(start, end);
+        if (chunk < totalChunks - 1) result.push(SENTINEL);
 
-        // Stamp the engine version into the template comment
-        const stamped = SPOTTER_TEMPLATE_HTML.replace(
-          'SPOTTER_ENGINE_VERSION_MARKER',
-          () => `v${SPOTTER_VERSION}`
-        );
-
-        const PLACEHOLDER = `__SPOTTER_DATA__`;
-        const filled = stamped.replace(PLACEHOLDER, () => safe);
-        const injected = filled !== stamped;
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: injected
-                ? filled
-                : `[spotter_get_template ERROR: SPOTTER_DATA placeholder not found in template — injection failed. Do NOT use raw output. Report this to the developer.]`,
-            },
-          ],
-        };
+        return { content: [{ type: "text" as const, text: result.join('\n') }] };
       }
     );
 
@@ -1075,29 +1027,31 @@ Area ID + category mapping (use exactly, in order):
               `     window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
               `     </script>\n` +
               `d. Call update_artifact with the workspace file path.\n\n` +
-              `### PATH B (new file or engine mismatch — three tool calls, in order)\n\n` +
-              `B-1. Call spotter_get_template({ intent: "…", spotter_data: JSON.stringify(SPOTTER_DATA), epicBody: [full raw epic text] })\n` +
-              `     This returns a complete, self-contained HTML document with the renderer already inlined.\n` +
-              `     Call it exactly once. Do not call it again for any reason — not to verify, not to retry.\n` +
-              `     If the call fails, stop and report the error.\n\n` +
-              `B-2. Get the HTML string from B-1. Two cases:\n` +
-              `     • Response starts with <!DOCTYPE or <html → HTML is in context. Use it as-is for B-3.\n` +
-              `     • Response looks like a file path → Cowork persisted it to disk.\n` +
-              `       Call Read on that path to retrieve the content. The file will be in one of two formats:\n` +
-              `       - Starts with <!DOCTYPE → plain HTML. Use the content as-is for B-3.\n` +
-              `       - Starts with { → JSON-wrapped (Cowork saved the full MCP response envelope).\n` +
-              `         Extract the HTML string from content[0].text in the JSON.\n` +
-              `         No Python, no bash, no shell commands of any kind — read the value directly.\n` +
-              `     Pass the HTML string, unmodified, to B-3.\n\n` +
-              `B-3. Call Write — file_path: [workspace-root]/spotter-[epic-slug].html\n` +
-              `     content: the HTML string from B-2, unmodified.\n` +
-              `     Bash is never needed for this step. If Write fails, report the error and stop.\n\n` +
-              `B-4. Call create_artifact (first run) or update_artifact (re-run).\n` +
-              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-3\n` +
+              `### PATH B (new file or engine mismatch — chunk, assemble, inject, register)\n\n` +
+              `B-1. Fetch the template in chunks. Call spotter_get_template({ intent: "…", chunk: 0 }).\n` +
+              `     Read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
+              `     Call it exactly once per chunk. Do not re-call any chunk for any reason.\n` +
+              `     If a chunk call fails, stop and report the error.\n\n` +
+              `B-2. Write chunk 0 to disk:\n` +
+              `     file_path: [workspace-root]/spotter-[epic-slug].html\n` +
+              `     content: the chunk 0 string, exactly as returned — do not modify it.\n\n` +
+              `B-3. For i = 1 to N-1, sequentially (never parallel):\n` +
+              `     a. Call spotter_get_template({ chunk: i }).\n` +
+              `     b. Edit the file: replace <!-- __SPOTTER_SENTINEL__ --> with the chunk content.\n` +
+              `     When done: Grep the file for <!-- __SPOTTER_SENTINEL__ --> — it must not appear.\n\n` +
+              `B-4. Inject SPOTTER_DATA — same pattern as Path A:\n` +
+              `     a. Grep the file for '<script id="spotter-data">'.\n` +
+              `     b. Read that script block (2–3 lines).\n` +
+              `     c. Edit: replace the entire block (use exact content from Read as old_string) with:\n` +
+              `          <script id="spotter-data">\n` +
+              `          window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
+              `          </script>\n\n` +
+              `B-5. Call create_artifact (first run) or update_artifact (re-run).\n` +
+              `     id: "spotter-[epic-slug]"   html_path: the same file_path used in B-2\n` +
               `     mcp_tools: [the full prefixed name of warmup_get_fonts]\n` +
               `     The artifact calls warmup_get_fonts at open time to load fonts — it must be in mcp_tools\n` +
               `     or Cowork will block the font call and the report will render in fallback fonts.\n\n` +
-              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until both B-3 and B-4 have succeeded.\n\n` +
+              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until B-3, B-4, and B-5 have all succeeded.\n\n` +
               `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
               `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +
               `Write this and nothing else:\n\n` +

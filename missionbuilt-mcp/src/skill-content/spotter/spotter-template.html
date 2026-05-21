@@ -860,15 +860,8 @@ main { max-width: 880px; margin: 0 auto; padding: 0 32px 56px; }
   <div class="col-sub" id="col-sub"></div>
 </footer>
 
-<!-- ═══════════════════════════════════════════════════
-     DATA INJECTION — replaced at render time by spotter_get_template
-     ═══════════════════════════════════════════════════ -->
 <script id="spotter-data">
-try {
-  window.SPOTTER_DATA = __SPOTTER_DATA__;
-} catch(e) {
-  window.SPOTTER_DATA = null;
-}
+window.SPOTTER_DATA = null; // ← AGENT: replace this line — see Path B step B-4.
 </script>
 
 <script>
