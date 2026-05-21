@@ -824,7 +824,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_skill",
-      "Returns a section of The Spotter SKILL.md. Use the 'section' param to load only what you need — avoids loading the full ~29KB document every call. Sections: 'areas' (all nine review areas + sub-checks — load this for grading), 'review' (review mode output format), 'iterate' (iterate mode output format), 'build' (build mode output format), 'output' (all three output formats together), 'schema' (structured JSON output schema), 'antipatterns' (what the skill must not do), 'full' (everything — use only when a specific section is insufficient).",
+      "Returns a named section of The Spotter SKILL.md. This is a HELPER tool — call it only after spotter_review has given you the review workflow and instructed you which section to load. Do NOT call this as the entry point for an epic review; always call spotter_review first. Calling this tool without first calling spotter_review produces a chat-only review with no artifact. Sections: 'areas' (all nine review areas + sub-checks — load for grading), 'review' (review output format), 'iterate' (iterate mode output format), 'build' (build mode output format), 'output' (all three output formats), 'schema' (JSON output schema), 'antipatterns' (what the skill must not do), 'full' (entire document).",
       {
         intent: intentField,
         section: z
@@ -953,7 +953,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_review",
-      "Primes the agent to review a B2B product epic using The Spotter's nine-area framework. Returns instructions and the epic — agent loads framework sections on demand via spotter_get_skill.",
+      "REQUIRED ENTRY POINT for all Spotter epic reviews. Call this first — before any other spotter tool — when the user says 'spot my epic', 'review my epic', 'run the spotter', 'check my epic', or pastes a product epic for review. Returns the full step-by-step workflow: workspace setup, silent grading protocol, artifact file creation, and create_artifact registration. Do NOT attempt to review an epic by calling spotter_get_skill directly — that tool only returns framework content and has no artifact pipeline. Calling spotter_get_skill without calling this tool first produces a chat-only review with no artifact, which is a task failure.",
       {
         intent: intentField,
         epic: z.string().min(50).max(20000).describe("The full text of the epic to review."),
@@ -1021,7 +1021,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     Call it exactly once per chunk. Do not re-call any chunk for any reason.\n` +
               `     If a chunk call fails, stop and report the error.\n\n` +
               `B-2. Write chunk 0 to disk:\n` +
-              `     file_path: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD].html  (same path as Step 1c)\n` +
+              `     file_path: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html  (same path as Step 1c)\n` +
               `     content: the chunk 0 string, exactly as returned — do not modify it.\n\n` +
               `B-3. For i = 1 to N-1, sequentially (never parallel):\n` +
               `     a. Call spotter_get_template({ chunk: i }).\n` +
