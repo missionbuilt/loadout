@@ -1436,7 +1436,25 @@ gap: 10px;
         // Non-UTC label (e.g. "06:14 ET") or no date anchor — show as recorded
         return st;
       }
-      // scanTime absent or unparseable — show nothing
+      // scanTime absent or unparseable — use the browser's current time.
+      // Agents don't have a reliable clock; SKILL.md tells them to omit scanTime
+      // rather than guess. When omitted, we render the moment the brief opens,
+      // which is accurate enough and never invented.
+      const browserTz2 = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      try {
+        const f2 = new Intl.DateTimeFormat('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: false,
+          timeZoneName: 'short', timeZone: browserTz2
+        });
+        const pts2 = f2.formatToParts(now);
+        const hr2  = (pts2.find(p => p.type === 'hour')         || {}).value || '';
+        const mn2  = (pts2.find(p => p.type === 'minute')       || {}).value || '';
+        const tzN2 = (pts2.find(p => p.type === 'timeZoneName') || {}).value || '';
+        if (hr2 && mn2) {
+          const h2 = (hr2 === '24' ? '00' : hr2).padStart(2, '0');
+          return tzN2 ? `${h2}:${mn2} ${tzN2}` : `${h2}:${mn2}`;
+        }
+      } catch(e) { /* fall through */ }
       return '';
     }
     const genStr = computeGenStr();

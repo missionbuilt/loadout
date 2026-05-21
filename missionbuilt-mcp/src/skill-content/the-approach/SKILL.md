@@ -169,12 +169,13 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "contactTitle":  "Chief Technology Officer",
     "seller":        "Mike (AE)",
     "se":            "Sarah (SE)",
-    "callTime":      "14:30 ET",
-    "callDate":      "Wed 20 May 2026",
+    "callTime":      "14:30 ET",   // The scheduled meeting time — from the user's config. Write exactly as given.
+    "callDate":      "Wed 20 May 2026", // The meeting date — read from system context (today's date). Always accurate.
     "briefNumber":   "001",
     "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
     "sourceCount":   "14",
-    "generated":     "20 May 2026",
+    "generated":     "20 May 2026", // Date only — read from system context. Do NOT write a time component.
+                                    // Agents don't have a reliable clock. Write the date; omit the time.
     "readingTime":   "~14 min"
   },
 

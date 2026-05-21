@@ -12,10 +12,10 @@
  */
 
 export const SERVER_VERSION        = "1.2.0";
-export const WARMUP_VERSION        = "0.8.3";
-export const WARMUP_ENGINE_VERSION = "v0.8.3";
-export const SPOTTER_VERSION       = "1.0.1";
-export const THE_APPROACH_VERSION  = "0.2.5";
+export const WARMUP_VERSION        = "0.8.4";
+export const WARMUP_ENGINE_VERSION = "v0.8.4";
+export const SPOTTER_VERSION       = "1.0.2";
+export const THE_APPROACH_VERSION  = "0.2.6";
 
 /** Total number of registered MCP tools. Update when adding/removing tools. */
 export const TOOL_COUNT = 23;

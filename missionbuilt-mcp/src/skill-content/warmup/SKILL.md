@@ -672,10 +672,11 @@ No file edits required. No template fetch. No `update_artifact` call needed.
     "sourcesActive": 12,
     "sourcesQuiet": 4,
     "showQuote": true,   // REQUIRED — must be true (JSON boolean). Omitting or setting false hides the daily quote.
-    "scanTime": "HH:MM TZ", // REQUIRED — set to current generation time in 24-hr user-timezone format (e.g. "06:14 ET").
-                              // Use timezone from WARMUP.md; default to UTC and write "HH:MM UTC" if not set.
-                              // THE single timestamp source — populates masthead, signal bar, safety panel, PDF.
-                              // Without this, Generated cell shows "—" and scan timestamp is blank.
+    "scanTime": "",  // Leave EMPTY ("") unless you have a reliable clock source.
+                     // Do NOT invent or guess a time — the renderer will use the user's local
+                     // browser clock when this is blank, which is always accurate.
+                     // Only write a value (e.g. "06:14 ET") if a tool explicitly returned the
+                     // current wall-clock time. Writing a fabricated time is worse than omitting.
     "timezone": "ET",   // REQUIRED — copy verbatim from WARMUP.md `timezone` field (e.g. "ET", "PT", "UTC").
                         // CRITICAL: this is the USER'S local timezone — NOT the company's headquarters timezone.
                         // Read it from WARMUP.md. Do not infer from the company location. Write "UTC" if not set.
@@ -759,7 +760,7 @@ No file edits required. No template fetch. No `update_artifact` call needed.
 - The lead is never re-sorted. Choose it deliberately — most important item in the section.
 - Items 1..N render in a two-column grid, date-sorted descending. No `deck` field on these.
 
-**`scanTime` is the single timestamp source.** Write it once as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). The renderer uses it in the masthead, the Generated cell in the signal bar, the link-safety scanned-at line, and the PDF masthead. Do not write separate timestamp values anywhere else.
+**`scanTime` — only write it if you actually know the time.** If a tool returned the current wall-clock time, write it as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). If you don't have a reliable clock source, leave it as `""` — the renderer falls back to the user's local browser clock, which is accurate. A fabricated timestamp is worse than no timestamp. Do not write separate timestamp values anywhere else.
 
 **On engine bugs:**
 1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.

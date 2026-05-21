@@ -381,7 +381,7 @@ When calling `spotter_get_template`, always include `mcp_tools: ["mcp__<uuid>__s
 
 `meta.author` — The PM's first name or full name. Shown in the masthead.
 
-`meta.date` — Human-readable date, e.g. `"21 May 2026"`.
+`meta.date` — Human-readable date, e.g. `"21 May 2026"`. Read from system context. Write the date only — do not add a time component. Agents don't have a reliable clock; a fabricated time is worse than no time.
 
 `areas[n].id` — Element anchor. Use `"a01"` through `"a09"` in order.
 
