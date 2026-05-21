@@ -1,3 +1,16 @@
+<!DOCTYPE html>
+<!-- warmup-engine: v0.8.4 -->
+<!-- WARMUP_TOTAL_CHUNKS: 3 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Warmup · Morning Edition</title>
+</head>
+<script id="warmup-tools">
+window.WARMUP_TOOLS = { dataTool: "mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_data" };
+</script>
+<body><script>
 /* warmup-shell.rawjs — Mission Built / The Warmup
    Injects fonts, CSS, static HTML structure, and full render engine into a
    ~14-line skeleton artifact. No large template read or file limit needed.
@@ -570,8 +583,8 @@ cursor: pointer;
 transition: color 0.12s, border-color 0.12s, background 0.12s;
 line-height: 1.45;
 }
-.profile-example-chip::before { content: '“'; color: var(--blood); margin-right: 2px; font-weight: 700; }
-.profile-example-chip::after { content: '”'; color: var(--blood); margin-left: 2px; font-weight: 700; }
+.profile-example-chip::before { content: '"'; color: var(--blood); margin-right: 2px; font-weight: 700; }
+.profile-example-chip::after { content: '"'; color: var(--blood); margin-left: 2px; font-weight: 700; }
 .profile-example-chip:hover { color: var(--ink); border-color: var(--blood); background: var(--blood-soft); }
 .profile-more-toggle {
 display: flex;
@@ -1107,19 +1120,7 @@ gap: 10px;
     if (_fMode) _fMode.textContent = _cfg.mode ? _cfg.mode + ' Mode' : '';
 
     // Signal bar
-    // Count only items that will actually render — i.e. within the lookback window.
-    // Using the same _depthDays / _secVisible logic defined above so the number
-    // matches what the user sees. Counting all items regardless of date produced
-    // a misleading "19 items" header when most sections were quiet.
-    var _totalItems = D.sections.reduce(function(n,s){
-      if (!s.items) return n;
-      return n + s.items.filter(function(it) {
-        if (!it || !it.date) return true; // undated items always count
-        var _pd = new Date(it.date + 'T12:00:00Z');
-        var _diff = Math.round((new Date() - _pd) / 86400000);
-        return _diff <= _depthDays;
-      }).length;
-    }, 0);
+    var _totalItems = D.sections.reduce(function(n,s){ return n + s.items.length; }, 0);
     var _nActive = (D.sources || []).filter(function(s){ return s.status === 'active'; }).length;
     var _nQuiet  = (D.sources || []).filter(function(s){ return s.status === 'quiet'; }).length;
     var _sActive = document.getElementById('stat-sources-active');
@@ -1128,7 +1129,7 @@ gap: 10px;
     var _sQuiet  = document.getElementById('stat-quiet');
     if (_sActive) _sActive.textContent = _nActive;
     if (_sItems)  _sItems.textContent  = _totalItems;
-    if (_sSecs)   _sSecs.textContent   = D.sections.filter(function(s){ return !!_seqOf[s.id]; }).length;
+    if (_sSecs)   _sSecs.textContent   = D.sections.length;
     if (_sQuiet)  _sQuiet.textContent  = _nQuiet;
     var _sGen = document.getElementById('stat-generated');
     if (_sGen) {
@@ -2163,3 +2164,7 @@ btn.textContent = 'Loading…';
   }
 
 })();
+
+
+</script></body>
+</html>

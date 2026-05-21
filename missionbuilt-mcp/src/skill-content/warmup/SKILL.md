@@ -716,6 +716,11 @@ No file edits required. No template fetch. No `update_artifact` call needed.
           // Omit entirely on non-lead items (items[1..N]).
           "body": "2–3 sentence summary in plain prose.",
           "date": "YYYY-MM-DD"
+          // CRITICAL: date is the article's actual publication date, not today's date
+          // and not a recycled date from a prior run. The renderer filters out items
+          // older than 4 days (10 for deep mode) — stale dates make items invisible
+          // while still inflating the ITEMS TODAY count. If you cannot determine the
+          // publication date, use today's date rather than guessing or recycling.
         },
         {
           // items[1..N] render in a two-column grid. No deck field. Date-sorted.
