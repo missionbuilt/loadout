@@ -994,12 +994,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
               `   If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.\n\n` +
               `c. Set target file: [workspace-root]/spotter-[epic-slug].html\n` +
-              `   e.g. epic "Comments on Dashboards" → spotter-comments-on-dashboards.html\n` +
-              `d. Determine path:\n` +
-              `   • No Spotter artifact for this epic in list_artifacts → PATH B\n` +
-              `   • Artifact exists → Read lines 1–3 of the workspace file (offset:0, limit:3)\n` +
-              `     Line 2 is exactly "<!-- spotter-engine: v${SPOTTER_VERSION} -->" → PATH A\n` +
-              `     Anything else, or cannot read → PATH B\n\n` +
+              `   e.g. epic "Comments on Dashboards" → spotter-comments-on-dashboards.html\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
               `Writing grades, findings, or verdicts to chat in this step is a task failure.\n` +
               `Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.\n` +
@@ -1019,15 +1014,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `   The artifact uses warmup_get_fonts to load fonts — Cowork blocks Google Fonts CDN.\n` +
               `   Voice: every flag is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
               `## Step 3 — Artifact  ← Write the file. This is the output.\n\n` +
-              `### PATH A (engine version matched — edit data block only)\n\n` +
-              `a. Grep workspace file for '<script id="spotter-data">'.\n` +
-              `b. Read that script block (2–3 lines).\n` +
-              `c. Edit: replace the entire block with:\n` +
-              `     <script id="spotter-data">\n` +
-              `     window.SPOTTER_DATA = [JSON.stringify(SPOTTER_DATA)];\n` +
-              `     </script>\n` +
-              `d. Call update_artifact with the workspace file path.\n\n` +
-              `### PATH B (new file or engine mismatch — chunk, assemble, inject, register)\n\n` +
+              `Always write a fresh file every session — this guarantees the artifact loads clean without stale state from a prior session.\n\n` +
               `B-1. Fetch the template in chunks. Call spotter_get_template({ intent: "…", chunk: 0 }).\n` +
               `     Read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
               `     Call it exactly once per chunk. Do not re-call any chunk for any reason.\n` +
@@ -1039,7 +1026,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               `     a. Call spotter_get_template({ chunk: i }).\n` +
               `     b. Edit the file: replace <!-- __SPOTTER_SENTINEL__ --> with the chunk content.\n` +
               `     When done: Grep the file for <!-- __SPOTTER_SENTINEL__ --> — it must not appear.\n\n` +
-              `B-4. Inject SPOTTER_DATA — same pattern as Path A:\n` +
+              `B-4. Inject SPOTTER_DATA:\n` +
               `     a. Grep the file for '<script id="spotter-data">'.\n` +
               `     b. Read that script block (2–3 lines).\n` +
               `     c. Edit: replace the entire block (use exact content from Read as old_string) with:\n` +
