@@ -1226,7 +1226,10 @@ function callSpotterAI(userNote, area) {
 
   return window.cowork.askClaude(prompt, [])
     .then(function(result) {
-      var text = (typeof result === 'string') ? result : JSON.stringify(result);
+      // askClaude returns { text: "..." } — extract the string before processing
+      var text = (typeof result === 'string') ? result
+               : (result && typeof result.text === 'string') ? result.text
+               : JSON.stringify(result);
       // Strip markdown fences if model adds them
       text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       try {
@@ -1274,7 +1277,10 @@ function rerunSpotterAI(area) {
 
   return window.cowork.askClaude(prompt, [])
     .then(function(result) {
-      var text = (typeof result === 'string') ? result : JSON.stringify(result);
+      // askClaude returns { text: "..." } — extract the string before processing
+      var text = (typeof result === 'string') ? result
+               : (result && typeof result.text === 'string') ? result.text
+               : JSON.stringify(result);
       text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       try {
         var parsed = JSON.parse(text);
