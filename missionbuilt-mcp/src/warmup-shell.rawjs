@@ -1370,23 +1370,10 @@ gap: 10px;
   // clock is irrelevant; this is a brief generated at a specific moment.
   try { (function () { // try-catch: isolated — failure here must not block Save PDF
     const now = new Date();
-    const tzRaw = (WARMUP_CONFIG.timezone || '').trim();
-    // Map common abbreviations to IANA names for Intl.DateTimeFormat
-    const TZ_MAP = {
-      'ET':'America/New_York','EST':'America/New_York','EDT':'America/New_York',
-      'CT':'America/Chicago','CST':'America/Chicago','CDT':'America/Chicago',
-      'MT':'America/Denver','MST':'America/Denver','MDT':'America/Denver',
-      'PT':'America/Los_Angeles','PST':'America/Los_Angeles','PDT':'America/Los_Angeles',
-      'UTC':'UTC','GMT':'UTC',
-      'BST':'Europe/London','CET':'Europe/Paris','CEST':'Europe/Paris',
-      'JST':'Asia/Tokyo','IST':'Asia/Kolkata','AEST':'Australia/Sydney'
-    };
-    // If timezone is absent or "UTC", fall back to the browser's local timezone —
-    // UTC just means the agent used its server clock, not the user's actual zone.
-    const tzResolved = TZ_MAP[tzRaw.toUpperCase()] || tzRaw || '';
-    const tz = (tzResolved && tzResolved !== 'UTC')
-      ? tzResolved
-      : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+    // Always render dates and times in the viewer's local browser timezone.
+    // WARMUP_CONFIG.timezone reflects the agent's clock or the company HQ zone —
+    // neither is right for the person reading the brief. The browser knows the truth.
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
     // Robust timezone formatter — falls back to UTC on invalid tz string
     function tzFmt(opts) {
