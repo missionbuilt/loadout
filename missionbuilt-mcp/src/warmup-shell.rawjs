@@ -932,7 +932,9 @@ gap: 10px;
     function tryFetchFonts() {
       if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
         if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); return; }
-        showFontError('window.cowork.callMcpTool never appeared', 'sandbox bridge unavailable');
+        // Cowork sandbox not available (e.g. public demo) — silent fallback, no UI banner
+        console.warn('[Warmup:Fonts] window.cowork unavailable — fonts not loaded (expected outside Cowork)');
+        return;
         return;
       }
 
