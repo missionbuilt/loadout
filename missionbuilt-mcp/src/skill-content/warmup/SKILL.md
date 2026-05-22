@@ -565,14 +565,24 @@ Real violations that MUST be caught (window = 7 days, today = 2026-05-16):
 
 If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` and exclude it from `safety.domains`.
 
+**Source status must match what appears in the brief.** A source is `"active"` only if
+at least one of its items is included as a card in the brief. If you found articles
+from a source but none make it into the brief (e.g. all outside the window), the source
+is `"quiet"`. Never mark a source active when none of its articles are visible to the reader.
+
 This gate runs **before** you organize items into sections. Do not route stale items into sections intending to remove them later — discard at first sight, before any further processing.
 
 Organize fetched items into sections using the Section Structure below
 (CISO mode) or the user's defined interest categories (Custom mode).
 
-**Curation rule:** quality over quantity. If 25+ items come back from searches,
-select the 12–18 most signal-dense. Prefer Tier 1 and Tier 2 findings.
-Within a section, order by relevance to the user's profile, not by source tier.
+**Inclusion rule — the date gate is the only filter.**
+Every item that passes the lookback window check appears in the brief as its own card.
+Do not cap by volume. Do not fold a distinct story into another item's body copy.
+Do not drop an item because a "better" item covers the same theme. Do not editorially
+select a subset. If the agent found it and it is within the window, the reader sees it.
+The brief may have more items on active news days and fewer on quiet ones — that variance
+is correct and honest. Within a section, order items by recency (newest first),
+with the most recent item as the section lead.
 
 ### Step 3b — Special Interests (optional)
 
@@ -718,9 +728,10 @@ No file edits required. No template fetch. No `update_artifact` call needed.
           "date": "YYYY-MM-DD"
           // CRITICAL: date is the article's actual publication date, not today's date
           // and not a recycled date from a prior run. The renderer filters out items
-          // older than 4 days (10 for deep mode) — stale dates make items invisible
-          // while still inflating the ITEMS TODAY count. If you cannot determine the
-          // publication date, use today's date rather than guessing or recycling.
+          // older than 7 days (10 for deep mode, or window_override if set) — stale
+          // dates make items invisible while still inflating the ITEMS TODAY count.
+          // If you cannot determine the publication date, use today's date rather
+          // than guessing or recycling.
         },
         {
           // items[1..N] render in a two-column grid. No deck field. Date-sorted.

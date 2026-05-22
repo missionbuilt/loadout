@@ -1064,6 +1064,32 @@ gap: 10px;
     D.sections.forEach(function(sec) { if (_secVisible(sec)) { _seqN++; _seqOf[sec.id] = _seqN; } });
     var _firstLive = (D.sections.find(function(s){ return _seqOf[s.id]; }) || {}).id || null;
 
+    // Pre-scan: collect domains from items that actually render within the lookback window.
+    // Used to derive source active/quiet status from what the reader can actually see —
+    // not from what the agent researched. Suffix matching (rd.endsWith('.'+srcDom)) handles
+    // subdomain variants like ir.elastic.co matching source domain elastic.co.
+    var _renderedDomSet = [];
+    D.sections.forEach(function(sec) {
+      (sec.items || []).forEach(function(it) {
+        if (!it || !it.url) return;
+        if (it.date) {
+          var _rpd = new Date(it.date + 'T12:00:00Z');
+          if (Math.round((new Date() - _rpd) / 86400000) > _depthDays) return;
+        }
+        try {
+          var _rh = new URL(it.url).hostname.replace(/^www\./, '');
+          if (_rh && _renderedDomSet.indexOf(_rh) === -1) _renderedDomSet.push(_rh);
+        } catch(e) {}
+      });
+    });
+    function _srcRendered(srcDom) {
+      if (!srcDom) return false;
+      for (var _ri = 0; _ri < _renderedDomSet.length; _ri++) {
+        var _rd = _renderedDomSet[_ri];
+        if (_rd === srcDom || _rd.endsWith('.' + srcDom) || srcDom.endsWith('.' + _rd)) return true;
+      }
+      return false;
+    }
 
     var _nav = document.getElementById('section-nav');
     if (_nav) {
@@ -1127,8 +1153,8 @@ gap: 10px;
         return _diff <= _depthDays;
       }).length;
     }, 0);
-    var _nActive = (D.sources || []).filter(function(s){ return s.status === 'active'; }).length;
-    var _nQuiet  = (D.sources || []).filter(function(s){ return s.status === 'quiet'; }).length;
+    var _nActive = (D.sources || []).filter(function(s){ return _srcRendered(s.dom); }).length;
+    var _nQuiet  = (D.sources || []).filter(function(s){ return !_srcRendered(s.dom); }).length;
     var _sActive = document.getElementById('stat-sources-active');
     var _sItems  = document.getElementById('stat-items');
     var _sSecs   = document.getElementById('stat-sections');
@@ -1249,8 +1275,8 @@ gap: 10px;
         {key:'d4', label:'Tier 4 · Vendor &amp; Market Intel'}
       ];
       function srcRow(s) {
-        var st = s.status === 'active' ? 'a' : 'q';
-        var stLabel = s.status === 'active' ? 'Active' : 'Quiet';
+        var st = _srcRendered(s.dom) ? 'a' : 'q';
+        var stLabel = _srcRendered(s.dom) ? 'Active' : 'Quiet';
         return '<div class="src-row">' +
           '<span class="dot ' + s.dot + '" aria-hidden="true">' + DOT[s.dot] + '</span>' +
           '<span class="src-nm">' + escapeHtml(s.nm) + '</span>' +
@@ -1265,8 +1291,8 @@ gap: 10px;
       var _depthHint = _searchDepth === 'deep' ? 'say <em>"use standard search"</em> to reduce token cost' : 'say <em>"use deep search"</em> for broader coverage';
       srcHtml += '<p class="safety-meta" style="margin-bottom:16px;">Search depth: <strong>' + _searchDepth + '</strong> · ' + _depthDesc + ' · ' + _depthHint + '</p>';
       tiers.forEach(function(tier) {
-        var active = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'active'; });
-        var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && s.status !== 'active'; });
+        var active = D.sources.filter(function(s){ return s.dot === tier.key && _srcRendered(s.dom); });
+        var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && !_srcRendered(s.dom); });
         if (!active.length && !quiet.length) return;
         srcHtml += '<p class="src-group-lbl">' + tier.label + '</p>';
         active.forEach(function(s) { srcHtml += srcRow(s); });
