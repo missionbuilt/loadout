@@ -1048,7 +1048,9 @@ gap: 10px;
     // window. Quiet sections keep their title in the nav but are styled as
     // " — quiet" (unclickable) and the body renumbers visible sections
     // sequentially so it never reads "Section One ... Section Three".
-    var _depthDays = ((D.config && D.config.searchDepth) === 'deep') ? 10 : 4;
+    var _depthDays = (D.config && D.config.window_override)
+      ? parseInt(D.config.window_override, 10)
+      : ((D.config && D.config.searchDepth) === 'deep' ? 10 : 7);
     function _secVisible(sec) {
       if (!sec.items || sec.items.length === 0) return false;
       return sec.items.some(function(it) {
@@ -1061,6 +1063,7 @@ gap: 10px;
     var _seqOf = {}; var _seqN = 0;
     D.sections.forEach(function(sec) { if (_secVisible(sec)) { _seqN++; _seqOf[sec.id] = _seqN; } });
     var _firstLive = (D.sections.find(function(s){ return _seqOf[s.id]; }) || {}).id || null;
+
 
     var _nav = document.getElementById('section-nav');
     if (_nav) {
@@ -1170,7 +1173,9 @@ gap: 10px;
           return '<span class="tag ' + escapeHtml(t.cls || '') + '">' + escapeHtml(t.text || '') + '</span>';
         }).join('');
         // Filter items beyond the lookback window — don't render them at all
-        var _maxAgeDays = (_cfg.searchDepth === 'deep') ? 10 : 4;
+        var _maxAgeDays = (_cfg.window_override)
+          ? parseInt(_cfg.window_override, 10)
+          : ((_cfg.searchDepth === 'deep') ? 10 : 7);
         if (item.date) {
           var _pd0 = new Date(item.date + 'T12:00:00Z');
           var _diff0 = Math.round((new Date() - _pd0) / 86400000);
@@ -1261,7 +1266,7 @@ gap: 10px;
       srcHtml += '<p class="safety-meta" style="margin-bottom:16px;">Search depth: <strong>' + _searchDepth + '</strong> · ' + _depthDesc + ' · ' + _depthHint + '</p>';
       tiers.forEach(function(tier) {
         var active = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'active'; });
-        var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && s.status === 'quiet';  });
+        var quiet  = D.sources.filter(function(s){ return s.dot === tier.key && s.status !== 'active'; });
         if (!active.length && !quiet.length) return;
         srcHtml += '<p class="src-group-lbl">' + tier.label + '</p>';
         active.forEach(function(s) { srcHtml += srcRow(s); });
@@ -1385,6 +1390,10 @@ gap: 10px;
   // Single source of truth: config.scanTime (e.g. "06:14 ET"). The page-load
   // clock is irrelevant; this is a brief generated at a specific moment.
   try { (function () { // try-catch: isolated — failure here must not block Save PDF
+    // Exported files have timestamps already frozen in the serialised DOM.
+    // Skipping prevents the Timestamps IIFE from overwriting the correct time
+    // (e.g. "09:02 EDT") with the scanTime fallback (e.g. "08:00 PT").
+    if (document.body && document.body.dataset.warmupExported === '1') return;
     const now = new Date();
     // Always render dates and times in the viewer's local browser timezone.
     // WARMUP_CONFIG.timezone reflects the agent's clock or the company HQ zone —
@@ -2049,13 +2058,17 @@ btn.textContent = 'Loading…';
       document.body.dataset.warmupExported = '1';
       let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
       document.body.removeAttribute('data-warmup-exported');
-      // Bake WARMUP_DATA into the exported file so it works offline
+      // Bake WARMUP_DATA and savedAt into the exported file so it works offline.
+      // savedAt is preserved as window.__warmupSavedAt so computeGenStr() can use
+      // Priority 1 (accurate UTC timestamp) if the Timestamps guard is ever lifted.
       if (window.WARMUP_DATA) {
         try {
-          const dataStr = JSON.stringify(window.WARMUP_DATA).replace(/<\/script>/gi, '<\\/script>');
+          const dataStr   = JSON.stringify(window.WARMUP_DATA).replace(/<\/script>/gi, '<\\/script>');
+          const savedAtStr = (window.__warmupSavedAt || '').replace(/<\/script>/gi, '<\\/script>');
+          const savedAtLine = savedAtStr ? '\nwindow.__warmupSavedAt = ' + JSON.stringify(savedAtStr) + ';' : '';
           html = html.replace(
             /<script id="warmup-tools">[\s\S]*?<\/script>/,
-            () => '<script id="warmup-tools">\nwindow.WARMUP_TOOLS = { dataTool: \'\' };\nwindow.WARMUP_DATA = ' + dataStr + ';\n<' + '/script>'
+            () => '<script id="warmup-tools">\nwindow.WARMUP_TOOLS = { dataTool: \'\' };\nwindow.WARMUP_DATA = ' + dataStr + ';' + savedAtLine + '\n<' + '/script>'
           );
         } catch (exportErr) { console.warn('[Warmup:Export] data injection failed', exportErr); }
       }
