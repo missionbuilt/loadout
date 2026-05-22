@@ -935,7 +935,6 @@ gap: 10px;
         // Cowork sandbox not available (e.g. public demo) — silent fallback, no UI banner
         console.warn('[Warmup:Fonts] window.cowork unavailable — fonts not loaded (expected outside Cowork)');
         return;
-        return;
       }
 
       window.cowork.callMcpTool(toolName, { intent: 'Loading warmup fonts' })
@@ -1011,6 +1010,9 @@ gap: 10px;
 
   // ── WARMUP RENDERER (reads WARMUP_DATA, populates DOM before other scripts) ──
   try { (function() {
+    // Exported files have their DOM already serialised — skip re-render so
+    // open deep dives and section content are preserved in the snapshot.
+    if (document.body && document.body.dataset.warmupExported === '1') return;
     const D = window.WARMUP_DATA;
     if (!D) {
       try {
@@ -1414,11 +1416,37 @@ gap: 10px;
       }
     }
 
-    // Brief timestamp + Generated stat — creation time converted to browser timezone.
-    // scanTime is always the agent's UTC clock ("09:00 UTC"). We convert it to the
-    // viewer's local timezone so it reads as "when was this built?" in their time,
-    // not the raw server UTC. Non-UTC labeled times (e.g. "06:14 ET") are shown as-is.
+    // Brief timestamp + Generated stat — "when was this brief saved?" in viewer's tz.
+    // Source priority:
+    //   1. window.__warmupSavedAt  — ISO UTC from KV server; always accurate
+    //   2. config.scanTime         — agent-written string; agents guess, often wrong
+    //   3. page-load time          — last resort when both above are absent
     function computeGenStr() {
+      // ── Priority 1: savedAt from server (reliable UTC ISO timestamp) ──────────
+      const savedAt = (window.__warmupSavedAt || '').trim();
+      if (savedAt) {
+        try {
+          const d = new Date(savedAt);
+          if (!isNaN(d.getTime())) {
+            const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const f = new Intl.DateTimeFormat('en-US', {
+              hour: '2-digit', minute: '2-digit', hour12: false,
+              timeZoneName: 'short', timeZone: browserTz
+            });
+            const pts = f.formatToParts(d);
+            const hr  = (pts.find(p => p.type === 'hour')         || {}).value || '';
+            const mn  = (pts.find(p => p.type === 'minute')       || {}).value || '';
+            const tzN = (pts.find(p => p.type === 'timeZoneName') || {}).value || '';
+            if (hr && mn) {
+              const h2 = (hr === '24' ? '00' : hr).padStart(2, '0');
+              return tzN ? `${h2}:${mn} ${tzN}` : `${h2}:${mn}`;
+            }
+          }
+        } catch(e) { /* fall through to scanTime */ }
+      }
+
+      // ── Priority 2: config.scanTime (agent-written; treat UTC label as UTC) ───
+      // Kept as fallback for exported files where __warmupSavedAt may be absent.
       const st = (WARMUP_CONFIG.scanTime || '').trim();
       const timeMatch = st.match(/^(\d{1,2}):(\d{2})(?:\s+(\S+))?$/);
       if (timeMatch) {
@@ -1426,7 +1454,6 @@ gap: 10px;
         const mm = timeMatch[2];
         const tzLabel = (timeMatch[3] || 'UTC').toUpperCase();
         const isUtcSource = /^(UTC|GMT)$/.test(tzLabel);
-        // Convert UTC scanTime to browser timezone using the report date as anchor
         if (isUtcSource) {
           const lastRun = (WARMUP_CONFIG.lastRun || '').trim();
           const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(lastRun) ? lastRun : '';
@@ -1447,13 +1474,10 @@ gap: 10px;
             } catch(e) { /* fall through — show as-is */ }
           }
         }
-        // Non-UTC label (e.g. "06:14 ET") or no date anchor — show as recorded
-        return st;
+        return st; // non-UTC label — show as recorded
       }
-      // scanTime absent or unparseable — use the browser's current time.
-      // Agents don't have a reliable clock; SKILL.md tells them to omit scanTime
-      // rather than guess. When omitted, we render the moment the brief opens,
-      // which is accurate enough and never invented.
+
+      // ── Priority 3: page-load time — last resort ──────────────────────────────
       const browserTz2 = Intl.DateTimeFormat().resolvedOptions().timeZone;
       try {
         const f2 = new Intl.DateTimeFormat('en-US', {
@@ -1876,6 +1900,8 @@ gap: 10px;
 
   // ── DEEP DIVE BUTTONS ──
   try { document.querySelectorAll('.item').forEach(item => {
+    // Exported file: buttons and source links already in DOM, skip re-wiring
+    if (document.body && document.body.dataset.warmupExported === '1') return;
     const hlEl = item.querySelector('.item-hl');
     if (!hlEl) return;
     const linkEl = hlEl.querySelector('a');
@@ -2017,7 +2043,12 @@ btn.textContent = 'Loading…';
         isoDate = isoFmt.format(now);
       } catch (e) { isoDate = ''; }
       const filename = `warmup-${co || 'brief'}-${mode || 'brief'}${isoDate ? '-' + isoDate : ''}.html`;
+      // Mark as exported so the re-opened file skips the DOM-clobbering renderer,
+      // preserving any open deep dives. Remove immediately so the live artifact
+      // is unaffected after the snapshot is taken.
+      document.body.dataset.warmupExported = '1';
       let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      document.body.removeAttribute('data-warmup-exported');
       // Bake WARMUP_DATA into the exported file so it works offline
       if (window.WARMUP_DATA) {
         try {
