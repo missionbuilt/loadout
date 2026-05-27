@@ -876,11 +876,10 @@ function renderMasthead() {
   // Deck
   $('h-deck').innerHTML = rich(M.deck || '');
 
-  // Meta
-  var cfg = C.config || {};
+  // Meta — seller/se live in meta, not config
   var forParts = [];
-  if (cfg.seller) forParts.push(esc(cfg.seller));
-  if (cfg.se)     forParts.push(esc(cfg.se));
+  if (M.seller) forParts.push(esc(M.seller));
+  if (M.se)     forParts.push(esc(M.se));
   $('h-meta-for').innerHTML = forParts.length ? forParts.join('<br>') : '—';
   $('h-meta-sources').textContent = M.sourceCount || '—';
   $('h-meta-gen').textContent   = M.generated   || '—';
@@ -1067,9 +1066,8 @@ function renderSections() {
 /* ── colophon ── */
 function renderColophon() {
   var sub = [];
-  var cfg = C.config || {};
-  if (cfg.seller)  sub.push(esc(cfg.seller));
-  if (cfg.se)      sub.push(esc(cfg.se));
+  if (M.seller)  sub.push(esc(M.seller));
+  if (M.se)      sub.push(esc(M.se));
   if (C.product)   sub.push(esc(C.product));
   if (M.generated) sub.push('Generated ' + esc(M.generated));
   var subEl = $('col-sub');
