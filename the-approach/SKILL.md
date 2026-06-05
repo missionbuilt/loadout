@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.1.4
+version: 0.2.4
 part_of: The Loadout
 ---
 
@@ -131,282 +131,277 @@ Try `"[CONTACT NAME]" "[TARGET]" site:linkedin.com` — if a photo URL is return
 
 ---
 
-## APPROACH_DATA Schema (v0.1.0)
+## APPROACH_DATA Schema (v0.2 · C1 editorial design)
 
-Build this object during synthesis. Every field below is required unless marked
-optional. Write all prose in active voice, present tense, and tight sentences.
+Build this object during synthesis. Every field is required unless marked optional.
+Write all prose in active voice, present tense, tight sentences.
+
+### Text formatting tokens (used inside string fields)
+
+| Token | Renders as |
+|---|---|
+| `**text**` | `<strong>text</strong>` (bold) |
+| `_text_` | `<em>text</em>` (italic) |
+| `{chip:confirmed:I · Pain}` | Green MEDDPICC chip |
+| `{chip:partial:C · Champion}` | Amber MEDDPICC chip |
+| `{chip:unknown:D · Process}` | Grey MEDDPICC chip |
+
+Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr`, `sections[].action`, and `prose[].text` (type "p" items only).
+
+### Source tier dot classes
+
+| `tier` value | Dot color | Use for |
+|---|---|---|
+| `"company"` | blood-red | Company's own site, press release, official blog |
+| `"press"` | dark ink | Tier-1 press, trade pubs, analyst reports |
+| `"social"` | faint | LinkedIn, X, Reddit, podcasts |
+| `""` (omit) | army-green | Regulatory (CISA, SEC), third-party data |
 
 ```json
 {
   "config": {
-    "seller": "Mike",
-    "sellerCompany": "Elastic",
-    "sellerProduct": "Elastic Security",
-    "targetCompany": "Acme Financial Group",
-    "targetDomain": "acmefinancial.com",
-    "targetIndustry": "Financial Services",
-    "meetingWith": "Rebecca Torres, CISO · Marcus Webb, VP IT Ops",
-    "meetingContext": "Agentic security operations",
-    "meetingDate": "Friday, 16 May 2026",
-    "meetingTime": "14:30 ET",
-    "generatedAt": "09:14 ET",
-    "generatedDate": "16 May 2026",
-    "sourcesActive": 24,
-    "sourcesQuiet": 6,
-    "intelItems": 18,
-    "riskFlags": 3,
-    "peopleFound": 2,
-    "totalLinks": 22
+    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
   },
 
-  "scouting": {
-    "whoTheyAre": "One or two sentences: company in plain terms.",
-    "whatIsChanging": "One or two sentences: what is different THIS quarter.",
-    "howWePlayIt": "One sentence: the tactical read. What to lead with."
+  "meta": {
+    "company":       "Rogue Fitness",
+    "contact":       "Jock Padgett",
+    "contactTitle":  "Chief Technology Officer",
+    "seller":        "Mike (AE)",
+    "se":            "Sarah (SE)",
+    "callTime":      "14:30 ET",   // The scheduled meeting time — from the user's config. Write exactly as given.
+    "callDate":      "Wed 20 May 2026", // The meeting date — read from system context (today's date). Always accurate.
+    "briefNumber":   "001",
+    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
+    "sourceCount":   "14",
+    "generated":     "20 May 2026", // Date only — read from system context. Do NOT write a time component.
+                                    // Agents don't have a reliable clock. Write the date; omit the time.
+    "readingTime":   "~14 min"
   },
 
-  "companyFacts": [
-    { "k": "Founded", "v": "2006 · Columbus OH" },
-    { "k": "Ownership", "v": "Private · founder-led" },
-    { "k": "Headcount", "v": "~1,400" },
-    { "k": "Revenue", "v": "$700M+ est. · FY24" },
-    { "k": "Stack signal", "v": "Shopify Plus · AWS · NetSuite" },
-    { "k": "Generated", "v": "09:14 ET · 16 May 2026" }
-  ],
-
-  "sections": [
-    {
-      "id": "snapshot",
-      "act": "business",
-      "kicker": "Section one",
-      "title": "Company snapshot",
-      "sub": "What they do, how they make money, and what shape they're in this quarter.",
-      "lead": {
-        "tier": "d2",
-        "src": "acmefinancial.com / About",
-        "date": "2026-05-12",
-        "tags": [
-          { "cls": "t-type", "text": "PROFILE" }
-        ],
-        "url": "https://example.com",
-        "hl": "Lead headline — the single most important fact about this company right now.",
-        "deck": "One italic sentence — the 'so what?' of the lead.",
-        "body": "Two to three paragraph summary in plain prose. Drop cap on the first letter is automatic.",
-        "marginNote": null,
-        "callout": "What to do with this: specific, tactical, one to three sentences."
+  "meddpicc": {
+    "title": "Where we stand on the deal.",
+    "deck": "Eight dimensions, scored from public intel. **Pain** is confirmed — Padgett named it publicly.",
+    "cells": [
+      {
+        "letter":   "M",
+        "label":    "Metrics",
+        "status":   "partial",
+        "headline": "Breach cost, OT downtime, MILO fleet exposure",
+        "evidence": "No named baseline yet. Peer breach data gives proxy numbers to anchor the conversation.",
+        "next":     "Ask: \'What does an hour of OT downtime cost you, ballpark?\'"
       },
-      "items": [
-        {
-          "tier": "d3",
-          "src": "Bloomberg",
-          "date": "2026-05-08",
-          "tags": [],
-          "url": "https://example.com",
-          "hl": "Supporting item headline.",
-          "body": "Two to three sentence summary."
-        }
-      ]
-    }
-  ],
-
-  "people": [
-    {
-      "name": "Rebecca Torres",
-      "title": "CISO",
-      "initials": "RT",
-      "linkedinUrl": "https://linkedin.com/in/example",
-      "photoUrl": null,
-      "background": "Ex-JPMorgan (12 yrs). Splunk and CrowdStrike background. Detection fidelity obsessed.",
-      "recentSignal": "Publicly said 'my tolerance for SIEM noise is zero' on a podcast in March.",
-      "keyQuote": "My tolerance for SIEM noise is zero.",
-      "priorStack": "Splunk Enterprise, CrowdStrike",
-      "meetingRole": "primary",
-      "audienceFor": "both"
-    }
-  ],
-
-  "stack": [
-    {
-      "layer": "SIEM",
-      "tool": "Splunk Enterprise",
-      "fit": "competitor",
-      "fitLabel": "COMPETITOR",
-      "evidence": "Multiple job postings reference Splunk administration. CISO background is Splunk.",
-      "note": "Frame around Splunk's detection gaps, not feature comparison."
-    },
-    {
-      "layer": "EDR",
-      "tool": "CrowdStrike",
-      "fit": "supported",
-      "fitLabel": "INTEGRATED",
-      "evidence": "Job postings list CrowdStrike as required skill.",
-      "note": null
-    }
-  ],
-
-  "plays": [
-    {
-      "num": "P1",
-      "audience": "ae",
-      "priority": "featured",
-      "title": "Open on the Dec 2025 dwell period.",
-      "cat": "Incident history · Credibility",
-      "finding": "The LockBit 3.0 incident had a 19-day dwell period. Their legacy SIEM missed it. That is the reason for this call — everything downstream flows from that failure.",
-      "intel": [
-        {
-          "body": "Name the dwell period first. 'We know 19 days is a long time to not know you have a problem.' Then stop.",
-          "src": "internal · call strategy",
-          "srcDate": null
-        },
-        {
-          "body": "Do not pitch features. Pitch the answer to the specific failure: lateral movement detection the SIEM didn't surface.",
-          "src": "SEC 8-K · Dec 14 2025",
-          "srcDate": "2025-12-14"
-        }
-      ],
-      "runWhen": "first 90 seconds, before any product talk",
-      "audible": "if Torres opens with Splunk pricing questions, acknowledge and come back to this",
-      "handNote": "★ this is the call"
-    }
-  ],
-
-  "opener": {
-    "lines": [
-      { "type": "quote", "text": "Rebecca — thanks for making time. Before we get into anything else, I want to ask about December." },
-      { "type": "beat", "text": "Beat. Let her respond." },
-      { "type": "quote", "text": "Nineteen days is a long time to not know you have a problem. That's what we're here to talk about — what would have caught it, and how quickly." },
-      { "type": "beat", "text": "Beat. Hand it to her." }
-    ],
-    "stageDirection": "Do not open the deck for at least 8 minutes after this. Earn the deck.",
-    "handNote": "— briefed by The Approach, 09:14 ET"
-  },
-
-  "discovery": {
-    "business": [
-      "What does success look like for you in the next 90 days — not the project, the feeling?",
-      "Who else needs to bless a security tooling change at this point in your tenure?",
-      "Where is the budget for security infrastructure living — your line, a shared one, or post-incident capital?",
-      "How long is your decision cycle for something in this price band?",
-      "What does the board want to hear after December — and have you had that conversation yet?"
-    ],
-    "technical": [
-      "What was the detection coverage gap that allowed the 19-day dwell — do you have a postmortem?",
-      "What is your current SIEM data retention and ingestion cap, and are you bumping against it?",
-      "How is your CrowdStrike telemetry flowing into the SIEM today — is there a connector, or manual export?",
-      "Who owns detection rule tuning, and how often does the team touch them?",
-      "What does your alert-to-incident workflow look like — where does the human get involved?",
-      "What integrations exist between your IR platform and your ticketing system?"
+      {
+        "letter":   "E",
+        "label":    "Economic Buyer",
+        "status":   "partial",
+        "headline": "Padgett likely owns infra security — Henniger above $1M",
+        "evidence": "CFO seat is vacant; Bill acting. Threshold unknown.",
+        "next":     "Confirm signing authority in back half of call."
+      },
+      {
+        "letter":   "D",
+        "label":    "Decision Criteria",
+        "status":   "unknown",
+        "headline": "Not formalised — opportunity to shape",
+        "evidence": "No public RFP. Conference talk emphasises operational visibility.",
+        "next":     "Ask: \'How will you know which platform is the right fit?\'"
+      },
+      {
+        "letter":   "D",
+        "label":    "Decision Process",
+        "status":   "unknown",
+        "headline": "Founder-led, fast — mechanics unknown",
+        "evidence": "No board, no PE. Bill makes calls quickly.",
+        "next":     "Ask: \'Walk me through how a decision like this gets made here.\'"
+      },
+      {
+        "letter":   "P",
+        "label":    "Paper Process",
+        "status":   "unknown",
+        "headline": "Procurement, legal — all air",
+        "evidence": "Private company. No SOC 2 mandate visible.",
+        "next":     "Defer to call 2 unless raised."
+      },
+      {
+        "letter":   "I",
+        "label":    "Identify Pain",
+        "status":   "confirmed",
+        "headline": "Named publicly at DefCon — OT/IT convergence, MILO fleet, PCI scope",
+        "evidence": "DefCon 31 (Aug 2023): \'Security has to live where the work happens.\'",
+        "next":     "Quote his DefCon phrase. Don\'t re-discover what he already named."
+      },
+      {
+        "letter":   "C",
+        "label":    "Champion",
+        "status":   "partial",
+        "headline": "Padgett = likely buyer and champion in one",
+        "evidence": "Military background, broad mandate, publicly committed to the problem.",
+        "next":     "Identify one SecOps ally by call 2."
+      },
+      {
+        "letter":   "C",
+        "label":    "Competition",
+        "status":   "partial",
+        "headline": "Splunk incumbent inferred",
+        "evidence": "3 job posts require \'Splunk or equivalent SIEM experience.\'",
+        "next":     "Ask: \'What are you running today for SIEM and endpoint?\'"
+      }
     ]
   },
 
-  "risks": [
+  "sections": [
     {
-      "level": "red",
-      "type": "contract",
-      "title": "New CISO on day one of tenure.",
-      "body": "Torres starts June 1. She will not sign a contract before she has had her first all-hands. Do not push for a fast close — you will lose trust. Run a discovery-heavy call one, earn call two."
-    },
-    {
-      "level": "amber",
-      "type": "competitor",
-      "title": "Splunk incumbent. Deep roots.",
-      "body": "The team knows Splunk. The CISO came from a Splunk shop. Do not position against Splunk by name — position around the detection failure that Splunk missed."
+      "id":     "snapshot",
+      "number": "01",
+      "for":    "the AE",
+      "title":  "Company snapshot.",
+      "deck":   "What they do, how they make money, and what shape they\'re in.",
+      "tldr":   "Founder-led. Private. **$700M+ revenue**. DTC e-commerce is the spine. **$45M manufacturing expansion** broke ground March 2026.",
+      "prose":  [
+        {
+          "type": "p",
+          "text": "Founded 2006. ~1,400 employees in Columbus OH. **Rogue Fitness** is the dominant US strength-equipment maker.",
+          "source": { "text": "roguefitness.com · Apr 2026", "tier": "company" }
+        },
+        {
+          "type": "pull",
+          "text": "$45M expansion broke ground in March — five more years of demand we already have on the books.",
+          "cite": "Bill Henniger to Columbus Business First, 12 March 2026"
+        },
+        {
+          "type": "pull",
+          "chip": { "text": "I · Pain", "status": "confirmed" },
+          "text": "Quote that directly names the pain.",
+          "cite": "Source name · date"
+        },
+        {
+          "type": "facts",
+          "items": [
+            { "k": "Revenue",   "v": "$700M+", "note": "FY24, triangulated" },
+            { "k": "Headcount", "v": "~1,400", "note": "Columbus, hiring fast" },
+            { "k": "Capex",     "v": "$45M",   "note": "West Jefferson, Mar 2026" }
+          ]
+        },
+        {
+          "type": "table",
+          "rows": [
+            { "layer": "Storefront", "tool": "Shopify Plus", "status": "Native",  "statusClass": "",    "note": "Out of the box." },
+            { "layer": "ERP",        "tool": "NetSuite",     "status": "Native",  "statusClass": "",    "note": "Standard connector." },
+            { "layer": "IoT",        "tool": "MILO fleet",   "status": "Paired",  "statusClass": "gap", "note": "2-3 week sprint." },
+            { "layer": "SIEM",       "tool": "Splunk (inf.)", "status": "Confirm", "statusClass": "unk", "note": "Confirm in discovery." }
+          ]
+        },
+        {
+          "type": "opener",
+          "script": "The verbatim opener text the AE reads aloud — ~90 seconds. Root it in a specific public signal from the contact.",
+          "beats": ["Pause. Let him redirect if needed. Either answer maps to a demo."]
+        },
+        {
+          "type": "questions",
+          "items": [
+            {
+              "chip": { "text": "I · Pain", "status": "confirmed" },
+              "text": "Discovery question targeting the confirmed pain dimension."
+            },
+            {
+              "chip": { "text": "D · Criteria", "status": "unknown" },
+              "text": "Discovery question targeting an unknown MEDDPICC cell."
+            }
+          ]
+        }
+      ],
+      "action": "What the AE or SE should _do_ with this section. One to three sentences, specific to this company and this contact."
     }
   ],
 
-  "sources": [
-    { "nm": "SEC EDGAR", "tier": "d1", "ct": "3 items", "status": "active" },
-    { "nm": "CISA KEV", "tier": "d1", "ct": "2 items", "status": "active" },
-    { "nm": "acmefinancial.com", "tier": "d2", "ct": "4 items", "status": "active" },
-    { "nm": "LinkedIn · Rebecca Torres", "tier": "d4", "ct": "7 items", "status": "active" },
-    { "nm": "Bloomberg", "tier": "d3", "ct": "1 item", "status": "active" },
-    { "nm": "BleepingComputer", "tier": "d3", "ct": "2 items", "status": "active" },
-    { "nm": "Reddit · r/netsec", "tier": "d4", "ct": "—", "status": "quiet" }
-  ],
+  "actDivider": {
+    "kicker": "Handoff · For Sarah, the SE",
+    "title":  "Technical posture.",
+    "deck":   "Stack, security events, demo prep, and risk flags. What the SE reads on the elevator up."
+  },
 
-  "safety": {
-    "total": 22,
-    "clean": 22,
-    "flagged": 0,
-    "scannedAt": "09:14 ET"
-  }
+  "product": "Elastic Security pre-call brief",
+  "version": "v0.2.4"
 }
 ```
+
+### Sections reference
+
+Build 9 sections in this order. Use the IDs and `for` values exactly:
+
+| # | id | for | title |
+|---|---|---|---|
+| 01 | `snapshot`   | `the AE` | Company snapshot. |
+| 02 | `leadership` | `the AE` | Leadership & the buyer. |
+| 03 | `financial`  | `the AE` | Financial posture. |
+| 04 | `industry`   | `the AE` | Industry context. |
+| 05 | `signal`     | `the AE` | Recent signal. |
+| 06 | `stack`      | `the SE` | Stack & integrations. |
+| 07 | `security`   | `the SE` | Public security events. |
+| 08 | `demos`      | `the SE` | Demo prep. |
+| 09 | `opener`     | `both`   | Opener & discovery. |
+
+The `actDivider` renders automatically before the first `"the SE"` section. Section 09 (`opener`) must contain prose items of type `opener` and `questions`.
+
+### Prose item type reference
+
+| `type` | Required fields | Optional fields |
+|---|---|---|
+| `p` | `text` (string, supports rich tokens) | `source.text`, `source.tier` |
+| `pull` | `text`, `cite` | `chip.text`, `chip.status` |
+| `facts` | `items[]` → `k`, `v` | `note` per item |
+| `table` | `rows[]` → `layer`, `tool`, `status`, `note` | `statusClass` ("gap" or "unk") |
+| `opener` | `script` | `beats[]` (array of strings) |
+| `questions` | `items[]` → `text` | `chip.text`, `chip.status` per item |
+
+### MEDDPICC cell `status` values
+
+`"confirmed"` — evidence is in hand, public, datable.
+`"partial"` — evidence exists but requires confirmation on the call.
+`"unknown"` — no signal; the call must generate it.
 
 ---
 
 ## RENDER Phase (Step 2)
 
-### Step 1 — Choose Path A or Path B
-
-**PATH A — Repeat run (artifact file already exists on disk)**
-
-Use Path A whenever `approach-artifact.html` already exists in the workspace.
+Every Approach brief is built fresh from `approach_get_template`. There is no Path A / Path B and no engine version check — one path, every time.
 
 ```
-a) Grep approach-artifact.html for the string: <script id="approach-data">
-   Note the line number returned.
+a) Identify your loaded warmup_get_fonts tool name. It looks like:
+      "mcp__<uuid>__warmup_get_fonts"
+   The UUID prefix changes per session — use the exact name from your loaded tool list.
 
-b) Read approach-artifact.html with offset=(that line number - 1) and limit=10
-   to see the block. Confirm it contains window.APPROACH_DATA.
+b) Ensure config.fontToolName is set in APPROACH_DATA:
+      "config": {
+        "fontToolName": "mcp__<uuid>__warmup_get_fonts",
+        ... (all other config fields)
+      }
 
-c) Edit approach-artifact.html — replace the ENTIRE block:
-     <script id="approach-data">
-     window.APPROACH_DATA = <anything here>;
-     </script>
-   with:
-     <script id="approach-data">
-     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
-     </script>
+c) Call approach_get_template({ approach_data: JSON.stringify(APPROACH_DATA) }).
+   The server injects the data, escapes </script> sequences, and returns the
+   complete filled HTML (~150KB). Do not double-escape — the server handles it.
 
-d) Call update_artifact with id: "the-approach" and the file path.
-   Done. Do not read or write the whole file.
+   The response comes back in one of two shapes — handle both:
+
+   SHAPE 1 — inline HTML (starts with <!DOCTYPE or <html):
+     The full HTML is in the response directly. Proceed to step (d).
+
+   SHAPE 2 — file path (a string starting with / and ending in .html):
+     Cowork auto-persisted the large response to disk. Use the Read file tool
+     to read the HTML from that path, then proceed to step (d) with that content.
+     NEVER use bash to move or copy this file — bash runs in a sandbox that
+     cannot reach Cowork session paths. File tools (Read, Write) can reach them.
+
+d) Write the HTML to [workspace_root]/approach-brief.html using the Write file
+   tool. Write it exactly as returned — do not edit the content.
+
+e) Call create_artifact (or update_artifact if re-running for the same company):
+      id: "the-approach"
+      html_path: [path to approach-brief.html]
+      mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
+   Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
 ```
-
----
-
-**PATH B — First run (no artifact file on disk)**
-
-Use Path B only when `approach-artifact.html` does NOT exist yet.
-
-All CSS, layout, and the renderer are loaded at runtime from
-`mcp.missionbuilt.io/approach-shell.js` — no template read required.
-Write a single complete file with the real APPROACH_DATA already in it.
-
-```
-a) Write the complete artifact to [workspace_folder]/approach-artifact.html
-   in one step using the Write file tool. Do not use bash, shell commands,
-   or a separate Edit step. Substitute JSON.stringify(APPROACH_DATA) directly
-   into the file where shown:
-
-     <!DOCTYPE html>
-     <html lang="en">
-     <head>
-       <meta charset="UTF-8">
-       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title id="page-title">The Approach · Field Brief</title>
-     </head>
-     <body>
-     <script id="approach-data">
-     window.APPROACH_DATA = <JSON.stringify(APPROACH_DATA)>;
-     </script>
-     <script src="https://mcp.missionbuilt.io/approach-shell.js?v=0.1.4"></script>
-     </body>
-     </html>
-
-b) Call create_artifact with id: "the-approach" and the path to approach-artifact.html.
-```
-
----
-
-### Step 2 — Determine which path to take
-
-Call `list_artifacts`. If an artifact with `id: "the-approach"` exists → Path A.
-If no artifact exists → Path B.
-
-If you are updating for a different target company in the same session, use Path A
-(the artifact already exists; just replace the data block). The artifact always shows
-the current brief; past briefs are not retained.
 
 ---
 
@@ -469,3 +464,8 @@ don't have to re-enter it next time."*
 | 0.1.2 | Path B rewrite — Read/Write file tools instead of approach_get_template for first run. |
 | 0.1.3 | approach_run now loads per-section via approach_get_skill. Render boundary includes Summary line. |
 | 0.1.4 | Remote shell architecture. Path B writes a 14-line skeleton; CSS and renderer load from mcp.missionbuilt.io/approach-shell.js. Zero template-read tokens on first run. |
+| 0.1.5 | MCP font loader replaces Google Fonts CDN (blocked by Cowork CSP). Add config.fontToolName to APPROACH_DATA schema. Pass mcp_tools on create_artifact. XSS escaping fixes: buildSecNav nav link text, colophon date fields. |
+| 0.2.0 | Inline template architecture. approach_get_template now returns complete filled HTML — no remote shell, no Path A/B. Single-path render: call approach_get_template → write HTML → create_artifact. Font loader baked into template. Schema fixes: act field is number (2=SE), plays.num is number not string. |
+| 0.2.1 | C1 editorial redesign — Oswald/Merriweather/JetBrains Mono type scale, cream paper palette, full MEDDPICC scorecard at end of report, act divider, facts strip, pull quote, stack table, opener box, TL;DR card, action footer. |
+| 0.2.2 | Section heading structure: sec-num → sec-title (kicker) → sec-subtitle (title) → sec-deck. Foot style matches Warmup/Spotter double-rule colophon. Footer links to missionbuilt.io. |
+| 0.2.3 | Renderer field name fixes (silent blank output): pull text, facts k/v, opener script/beats[], questions chip, meta generated/sourceCount. Colophon seller path corrected to C.config.seller. JSON validation in approach_get_template. |

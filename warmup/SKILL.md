@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.3.16
+version: 0.7.2
 part_of: The Loadout
 ---
 
@@ -370,9 +370,23 @@ Do not remove sources from config due to a single empty result.
 If a lookback phrase is detected, use that window instead of the computed
 window and note it in the chat summary line.
 
-### Step 1 — Read config and compute lookback window
+### Step 1 — Find workspace root, read config, compute lookback window
 
-Use the **Read file tool** (not bash) to read `WARMUP.md` from the user's project root. If you do not know the project root path, call `list_artifacts` first — the `html_path` from the `"the-warmup"` artifact reveals the workspace folder, and `WARMUP.md` lives in that same folder. If no artifact exists and no WARMUP.md is found, stop and prompt for SETUP.
+**First: find workspace root** — call `list_artifacts`:
+- `"the-warmup"` exists → take its `html_path` and strip the filename.
+  e.g. `"/Users/jane/Projects/loadout/warmup.html"` → `"/Users/jane/Projects/loadout"`
+- No `"the-warmup"` artifact → find the user's selected workspace folder in your system context.
+  It is the folder the user mounted in Cowork — a short, human-readable path like `/Users/[name]/Projects/[folder]`.
+  It is **NOT** the working directory, outputs folder, or any session/temp path.
+
+**Validate** — if the workspace root contains any of these strings, you have the WRONG path:
+`"Application Support"` · `"sessions"` · `"outputs"` · `"uploads"` · `"local-agent"` · `"tmp"`
+
+A correct workspace root looks like: `/Users/mike/Projects/loadout`
+
+If you cannot determine a valid workspace root, stop and ask the user to confirm their workspace folder.
+
+Then use the **Read file tool** (not bash) to read `[workspace-root]/WARMUP.md`. If WARMUP.md does not exist, stop and prompt for SETUP.
 
 Note: mode (CISO or Custom), user profile, active source list, excluded
 sources, `last_run` date, `window_override` if set.
@@ -551,14 +565,24 @@ Real violations that MUST be caught (window = 7 days, today = 2026-05-16):
 
 If after filtering a source has zero in-window items, mark it `"status": "quiet"` in `sources[]` and exclude it from `safety.domains`.
 
+**Source status must match what appears in the brief.** A source is `"active"` only if
+at least one of its items is included as a card in the brief. If you found articles
+from a source but none make it into the brief (e.g. all outside the window), the source
+is `"quiet"`. Never mark a source active when none of its articles are visible to the reader.
+
 This gate runs **before** you organize items into sections. Do not route stale items into sections intending to remove them later — discard at first sight, before any further processing.
 
 Organize fetched items into sections using the Section Structure below
 (CISO mode) or the user's defined interest categories (Custom mode).
 
-**Curation rule:** quality over quantity. If 25+ items come back from searches,
-select the 12–18 most signal-dense. Prefer Tier 1 and Tier 2 findings.
-Within a section, order by relevance to the user's profile, not by source tier.
+**Inclusion rule — the date gate is the only filter.**
+Every item that passes the lookback window check appears in the brief as its own card.
+Do not cap by volume. Do not fold a distinct story into another item's body copy.
+Do not drop an item because a "better" item covers the same theme. Do not editorially
+select a subset. If the agent found it and it is within the window, the reader sees it.
+The brief may have more items on active news days and fewer on quiet ones — that variance
+is correct and honest. Within a section, order items by recency (newest first),
+with the most recent item as the section lead.
 
 ### Step 3b — Special Interests (optional)
 
@@ -633,9 +657,9 @@ Triggered when the user asks to change something in the current report — fix a
 No file edits required. No template fetch. No `update_artifact` call needed.
 
 **When an engine bug is fixed:**
-1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.
-2. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user into `artifact_action: "refresh"` on their next run, which rewrites the file with the fix.
-3. Deploy. New runs pick up the fixed engine automatically.
+1. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user's next run into `artifact_action: "refresh"`, which rewrites the file with the fixed engine.
+2. Apply the fix to `warmup-shell.rawjs` (the actual shell code imported by the worker; the legacy `warmup-template.html` files were retired in v0.8.0).
+3. After deploy, the next daily run on each device picks up the new engine.
 
 **`WARMUP_DATA` schema (v0.3.0 — Morning Edition):**
 
@@ -658,10 +682,11 @@ No file edits required. No template fetch. No `update_artifact` call needed.
     "sourcesActive": 12,
     "sourcesQuiet": 4,
     "showQuote": true,   // REQUIRED — must be true (JSON boolean). Omitting or setting false hides the daily quote.
-    "scanTime": "HH:MM TZ", // REQUIRED — set to current generation time in 24-hr user-timezone format (e.g. "06:14 ET").
-                              // Use timezone from WARMUP.md; default to UTC and write "HH:MM UTC" if not set.
-                              // THE single timestamp source — populates masthead, signal bar, safety panel, PDF.
-                              // Without this, Generated cell shows "—" and scan timestamp is blank.
+    "scanTime": "",  // Leave EMPTY ("") unless you have a reliable clock source.
+                     // Do NOT invent or guess a time — the renderer will use the user's local
+                     // browser clock when this is blank, which is always accurate.
+                     // Only write a value (e.g. "06:14 ET") if a tool explicitly returned the
+                     // current wall-clock time. Writing a fabricated time is worse than omitting.
     "timezone": "ET",   // REQUIRED — copy verbatim from WARMUP.md `timezone` field (e.g. "ET", "PT", "UTC").
                         // CRITICAL: this is the USER'S local timezone — NOT the company's headquarters timezone.
                         // Read it from WARMUP.md. Do not infer from the company location. Write "UTC" if not set.
@@ -701,6 +726,12 @@ No file edits required. No template fetch. No `update_artifact` call needed.
           // Omit entirely on non-lead items (items[1..N]).
           "body": "2–3 sentence summary in plain prose.",
           "date": "YYYY-MM-DD"
+          // CRITICAL: date is the article's actual publication date, not today's date
+          // and not a recycled date from a prior run. The renderer filters out items
+          // older than 7 days (10 for deep mode, or window_override if set) — stale
+          // dates make items invisible while still inflating the ITEMS TODAY count.
+          // If you cannot determine the publication date, use today's date rather
+          // than guessing or recycling.
         },
         {
           // items[1..N] render in a two-column grid. No deck field. Date-sorted.
@@ -745,7 +776,7 @@ No file edits required. No template fetch. No `update_artifact` call needed.
 - The lead is never re-sorted. Choose it deliberately — most important item in the section.
 - Items 1..N render in a two-column grid, date-sorted descending. No `deck` field on these.
 
-**`scanTime` is the single timestamp source.** Write it once as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). The renderer uses it in the masthead, the Generated cell in the signal bar, the link-safety scanned-at line, and the PDF masthead. Do not write separate timestamp values anywhere else.
+**`scanTime` — only write it if you actually know the time.** If a tool returned the current wall-clock time, write it as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). If you don't have a reliable clock source, leave it as `""` — the renderer falls back to the user's local browser clock, which is accurate. A fabricated timestamp is worse than no timestamp. Do not write separate timestamp values anywhere else.
 
 **On engine bugs:**
 1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.

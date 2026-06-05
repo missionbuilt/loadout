@@ -1,9 +1,9 @@
 ---
 name: spotter
-description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine lenses spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
+description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine areas spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
 license: MIT
 author: H. Michael Nichols
-version: 0.5.0
+version: 1.0.0
 part_of: The Loadout
 ---
 
@@ -54,19 +54,19 @@ This skill operates in three modes. Pick one based on the user's request. If unc
 
 | Mode | When | What this skill does |
 |---|---|---|
-| **Build** | New epic from scratch | Walk the PM through the nine lenses with guiding questions. Output a polished draft epic at the end. |
-| **Iterate** | Mid-draft, stuck or unsure | Take a partial epic and ask targeted questions per lens to push it forward. Return specific suggestions. |
-| **Review** | Finished or near-finished epic | Output a structured review with verdict (Ready / Needs polish / Not ready), evidence, and *what could be stronger* per lens. |
+| **Build** | New epic from scratch | Walk the PM through the nine areas with guiding questions. Output a polished draft epic at the end. |
+| **Iterate** | Mid-draft, stuck or unsure | Take a partial epic and ask targeted questions per area to push it forward. Return specific suggestions. |
+| **Review** | Finished or near-finished epic | Output a structured review with verdict (Ready / Needs polish / Not ready), evidence, and *what could be stronger* per area. |
 
-All three modes share the same nine lenses. They differ only in how they engage them.
+All three modes share the same nine areas. They differ only in how they engage them.
 
-## The nine lenses
+## The nine areas
 
-Every review (and every build/iterate prompt) walks these nine lenses in order. Each lens grades **✓ Pass / ⚠️ Needs work / ✗ Missing**, supported by evidence from the epic and a *"you could strengthen this by..."* suggestion when appropriate.
+Every review (and every build/iterate prompt) walks these nine areas in order. Each area grades **✓ Pass / ⚠️ Needs work / ✗ Missing**, supported by evidence from the epic and a *"you could strengthen this by..."* suggestion when appropriate.
 
-### Lens 1 — The user & the problem (not the solution)
+### Area 1 — The user & the problem (not the solution)
 
-**The most important lens. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are not gaps in empathy or current-state research — those are visible. The most consequential failures are subtler: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. The Spotter spends the most cycles on this lens. It pushes harder, asks more questions, and is more willing to produce extended feedback than on any other lens.
+**The most important area. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are not gaps in empathy or current-state research — those are visible. The most consequential failures are subtler: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. The Spotter spends the most cycles on this area. It pushes harder, asks more questions, and is more willing to produce extended feedback than on any other area.
 
 **Sub-checks:**
 
@@ -81,9 +81,9 @@ Every review (and every build/iterate prompt) walks these nine lenses in order. 
 
 **Principle to hold:** *The strongest problem statement is the one that survives its own questions. It names assumptions, considers alternatives, and leaves room for the team to learn — because problems framed in service of conclusions get re-litigated mid-flight, and problems framed in service of learning get sharper as they go.*
 
-**Weight in the overall verdict:** Lens 1 carries disproportionate weight. An epic that fails Lens 1 (one or more sub-checks at ⚠️ or ✗) almost always grades *Needs polish* or *Not ready* overall, even if every other lens passes. An epic that passes Lens 1 strongly can carry weakness elsewhere — the rest can be tightened in iteration. The problem statement, once settled, is much harder to revisit.
+**Weight in the overall verdict:** Area 1 carries disproportionate weight. An epic that fails Area 1 (one or more sub-checks at ⚠️ or ✗) almost always grades *Needs polish* or *Not ready* overall, even if every other area passes. An epic that passes Area 1 strongly can carry weakness elsewhere — the rest can be tightened in iteration. The problem statement, once settled, is much harder to revisit.
 
-### Lens 2 — Competitive landscape
+### Area 2 — Competitive landscape
 
 How do leading competitors handle this problem? Is the proposed work novel, catch-up, or somewhere in between?
 
@@ -96,7 +96,7 @@ How do leading competitors handle this problem? Is the proposed work novel, catc
 
 **Principle to hold:** *Naming a competitor is not analysis. The strongest competitive section makes the trade-offs visible — what each competitor is choosing to ignore, what that creates space for you to do, and what specifically you're betting will win.*
 
-### Lens 3 — Strategic differentiation (moat)
+### Area 3 — Strategic differentiation (moat)
 
 What makes this special in your company? Why does someone get this from you rather than a competitor?
 
@@ -109,7 +109,7 @@ What makes this special in your company? Why does someone get this from you rath
 
 **Principle to hold:** *Sometimes there is no moat. That is fine. The skill is not to invent one. The skill is to be explicit about which it is — and to write the press release the customer would actually want to read — so the team can make decisions with eyes open.*
 
-### Lens 4 — Solution approach
+### Area 4 — Solution approach
 
 The HOW the team will build, with explicit choices about AI, reusability, and UI.
 
@@ -123,7 +123,7 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 **Principle to hold:** *The default should not be a new screen. The default should be: where does this capability live so the user can reach it without learning a new place to look?*
 
-### Lens 5 — Holistic impact
+### Area 5 — Holistic impact
 
 The work's full scope across the product — not just the team's piece.
 
@@ -135,7 +135,7 @@ The work's full scope across the product — not just the team's piece.
 
 **Principle to hold:** *Innovation that lands in one corner often creates frustration in three others. The strongest epic names the cascade and decides what to ship together, what to defer, and what to acknowledge as out-of-scope.*
 
-### Lens 6 — Packaging & pricing
+### Area 6 — Packaging & pricing
 
 Tier, model fit, competitor pricing benchmarks, and escalation flag.
 
@@ -146,11 +146,11 @@ Tier, model fit, competitor pricing benchmarks, and escalation flag.
 - Competitor pricing benchmarks for similar capabilities — what do CrowdStrike, Snowflake, Datadog, or whoever the relevant comparison set is, charge?
 - An explicit flag if this needs cross-functional pricing review before commit.
 
-**Principle to hold:** *Pricing is a product decision. Defaulting to "premium tier" without thinking through value capture, competitor benchmarks, and packaging fit is the equivalent of solutioning in Lens 1 — it constrains options before the trade-offs are visible.*
+**Principle to hold:** *Pricing is a product decision. Defaulting to "premium tier" without thinking through value capture, competitor benchmarks, and packaging fit is the equivalent of solutioning in Area 1 — it constrains options before the trade-offs are visible.*
 
-### Lens 7 — Launch readiness
+### Area 7 — Launch readiness
 
-Most PMs treat launch as boring or tacked-on work — the stuff that happens after the fun part of shipping. That's the failure mode this lens exists to prevent. The lifecycle is exactly that: a cycle. We must solve a problem. We must prove we solved it. We must improve based on the feedback. None of that is optional. The feature isn't done when it ships. It's done when customers are using it, getting value from it, and we've learned enough from their use to make the next version better. Documentation, field enablement, content surfaces — these are the mechanisms that turn shipping into a beginning rather than an ending. *The launch is not over when you ship.*
+Most PMs treat launch as boring or tacked-on work — the stuff that happens after the fun part of shipping. That's the failure mode this area exists to prevent. The lifecycle is exactly that: a cycle. We must solve a problem. We must prove we solved it. We must improve based on the feedback. None of that is optional. The feature isn't done when it ships. It's done when customers are using it, getting value from it, and we've learned enough from their use to make the next version better. Documentation, field enablement, content surfaces — these are the mechanisms that turn shipping into a beginning rather than an ending. *The launch is not over when you ship.*
 
 **Sub-checks:**
 
@@ -161,7 +161,7 @@ Most PMs treat launch as boring or tacked-on work — the stuff that happens aft
 
 **Principle to hold:** *Most epics under-invest here. The bar for "launch ready" is whether a customer who has never seen the feature can get value from it without contacting support. If the answer is no, the launch plan is not done.*
 
-### Lens 8 — Post-launch ownership
+### Area 8 — Post-launch ownership
 
 Telemetry, adoption mechanics, success criteria. The work after the work.
 
@@ -174,7 +174,7 @@ Telemetry, adoption mechanics, success criteria. The work after the work.
 
 **Principle to hold:** *Shipping is a milestone, not a finish line. The strongest post-launch plan answers: how will we know this worked, and what will we do if it didn't?*
 
-### Lens 9 — Trust, governance & auditability
+### Area 9 — Trust, governance & auditability
 
 Required for B2B features. Especially required when AI is involved.
 
@@ -188,7 +188,7 @@ Required for B2B features. Especially required when AI is involved.
 
 **Principle to hold:** *AI cannot be a black box. In B2B contexts, this is the difference between a feature customers actually deploy and one their security and compliance teams shelve.*
 
-**Weight in the overall verdict — Lens 9 as a gate.** When the work involves any agent action, data access decision, new permission surface, or customer-data handling change — which is *most* B2B features — Lens 9 functions as a deployment gate, not a tunable detail. **If Lens 9 grades ✗ Missing on a feature where it applies, the verdict cannot exceed *Not ready*, regardless of strength elsewhere in the epic.** Customers' security and compliance teams will not approve features that ship without a trust, governance, and auditability story. The Spotter enforces this as a hard rule. Lens 1 carries the most weight because it's the foundation; Lens 9 carries veto power because it's the gate.
+**Weight in the overall verdict — Area 9 as a gate.** When the work involves any agent action, data access decision, new permission surface, or customer-data handling change — which is *most* B2B features — Area 9 functions as a deployment gate, not a tunable detail. **If Area 9 grades ✗ Missing on a feature where it applies, the verdict cannot exceed *Not ready*, regardless of strength elsewhere in the epic.** Customers' security and compliance teams will not approve features that ship without a trust, governance, and auditability story. The Spotter enforces this as a hard rule. Area 1 carries the most weight because it's the foundation; Area 9 carries veto power because it's the gate.
 
 ## Output formats by mode
 
@@ -196,12 +196,12 @@ Required for B2B features. Especially required when AI is involved.
 
 Open with an overall verdict — *Ready / Needs polish / Not ready* — and a one-line summary.
 
-Then walk all nine lenses in order. For each:
+Then walk all nine areas in order. For each:
 
 ```
-**Lens N — [Lens name]** · [✓ / ⚠️ / ✗] [Status]
+**Area N — [Area name]** · [✓ / ⚠️ / ✗] [Status]
 
-[Optional: 1–2 sentence opener acknowledging what's working in this lens.]
+[Optional: 1–2 sentence opener acknowledging what's working in this area.]
 
 **What's working:**
 - [Bullet, specific to evidence in the epic]
@@ -215,31 +215,31 @@ Then walk all nine lenses in order. For each:
 [Closing principle — short, declarative, the line a PM might quote later.]
 ```
 
-After all nine lenses, include a **Questions to ask the PM** section — anything the epic didn't address that the skill cannot infer.
+After all nine areas, include a **Questions to ask the PM** section — anything the epic didn't address that the skill cannot infer.
 
-**Then, if the verdict is *Needs polish* or *Not ready*, close with an interactive offer to keep working — this is the most important part of review mode.** The review report alone is half the value. The other half is the skill becoming a thinking partner that helps fill the gaps it just identified. Use this pattern (adapt the lens recommendations to whichever lenses actually had gaps in this review):
+**Then, if the verdict is *Needs polish* or *Not ready*, close with an interactive offer to keep working — this is the most important part of review mode.** The review report alone is half the value. The other half is the skill becoming a thinking partner that helps fill the gaps it just identified. Use this pattern (adapt the area recommendations to whichever areas actually had gaps in this review):
 
 ```
 ---
 
 ## Want to push this forward?
 
-Pick any lens you'd like to work through together — I can help you draft the gap.
+Pick any area you'd like to work through together — I can help you draft the gap.
 
 Most leveraged places to start, given the verdict:
-- **Lens N ([lens name])** — [one-sentence reason this lens is the highest-impact place to start]
-- **Lens N ([lens name])** — [one-sentence reason]
-- **Lens N ([lens name])** — [one-sentence reason]
+- **Area N ([area name])** — [one-sentence reason this area is the highest-impact place to start]
+- **Area N ([area name])** — [one-sentence reason]
+- **Area N ([area name])** — [one-sentence reason]
 
-Reply with a lens number, "let's do them all," or "I'll take it from here" — your call.
+Reply with an area number, "let's do them all," or "I'll take it from here" — your call.
 ```
 
-The recommendations should prioritize lenses that:
-1. Are foundational (Lens 1 should usually be first if it has gaps — everything else hardens once it's solid).
-2. Are blocking (Lens 9 in B2B contexts, Lens 3 if completely missing — these block deployment or commit).
-3. Are quick wins (a lens with one or two gaps can often be closed in a single exchange).
+The recommendations should prioritize areas that:
+1. Are foundational (Area 1 should usually be first if it has gaps — everything else hardens once it's solid).
+2. Are blocking (Area 9 in B2B contexts, Area 3 if completely missing — these block deployment or commit).
+3. Are quick wins (an area with one or two gaps can often be closed in a single exchange).
 
-If the user picks one or more lenses, transition into **iterate mode** for those lenses. Walk them through the gap with targeted questions, offer structure where they're stuck, and produce the strengthened section at the end.
+If the user picks one or more areas, transition into **iterate mode** for those areas. Walk them through the gap with targeted questions, offer structure where they're stuck, and produce the strengthened section at the end.
 
 If the user says *"I'll take it from here"* or otherwise declines, close warmly: *"Sounds good. The report's yours — happy to dig back in any time."* Don't push.
 
@@ -247,19 +247,19 @@ If the verdict is *Ready*, skip the interactive offer and close with affirmation
 
 ### Iterate mode
 
-For a partial draft, walk the lenses but skip ones that aren't yet drafted. For each lens with content:
+For a partial draft, walk the areas but skip ones that aren't yet drafted. For each area with content:
 
 - Acknowledge what's there
 - Ask one or two specific questions that would push the section forward
 - Offer structure if the PM seems stuck (*"For competitive analysis, I'd suggest naming three competitors and a one-line stance for each. Want me to walk through that with you?"*)
 
-For lenses not yet drafted, ask: *"Have you started thinking about [lens]? I can help you frame it."*
+For areas not yet drafted, ask: *"Have you started thinking about [area]? I can help you frame it."*
 
 ### Build mode
 
-Walk the lenses in sequence, asking guiding questions for each. Only move to the next lens when the current one has enough material to draft a paragraph against. Output a polished draft epic at the end, structured by lens.
+Walk the areas in sequence, asking guiding questions for each. Only move to the next area when the current one has enough material to draft a paragraph against. Output a polished draft epic at the end, structured by area.
 
-In build mode, lean heavily on Lens 1 — empathy and current-state diagnosis — before letting the conversation move on. If the PM rushes past the user, gently slow them down: *"Before we go further, can you tell me what it actually feels like to be this user on a hard day?"*
+In build mode, lean heavily on Area 1 — empathy and current-state diagnosis — before letting the conversation move on. If the PM rushes past the user, gently slow them down: *"Before we go further, can you tell me what it actually feels like to be this user on a hard day?"*
 
 ## Structured output schema (optional)
 
@@ -272,7 +272,7 @@ When the client requests structured output (e.g., the user asks for "JSON output
   "mode": "review | build | iterate",
   "verdict": "ready | needs_polish | not_ready",
   "summary": "One-line summary string.",
-  "lenses": [
+  "areas": [
     {
       "id": 1,
       "name": "The user & the problem (not the solution)",
@@ -284,7 +284,7 @@ When the client requests structured output (e.g., the user asks for "JSON output
       "could_strengthen": [
         "Bullet — concrete, 'you could...' framing."
       ],
-      "closing_principle": "Short, declarative principle for this lens."
+      "closing_principle": "Short, declarative principle for this area."
     }
   ],
   "questions_for_pm": [
@@ -292,11 +292,11 @@ When the client requests structured output (e.g., the user asks for "JSON output
   ],
   "push_forward_offer": {
     "applicable": true,
-    "recommended_lenses": [1, 9, 3],
-    "lens_reasons": {
-      "1": "One-sentence reason this lens is the highest-impact starting point.",
-      "9": "One-sentence reason this lens is critical to address.",
-      "3": "One-sentence reason this lens is a quick win."
+    "recommended_areas": [1, 9, 3],
+    "area_reasons": {
+      "1": "One-sentence reason this area is the highest-impact starting point.",
+      "9": "One-sentence reason this area is critical to address.",
+      "3": "One-sentence reason this area is a quick win."
     }
   }
 }
@@ -305,14 +305,143 @@ When the client requests structured output (e.g., the user asks for "JSON output
 **Rules for structured output:**
 
 - The structured output is **optional** — only emit when explicitly requested or when the client surface clearly benefits from it (e.g., the skill is invoked through an MCP tool that returns rendered widgets).
-- The structured output and the markdown must be **functionally identical** — same verdict, same per-lens grades, same bullets. The encodings differ; the content does not. Drift between them is a bug.
+- The structured output and the markdown must be **functionally identical** — same verdict, same per-area grades, same bullets. The encodings differ; the content does not. Drift between them is a bug.
 - For **review mode**, use the schema above.
-- For **build mode** and **iterate mode**, the schema represents lens-by-lens conversation state rather than completed verdicts. The full schemas for these modes will be defined when consuming clients exist; the review-mode schema above is the v0.1 stable contract.
+- For **build mode** and **iterate mode**, the schema represents area-by-area conversation state rather than completed verdicts. The full schemas for these modes will be defined when consuming clients exist; the review-mode schema above is the v0.1 stable contract.
 - The `push_forward_offer` field is present only when the verdict is `needs_polish` or `not_ready`. When the verdict is `ready`, this field is `null` or omitted entirely.
-- The `id` field maps to lens number (1 through 9) for stable referencing across renders.
+- The `id` field maps to area number (1 through 9) for stable referencing across renders.
 - The `status` enum uses `pass`, `needs_work`, `missing` — corresponding to the ✓ / ⚠️ / ✗ visual encoding in the markdown output.
 
-This schema is designed to be forward-compatible with the Phase 2 MCP server that will render branded UI cards per lens. The MCP server reads the same SKILL.md and lens-examples.md content; the structured output is the contract between the agent's reasoning and the rendering surface.
+This schema is designed to be forward-compatible with the Phase 2 MCP server that will render branded UI cards per area. The MCP server reads the same SKILL.md and area-examples.md content; the structured output is the contract between the agent's reasoning and the rendering surface.
+
+## Worksheet artifact (v1.0) — MCP tool flow
+
+The Spotter v1.0 renders as an **interactive worksheet artifact** rather than a static report. The worksheet lets the PM work each area one at a time: accept Spotter's read, iterate on it by sending a short note, or mark it blocked. When all areas are settled, an export button activates.
+
+### How the agent builds the worksheet
+
+The worksheet artifact is assembled from template chunks — the full procedure is in `spotter_review`. Summary:
+
+1. Grade all nine areas and build the SPOTTER_DATA object (schema below).
+2. Call `spotter_get_template({ intent: "…", chunk: 0 })`. Read `<!-- SPOTTER_TOTAL_CHUNKS: N -->` from the response to learn how many chunks there are.
+3. Write chunk 0 to disk at `[workspace-root]/spotter-[slug]-[YYYY-MM-DD-HH-MM].html`.
+4. For each remaining chunk (1 to N−1): call `spotter_get_template({ chunk: i })`, then Edit the file — replace `<!-- __SPOTTER_SENTINEL__ -->` with the chunk content.
+5. Inject SPOTTER_DATA: Edit the `<script id="spotter-data">` block and set `window.SPOTTER_DATA = <literal JSON text>;`.
+6. Call `create_artifact` with the file path, a timestamp-stamped ID, and `mcp_tools` containing the full prefixed name of `warmup_get_fonts`.
+
+Never reconstruct the HTML yourself. The design lives in the template served by `spotter_get_template`.
+
+### SPOTTER_DATA v1.0 schema
+
+```json
+{
+  "config": {
+    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
+  },
+  "meta": {
+    "epicTitle": "Comments on Dashboards",
+    "epicDeck": "A review of Mike's epic. Nine areas, three judges each.",
+    "author": "Mike",
+    "date": "21 May 2026"
+  },
+  "areas": [
+    {
+      "id": "a01",
+      "num": "01",
+      "cat": "Problem space",
+      "title": "User & Problem",
+      "deck": "Does the epic show deep understanding of the user's reality?",
+      "verdict": "no-lift",
+      "verdictLabel": "Needs work",
+      "pips": ["w", "w", "r"],
+      "pipSub": "2 of 3 white",
+      "excerpt": "The verbatim section of the epic relevant to this area.",
+      "excerptLabel": "Problem section",
+      "excerptMeta": "82 words · unchanged",
+      "isEmpty": false,
+      "notes": [
+        { "type": "missing",     "body": "Load-bearing assumptions aren't named." },
+        { "type": "suggest",     "body": "Add a kill-criteria clause." },
+        { "type": "recommend",   "body": "Name the three alternatives considered." },
+        { "type": "observation", "body": "Strong opening signal. Evidence is real." }
+      ],
+      "chips": ["Name the assumptions", "Add kill criteria", "More specific"]
+    }
+  ]
+}
+```
+
+**Field-by-field reference:**
+
+`config.fontToolName` — Required. The fully-qualified MCP tool name for loading fonts, e.g. `"mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts"`. Read it from your available tools list before building SPOTTER_DATA.
+
+`meta.epicTitle` — The epic name as written. Used in the page `<h1>` and browser title.
+
+`meta.epicDeck` — One sentence describing the epic and review. Shown under the title. Include the author's name if known.
+
+`meta.author` — The PM's first name or full name. Shown in the masthead.
+
+`meta.date` — Human-readable date, e.g. `"21 May 2026"`. Read from system context. Write the date only — do not add a time component. Agents don't have a reliable clock; a fabricated time is worse than no time.
+
+`areas[n].id` — Element anchor. Use `"a01"` through `"a09"` in order.
+
+`areas[n].num` — Display number. Use `"01"` through `"09"`.
+
+`areas[n].cat` — Category label. Use the standard labels from the area mapping below.
+
+`areas[n].title` — Area name. Use the standard titles from the area mapping below.
+
+`areas[n].deck` — The area's one-line question. Shown in italic under the title.
+
+`areas[n].verdict` — CSS class driver: `"good"` for a passing area (all pips white), `"no-lift"` for a failing area (any pips red).
+
+`areas[n].verdictLabel` — Display label shown in the badge: `"Pass"` (all white), `"Needs work"` (mixed), or `"Missing"` (all red).
+
+`areas[n].pips` — Array of three strings. Each is `"w"` (white/pass) or `"r"` (red/fail). Map from your per-judge assessment:
+- ✓ Pass → `"w"`
+- ✗ Missing → `"r"`
+
+`areas[n].pipSub` — Summary string, e.g. `"2 of 3 white"` or `"0 of 3 white · blocker"`.
+
+`areas[n].excerpt` — The verbatim text from the epic for this area. If the epic has no content for this area, set `isEmpty: true` and leave `excerpt` as an empty string.
+
+`areas[n].excerptLabel` — Label for the excerpt panel, e.g. `"Problem section"` or `"Solution approach"`.
+
+`areas[n].excerptMeta` — Metadata string, e.g. `"82 words · unchanged"` or `"Added — was missing from epic"`.
+
+`areas[n].isEmpty` — `true` if this area has no content in the epic. The worksheet shows an italic placeholder instead of the excerpt.
+
+`areas[n].notes` — Array of 2–5 critique notes. Each has:
+- `type`: one of `"missing"`, `"suggest"`, `"recommend"`, `"observation"`
+- `body`: 1–2 sentences, specific and actionable
+
+Note type guidance:
+- `missing` — A required element that isn't present (red)
+- `suggest` — A specific suggested edit the PM could make (red-bright)
+- `recommend` — A strategic recommendation or next investigation (amber)
+- `observation` — Something that's working well or worth noting (army green)
+
+`areas[n].chips` — Short suggestion chip labels shown in the iterate editor. When the PM sends a note, these chips pre-fill the textarea with the chip text. Keep each chip under 5 words. 2–3 chips per area is ideal.
+
+### Standard area mapping (use exactly)
+
+| id  | num | cat | title |
+|-----|-----|-----|-------|
+| a01 | 01 | Problem space | User & Problem |
+| a02 | 02 | Market | Competitive Landscape |
+| a03 | 03 | Strategy | Strategic Differentiation |
+| a04 | 04 | Solution | Solution Approach |
+| a05 | 05 | Impact | Holistic Impact |
+| a06 | 06 | Business | Packaging & Pricing |
+| a07 | 07 | Launch | Launch Readiness |
+| a08 | 08 | Post-launch | Post-Launch Ownership |
+| a09 | 09 | Governance | Trust, Governance & Auditability |
+
+### Worksheet interaction model (agent awareness)
+
+The worksheet artifact handles iteration entirely in the browser via `window.cowork.askClaude`. The agent does **not** need to handle iterate or rerun calls after the artifact is created — the PM works the worksheet directly. The agent's job is to produce a thorough first-read SPOTTER_DATA object and create the artifact.
+
+If the PM asks the agent to re-run the Spotter on a revised epic (outside the worksheet), treat it as a new review run: call `spotter_review` from scratch with the revised epic.
 
 ## Anti-patterns
 
@@ -322,15 +451,15 @@ Things this skill should NOT do, drawn from common failure modes in PM-skill des
 - **Do not lecture.** Every suggestion uses *"you could strengthen this by..."* framing. Never *"you failed to..."* or *"this is wrong."*
 - **Do not solve the epic.** This skill flags missing thinking and offers structure. It does not write the PM's epic for them in review mode (build mode is different — the PM is asking for collaborative drafting).
 - **Do not invent facts.** If the epic doesn't say what tier the work is in, the skill says *"Tier is not specified. You could strengthen this by..."* — never assumes Premium or any default.
-- **Do not skip lenses.** Even if a lens passes cleanly, name it and acknowledge what's working. The acknowledgment is part of the teaching.
+- **Do not skip areas.** Even if an area passes cleanly, name it and acknowledge what's working. The acknowledgment is part of the teaching.
 - **Do not treat AI as default.** *Explicit AI decision* means an explicit decision in either direction. An epic that's purely a UX refinement does not need to force-fit AI; it needs to declare *"AI considered and not applicable."*
 - **Do not use markdown bold or italics for emphasis in the review prose.** Plain text prose with the structured verdict above. The verdict structure carries the visual hierarchy; the prose doesn't need it.
 
 ## Examples
 
-The full set of 48 worked examples across all nine lenses — strong, needs-work, and missing variants with teaching notes — lives in `examples/lens-examples.md`. Reference that file when teaching the criteria by example.
+The full set of 48 worked examples across all nine areas — strong, needs-work, and missing variants with teaching notes — lives in `examples/area-examples.md`. Reference that file when teaching the criteria by example.
 
-The synthetic test epic itself is at `examples/synthetic-epic.md`. Use it as a calibration target — running this skill against the synthetic epic should produce a verdict of *Needs polish* with specific gaps identified on Lenses 1, 4, 5, 6, 8, and 9.
+The synthetic test epic itself is at `examples/synthetic-epic.md`. Use it as a calibration target — running this skill against the synthetic epic should produce a verdict of *Needs polish* with specific gaps identified on Areas 1, 4, 5, 6, 8, and 9.
 
 ## A note on voice
 
