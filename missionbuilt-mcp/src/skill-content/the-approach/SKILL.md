@@ -365,7 +365,7 @@ The `actDivider` renders automatically before the first `"the SE"` section. Sect
 
 ## RENDER Phase (Step 2)
 
-Every Approach brief is built fresh from `approach_get_template`. There is no Path A / Path B and no engine version check — one path, every time.
+Every Approach brief is built fresh from `approach_get_template`. No Path A / Path B. No engine version check. `approach_data` is required on every chunk call — the server re-injects it each time (stateless).
 
 ```
 a) Identify your loaded warmup_get_fonts tool name. It looks like:
@@ -378,18 +378,28 @@ b) Ensure config.fontToolName is set in APPROACH_DATA:
         ... (all other config fields)
       }
 
-c) Call approach_get_template({ approach_data: JSON.stringify(APPROACH_DATA) }).
-   The server injects the data, escapes </script> sequences, and returns the
-   complete filled HTML (~150KB). Do not double-escape — the server handles it.
+c) Call approach_get_template({ chunk: 0, approach_data: JSON.stringify(APPROACH_DATA) }).
+   Read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response to learn N.
+   The response ends with <!-- __APPROACH_SENTINEL__ --> when N > 1.
+   If the call returns [ERROR], stop and report.
 
-d) Write the returned HTML to [workspace_root]/approach-brief.html using the
-   Write file tool. Write it exactly as returned — do not edit the content.
+d) Write chunk 0 to [workspace_root]/approach-brief.html using the Write file tool.
 
-e) Call create_artifact (or update_artifact if re-running for the same company):
+e) For chunks 1..N-1 (sequentially — NEVER in parallel):
+   - Call approach_get_template({ chunk: i, approach_data: JSON.stringify(APPROACH_DATA) }).
+   - Edit approach-brief.html: old_string="<!-- __APPROACH_SENTINEL__ -->" → new_string=[chunk text].
+   - Wait for Edit to succeed before starting i+1.
+
+f) Verify assembly — Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.
+
+g) Call create_artifact (or update_artifact if re-running for the same company):
       id: "the-approach"
       html_path: [path to approach-brief.html]
       mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
    Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
+
+Do NOT use bash to move or copy any files. Bash runs in a sandbox that cannot reach
+Cowork session paths. Use the Read and Write file tools with the real macOS path.
 ```
 
 ---

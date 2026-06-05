@@ -1174,18 +1174,31 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
     // ── approach_get_template ────────────────────────────────────────────────
     this.server.tool(
       "approach_get_template",
-      "Return the complete, data-filled HTML for a The Approach field brief artifact. " +
-      "Call this once with the assembled APPROACH_DATA JSON — the server injects it into the " +
-      "inline template and returns the full HTML. Write the response to disk, then call " +
-      "create_artifact (passing warmup_get_fonts in mcp_tools). Single-path flow — no Path A/B.",
+      "Return the data-filled Approach HTML in paginated 900-line chunks. " +
+      "Pass approach_data on EVERY chunk call — the server re-injects it each time (stateless). " +
+      "Call with chunk:0 first; read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response " +
+      "to learn the total. Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i " +
+      "and Edit-replace <!-- __APPROACH_SENTINEL__ --> with each chunk. " +
+      "After assembly, call create_artifact (pass warmup_get_fonts in mcp_tools). " +
+      "Do NOT use bash to move files — use the Read/Write file tools.",
       {
         intent: intentField,
+        chunk: z
+          .number()
+          .int()
+          .min(0)
+          .default(0)
+          .describe(
+            "Which 900-line chunk to return (0-indexed). Default: 0. " +
+            "Read <!-- APPROACH_TOTAL_CHUNKS: N --> from chunk 0 to learn the total number of chunks."
+          ),
         approach_data: z.string().max(300000).describe(
           "The APPROACH_DATA JSON string produced by The Approach workflow. " +
+          "Required on EVERY chunk call — the server re-injects it each time. " +
           "Must be valid JSON matching the APPROACH_DATA schema."
         ),
       },
-      async ({ approach_data }) => {
+      async ({ chunk = 0, approach_data }) => {
         // Validate JSON before injection — malformed data produces a near-blank silent brief otherwise.
         try { JSON.parse(approach_data); } catch (e) {
           return {
@@ -1195,13 +1208,13 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             }],
           };
         }
+
         // XSS safety: article/intel text can contain </script> — escape before injection.
         // Replacer-function safety: content can contain $', $&, $` — replacer bypasses expansion.
         const safe = approach_data.replace(/<\/script>/gi, '<\\/script>');
         const PLACEHOLDER = "__APPROACH_DATA__";
         const filled = APPROACH_TEMPLATE_HTML.replace(PLACEHOLDER, () => safe);
-        const injected = filled !== APPROACH_TEMPLATE_HTML;
-        if (!injected) {
+        if (filled === APPROACH_TEMPLATE_HTML) {
           return {
             content: [{
               type: "text" as const,
@@ -1209,7 +1222,40 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
             }],
           };
         }
-        return { content: [{ type: "text" as const, text: filled }] };
+
+        // Paginated delivery — same pattern as warmup_get_template.
+        // The filled HTML is ~1100-1200 lines. Cowork auto-persists MCP responses over ~67KB
+        // to disk as a file path, which agents then try to move with bash (which fails because
+        // bash runs in a sandbox). Chunking at 900 lines keeps each response well under the
+        // threshold. approach_data is re-injected on every call so no server-side caching needed.
+        const CHUNK_LINES = 900;
+        const SENTINEL    = '<!-- __APPROACH_SENTINEL__ -->';
+        const lines       = filled.split('\n');
+        const totalChunks = Math.ceil(lines.length / CHUNK_LINES);
+
+        if (chunk === 0) {
+          const chunkLines = lines.slice(0, CHUNK_LINES);
+          // Prepend total-chunks header so the agent knows how many calls to make.
+          chunkLines.unshift(`<!-- APPROACH_TOTAL_CHUNKS: ${totalChunks} -->`);
+          if (totalChunks > 1) chunkLines.push(SENTINEL);
+          return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
+        }
+
+        // Chunks 1+: serve the appropriate slice of filled lines.
+        const startLine = chunk * CHUNK_LINES;
+        if (startLine >= lines.length) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: `[approach_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]`,
+            }],
+          };
+        }
+        const endLine   = Math.min((chunk + 1) * CHUNK_LINES, lines.length);
+        const chunkLines = lines.slice(startLine, endLine);
+        const isLast    = endLine >= lines.length;
+        if (!isLast) chunkLines.push(SENTINEL);
+        return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
       }
     );
 
@@ -1249,17 +1295,23 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               "",
               pathHint,
               "",
-              "## Render — inline template (single path)",
+              "## Render — chunked template (matches Warmup pattern)",
               "",
-              "Every Approach brief is built from scratch using approach_get_template. There is no",
-              "Path A / Path B and no engine version check — always the full flow:",
+              "Every Approach brief is built from scratch using approach_get_template. No Path A/B.",
+              "approach_data is required on EVERY chunk call — the server re-injects it each time.",
               "",
               "  1. Assemble the complete APPROACH_DATA object (see approach_get_skill section:'schema').",
-              "  2. Call approach_get_template({ approach_data: JSON.stringify(APPROACH_DATA) }).",
-              "     The server returns the complete, data-filled HTML.",
-              "  3. Write the HTML to [workspace-root]/approach-brief.html using the Write file tool.",
-              "     Guard against </script> injection: the server handles this — do not double-escape.",
-              "  4. Call create_artifact({ html_path: '...approach-brief.html', mcp_tools: ['mcp__<uuid>__warmup_get_fonts'] }).",
+              "  2. Call approach_get_template({ chunk: 0, approach_data: JSON.stringify(APPROACH_DATA) }).",
+              "     Read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response to learn N.",
+              "     The response ends with <!-- __APPROACH_SENTINEL__ --> when N > 1.",
+              "  3. Write chunk 0 to [workspace-root]/approach-brief.html using the Write file tool.",
+              "  4. For chunks 1..N-1 (sequentially, NEVER parallel):",
+              "       Call approach_get_template({ chunk: i, approach_data: JSON.stringify(APPROACH_DATA) }).",
+              "       Edit approach-brief.html: old_string='<!-- __APPROACH_SENTINEL__ -->' → new_string=[chunk text].",
+              "       Wait for Edit to succeed before starting i+1.",
+              "  5. Verify: Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.",
+              "  6. Call create_artifact({ html_path: '...approach-brief.html', mcp_tools: ['mcp__<uuid>__warmup_get_fonts'] }).",
+              "  Do NOT use bash to move or copy files — use Read/Write file tools with real macOS paths.",
               "",
               "## Font loading — required",
               "",
