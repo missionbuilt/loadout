@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title id="page-title">The Approach · Pre-Call Brief</title>
+<!-- Google Fonts via CDN. Falls back to system font stacks if blocked. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500;700&family=Permanent+Marker&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* ══════════════════════════════════════════════════════════════════════════
-     THE APPROACH · FIELD BRIEF  (V1/V2 blend — cream paper + V2 quirks)
+  /* ══════════════════════════════════════════════════════════════════════
+     THE APPROACH · BRIEFING  (C1 · clarity-forward · editorial single-column)
      Data-driven via window.APPROACH_DATA injection.
-     ══════════════════════════════════════════════════════════════════════════ */
+     ══════════════════════════════════════════════════════════════════════ */
   :root {
     color-scheme: light;
     --paper:        #f3ecdc;
@@ -19,19 +21,18 @@
     --paper-soft:   #efe8d6;
     --ink:          #1a1612;
     --ink-soft:     #3a342d;
-    --ink-dim:      #6a5f50;
-    --ink-faint:    #968974;
+    --ink-dim:      #3d332a;
+    --ink-faint:    #52473a;
     --rule:         #c8bea7;
     --rule-soft:    #d8cfb8;
     --blood:        #8a2017;
     --blood-bright: #a8281e;
-    --blood-soft:   #f0d8d4;
     --army:         #5f6e26;
     --army-soft:    #dfe3c4;
+
     --font-display: 'Oswald', sans-serif;
     --font-serif:   'Merriweather', Georgia, serif;
     --font-mono:    'JetBrains Mono', 'Courier New', monospace;
-    --font-hand:    'Permanent Marker', 'Oswald', sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; box-shadow: none !important; }
   html { scroll-behavior: smooth; }
@@ -39,543 +40,619 @@
     background: var(--paper);
     color: var(--ink);
     font-family: var(--font-serif);
-    font-size: 16px;
-    line-height: 1.7;
+    font-size: 17.5px;
+    line-height: 1.78;
     -webkit-font-smoothing: antialiased;
-    background-image:
-      radial-gradient(ellipse 900px 700px at 8% 0%, rgba(255,250,235,0.6), transparent 65%),
-      radial-gradient(ellipse 500px 380px at 92% 6%, rgba(138,32,23,0.04), transparent 70%);
-    background-attachment: fixed;
     min-height: 100vh;
   }
-  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 120ms; }
-  a:hover { border-bottom-color: var(--blood); color: var(--blood); }
-  ::selection { background: rgba(138,32,23,0.18); color: var(--ink); }
+  ::selection { background: rgba(138,32,23,0.18); }
+  a { color: inherit; text-decoration: none; }
 
-  /* ─────────────────────────────────────────────  MASTHEAD  ───────────── */
-  .masthead {
-    padding: 36px 56px 24px;
-    border-bottom: 3px double var(--ink);
-    position: relative;
-  }
-  .np-row1 {
-    display: flex; align-items: baseline; gap: 14px;
-    font-family: var(--font-mono);
-    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-dim);
-    margin-bottom: 16px; flex-wrap: wrap;
-  }
-  .np-row1 .latin { font-family: var(--font-serif); font-style: italic; font-weight: 300; text-transform: none; letter-spacing: 0.01em; color: var(--ink-dim); font-size: 13px; }
-  .np-row1 .sep { color: var(--ink-faint); }
-  .np-row1 .scan-pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--rule); padding: 4px 10px;
-    color: var(--ink-dim);
-  }
-  .np-row1 .scan-pill .dot { width: 6px; height: 6px; background: var(--army); display: inline-block; }
-  /* V2 countdown pill — oxblood on cream */
-  .np-row1 .countdown-pill {
-    margin-left: auto;
-    display: inline-flex; align-items: center; gap: 6px;
-    border: 1px solid var(--blood); padding: 4px 10px;
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--blood); font-weight: 600;
-  }
-
-  /* Masthead body: stamp left + title center */
-  .masthead-body {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 36px;
+  /* ── TOOLBAR ────────────────────────────────────────────────────────── */
+  .toolbar-bar {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 14px 32px 0;
+    display: flex;
+    justify-content: flex-end;
     align-items: center;
-    margin-bottom: 8px;
+    gap: 6px;
   }
-  /* V2 stamp adapted to cream/blood theme */
-  .approach-stamp {
-    border: 3px solid var(--blood);
-    padding: 12px 18px 8px;
-    transform: rotate(-2.5deg);
-    display: inline-block;
-    background: rgba(138,32,23,0.04);
-    flex-shrink: 0;
+  .masthead-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .tb-btn { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); background: transparent; border: 1px solid var(--rule); padding: 4px 11px; line-height: 1; cursor: pointer; transition: color 0.1s, border-color 0.1s, background 0.1s; white-space: nowrap; }
+  .tb-btn:hover { color: var(--ink); background: var(--paper-warm); }
+  .tb-btn.save { color: var(--blood); }
+  .tb-btn.save:hover { color: var(--paper); background: var(--blood); border-color: var(--blood); }
+  .tb-export { position: relative; display: flex; align-items: center; }
+  .tb-dropdown { display: none; position: absolute; top: 100%; right: 0; background: var(--paper); border: 1px solid var(--rule); border-top: none; z-index: 300; min-width: 160px; }
+  .tb-dropdown.open { display: block; }
+  .tb-dropdown button { display: block; width: 100%; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); background: transparent; border: none; border-bottom: 1px solid var(--rule); padding: 10px 16px; text-align: left; cursor: pointer; white-space: nowrap; transition: color 0.1s, background 0.1s; }
+  .tb-dropdown button:last-child { border-bottom: none; }
+  .tb-dropdown button:hover { color: var(--ink); background: var(--paper-warm); }
+  .tb-dropdown button.dd-primary { color: var(--blood); }
+  .tb-dropdown button.dd-primary:hover { color: var(--paper); background: var(--blood); }
+  @media print { .toolbar-bar { display: none !important; } }
+
+  /* ── MASTHEAD ───────────────────────────────────────────────────────── */
+  .head {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 32px 36px;
+    border-bottom: 1px solid var(--rule);
   }
-  .approach-stamp .stamp-hand {
-    font-family: var(--font-hand);
-    font-size: 22px; color: var(--blood);
-    line-height: 1; display: block;
-    text-align: center;
-    margin-bottom: 3px;
-  }
-  .approach-stamp .stamp-label {
-    font-family: var(--font-display);
-    font-weight: 700; font-size: 28px;
-    text-transform: uppercase; letter-spacing: 0.04em;
-    color: var(--blood); line-height: 0.95;
-    text-align: center;
-  }
-  .approach-stamp .stamp-sub {
+  .head .eyebrow {
     font-family: var(--font-mono);
-    font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--blood); text-align: center; margin-top: 4px;
-    display: block;
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); font-weight: 700;
+    margin-bottom: 24px;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
   }
-  .masthead-center { text-align: center; }
-  .np-title {
+  .head .eyebrow .sep { color: var(--ink-dim); }
+  .head h1 {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(56px, 9vw, 120px);
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
+    font-size: 72px;
+    letter-spacing: -0.02em;
+    line-height: 0.94;
     color: var(--ink);
-    line-height: 0.92;
-    text-align: center;
-    margin: 6px 0 8px;
+    margin-bottom: 20px;
   }
-  .np-title .sq {
-    display: inline-block; width: 0.13em; height: 0.13em;
-    background: var(--blood); vertical-align: baseline; margin-left: 0.04em;
-  }
-  .np-deck {
-    font-family: var(--font-serif); font-style: italic; font-weight: 300;
-    font-size: 18px; text-align: center; color: var(--ink-soft);
-    margin-bottom: 0;
-  }
-  .np-row2 {
-    display: flex; justify-content: space-between; align-items: flex-end;
-    border-top: 1px solid var(--rule); padding-top: 16px; gap: 24px;
-    flex-wrap: wrap; margin-top: 16px;
-  }
-  .np-greet {
-    font-family: var(--font-hand);
-    font-size: 26px; color: var(--blood);
-    transform: rotate(-1.2deg) translateY(-2px);
-    line-height: 1;
-  }
-  .np-meta {
-    font-family: var(--font-mono);
-    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--ink-dim);
-    display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
-  }
-  .np-meta .safety-link { color: var(--army); border-bottom: 1px dotted var(--army); }
-
-  /* ─────────────────────────────────────────────  SIGNAL BAR  ─────────── */
-  .signal {
-    background: var(--paper-warm);
-    border-bottom: 1px solid var(--rule);
-    padding: 14px 56px;
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 0;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--ink-soft);
-    letter-spacing: 0.05em;
-  }
-  .signal > div { padding: 4px 14px 4px 0; border-right: 1px solid var(--rule); }
-  .signal > div:last-child { border-right: none; }
-  .signal .k { display: block; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; font-weight: 500; }
-  .signal .v { font-weight: 500; color: var(--ink); }
-
-  /* ─────────────────────────────────────────────  SCOUTING SUMMARY  ───── */
-  /* V2 cut-in card concept, adapted to cream theme */
-  .scout-summary {
-    margin: 28px 56px;
-    border: 1px solid var(--rule);
-    background: var(--paper-card);
-    position: relative;
-  }
-  .scout-summary::before {
-    content: 'SCOUTING SUMMARY';
-    position: absolute; top: -10px; left: 24px;
-    background: var(--paper); padding: 0 12px;
-    font-family: var(--font-mono);
-    font-size: 10px; letter-spacing: 0.32em;
-    color: var(--blood); font-weight: 700;
-  }
-  .summary-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0;
-  }
-  .summary-col {
-    padding: 22px 26px;
-    border-right: 1px solid var(--rule-soft);
-  }
-  .summary-col:last-child { border-right: none; }
-  .summary-col h3 {
-    font-family: var(--font-mono);
-    font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase;
-    color: var(--blood); font-weight: 700;
-    margin-bottom: 10px;
-  }
-  .summary-col p {
+  .head .deck {
     font-family: var(--font-serif);
-    font-size: 15px; color: var(--ink-soft);
-    line-height: 1.6; text-wrap: pretty;
+    font-style: italic; font-weight: 400;
+    font-size: 22px;
+    line-height: 1.5;
+    color: var(--ink);
+    max-width: 60ch;
+    text-wrap: pretty;
   }
-  .summary-col .hand {
-    font-family: var(--font-hand);
-    color: var(--blood);
-    font-size: 17px;
-    transform: rotate(-1deg);
-    display: inline-block;
-    margin-top: 10px;
-    line-height: 1.2;
+  .head .meta {
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    font-family: var(--font-mono);
+    font-size: 14px;
   }
+  .head .meta .k {
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+    margin-bottom: 6px; display: block;
+  }
+  .head .meta .v { color: var(--ink); font-weight: 600; }
 
-  /* ─────────────────────────────────────────────  PEOPLE STRIP  ───────── */
-  .people-strip {
-    padding: 0 56px 8px;
-    border-bottom: 1px solid var(--rule-soft);
+  /* ── TABLE OF CONTENTS ──────────────────────────────────────────────── */
+  .toc {
+    max-width: 760px; margin: 0 auto;
+    padding: 28px 32px 32px;
+    border-bottom: 1px solid var(--rule);
   }
-  .people-strip:empty { display: none; }
-  .people-strip-label {
+  .toc .label {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--blood); font-weight: 700;
-    padding: 14px 0 10px;
+    color: var(--ink-soft); font-weight: 700;
+    margin-bottom: 18px;
   }
-  .people-cards {
-    display: flex; gap: 18px; flex-wrap: wrap;
-  }
-  .person-card {
-    background: var(--paper-card);
-    border: 1px solid var(--rule);
-    padding: 16px 18px;
-    min-width: 220px; max-width: 280px;
-    flex: 1;
-    position: relative;
-  }
-  .person-card .role-stamp {
-    position: absolute; top: 8px; right: 10px;
-    font-family: var(--font-hand);
-    font-size: 13px; color: var(--blood);
-    transform: rotate(-1deg);
-  }
-  .person-card .person-initials {
-    width: 42px; height: 42px;
-    background: var(--blood);
-    color: var(--paper);
+  .toc ol { list-style: none; counter-reset: toc; columns: 2; column-gap: 32px; }
+  .toc li {
+    counter-increment: toc;
+    padding: 8px 0;
     font-family: var(--font-display);
-    font-weight: 700; font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 10px;
+    font-size: 20px; font-weight: 600;
+    color: var(--ink);
+    display: flex; gap: 14px; align-items: baseline;
+    break-inside: avoid;
+  }
+  .toc li::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--blood); font-weight: 700;
+    letter-spacing: 0.1em;
     flex-shrink: 0;
   }
-  .person-card .person-name {
-    font-family: var(--font-display);
-    font-weight: 600; font-size: 18px; text-transform: uppercase;
-    color: var(--ink); line-height: 1.1; margin-bottom: 3px;
-  }
-  .person-card .person-title {
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--ink-dim); margin-bottom: 8px;
-  }
-  .person-card .person-signal {
-    font-family: var(--font-serif); font-style: italic;
-    font-size: 14px; color: var(--ink-soft); line-height: 1.5;
-    border-left: 2px solid var(--blood); padding-left: 8px;
-    margin-top: 8px;
-  }
-  .person-card .person-linkedin {
-    margin-top: 8px; font-family: var(--font-mono);
-    font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--blood); border-bottom: 1px dotted var(--blood) !important;
-  }
+  .toc li a { color: inherit; border-bottom: 1px solid transparent; }
+  .toc li a:hover { border-bottom-color: var(--ink); }
 
-  /* ─────────────────────────────────────────────  SCROLL NAV  ─────────── */
-  .secnav {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(243,236,220,0.96);
-    backdrop-filter: blur(8px);
+  /* ── MEDDPICC SCORECARD ─────────────────────────────────────────────── */
+  .meddpicc {
+    max-width: 760px; margin: 0 auto;
+    padding: 48px 32px 36px;
     border-bottom: 1px solid var(--rule);
-    padding: 10px 56px;
-    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .meddpicc .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); font-weight: 700;
+    margin-bottom: 8px; display: block;
+  }
+  .meddpicc h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
+    color: var(--ink);
+    margin: 6px 0 6px;
+  }
+  .meddpicc .deck {
+    font-family: var(--font-serif);
+    font-style: italic; font-weight: 300;
+    color: var(--ink-soft);
+    font-size: 16px;
+    max-width: 60ch;
+    margin-bottom: 18px;
+  }
+  .meddpicc .ring {
+    display: flex; gap: 22px; flex-wrap: wrap;
+    padding: 12px 0;
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 22px;
+    align-items: center;
+  }
+  .meddpicc .ring .leg {
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.16em;
+    color: var(--ink-soft);
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .meddpicc .ring .leg .pip {
+    display: inline-block; width: 11px; height: 11px;
+    border: 1.5px solid var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .meddpicc .ring .leg.confirmed .pip { background: var(--army); border-color: var(--army); }
+  .meddpicc .ring .leg.partial .pip {
+    background: linear-gradient(to right, #946011 50%, transparent 50%);
+    border-color: #946011;
+  }
+  .meddpicc .ring .leg.unknown .pip { background: transparent; border-color: var(--ink-faint); }
+  .meddpicc .ring .score {
+    margin-left: auto;
     font-family: var(--font-mono);
     font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--ink-dim);
   }
-  .secnav .group-label { color: var(--blood); font-weight: 600; letter-spacing: 0.24em; }
-  .secnav .divider { color: var(--ink-faint); }
-  .secnav a { color: var(--ink-dim); border: none; }
-  .secnav a:hover, .secnav a.on { color: var(--ink); border-bottom: 1px solid var(--blood); }
-
-  /* ─────────────────────────────────────────────  BODY  ──────────────── */
-  .body { max-width: 1180px; margin: 0 auto; padding: 0 32px 64px; }
-
-  /* ── Act marker */
-  .act-marker {
-    margin: 56px 0 0;
-    padding: 18px 0 14px;
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;
-  }
-  .act-marker .rule { height: 1px; background: var(--ink); }
-  .act-marker .label {
-    font-family: var(--font-mono);
-    font-size: 11px; letter-spacing: 0.34em; text-transform: uppercase;
+  .meddpicc .ring .score b {
     color: var(--ink); font-weight: 700;
-    display: flex; align-items: baseline; gap: 14px;
-    white-space: nowrap;
+    font-family: var(--font-display); font-size: 16px;
+    letter-spacing: 0.02em;
+    margin: 0 4px;
   }
-  .act-marker .label .for {
-    font-family: var(--font-serif); font-style: italic; font-weight: 300;
-    text-transform: none; letter-spacing: 0.02em; color: var(--ink-dim); font-size: 13px;
+  .meddpicc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+  }
+  .mp {
+    padding: 18px 20px 16px;
+    border-right: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper-soft);
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 14px;
+    align-items: start;
+  }
+  .mp .letter {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .mp .body .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .mp .body h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .mp .body .ev {
+    font-family: var(--font-serif);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+    text-wrap: pretty;
+  }
+  .mp .body .next {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    color: var(--blood);
+    font-weight: 600;
+    display: block;
+    line-height: 1.4;
+  }
+  .mp .body .next::before { content: '▸ '; }
+  .mp .pip {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--ink-faint);
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .mp.confirmed { background: #e6e6d0; }
+  .mp.confirmed .pip { background: var(--army); border-color: var(--army); }
+  .mp.partial .pip {
+    background: linear-gradient(to right, #c8881a 50%, transparent 50%);
+    border-color: #c8881a;
+  }
+  .mp.unknown { background: var(--paper-card); }
+  .mp.unknown .pip { background: transparent; border-color: var(--ink-faint); }
+  .mp.unknown .body h3 { color: var(--ink-dim); }
+
+  /* ── INLINE MEDDPICC CHIP ───────────────────────────────────────────── */
+  .mp-chip {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--blood);
+    border: 1px solid var(--blood);
+    padding: 2px 7px;
+    margin-right: 8px;
+    vertical-align: 2px;
+    font-weight: 600;
+    background: var(--paper-card);
+  }
+  .mp-chip.confirmed { color: var(--army); border-color: var(--army); background: var(--army-soft); }
+  .mp-chip.partial { color: #946011; border-color: #946011; background: #f0dfba; }
+  .mp-chip.unknown { color: var(--ink-dim); border-color: var(--ink-faint); background: var(--paper-soft); }
+
+  /* ── MAIN ───────────────────────────────────────────────────────────── */
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
   }
 
-  /* ── Section */
-  section.sec { padding-top: 48px; }
-  section.sec + section.sec { border-top: 1px solid var(--rule); margin-top: 8px; }
-  .sec-eyebrow {
-    display: flex; align-items: baseline; gap: 14px;
-    margin-bottom: 18px; flex-wrap: wrap;
+  /* ── SECTION ────────────────────────────────────────────────────────── */
+  section.sec { padding-top: 64px; }
+  .sec-num {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--blood); font-weight: 700;
+    margin-bottom: 10px;
+    display: flex; gap: 12px; align-items: baseline;
   }
-  .sec-kicker {
+  .sec-num .pipe { color: var(--ink-dim); }
+  .sec-num .for {
+    font-family: var(--font-serif); font-style: italic; font-weight: 400;
+    text-transform: none; letter-spacing: 0.01em;
+    color: var(--ink-soft); font-size: 13px;
+  }
+  .sec-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.02em;
+    line-height: 1.04;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .sec-subtitle {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+  .sec-deck {
+    font-family: var(--font-serif);
+    font-style: italic; font-weight: 400;
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin-bottom: 36px;
+    max-width: 58ch;
+    text-wrap: pretty;
+  }
+
+  /* ── TL;DR CARD ─────────────────────────────────────────────────────── */
+  .tldr {
+    margin: 0 0 40px;
+    padding: 22px 26px;
+    background: var(--paper-card);
+    border-left: 3px solid var(--ink);
+  }
+  .tldr .k {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--ink); font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .tldr p {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink);
+    text-wrap: pretty;
+    max-width: 62ch;
+  }
+  .tldr p + p { margin-top: 8px; }
+
+  /* ── BODY PROSE ─────────────────────────────────────────────────────── */
+  .prose p {
+    font-size: 17.5px;
+    line-height: 1.78;
+    color: var(--ink);
+    margin-bottom: 22px;
+    text-wrap: pretty;
+    max-width: 68ch;
+  }
+  .prose p strong { font-weight: 700; color: var(--ink); }
+  .prose p em { font-style: italic; }
+  .prose .source {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.04em;
+    color: var(--ink);
+    font-weight: 600;
+    margin: -16px 0 22px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .prose .source .dot {
+    width: 7px; height: 7px; display: inline-block;
+    background: var(--army); flex-shrink: 0;
+  }
+  .prose .source .dot.company { background: var(--blood); }
+  .prose .source .dot.press { background: var(--ink); }
+  .prose .source .dot.social { background: var(--ink-faint); }
+  .prose .source .sep { color: var(--rule); }
+
+  /* ── PULL QUOTE ─────────────────────────────────────────────────────── */
+  .pull {
+    margin: 40px 0;
+    padding: 8px 0 8px 28px;
+    border-left: 4px solid var(--blood);
+  }
+  .pull q {
+    quotes: none;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 28px;
+    line-height: 1.18;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    display: block;
+    margin-bottom: 12px;
+    text-wrap: balance;
+  }
+  .pull cite {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.1em;
+    color: var(--ink);
+    font-weight: 600;
+    font-style: normal;
+    display: block;
+  }
+
+  /* ── FACT STRIP ─────────────────────────────────────────────────────── */
+  .facts {
+    margin: 32px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 20px 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .facts .f { padding-right: 18px; border-right: 1px solid var(--rule-soft); }
+  .facts .f:last-child { border-right: none; }
+  .facts .f .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+    margin-bottom: 6px; display: block;
+  }
+  .facts .f .v {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 700;
+    color: var(--ink); line-height: 1.15;
+    display: block; margin-bottom: 4px;
+  }
+  .facts .f .note {
+    font-family: var(--font-serif);
+    font-size: 13.5px; color: var(--ink-soft);
+    font-style: italic; line-height: 1.4;
+  }
+
+  /* ── ACTION FOOTER ──────────────────────────────────────────────────── */
+  .action {
+    margin: 32px 0 0;
+    padding: 18px 22px;
+    background: var(--army-soft);
+    border-left: 3px solid var(--army);
+  }
+  .action .k {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--army); font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .action p {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    max-width: 64ch;
+  }
+
+  /* ── ACT DIVIDER ────────────────────────────────────────────────────── */
+  .act-divider {
+    margin: 80px 0 0;
+    padding: 28px 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    text-align: center;
+  }
+  .act-divider .k {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--ink-dim); font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .act-divider h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.005em;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .act-divider .deck {
+    font-family: var(--font-serif);
+    font-style: italic; font-weight: 300;
+    color: var(--ink-soft); font-size: 16px;
+  }
+
+  /* ── STACK TABLE ────────────────────────────────────────────────────── */
+  .stack-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .stack-table th {
+    text-align: left;
+    font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700;
+    padding: 0 16px 10px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .stack-table td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  .stack-table td.layer { color: var(--ink-soft); width: 18%; font-weight: 600; }
+  .stack-table td.tool { color: var(--ink); font-weight: 600; width: 22%; }
+  .stack-table td.status { width: 14%; font-size: 10px; letter-spacing: 0.16em; color: var(--army); font-weight: 700; }
+  .stack-table td.status.unk { color: var(--ink-dim); font-weight: 600; }
+  .stack-table td.status.gap { color: var(--blood); }
+  .stack-table td.note { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink); line-height: 1.55; }
+
+  /* ── DISCOVERY QUESTIONS ────────────────────────────────────────────── */
+  .questions {
+    margin: 24px 0 0;
+    list-style: none;
+    counter-reset: q;
+  }
+  .questions li {
+    counter-increment: q;
+    padding: 14px 0 14px 52px;
+    position: relative;
+    border-bottom: 1px solid var(--rule-soft);
+    font-family: var(--font-serif);
+    font-size: 16.5px;
+    line-height: 1.55;
+    color: var(--ink);
+    max-width: 64ch;
+  }
+  .questions li::before {
+    content: "Q" counter(q);
+    position: absolute; left: 0; top: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.16em;
     color: var(--blood); font-weight: 600;
   }
-  .sec-label {
-    font-family: var(--font-display);
-    font-weight: 600; font-size: clamp(28px, 4vw, 40px);
-    text-transform: uppercase; letter-spacing: -0.005em;
-    color: var(--ink); line-height: 1;
-  }
-  .sec-sub {
-    font-family: var(--font-serif); font-style: italic; font-weight: 300;
-    color: var(--ink-soft); font-size: 16px;
-    flex-basis: 100%; margin-top: 2px;
-  }
 
-  /* Lead item */
-  .lead { padding: 12px 0 28px; border-bottom: 1px solid var(--rule-soft); }
-  .item-meta {
-    display: flex; align-items: center; gap: 12px;
+  /* ── OPENER SCRIPT ──────────────────────────────────────────────────── */
+  .opener {
+    margin-top: 36px;
+    padding: 28px 32px;
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+  }
+  .opener .k {
+    font-family: var(--font-mono);
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+    margin-bottom: 14px;
+  }
+  .opener q {
+    quotes: none;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--ink);
+    display: block;
+    text-wrap: pretty;
+    max-width: 66ch;
+  }
+  .opener .beat {
     font-family: var(--font-mono);
     font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--ink-dim); margin-bottom: 14px; flex-wrap: wrap;
-  }
-  .item-meta .dot { width: 9px; height: 9px; display: inline-block; }
-  .dot.d1 { background: var(--army); }
-  .dot.d2 { background: var(--blood); }
-  .dot.d3 { background: var(--ink); }
-  .dot.d4 { background: var(--ink-faint); }
-  .item-meta .src { color: var(--ink); font-weight: 500; }
-  .item-meta .date { color: var(--ink-dim); }
-  .item-meta .tag { padding: 2px 7px; border: 1px solid var(--rule); color: var(--ink-soft); letter-spacing: 0.14em; }
-  .item-meta .tag.t-cve   { background: var(--army-soft); color: var(--army); border-color: var(--army); }
-  .item-meta .tag.t-alert { background: var(--blood-soft); color: var(--blood); border-color: var(--blood); }
-  .lead .hl {
-    font-family: var(--font-display); font-weight: 600;
-    font-size: clamp(28px, 3.4vw, 40px); line-height: 1.05;
-    text-transform: none; letter-spacing: -0.01em;
-    margin-bottom: 12px; color: var(--ink);
-  }
-  .lead .deck {
-    font-family: var(--font-serif); font-style: italic; font-weight: 400;
-    color: var(--ink-soft); font-size: 18px; margin-bottom: 14px;
-  }
-  .lead .body-text {
-    font-family: var(--font-serif); font-weight: 400;
-    font-size: 16.5px; color: var(--ink-soft);
-    text-wrap: pretty; max-width: 80ch;
-  }
-  .lead .body-text::first-letter {
-    font-family: var(--font-display); font-weight: 700;
-    color: var(--blood); font-size: 3.4em;
-    line-height: 0.85; float: left;
-    padding: 0 8px 0 0; margin-top: 2px;
-  }
-  .margin-note {
-    font-family: var(--font-hand); color: var(--blood);
-    font-size: 18px; transform: rotate(-1deg);
-    display: inline-block; margin: 10px 0 0; line-height: 1.2;
+    color: var(--ink-dim);
+    font-weight: 600;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule-soft);
   }
 
-  /* Grid items */
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding-top: 24px; }
-  .grid .item { border-top: 1px solid var(--rule-soft); padding-top: 18px; }
-  .grid .item .hl {
-    font-family: var(--font-display); font-weight: 500;
-    font-size: 21px; line-height: 1.18; margin-bottom: 8px; color: var(--ink);
+  /* ── COLOPHON ───────────────────────────────────────────────────────── */
+  .colophon {
+    max-width: 760px;
+    margin: 56px auto 36px;
+    padding: 22px 32px;
+    border-top: 3px double var(--ink);
+    border-bottom: 1px solid var(--rule);
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    line-height: 1.8;
   }
-  .grid .item .body-text { font-family: var(--font-serif); font-size: 15.5px; color: var(--ink-soft); line-height: 1.65; text-wrap: pretty; }
-
-  /* Callout */
-  .callout {
-    margin-top: 24px; border-left: 3px solid var(--army);
-    background: var(--army-soft); padding: 14px 18px;
-    font-family: var(--font-serif); font-size: 15.5px; color: var(--ink);
+  .colophon a { color: inherit; text-decoration: none; cursor: pointer; }
+  .colophon a:hover { color: var(--blood); }
+  .colophon .f-sq {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--blood);
+    margin: 0 6px;
+    vertical-align: 1px;
   }
-  .callout .k {
-    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.24em;
-    text-transform: uppercase; color: var(--army); margin-bottom: 4px; font-weight: 600;
-  }
-
-  /* Tech stack table */
-  .integ-table { margin-top: 12px; border-top: 1px solid var(--rule); width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
-  .integ-table th, .integ-table td { border-bottom: 1px solid var(--rule-soft); text-align: left; padding: 10px 14px 10px 0; vertical-align: top; }
-  .integ-table th { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; }
-  .integ-table td.cat { color: var(--ink-dim); }
-  .integ-table td.tool { color: var(--ink); font-weight: 500; }
-  .integ-table td.evidence { font-family: var(--font-serif); font-size: 14.5px; color: var(--ink-soft); }
-  .integ-table td.fit { font-weight: 600; letter-spacing: 0.12em; color: var(--army); }
-  .integ-table td.fit.gap { color: var(--blood); }
-  .integ-table td.fit.unk { color: var(--ink-faint); }
-
-  /* ─────────────────────────────────────────────  PLAYS (V2 RUN/AUDIBLE)  */
-  .plays-section { padding-top: 48px; }
-  .plays-section-eyebrow {
-    display: flex; align-items: baseline; gap: 14px;
-    margin-bottom: 18px; flex-wrap: wrap;
-  }
-  .plays-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
-  .play {
-    border: 1px solid var(--rule); background: var(--paper-card);
-    padding: 18px 20px; position: relative;
-    display: flex; flex-direction: column; gap: 0;
-  }
-  .play.p1 { grid-column: span 2; border-color: var(--blood); }
-  .play-head {
-    display: grid; grid-template-columns: auto 1fr auto;
-    gap: 12px; align-items: baseline;
-    padding-bottom: 12px; border-bottom: 1px solid var(--rule-soft); margin-bottom: 12px;
-  }
-  .play-num {
-    font-family: var(--font-display); font-weight: 700; font-size: 20px;
-    color: var(--blood); letter-spacing: 0.04em; line-height: 1;
-    border: 1.5px solid var(--blood); padding: 3px 8px 1px;
-  }
-  .play.p1 .play-num { background: var(--blood); color: var(--paper); }
-  .play-title {
-    font-family: var(--font-display); font-weight: 600; font-size: 17px;
-    text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 1.15;
-  }
-  .play.p1 .play-title { font-size: 23px; }
-  .play-cat {
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.24em;
-    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
-  }
-  .play-finding {
-    font-family: var(--font-serif); font-style: italic;
-    color: var(--ink-soft); font-size: 15px; line-height: 1.55;
-    margin-bottom: 12px; text-wrap: pretty; flex: 1;
-  }
-  .play.p1 .play-finding { font-size: 17px; color: var(--ink-soft); }
-  .play-intel { list-style: none; margin-bottom: 12px; }
-  .play-intel li {
-    padding: 5px 0 5px 22px; position: relative;
-    font-family: var(--font-serif); font-size: 14px; color: var(--ink-soft);
-    line-height: 1.5; border-bottom: 1px dashed var(--rule-soft);
-  }
-  .play-intel li:last-child { border-bottom: none; }
-  .play-intel li::before { content: '▮'; position: absolute; left: 0; top: 5px; color: var(--blood); font-size: 10px; }
-  .play-intel li .src {
-    display: block; font-family: var(--font-mono); font-size: 9px;
-    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-top: 2px;
-  }
-  /* V2's signature: run-when / audible-if footer */
-  .play-foot {
-    padding-top: 10px; border-top: 1px solid var(--rule-soft);
-    display: flex; gap: 14px; align-items: baseline;
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.16em; text-transform: uppercase;
-    flex-wrap: wrap;
-  }
-  .play-foot .run { color: var(--army); }
-  .play-foot .run::before { content: '▸ RUN WHEN '; color: var(--ink-faint); font-weight: 500; }
-  .play-foot .aud { color: var(--blood); margin-left: auto; }
-  .play-foot .aud::before { content: '↺ AUDIBLE '; color: var(--ink-faint); font-weight: 500; }
-  /* V2 hand note */
-  .play-hand {
-    position: absolute; bottom: 8px; right: 12px;
-    font-family: var(--font-hand); font-size: 13px;
-    color: var(--blood); transform: rotate(-2deg);
-    background: var(--paper-card); padding: 0 4px; line-height: 1;
+  .colophon .col-sub {
+    margin-top: 6px;
+    color: var(--ink-faint);
+    font-size: 10px;
+    letter-spacing: 0.14em;
   }
 
-  /* ─────────────────────────────────────────────  INTERLUDE  ──────────── */
-  .interlude {
-    margin: 80px 0 12px; padding: 36px 32px;
-    background: var(--paper-warm);
-    border-top: 3px double var(--ink); border-bottom: 3px double var(--ink);
-    display: grid; grid-template-columns: auto 1fr auto; gap: 32px; align-items: center;
-  }
-  .interlude .kicker { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--blood); font-weight: 700; }
-  .interlude h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 5vw, 64px); text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 0.95; margin-top: 4px; }
-  .interlude .deck { font-family: var(--font-serif); font-style: italic; color: var(--ink-soft); margin-top: 8px; font-size: 17px; max-width: 60ch; }
-  .interlude .stamp {
-    font-family: var(--font-hand); font-size: 28px; color: var(--blood);
-    border: 3px solid var(--blood); padding: 8px 18px 4px;
-    transform: rotate(-3deg); line-height: 1; text-align: center;
-  }
-  .interlude .stamp small { display: block; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--blood); margin-top: 4px; }
-
-  /* Risk flags */
-  .risk-list { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
-  .risk {
-    display: grid; grid-template-columns: 90px 1fr; gap: 14px;
-    padding: 12px 14px; border-left: 3px solid var(--blood); background: var(--blood-soft);
-  }
-  .risk .level { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--blood); font-weight: 700; align-self: start; }
-  .risk.amber { border-left-color: var(--army); background: var(--army-soft); }
-  .risk.amber .level { color: var(--army); }
-  .risk h4 { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--ink); margin-bottom: 4px; }
-  .risk p { font-size: 14.5px; color: var(--ink-soft); }
-
-  /* ─────────────────────────────────────────────  CLOSING  ────────────── */
-  .closing { margin-top: 64px; padding: 36px 0 24px; border-top: 3px double var(--ink); }
-  .closing h3 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--blood); font-weight: 700; margin-bottom: 8px; }
-  .closing h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 5vw, 56px); text-transform: uppercase; letter-spacing: -0.005em; color: var(--ink); line-height: 0.95; margin-bottom: 20px; }
-  .opener-script {
-    background: var(--paper-warm); border: 1px solid var(--rule);
-    padding: 24px 28px; font-family: var(--font-serif); font-size: 17px;
-    line-height: 1.7; color: var(--ink); max-width: 78ch;
-  }
-  .opener-script .quote { font-family: var(--font-serif); font-style: italic; font-size: 19px; color: var(--ink); margin-bottom: 14px; }
-  .opener-script .beat { font-family: var(--font-serif); color: var(--ink-dim); font-style: italic; }
-  .opener-script .stage { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-faint); margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule-soft); }
-  .opener-script .hand { font-family: var(--font-hand); color: var(--blood); font-size: 19px; transform: rotate(-1deg); display: inline-block; margin-top: 12px; }
-  .discovery { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-  .discovery ol { list-style: none; counter-reset: q; }
-  .discovery li {
-    counter-increment: q; padding: 14px 0 14px 56px;
-    position: relative; border-bottom: 1px solid var(--rule-soft);
-    font-size: 16px; color: var(--ink-soft); line-height: 1.5;
-  }
-  .discovery li::before { content: 'Q' counter(q); position: absolute; left: 0; top: 14px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; color: var(--blood); font-weight: 700; }
-  .discovery .col h4 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink); font-weight: 700; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
-
-  /* ─────────────────────────────────────────────  SOURCES & SAFETY  ───── */
-  .sources { margin-top: 56px; border-top: 1px solid var(--rule); padding-top: 28px; }
-  .sources h3 { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ink); font-weight: 700; margin-bottom: 14px; }
-  .sources-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule-soft); }
-  .sources-grid .src-row { padding: 10px 16px 10px 0; border-bottom: 1px solid var(--rule-soft); border-right: 1px solid var(--rule-soft); display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); }
-  .sources-grid .src-row:nth-child(3n) { border-right: none; padding-right: 0; }
-  .sources-grid .src-row .dot { width: 8px; height: 8px; flex-shrink: 0; }
-  .sources-grid .src-row .nm { color: var(--ink); }
-  .sources-grid .src-row .ct { margin-left: auto; color: var(--ink-faint); font-size: 10px; }
-  .safety { margin-top: 36px; padding: 14px 18px; border: 1px solid var(--army); background: var(--army-soft); font-family: var(--font-mono); font-size: 11px; color: var(--army); letter-spacing: 0.06em; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-  .safety .check { font-size: 18px; }
-  .safety .stat { color: var(--ink); }
-  .colophon { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule); text-align: center; font-family: var(--font-serif); font-style: italic; color: var(--ink-dim); font-size: 14px; line-height: 1.6; }
-  .colophon .brand { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-style: normal; color: var(--ink); }
-  .colophon .brand .sq { display: inline-block; width: 0.5em; height: 0.5em; background: var(--blood); vertical-align: baseline; margin-left: 0.1em; }
-
-  @media (max-width: 720px) {
-    .masthead, .signal, .secnav { padding-left: 24px; padding-right: 24px; }
-    .masthead-body { grid-template-columns: 1fr; }
-    .approach-stamp { display: none; }
-    .signal, .summary-grid { grid-template-columns: 1fr 1fr; }
-    .grid, .discovery, .sources-grid, .plays-grid { grid-template-columns: 1fr; }
-    .play.p1 { grid-column: span 1; }
-    .interlude { grid-template-columns: 1fr; }
-    .scout-summary { margin: 16px 24px; }
-    .people-strip { padding: 0 24px 8px; }
+  /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
+  @media (max-width: 680px) {
+    .head h1 { font-size: 48px; }
+    .head .meta { grid-template-columns: 1fr 1fr; }
+    .toc ol { columns: 1; }
+    .facts { grid-template-columns: 1fr; }
+    .facts .f { border-right: none; border-bottom: 1px solid var(--rule-soft); padding-bottom: 12px; }
+    .meddpicc-grid { grid-template-columns: 1fr; }
+    .head, .toc, .meddpicc, main, .colophon { padding-left: 20px; padding-right: 20px; }
+    .toolbar-bar { padding-left: 20px; padding-right: 20px; }
+    .sec-title { font-size: 32px; }
   }
 </style>
 </head>
@@ -592,603 +669,386 @@ try {
 }
 </script>
 
-<!-- ───────────────────────────  MASTHEAD  ─────────────────────────── -->
-<header class="masthead">
-  <div class="np-row1" id="np-row1">
-    <span id="vol-issue">VOL · I · NO · 1</span>
-    <span class="sep">·</span>
-    <span id="brief-date"></span>
-    <span class="sep">·</span>
-    <span class="latin">Ferrum Sumus — we are iron</span>
-    <span class="scan-pill"><span class="dot"></span><span id="scan-info">SCANNING…</span></span>
-    <span class="countdown-pill" id="countdown-pill"></span>
-  </div>
-  <div class="masthead-body">
-    <div class="approach-stamp" id="approach-stamp">
-      <span class="stamp-hand">The Approach</span>
-      <div class="stamp-label">Field Brief</div>
-      <span class="stamp-sub">Pre-Call Intel</span>
-    </div>
-    <div class="masthead-center">
-      <h1 class="np-title">The Approach<span class="sq"></span></h1>
-      <p class="np-deck" id="np-deck">Loading brief…</p>
-    </div>
-  </div>
-  <div class="np-row2">
-    <div class="np-greet" id="np-greet"></div>
-    <div class="np-meta">
-      <span id="selling-meta"></span>
-      <span>·</span>
-      <span>BRIEFED FOR · <span id="briefed-meta">AE + SE</span></span>
-      <span>·</span>
-      <a href="#safety" class="safety-link" id="safety-link">▮ Link safety</a>
-    </div>
-  </div>
-</header>
+<!-- Fonts: loaded from the Google Fonts CDN link in <head>. If the CDN is
+     unreachable (offline, locked-down network, restrictive CSP), the CSS
+     font stacks fall back to system fonts. No MCP server required. -->
 
-<!-- ───────────────────────────  SIGNAL BAR  ───────────────────────── -->
-<div class="signal" id="signal-bar"></div>
-
-<!-- ───────────────────────────  SCOUTING SUMMARY  ─────────────────── -->
-<div class="scout-summary" id="scout-summary">
-  <div class="summary-grid">
-    <div class="summary-col">
-      <h3>Who They Are</h3>
-      <p id="scout-who"></p>
+<!-- ── TOOLBAR ──────────────────────────────────────────────────────────── -->
+<div class="toolbar-bar">
+  <div class="masthead-controls">
+    <div class="tb-export">
+      <button class="tb-btn save" onclick="toggleExport(event)">Export ▾</button>
+      <div class="tb-dropdown" id="export-dd">
+        <button class="dd-primary" onclick="exportHTML()">Export HTML</button>
+        <button onclick="closeExport();window.print()">Print / PDF</button>
+      </div>
     </div>
-    <div class="summary-col">
-      <h3>What's Changing</h3>
-      <p id="scout-changing"></p>
-    </div>
-    <div class="summary-col">
-      <h3>How We Play It</h3>
-      <p id="scout-play"></p>
-      <div class="hand" id="scout-hand"></div>
-    </div>
+    <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
   </div>
 </div>
 
-<!-- ───────────────────────────  PEOPLE STRIP  ─────────────────────── -->
-<div class="people-strip" id="people-strip"></div>
-
-<!-- ───────────────────────────  SCROLL NAV  ───────────────────────── -->
-<nav class="secnav" id="secnav" aria-label="Section navigation"></nav>
-
-<main class="body" id="main">
-
-  <!-- ACT I -->
-  <div class="act-marker" id="act1-marker">
-    <span class="rule"></span>
-    <span class="label">ACT I &nbsp;·&nbsp; The Read
-      <span class="for">— what the AE needs above the fold</span>
-    </span>
-    <span class="rule"></span>
+<!-- ── MASTHEAD ─────────────────────────────────────────────────────────── -->
+<header class="head">
+  <div class="eyebrow" id="h-eyebrow"></div>
+  <h1 id="h-title"></h1>
+  <p class="deck" id="h-deck"></p>
+  <div class="meta">
+    <div><span class="k">For</span><span class="v" id="h-meta-for">—</span></div>
+    <div><span class="k">Sources</span><span class="v" id="h-meta-sources">—</span></div>
+    <div><span class="k">Generated</span><span class="v" id="h-meta-gen">—</span></div>
+    <div><span class="k">Reading time</span><span class="v" id="h-meta-read">—</span></div>
   </div>
-  <div id="act1-sections"></div>
+</header>
 
-  <!-- INTERLUDE -->
-  <div class="interlude" id="interlude">
-    <div>
-      <div class="kicker">▮ ▮ ▮ &nbsp; Below the fold &nbsp; ▮ ▮ ▮</div>
-      <h2>Technical</h2>
-      <p class="deck">From here down is what your SE reads on the elevator up. Stack, plays, and everything to flag before procurement gets called in.</p>
-    </div>
-    <div></div>
-    <div class="stamp">For your SE<small id="interlude-eyes">Eyes-on</small></div>
+<!-- ── TABLE OF CONTENTS ────────────────────────────────────────────────── -->
+<nav class="toc">
+  <div class="label">In this briefing</div>
+  <ol id="toc-list"></ol>
+</nav>
+
+<!-- ── MAIN CONTENT (filled by renderer) ───────────────────────────────── -->
+<main id="main-content"></main>
+
+<!-- ── MEDDPICC SCORECARD (end of report) ──────────────────────────────── -->
+<section class="meddpicc" id="meddpicc" style="display:none">
+  <span class="kicker">Qualification · MEDDPICC</span>
+  <h2 id="medd-title">Where we stand on the deal.</h2>
+  <p class="deck" id="medd-deck"></p>
+  <div class="ring">
+    <span class="leg confirmed"><span class="pip"></span>Confirmed</span>
+    <span class="leg partial"><span class="pip"></span>Partial · need confirmation</span>
+    <span class="leg unknown"><span class="pip"></span>Unknown · ask today</span>
+    <span class="score" id="medd-score"></span>
   </div>
+  <div class="meddpicc-grid" id="medd-grid"></div>
+</section>
 
-  <!-- ACT II -->
-  <div class="act-marker" id="act2-marker">
-    <span class="rule"></span>
-    <span class="label">ACT II &nbsp;·&nbsp; The Build
-      <span class="for">— what the SE needs under the fold</span>
-    </span>
-    <span class="rule"></span>
-  </div>
-  <div id="act2-sections"></div>
+<!-- ── COLOPHON ─────────────────────────────────────────────────────────── -->
+<footer class="colophon">
+  <div id="col-text"><a href="https://missionbuilt.io" target="_blank" rel="noopener">Mission<span class="f-sq"></span>Built</a> <span class="f-sq"></span> The Approach <span class="f-sq"></span> The Loadout</div>
+  <div class="col-sub" id="col-sub"></div>
+</footer>
 
-  <!-- STACK TABLE (rendered if stack data present) -->
-  <div id="stack-section"></div>
-
-  <!-- PLAYS GRID (V2-style run-when/audible on cream) -->
-  <div id="plays-section"></div>
-
-  <!-- RISKS -->
-  <div id="risks-section"></div>
-
-  <!-- CLOSING: opener + discovery -->
-  <div class="closing" id="closing">
-    <h3>▮ The Opener</h3>
-    <h2>First two minutes, written down.</h2>
-    <div class="opener-script" id="opener-script"></div>
-    <h3 style="margin-top: 56px;">▮ Discovery</h3>
-    <h2>Questions, ranked.</h2>
-    <div class="discovery" id="discovery-section"></div>
-  </div>
-
-  <!-- SOURCES -->
-  <div class="sources" id="sources-section">
-    <h3 id="sources-header">▮ Sources scanned</h3>
-    <div class="sources-grid" id="sources-grid"></div>
-  </div>
-
-  <!-- LINK SAFETY -->
-  <div class="safety" id="safety">
-    <span class="check">▮</span>
-    <span id="safety-text"><strong>LINK SAFETY</strong></span>
-    <span>·</span>
-    <span class="stat" id="safety-stat">Scan pending</span>
-    <span>·</span>
-    <span id="safety-time"></span>
-  </div>
-
-  <div class="colophon" id="colophon">
-    Briefed by <span class="brand">The Approach<span class="sq"></span></span> · part of <span class="brand">The Loadout<span class="sq"></span></span> · Iron Log
-  </div>
-
-</main>
-
+<!-- ── RENDERER ─────────────────────────────────────────────────────────── -->
 <script>
-/* ══════════════════════════════════════════════════════════════════════════
-   APPROACH RENDERER  v0.1
-   Reads window.APPROACH_DATA and populates every section.
-   ══════════════════════════════════════════════════════════════════════════ */
+try {
 
-/* ─── Sample / fallback data shown when no injection has occurred ─── */
-const SAMPLE_DATA = {
-  config: {
-    seller: "Your Name",
-    sellerCompany: "Your Company",
-    sellerProduct: "Your Product",
-    targetCompany: "Acme Corp",
-    targetDomain: "acme.com",
-    targetIndustry: "Technology",
-    meetingWith: "Jane Smith, VP Engineering",
-    meetingContext: "First discovery call — they're evaluating observability solutions",
-    meetingDate: "",
-    meetingTime: "14:00",
-    generatedAt: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
-    generatedDate: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-    sourcesActive: 0,
-    sourcesQuiet: 0,
-    intelItems: 0,
-    riskFlags: 0,
-    peopleFound: 0,
-    totalLinks: 0
-  },
-  scouting: {
-    whoTheyAre: "Brief description of who this company is and what they do.",
-    whatIsChanging: "What's shifting in their business right now that creates urgency.",
-    howWePlayIt: "The one-line strategy for this call."
-  },
-  companyFacts: [
-    { k: "Founded", v: "—" },
-    { k: "Ownership", v: "—" },
-    { k: "Headcount", v: "—" },
-    { k: "Revenue", v: "—" },
-    { k: "Stack signal", v: "—" },
-    { k: "Brief generated", v: "Just now" }
-  ],
-  sections: [],
-  people: [],
-  stack: [],
-  plays: [],
-  opener: {
-    lines: [
-      { type: "quote", text: "Opening line placeholder — replace with researched opener." },
-      { type: "beat", text: "Beat. Let them respond." },
-      { type: "quote", text: "Follow-up line — tie their language back to your product." }
-    ],
-    stageDirection: "Do not open the deck for at least 8 minutes. Earn it.",
-    handNote: "— briefed by The Approach"
-  },
-  discovery: {
-    business: [
-      "What's the biggest operational bet you're making this quarter?",
-      "How do you currently measure success across your key systems?",
-      "Who else shares ownership of this problem with you?"
-    ],
-    technical: [
-      "Walk me through your current observability stack.",
-      "Where do you have visibility gaps today?",
-      "What does your incident-response process look like end-to-end?"
-    ]
-  },
-  risks: [],
-  sources: [],
-  safety: { total: 0, clean: 0, flagged: 0, scannedAt: "" }
-};
+var C = window.APPROACH_DATA || {};
+var M = C.meta || {};
 
-/* ─── Load data ─── */
-const D = (window.APPROACH_DATA && typeof window.APPROACH_DATA === 'object') ? window.APPROACH_DATA : SAMPLE_DATA;
-const C = D.config || {};
+/* ── helpers ── */
+function $(id) { return document.getElementById(id); }
 
-/* ─── Helpers ─── */
-const $ = id => document.getElementById(id);
-const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
-const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-/* ─── Countdown timer ─── */
-function renderCountdown() {
-  const pill = $('countdown-pill');
-  if (!C.meetingDate || !C.meetingTime) { pill.style.display = 'none'; return; }
-  const parts = C.meetingTime.split(':');
-  const meetStr = C.meetingDate + 'T' + (parts[0]||'14').padStart(2,'0') + ':' + (parts[1]||'00').padStart(2,'0') + ':00';
-  const meetMs = new Date(meetStr).getTime();
-  if (isNaN(meetMs)) { pill.style.display = 'none'; return; }
-  function tick() {
-    const diff = meetMs - Date.now();
-    if (diff <= 0) { pill.textContent = '▮ CALL IS NOW'; return; }
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    pill.textContent = `T-MINUS ${h}H ${m}M`;
-    setTimeout(tick, 30000);
-  }
-  tick();
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
-/* ─── Masthead ─── */
+function safeUrl(u) {
+  if (!u) return '';
+  var s = String(u).trim();
+  return /^https?:\/\//i.test(s) ? s : '';
+}
+
+/* rich(text) — escapes HTML then applies:
+ *   **text** → <strong>
+ *   _text_   → <em>
+ *   {chip:confirmed|partial|unknown:label} → .mp-chip span
+ */
+function rich(text) {
+  var s = esc(text);
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+  s = s.replace(/\{chip:(confirmed|partial|unknown):([^}]+)\}/g, function(_, status, label) {
+    return '<span class="mp-chip ' + status + '">' + label + '</span>';
+  });
+  return s;
+}
+
+/* ── masthead ── */
 function renderMasthead() {
-  document.title = `The Approach · ${C.targetCompany || 'Brief'} · ${C.generatedDate || ''}`;
-  $('page-title').textContent = document.title;
+  // Eyebrow
+  var parts = ['The Approach'];
+  if (M.briefNumber) parts.push('Pre-call brief ' + esc(M.briefNumber));
+  if (M.callDate)    parts.push(esc(M.callDate));
+  var eyeHtml = parts.map(function(p, i) {
+    return i === 0 ? p : '<span class="sep">·</span>' + p;
+  }).join(' ');
+  $('h-eyebrow').innerHTML = eyeHtml;
 
-  const d = new Date();
-  $('vol-issue').textContent = `VOL · I · NO · ${String(d.getFullYear()).slice(-2)}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  $('brief-date').textContent = (C.generatedDate || '').toUpperCase();
-  $('scan-info').textContent = `SCAN ${C.generatedAt || ''} · ${C.sourcesActive || 0} SOURCES`;
-  const deck = $('np-deck');
-  deck.innerHTML = `A field brief on <strong>${esc(C.targetCompany)}</strong> — ${esc(C.meetingContext || '')}${C.meetingDate ? ' · ' + esc(C.meetingDate) : ''}${C.meetingTime ? ' · ' + esc(C.meetingTime) : ''}.`;
+  // H1 — company name with trailing red-square period
+  var company = esc(M.company || 'Brief');
+  $('h-title').innerHTML = company + '<span class="f-sq" style="display:inline-block;width:14px;height:14px;background:var(--blood);margin-left:6px;vertical-align:2px;flex-shrink:0;"></span>';
 
-  $('np-greet').textContent = `Walk in heavy, ${(C.seller || 'you').split(' ')[0]}.`;
-  $('selling-meta').textContent = `SELLING · ${esc(C.sellerProduct || C.sellerCompany || '—')}`;
-  $('briefed-meta').textContent = 'AE + SE';
+  // Deck
+  $('h-deck').innerHTML = rich(M.deck || '');
 
-  const safetyTotal = D.safety && D.safety.total ? D.safety.total : C.totalLinks || 0;
-  const safetyClean = D.safety && D.safety.clean ? D.safety.clean : safetyTotal;
-  $('safety-link').textContent = `▮ Link safety · ${safetyClean}/${safetyTotal} clean`;
+  // Meta — seller/se live in meta, not config
+  var forParts = [];
+  if (M.seller) forParts.push(esc(M.seller));
+  if (M.se)     forParts.push(esc(M.se));
+  $('h-meta-for').innerHTML = forParts.length ? forParts.join('<br>') : '—';
+  $('h-meta-sources').textContent = M.sourceCount || '—';
+  $('h-meta-gen').textContent   = M.generated   || '—';
+  $('h-meta-read').textContent  = M.readingTime || '—';
 
-  $('interlude-eyes').textContent = `Eyes-on ${(C.seller || '').split(' ')[0]}`;
+  // Page title
+  document.title = 'The Approach · ' + (M.company || 'Brief');
 }
 
-/* ─── Signal bar ─── */
-function renderSignalBar() {
-  const bar = $('signal-bar');
-  const facts = D.companyFacts && D.companyFacts.length ? D.companyFacts : SAMPLE_DATA.companyFacts;
-  const cols = facts.slice(0, 6);
-  while (cols.length < 6) cols.push({ k: '—', v: '—' });
-  bar.innerHTML = cols.map(f => `<div><span class="k">${esc(f.k)}</span><span class="v">${f.v || '—'}</span></div>`).join('');
-}
-
-/* ─── Scouting summary ─── */
-function renderScoutSummary() {
-  const s = D.scouting || {};
-  $('scout-who').textContent = s.whoTheyAre || '—';
-  $('scout-changing').textContent = s.whatIsChanging || '—';
-  $('scout-play').textContent = s.howWePlayIt || '—';
-  const hand = $('scout-hand');
-  if (C.seller) hand.textContent = `— briefed for ${C.seller.split(' ')[0]}`;
-}
-
-/* ─── People strip ─── */
-function renderPeople() {
-  const strip = $('people-strip');
-  if (!D.people || !D.people.length) return;
-  const label = el('div', 'people-strip-label', '▮ PEOPLE ON THIS CALL');
-  const cards = el('div', 'people-cards');
-  D.people.forEach(p => {
-    const card = el('div', 'person-card');
-    if (p.meetingRole) card.innerHTML += `<div class="role-stamp">${esc(p.meetingRole)}</div>`;
-    const init = el('div', 'person-initials', esc(p.initials || (p.name || '??').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()));
-    card.appendChild(init);
-    card.innerHTML += `<div class="person-name">${esc(p.name || '—')}</div>`;
-    card.innerHTML += `<div class="person-title">${esc(p.title || '')}</div>`;
-    if (p.recentSignal) card.innerHTML += `<div class="person-signal">${esc(p.recentSignal)}</div>`;
-    if (p.linkedinUrl) card.innerHTML += `<a class="person-linkedin" href="${esc(p.linkedinUrl)}" target="_blank" rel="noopener">↗ LinkedIn</a>`;
-    cards.appendChild(card);
+/* ── TOC ── */
+function renderTOC() {
+  var sections = C.sections || [];
+  var items = sections.map(function(s) {
+    var label = esc(s.kicker || (s.title || '').replace(/\.$/, ''));
+    return '<li><a href="#' + esc(s.id) + '">' + label + '</a></li>';
   });
-  strip.appendChild(label);
-  strip.appendChild(cards);
-}
-
-/* ─── Section HTML builder ─── */
-function buildSectionHTML(sec, idx) {
-  const kicker = sec.kicker || `Section ${idx+1}`;
-  const title  = sec.title  || '—';
-  const sub    = sec.sub    || '';
-  const lead   = sec.lead   || null;
-  const items  = sec.items  || [];
-
-  let html = `<section class="sec" id="${esc(sec.id || 'sec-' + idx)}">`;
-  html += `<div class="sec-eyebrow">
-    <span class="sec-kicker">${esc(kicker)}</span>
-    <span class="sec-label">${esc(title)}</span>
-    ${sub ? `<span class="sec-sub">${esc(sub)}</span>` : ''}
-  </div>`;
-
-  if (lead) {
-    html += `<article class="lead">`;
-    html += `<div class="item-meta">
-      <span class="dot ${esc(lead.tier||'d3')}"></span>
-      <span class="src">${esc(lead.src||'')}</span>
-      ${lead.date ? `<span class="date">${esc(lead.date)}</span>` : ''}
-      ${(lead.tags||[]).map(t=>`<span class="tag t-type">${esc(t)}</span>`).join('')}
-      ${lead.url ? `<a href="${esc(lead.url)}" target="_blank" rel="noopener" class="tag">↗ Source</a>` : ''}
-    </div>`;
-    if (lead.hl)   html += `<h3 class="hl">${esc(lead.hl)}</h3>`;
-    if (lead.deck) html += `<p class="deck">${esc(lead.deck)}</p>`;
-    if (lead.body) html += `<p class="body-text">${esc(lead.body)}</p>`;
-    if (lead.marginNote) html += `<p class="margin-note">${esc(lead.marginNote)}</p>`;
-    if (lead.callout) {
-      const co = lead.callout;
-      html += `<div class="callout"><div class="k">${esc(co.label||'What to do with this')}</div>${esc(co.body||co)}</div>`;
-    }
-    html += `</article>`;
+  if (C.meddpicc) {
+    items.push('<li><a href="#meddpicc">Qualification (MEDDPICC)</a></li>');
   }
-
-  if (items.length) {
-    html += `<div class="grid">`;
-    items.forEach(it => {
-      html += `<div class="item">
-        <div class="item-meta">
-          <span class="dot ${esc(it.tier||'d3')}"></span>
-          <span class="src">${esc(it.src||'')}</span>
-          ${it.date ? `<span class="date">${esc(it.date)}</span>` : ''}
-        </div>
-        <h4 class="hl">${esc(it.hl||'—')}</h4>
-        ${it.body ? `<p class="body-text">${esc(it.body)}</p>` : ''}
-      </div>`;
-    });
-    html += `</div>`;
-  }
-
-  if (sec.callout) {
-    const co = sec.callout;
-    html += `<div class="callout"><div class="k">${esc(co.label||'What to do with this')}</div>${esc(co.body||co)}</div>`;
-  }
-
-  html += `</section>`;
-  return html;
+  $('toc-list').innerHTML = items.join('');
 }
 
-/* ─── Render sections by act ─── */
-function renderSections() {
-  const act1 = $('act1-sections');
-  const act2 = $('act2-sections');
-  const sections = D.sections || [];
-  sections.forEach((sec, idx) => {
-    const html = buildSectionHTML(sec, idx);
-    if (sec.act === 2) act2.innerHTML += html;
-    else act1.innerHTML += html;
-  });
+/* ── MEDDPICC scorecard ── */
+function renderMeddpicc() {
+  if (!C.meddpicc) return;
+  var m = C.meddpicc;
+  var cells = Array.isArray(m.cells) ? m.cells : [];
+
+  // Show the section
+  $('meddpicc').style.display = '';
+
+  // Deck
+  if (m.deck) $('medd-deck').innerHTML = rich(m.deck);
+  if (m.title) $('medd-title').textContent = m.title;
+
+  // Score counts
+  var conf = cells.filter(function(c) { return c.status === 'confirmed'; }).length;
+  var part = cells.filter(function(c) { return c.status === 'partial'; }).length;
+  var unk  = cells.filter(function(c) { return c.status === 'unknown'; }).length;
+  $('medd-score').innerHTML = 'Score <b>' + conf + ' / ' + part + ' / ' + unk + '</b> · pre-call';
+
+  // Grid
+  var grid = cells.map(function(cell) {
+    var st = esc(cell.status || 'unknown');
+    return '<div class="mp ' + st + '">'
+      + '<span class="letter">' + esc(cell.letter || '') + '</span>'
+      + '<div class="body">'
+      + '<span class="k">'  + esc(cell.label    || '') + '</span>'
+      + '<h3>'              + esc(cell.headline || '') + '</h3>'
+      + '<p class="ev">'   + esc(cell.evidence || '') + '</p>'
+      + '<span class="next">' + esc(cell.next   || '') + '</span>'
+      + '</div>'
+      + '<span class="pip"></span>'
+      + '</div>';
+  }).join('');
+  $('medd-grid').innerHTML = grid;
 }
 
-/* ─── Stack section ─── */
-function renderStack() {
-  const wrap = $('stack-section');
-  if (!D.stack || !D.stack.length) return;
-  let html = `<section class="sec" id="stack">
-    <div class="sec-eyebrow">
-      <span class="sec-kicker">Stack</span>
-      <span class="sec-label">Tech stack &amp; integrations</span>
-      <span class="sec-sub">Inferred from job postings, BuiltWith, and public signals. Confirm in discovery.</span>
-    </div>
-    <table class="integ-table">
-      <thead><tr><th>Layer</th><th>Tool</th><th>Fit</th><th>Evidence / note</th></tr></thead>
-      <tbody>`;
-  D.stack.forEach(row => {
-    const fitClass = row.fit === 'gap' ? ' gap' : row.fit === 'unk' ? ' unk' : '';
-    html += `<tr>
-      <td class="cat">${esc(row.layer||'—')}</td>
-      <td class="tool">${esc(row.tool||'—')}</td>
-      <td class="fit${fitClass}">${esc(row.fitLabel||row.fit||'—')}</td>
-      <td class="evidence">${esc(row.evidence||row.note||'—')}</td>
-    </tr>`;
-  });
-  html += `</tbody></table>`;
-  if (D.stackCallout) html += `<div class="callout"><div class="k">For the SE</div>${esc(D.stackCallout)}</div>`;
-  html += `</section>`;
-  wrap.innerHTML = html;
-}
+/* ── prose item renderer ── */
+function renderProseItem(item) {
+  if (!item || !item.type) return '';
+  switch (item.type) {
 
-/* ─── Plays (V2 run-when/audible style on cream) ─── */
-function renderPlays() {
-  const wrap = $('plays-section');
-  if (!D.plays || !D.plays.length) return;
-  let html = `<div class="plays-section" id="plays">
-    <div class="plays-section-eyebrow">
-      <span class="sec-kicker">Plays</span>
-      <span class="sec-label">Playbook — load these</span>
-      <span class="sec-sub" style="flex-basis:100%;margin-top:2px;">Ranked. Highest signal first. Run P1, have P2 warm, P3 is the stretch.</span>
-    </div>
-    <div class="plays-grid">`;
-  D.plays.forEach((play, idx) => {
-    const isPrimary = play.num === 1 || idx === 0;
-    const cls = `play${isPrimary ? ' p1' : ''}`;
-    html += `<div class="${cls}" id="play-${play.num||idx+1}">`;
-    html += `<div class="play-head">
-      <div class="play-num">P${play.num||idx+1}</div>
-      <div>
-        <div class="play-title">${esc(play.title||'—')}</div>
-        <div class="play-cat">${esc(play.cat||play.audience||'')}</div>
-      </div>
-    </div>`;
-    if (play.finding) html += `<p class="play-finding">${esc(play.finding)}</p>`;
-    if (play.intel && play.intel.length) {
-      html += `<ul class="play-intel">`;
-      play.intel.forEach(item => {
-        html += `<li>${esc(item.body||item)}${item.src ? `<span class="src">${esc(item.src)}${item.srcDate ? ' · ' + esc(item.srcDate) : ''}</span>` : ''}</li>`;
-      });
-      html += `</ul>`;
-    }
-    if (play.runWhen || play.audible) {
-      html += `<div class="play-foot">`;
-      if (play.runWhen) html += `<span class="run">${esc(play.runWhen)}</span>`;
-      if (play.audible) html += `<span class="aud">${esc(play.audible)}</span>`;
-      html += `</div>`;
-    }
-    if (play.handNote) html += `<div class="play-hand">${esc(play.handNote)}</div>`;
-    html += `</div>`;
-  });
-  html += `</div></div>`;
-  wrap.innerHTML = html;
-}
-
-/* ─── Risk flags ─── */
-function renderRisks() {
-  const wrap = $('risks-section');
-  if (!D.risks || !D.risks.length) return;
-  let html = `<section class="sec" id="risk">
-    <div class="sec-eyebrow">
-      <span class="sec-kicker">Flags</span>
-      <span class="sec-label">Risk flags</span>
-      <span class="sec-sub">Compliance, contracting, and anything that should make us slow down, not speed up.</span>
-    </div>
-    <div class="risk-list">`;
-  D.risks.forEach(r => {
-    const cls = `risk${(r.level||'').toLowerCase().includes('amber') ? ' amber' : ''}`;
-    html += `<div class="${cls}">
-      <span class="level">${esc(r.level||'—')}</span>
-      <div>
-        <h4>${esc(r.title||'—')}</h4>
-        <p>${esc(r.body||'')}</p>
-      </div>
-    </div>`;
-  });
-  html += `</div></section>`;
-  wrap.innerHTML = html;
-}
-
-/* ─── Opener script ─── */
-function renderOpener() {
-  const op = D.opener || {};
-  const lines = op.lines || [];
-  let html = '';
-  lines.forEach(line => {
-    if (line.type === 'quote') html += `<div class="quote">"${esc(line.text)}"</div>`;
-    else if (line.type === 'beat') html += `<p class="beat">${esc(line.text)}</p>`;
-    else html += `<p>${esc(line.text)}</p>`;
-  });
-  if (op.stageDirection) html += `<div class="stage">${esc(op.stageDirection)}</div>`;
-  if (op.handNote) html += `<div class="hand">${esc(op.handNote)}</div>`;
-  $('opener-script').innerHTML = html;
-}
-
-/* ─── Discovery questions ─── */
-function renderDiscovery() {
-  const disc = D.discovery || {};
-  const biz = disc.business || [];
-  const tech = disc.technical || [];
-  let html = '';
-  if (biz.length) {
-    html += `<div class="col"><h4>▮ Business questions (AE)</h4><ol>`;
-    biz.forEach(q => html += `<li>${esc(q)}</li>`);
-    html += `</ol></div>`;
-  }
-  if (tech.length) {
-    html += `<div class="col"><h4>▮ Technical questions (SE)</h4><ol>`;
-    tech.forEach(q => html += `<li>${esc(q)}</li>`);
-    html += `</ol></div>`;
-  }
-  $('discovery-section').innerHTML = html;
-}
-
-/* ─── Sources ─── */
-function renderSources() {
-  const sources = D.sources || [];
-  const active = sources.filter(s => s.status !== 'quiet');
-  const quiet  = sources.filter(s => s.status === 'quiet');
-  $('sources-header').textContent = `▮ Sources scanned · ${active.length} active · ${quiet.length} quiet`;
-  const grid = $('sources-grid');
-  sources.forEach(s => {
-    const row = el('div', 'src-row');
-    row.innerHTML = `<span class="dot ${esc(s.tier||'d3')}"></span><span class="nm">${esc(s.nm||'—')}</span><span class="ct">${s.status==='quiet' ? '— quiet' : (s.ct ? s.ct + ' items' : '—')}</span>`;
-    grid.appendChild(row);
-  });
-}
-
-/* ─── Safety panel ─── */
-function renderSafety() {
-  const safety = D.safety || {};
-  const total  = safety.total  || C.totalLinks || 0;
-  const clean  = safety.clean  || total;
-  const flagged = safety.flagged || 0;
-  $('safety-text').innerHTML = `<strong>LINK SAFETY · ${clean}/${total} URLS ${flagged ? '<span style="color:var(--blood)">⚠ ' + flagged + ' FLAGGED</span>' : 'CLEAN'}</strong>`;
-  $('safety-stat').textContent = flagged ? 'See flagged domains above before forwarding.' : 'No flagged domains. No tracking redirects. No credential-harvest patterns.';
-  $('safety-time').textContent = safety.scannedAt ? `Scanned ${safety.scannedAt}` : (C.generatedAt ? `Scanned ${C.generatedAt}` : '');
-}
-
-/* ─── Colophon ─── */
-function renderColophon() {
-  $('colophon').innerHTML = `Briefed by <span class="brand">The Approach<span class="sq"></span></span> · part of <span class="brand">The Loadout<span class="sq"></span></span> · Iron Log<br>
-  Generated ${C.generatedAt || ''} on ${C.generatedDate || ''} for ${esc(C.seller||'you')} / ${esc(C.sellerCompany||'')} · Field Brief v0.1<br>
-  <em>Read it once. Walk in heavy.</em>`;
-}
-
-/* ─── Scroll nav builder ─── */
-function buildSecNav() {
-  const nav = $('secnav');
-  nav.innerHTML = '';
-  const append = (cls, text, href) => {
-    const s = el('span', cls, text);
-    if (href) { const a = el('a','',text); a.href = href; nav.appendChild(a); } else nav.appendChild(s);
-  };
-  const sections = D.sections || [];
-  const act1 = sections.filter(s => s.act !== 2);
-  const act2 = sections.filter(s => s.act === 2);
-  if (act1.length) {
-    append('group-label', 'Business ▮');
-    act1.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
-  }
-  const sep = el('span','divider','·');
-  nav.appendChild(sep);
-  if (act2.length || D.stack && D.stack.length) {
-    append('group-label', 'Technical ▮');
-    act2.forEach(s => { const a = el('a','',s.title||s.id); a.href = '#' + (s.id||''); nav.appendChild(a); });
-    if (D.stack && D.stack.length) { const a = el('a','','Stack'); a.href = '#stack'; nav.appendChild(a); }
-  }
-  if (D.plays && D.plays.length) { const a = el('a','','Plays'); a.href = '#plays'; nav.appendChild(a); }
-  if (D.risks && D.risks.length) { const a = el('a','','Risk'); a.href = '#risk'; nav.appendChild(a); }
-}
-
-/* ─── Scroll spy ─── */
-function initScrollSpy() {
-  const links = document.querySelectorAll('.secnav a[href^="#"]');
-  const map = new Map();
-  links.forEach(a => {
-    const id = a.getAttribute('href').slice(1);
-    const sec = document.getElementById(id);
-    if (sec) map.set(sec, a);
-  });
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        links.forEach(l => l.classList.remove('on'));
-        const a = map.get(e.target);
-        if (a) a.classList.add('on');
+    case 'p': {
+      var h = '<p>' + rich(item.text || '') + '</p>';
+      if (item.source) {
+        var tier = esc(item.source.tier || '');
+        var dotCls = 'dot' + (tier ? ' ' + tier : '');
+        h += '<p class="source"><span class="' + dotCls + '"></span>' + esc(item.source.text || '') + '</p>';
       }
-    });
-  }, { rootMargin: '-30% 0px -60% 0px' });
-  map.forEach((_, sec) => io.observe(sec));
+      return h;
+    }
+
+    case 'pull': {
+      var ph = '<div class="pull">'
+        + '<q>' + rich(item.text || '') + '</q>';
+      if (item.cite) ph += '<cite>' + esc(item.cite) + '</cite>';
+      return ph + '</div>';
+    }
+
+    case 'facts': {
+      var fs = (item.items || []).map(function(f) {
+        return '<div class="f">'
+          + '<span class="k">' + esc(f.k || '') + '</span>'
+          + '<span class="v">' + esc(f.v || '') + '</span>'
+          + '</div>';
+      }).join('');
+      return '<div class="facts">' + fs + '</div>';
+    }
+
+    case 'table': {
+      var rows = (item.rows || []).map(function(r) {
+        var stCls = 'status' + (r.statusClass ? ' ' + esc(r.statusClass) : '');
+        return '<tr>'
+          + '<td class="layer">' + esc(r.layer  || '') + '</td>'
+          + '<td class="tool">'  + esc(r.tool   || '') + '</td>'
+          + '<td class="' + stCls + '">' + esc(r.status || '') + '</td>'
+          + '<td class="note">'  + esc(r.note   || '') + '</td>'
+          + '</tr>';
+      }).join('');
+      return '<table class="stack-table">'
+        + '<thead><tr><th>Layer</th><th>Tool</th><th>Fit</th><th>Notes</th></tr></thead>'
+        + '<tbody>' + rows + '</tbody>'
+        + '</table>';
+    }
+
+    case 'opener': {
+      var beats = (item.beats || []).map(function(b) {
+        return '<div class="beat">' + esc(b) + '</div>';
+      }).join('');
+      return '<div class="opener">'
+        + '<div class="k">Suggested opener · ~90 seconds</div>'
+        + '<q>' + esc(item.script || '') + '</q>'
+        + beats
+        + '</div>';
+    }
+
+    case 'questions': {
+      var qs = (item.items || []).map(function(q) {
+        var chipHtml = (q && q.chip && q.chip.text)
+          ? '<span class="mp-chip ' + esc(q.chip.status || '') + '">' + esc(q.chip.text) + '</span>'
+          : '';
+        return '<li>' + chipHtml + esc(typeof q === 'string' ? q : (q.text || '')) + '</li>';
+      }).join('');
+      var label = item.label ? '<div class="k">' + esc(item.label) + '</div>' : '';
+      return label + '<ol class="questions">' + qs + '</ol>';
+    }
+
+    default:
+      return '';
+  }
 }
 
-/* ─── Boot ─── */
-renderMasthead();
-renderCountdown();
-renderSignalBar();
-renderScoutSummary();
-renderPeople();
-renderSections();
-buildSecNav();
-renderStack();
-renderPlays();
-renderRisks();
-renderOpener();
-renderDiscovery();
-renderSources();
-renderSafety();
-renderColophon();
-initScrollSpy();
+/* ── sections ── */
+function renderSections() {
+  var sections = C.sections || [];
+  var ad = C.actDivider;
+  var seenSE = false;
+  var html = '';
 
+  sections.forEach(function(s) {
+    // Insert act divider before the first SE section
+    if (ad && s.for === 'the SE' && !seenSE) {
+      seenSE = true;
+      html += '<div class="act-divider">'
+        + '<div class="k">' + esc(ad.kicker || 'Handoff') + '</div>'
+        + '<h2>' + esc(ad.title || 'Technical posture.') + '</h2>'
+        + '<p class="deck">' + esc(ad.deck || '') + '</p>'
+        + '</div>';
+    }
+
+    // Action kicker label
+    var aLabel = s.for === 'the SE' ? 'For the SE' : 'For the call';
+
+    html += '<section class="sec" id="' + esc(s.id) + '">';
+    html += '<div class="sec-num"><span>' + esc(s.number || '') + '</span>'
+          + '<span class="pipe">·</span>'
+          + '<span class="for">for ' + esc(s.for || 'the AE') + '</span></div>';
+    html += '<h2 class="sec-title">' + esc(s.kicker || s.title || '') + '</h2>';
+    if (s.title) html += '<p class="sec-subtitle">' + esc(s.title) + '</p>';
+    html += '<p class="sec-deck">' + rich(s.deck || '') + '</p>';
+
+    // TL;DR card
+    var tldrItems = Array.isArray(s.tldr) ? s.tldr : (s.tldr ? [s.tldr] : []);
+    var tldrHtml = tldrItems.map(function(t) { return '<p>' + rich(t) + '</p>'; }).join('');
+    html += '<div class="tldr"><div class="k">TL;DR</div>' + tldrHtml + '</div>';
+
+    // Prose items
+    var proseHtml = (s.prose || []).map(renderProseItem).join('');
+    if (proseHtml) html += '<div class="prose">' + proseHtml + '</div>';
+
+    // Action footer
+    if (s.action) {
+      html += '<div class="action"><div class="k">' + aLabel + '</div>'
+            + '<p>' + rich(s.action) + '</p></div>';
+    }
+
+    html += '</section>';
+  });
+
+  $('main-content').innerHTML = html;
+}
+
+/* ── colophon ── */
+function renderColophon() {
+  var sub = [];
+  if (M.seller)  sub.push(esc(M.seller));
+  if (M.se)      sub.push(esc(M.se));
+  if (C.product)   sub.push(esc(C.product));
+  if (M.generated) sub.push('Generated ' + esc(M.generated));
+  var subEl = $('col-sub');
+  if (subEl && sub.length) subEl.innerHTML = sub.join(' &nbsp;·&nbsp; ');
+}
+
+/* ── boot ── */
+renderMasthead();
+renderTOC();
+renderSections();
+renderMeddpicc();
+renderColophon();
+
+} catch(err) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<p style="position:fixed;top:0;left:0;right:0;padding:12px 16px;background:#b6271d;color:#fff;font-family:monospace;font-size:13px;z-index:9999">' +
+    'The Approach render error — ' + String(err) + '</p>'
+  );
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function toggleExport(e) { if (e) e.stopPropagation(); var dd = document.getElementById('export-dd'); if (dd) dd.classList.toggle('open'); }
+function closeExport() { var dd = document.getElementById('export-dd'); if (dd) dd.classList.remove('open'); }
+document.addEventListener('click', function(e) { if (!e.target.closest || !e.target.closest('.tb-export')) closeExport(); });
+function exportHTML() {
+  closeExport();
+  var now = new Date();
+  var C2 = window.APPROACH_DATA || {};
+  var co = ((C2.meta && C2.meta.company) || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 12);
+  var isoFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  var isoDate = isoFmt.format(now);
+  var filename = 'approach-' + (co || 'brief') + '-' + isoDate + '.html';
+  var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  if (window.APPROACH_DATA) {
+    try {
+      var dataStr = JSON.stringify(window.APPROACH_DATA).replace(/<\/script>/gi, '<\\/script>');
+      html = html.replace(/<script id="approach-data">[\s\S]*?<\/script>/, function() {
+        return '<script id="approach-data">\ntry { window.APPROACH_DATA = ' + dataStr + '; } catch(e) { window.APPROACH_DATA = null; }\n<' + '/script>';
+      });
+    } catch(exportErr) { console.warn('[Approach:Export] data injection failed', exportErr); }
+  }
+  var blob = new Blob([html], { type: 'text/html' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ── FULLSCREEN ────────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  var el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el).catch(function(err) { console.warn('[Approach:Fullscreen] blocked —', err && err.message || err); });
+  }
+}
+document.addEventListener('fullscreenchange', function() {
+  var btn = document.getElementById('fs-btn');
+  if (btn) btn.textContent = document.fullscreenElement ? '← Exit' : '⛶ Fullscreen';
+});
+document.addEventListener('webkitfullscreenchange', function() {
+  var btn = document.getElementById('fs-btn');
+  if (btn) btn.textContent = document.webkitFullscreenElement ? '← Exit' : '⛶ Fullscreen';
+});
+window.toggleExport = toggleExport;
+window.closeExport = closeExport;
+window.exportHTML = exportHTML;
+window.toggleFullscreen = toggleFullscreen;
 </script>
 </body>
 </html>

@@ -280,6 +280,8 @@ At viewport ≤ 768px:
 
 ## What the agent never does
 
-The agent writes only the `<script id="warmup-data">` block. All CSS, JS, layout,
-PDF builder, modal code, and renderer logic live in the canonical template and
-must not be modified per-report.
+The agent never writes HTML directly. It calls `warmup_save_data` with the new
+WARMUP_DATA payload, which the server stores in KV. The artifact (built once
+per engine version) fetches that payload via the Cowork MCP bridge at boot and
+on every visibility event. All CSS, JS, layout, PDF builder, modal code, and
+renderer logic live in `warmup-shell.rawjs` and must not be modified per-report.

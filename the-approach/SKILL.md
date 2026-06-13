@@ -1,20 +1,18 @@
 ---
 name: the-approach
-description: >
-  The Approach. A pre-call intelligence brief for sellers and technical sellers.
-  Researches a target company before a sales call — incidents, filings, earnings,
-  market signal, leadership, tech stack, competitor footprint — and generates a
-  structured field brief with business sections for the AE and technical sections
-  for the SE, with a scripted opener and ranked demo plan.
-  Trigger phrases: "approach", "run the approach", "brief me on", "prep me for",
-  "research for my call", "build the approach", "the approach for", "run approach".
+description: "The Approach. A pre-call intelligence brief for sellers and technical sellers, with MEDDPICC, opener, and demo plan. Triggers: \"run the approach\", \"brief me on\", \"prep me for my call with\"."
 license: MIT
 author: H. Michael Nichols
-version: 0.2.4
+version: 0.3.1
 part_of: The Loadout
 ---
 
 # The Approach
+
+## Full description
+
+The Approach. A pre-call intelligence brief for sellers and technical sellers. Researches a target company before a sales call — incidents, filings, earnings, market signal, leadership, tech stack, competitor footprint — and generates a structured field brief with business sections for the AE and technical sections for the SE, with a scripted opener and ranked demo plan. Trigger phrases: "approach", "run the approach", "brief me on", "prep me for", "research for my call", "build the approach", "the approach for", "run approach".
+
 
 ## Why "The Approach"
 
@@ -47,7 +45,7 @@ to be asked again — go straight to the missing ones.
 
 1. **Target company** — name, website if known. Required; do not proceed without it.
 2. **Meeting contacts** — who are they meeting? Name and title if known. At minimum the team (e.g. "IT operations", "SOC", "CISO + VP of IT"). Optional but valuable.
-3. **Meeting context** — one to two sentences: what is this call about? Who is the seller and what are they selling? Example: "We work at Elastic and are talking to them about agentic security operations."
+3. **Meeting context** — one to two sentences: what is this call about? Who is the seller and what are they selling? Example: "We work at Sightline and are talking to them about agentic security operations."
 4. **Meeting date and time** — for the countdown timer and date-anchoring the research.
 5. **Seller name** — who is running the call? (AE name, SE name if joint.)
 
@@ -159,10 +157,6 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
 
 ```json
 {
-  "config": {
-    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
-  },
-
   "meta": {
     "company":       "Rogue Fitness",
     "contact":       "Jock Padgett",
@@ -172,7 +166,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "callTime":      "14:30 ET",   // The scheduled meeting time — from the user's config. Write exactly as given.
     "callDate":      "Wed 20 May 2026", // The meeting date — read from system context (today's date). Always accurate.
     "briefNumber":   "001",
-    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
+    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Sightline Security.",
     "sourceCount":   "14",
     "generated":     "20 May 2026", // Date only — read from system context. Do NOT write a time component.
                                     // Agents don't have a reliable clock. Write the date; omit the time.
@@ -189,7 +183,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "partial",
         "headline": "Breach cost, OT downtime, MILO fleet exposure",
         "evidence": "No named baseline yet. Peer breach data gives proxy numbers to anchor the conversation.",
-        "next":     "Ask: \'What does an hour of OT downtime cost you, ballpark?\'"
+        "next":     "Ask: 'What does an hour of OT downtime cost you, ballpark?'"
       },
       {
         "letter":   "E",
@@ -205,7 +199,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "unknown",
         "headline": "Not formalised — opportunity to shape",
         "evidence": "No public RFP. Conference talk emphasises operational visibility.",
-        "next":     "Ask: \'How will you know which platform is the right fit?\'"
+        "next":     "Ask: 'How will you know which platform is the right fit?'"
       },
       {
         "letter":   "D",
@@ -213,7 +207,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "unknown",
         "headline": "Founder-led, fast — mechanics unknown",
         "evidence": "No board, no PE. Bill makes calls quickly.",
-        "next":     "Ask: \'Walk me through how a decision like this gets made here.\'"
+        "next":     "Ask: 'Walk me through how a decision like this gets made here.'"
       },
       {
         "letter":   "P",
@@ -228,8 +222,8 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "label":    "Identify Pain",
         "status":   "confirmed",
         "headline": "Named publicly at DefCon — OT/IT convergence, MILO fleet, PCI scope",
-        "evidence": "DefCon 31 (Aug 2023): \'Security has to live where the work happens.\'",
-        "next":     "Quote his DefCon phrase. Don\'t re-discover what he already named."
+        "evidence": "DefCon 31 (Aug 2023): 'Security has to live where the work happens.'",
+        "next":     "Quote his DefCon phrase. Don't re-discover what he already named."
       },
       {
         "letter":   "C",
@@ -244,8 +238,8 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "label":    "Competition",
         "status":   "partial",
         "headline": "Splunk incumbent inferred",
-        "evidence": "3 job posts require \'Splunk or equivalent SIEM experience.\'",
-        "next":     "Ask: \'What are you running today for SIEM and endpoint?\'"
+        "evidence": "3 job posts require 'Splunk or equivalent SIEM experience.'",
+        "next":     "Ask: 'What are you running today for SIEM and endpoint?'"
       }
     ]
   },
@@ -256,7 +250,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
       "number": "01",
       "for":    "the AE",
       "title":  "Company snapshot.",
-      "deck":   "What they do, how they make money, and what shape they\'re in.",
+      "deck":   "What they do, how they make money, and what shape they're in.",
       "tldr":   "Founder-led. Private. **$700M+ revenue**. DTC e-commerce is the spine. **$45M manufacturing expansion** broke ground March 2026.",
       "prose":  [
         {
@@ -321,7 +315,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "deck":   "Stack, security events, demo prep, and risk flags. What the SE reads on the elevator up."
   },
 
-  "product": "Elastic Security pre-call brief",
+  "product": "Sightline Security pre-call brief",
   "version": "v0.2.4"
 }
 ```
@@ -365,43 +359,41 @@ The `actDivider` renders automatically before the first `"the SE"` section. Sect
 
 ## RENDER Phase (Step 2)
 
-Every Approach brief is built fresh from `approach_get_template`. No Path A / Path B. No engine version check. `approach_data` is required on every chunk call — the server re-injects it each time (stateless).
+Every Approach brief is built locally from the bundled `approach-template.html`.
+No MCP server, no network call, no font tool. One path, every time.
 
 ```
-a) Identify your loaded warmup_get_fonts tool name. It looks like:
-      "mcp__<uuid>__warmup_get_fonts"
-   The UUID prefix changes per session — use the exact name from your loaded tool list.
+a) Write the assembled APPROACH_DATA object to a temp file as JSON:
+      [workspace]/approach-data.json
+   Write it with a file tool or heredoc. Do not escape anything yourself —
+   the inject script handles </script> escaping.
 
-b) Ensure config.fontToolName is set in APPROACH_DATA:
-      "config": {
-        "fontToolName": "mcp__<uuid>__warmup_get_fonts",
-        ... (all other config fields)
-      }
+b) Run the bundled injection script:
+      python3 [skill_dir]/scripts/inject.py \
+        approach-data.json \
+        [skill_dir]/approach-template.html \
+        approach-brief.html
+   The script validates the JSON, escapes </script> sequences, and replaces
+   the __APPROACH_DATA__ placeholder. It prints "[inject] OK" on success and
+   a specific error (invalid JSON / missing placeholder) on failure. Fix the
+   data and re-run if it fails.
 
-c) Call approach_get_template({ chunk: 0, approach_data: JSON.stringify(APPROACH_DATA) }).
-   Read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response to learn N.
-   The response ends with <!-- __APPROACH_SENTINEL__ --> when N > 1.
-   If the call returns [ERROR], stop and report.
+c) FALLBACK — no shell available (e.g. a chat-only environment):
+   Do the same steps with file tools directly:
+     1. Read [skill_dir]/approach-template.html.
+     2. In the APPROACH_DATA JSON string, replace every "</script>"
+        (case-insensitive) with "<\/script>".
+     3. Replace the single literal token __APPROACH_DATA__ in the template
+        with the escaped JSON. Treat it as a literal string swap — do not
+        use regex replacement, and do not alter any other template content.
+     4. Write the result to approach-brief.html.
 
-d) Write chunk 0 to [workspace_root]/approach-brief.html using the Write file tool.
-
-e) For chunks 1..N-1 (sequentially — NEVER in parallel):
-   - Call approach_get_template({ chunk: i, approach_data: JSON.stringify(APPROACH_DATA) }).
-   - Edit approach-brief.html: old_string="<!-- __APPROACH_SENTINEL__ -->" → new_string=[chunk text].
-   - Wait for Edit to succeed before starting i+1.
-
-f) Verify assembly — Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.
-
-g) Call create_artifact (or update_artifact if re-running for the same company):
-      id: "the-approach"
-      html_path: [path to approach-brief.html]
-      mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
-   Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
-
-Do NOT use bash to move or copy any files. Bash runs in a sandbox that cannot reach
-Cowork session paths. Use the Read and Write file tools with the real macOS path.
+d) Surface approach-brief.html to the user with the environment's file
+   presentation mechanism (present the file, attach it, or give its path).
+   The file is fully self-contained: open it in any browser. Fonts load
+   from the Google Fonts CDN when reachable and fall back to system fonts
+   on locked-down networks — the brief is readable either way.
 ```
-
 ---
 
 ## Summary line
@@ -468,3 +460,5 @@ don't have to re-enter it next time."*
 | 0.2.1 | C1 editorial redesign — Oswald/Merriweather/JetBrains Mono type scale, cream paper palette, full MEDDPICC scorecard at end of report, act divider, facts strip, pull quote, stack table, opener box, TL;DR card, action footer. |
 | 0.2.2 | Section heading structure: sec-num → sec-title (kicker) → sec-subtitle (title) → sec-deck. Foot style matches Warmup/Spotter double-rule colophon. Footer links to missionbuilt.io. |
 | 0.2.3 | Renderer field name fixes (silent blank output): pull text, facts k/v, opener script/beats[], questions chip, meta generated/sourceCount. Colophon seller path corrected to C.config.seller. JSON validation in approach_get_template. |
+| 0.3.0 | Self-contained release. approach_get_template replaced by local scripts/inject.py against the bundled template. MCP font loader removed; Google Fonts CDN with system-font fallback. config.fontToolName dropped from schema. No MCP server dependency anywhere in the skill. |
+| 0.3.1 | QA pass for open-source release. Genericized example seller references from a real third-party employer to the neutral fictional brand "Sightline" in the meeting-context example, MEDDPICC deck, and product field. Fixed invalid `\'` escapes in the MEDDPICC example so the documented schema is valid JSON (a copied example would otherwise fail `inject.py` validation). No renderer changes. Verified with a full live research run (Levi Strauss & Co. target). |

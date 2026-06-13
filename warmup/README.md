@@ -1,211 +1,71 @@
-# The Warmup
+# The Warmup — Self-Contained Edition (v0.9.4)
 
-> A daily intelligence brief for the first coffee. Know what moved before you
-> open your inbox.
+A daily intelligence brief for the first coffee. This is the fully local
+edition of The Warmup: no MCP server, no KV store, no network dependency
+beyond the web research itself. The output works offline — fonts embedded.
 
-Part of [The Loadout](https://github.com/missionbuilt/loadout) — a growing
-kit of open-source skills from the [*Mission Built*](https://missionbuilt.io)
-ecosystem.
+## What changed from the MCP edition (v0.8)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/missionbuilt/loadout/blob/main/warmup/LICENSE)
+The MCP server did five jobs for this skill. All five are now local:
 
-By [H. Michael Nichols](https://www.linkedin.com/in/hmichaelnichols)
+1. **Skill delivery** (`warmup_run` / `warmup_get_skill` section gating).
+   The SKILL.md loads directly. The heavy reference content (source suites,
+   report section structures, custom-mode rules) moved to `references/` and
+   is read on demand — same token efficiency, no round trips.
+2. **Template delivery** (`warmup_get_template`, 900-line chunks, sentinel
+   stitching, engine version checks). The fully assembled engine ships as
+   `warmup-template.html` in this folder. Chunking existed only because the
+   template traveled through MCP responses; a local file has no such limit.
+3. **Data persistence** (`warmup_save_data` / `warmup_get_data` via
+   Cloudflare KV, fetched by the artifact at boot). Replaced by build-time
+   injection via `scripts/inject.py` — the same pattern the shell's own
+   Export function already used for offline files. Each run rebuilds
+   `warmup.html` from template + `warmup-data.json`. Corrections edit the
+   JSON and re-inject; no new searches.
+4. **Auto-refresh** (visibilitychange polling against KV). Dormant by design
+   (the data tool is empty). The masthead Refresh button now reloads the
+   page from disk, which picks up the latest run.
+5. **Font delivery** (`warmup_get_fonts`). The full font set (Oswald,
+   Merriweather, JetBrains Mono, Permanent Marker) is baked into the
+   template as data-URI @font-face rules. The brief renders identically
+   offline, on locked-down networks, everywhere.
 
----
-
-## What this is
-
-You do not go under the bar cold. In the gym, the warmup is the ten minutes
-that makes the next ninety honest. It tells you what is tight, what needs
-adjustment, and whether today's plan needs to change before the work begins.
-
-The Warmup does the same thing for your workday. Before the first meeting,
-before the first decision — you know what threat actors are active, what
-vulnerabilities dropped overnight, what your vendors are doing. You start
-informed instead of catching up for the first hour.
-
-The Warmup reads your sources, synthesizes what matters, and delivers it as
-a single live document you pull with your first coffee. Every item is labeled
-with its source and trust tier. You always know what you are reading and where
-it came from.
-
----
-
-## Three modes
-
-### CISO Mode
-
-Built for cybersecurity executives. Tell the Warmup your sector and it loads
-a pre-curated source suite: CISA advisories, the CISA Known Exploited
-Vulnerabilities catalog, MITRE ATT&CK, CrowdStrike, Palo Alto Unit 42,
-Elastic Security Labs, Google Mandiant, Microsoft MSTIC, Cisco Talos, and
-more — plus sector-specific sources for Healthcare, Financial Services, Energy,
-Government, Manufacturing/OT, and others.
-
-Each brief covers five sections:
-
-- **Threat Landscape** — Active threat actors, targeted sectors, MITRE-mapped
-  TTPs. CrowdStrike taxonomy (SCATTERED SPIDER, COZY BEAR, VOLT TYPHOON).
-- **Emerging Threats** — New CVEs, CISA KEV additions, zero-days, new malware
-  families. Sorted by exploitation urgency.
-- **Research Digest** — New publications from Tier 1 and Tier 2 sources.
-  Substantive research only, not vendor marketing.
-- **Industry Intel** — M&A, product launches, leadership changes, regulatory
-  moves (SEC, HIPAA, DORA, CMMC). Flagged by type.
-- **Social Signal** — High-signal community discussion, clearly labeled
-  as unverified. Omitted when there is nothing worth your time.
-
-### Product Leader Mode
-
-Built for product managers, CPOs, and product-oriented executives. Tell the
-Warmup your product area, vertical, and build type and it loads a source
-suite tuned for competitive and market intelligence: competitor newsrooms,
-analyst firms (Gartner, Forrester, CB Insights), AI model release trackers,
-funding and M&A feeds, and the voices worth following in your space.
-
-Each brief covers five sections:
-
-- **Company Intel** — News, earnings, product launches, and leadership moves
-  from your own org. SEC filings flagged when relevant.
-- **Competitor Moves** — Product announcements, pricing changes, hiring
-  signals, and positioning shifts from your named competitor set.
-- **AI & Tooling** — Model releases, capability updates, and developer
-  tooling changes relevant to your roadmap.
-- **Market & Funding** — VC rounds, M&A, analyst reports, and regulatory
-  moves in your vertical.
-- **Social Signal** — High-signal community discussion, clearly labeled
-  as unverified. Omitted when there is nothing worth your time.
-
-### Custom Mode
-
-Describe your morning interests in plain language and the Warmup builds your
-source suite from scratch. Stocks, industry news, competitor blogs, AI model
-releases, policy changes, local business news — whatever you need to start
-the day in the loop.
-
-Every recommended source comes with a tier rating (Authoritative / Research /
-News / Vendor) so you know exactly what weight to give each item.
-
----
-
-## Source transparency
-
-The bottom of every brief shows a full list of every source consulted: which
-were active, which were quiet, which you have excluded. You always know what
-built your brief.
-
-You can add, remove, or exclude any source at any time. The config lives in
-a plain `WARMUP.md` file at your project root — readable, editable, yours.
-
----
-
-## Link safety verification
-
-Every URL cited in the brief is scanned before the artifact renders. The brief
-includes a Link Safety Verification panel showing the result for each source
-domain: scan verdict, number of URLs fetched, and whether anything was flagged.
-
-Each domain gets one of three verdicts:
-
-- **Clean** — no indicators of compromise, no redirects to suspicious
-  destinations, no malformed responses
-- **Caution** — something worth noting: an unusual redirect, a certificate
-  anomaly, a domain that recently changed hands
-- **Flagged** — do not follow; the domain or a specific URL showed indicators
-  consistent with phishing, malware delivery, or active compromise
-
-Items from flagged sources are excluded from the brief body. Caution-tier
-items are included but marked. You always know the safety status of what
-you are reading.
-
-The panel also shows aggregate counts: total domains scanned, total URLs
-checked, and how many were flagged. If everything is clean, it says so.
-If anything was caught, it surfaces at the top of the panel so it is the
-first thing you see.
-
----
+Four small shell edits were made (fonts-present check ordering, stale-cache
+guard so old localStorage never overrides injected data, empty-state copy,
+Refresh button behavior). Everything else — renderer, deep dives, section
+done-toggles, export, print/PDF, configure modal — is byte-identical to the
+v0.8 engine.
 
 ## Install
 
-Clone the Loadout and copy the Warmup skill into your project:
+Claude Code / Cowork:
 
-```bash
-git clone https://github.com/missionbuilt/loadout.git /tmp/loadout
-mkdir -p .claude/skills
-cp -r /tmp/loadout/warmup .claude/skills/
-```
+    cp -r the-warmup .claude/skills/
 
----
+Claude.ai: upload this folder as a user skill.
 
-## Usage
+## Run
 
-### First run
+First time: say "set up my warmup" — the skill walks the SETUP flow and
+writes WARMUP.md. Daily: say "run my warmup". The brief lands in
+warmup.html; open it in any browser.
 
-```
-warmup setup
-```
+**Deep Dive** (an on-demand AI expansion of any item) needs a live AI bridge,
+so it only appears when the brief is opened as a Cowork artifact. Opened as a
+plain file the brief is fully readable — the Deep Dive buttons simply stay
+hidden rather than showing a dead control.
 
-Walks you through four questions for CISO mode (sector, optional company
-name, region, vendors to track) or an open-form description for Custom mode.
-Builds your source suite, shows it for review, saves your config, and runs
-a test brief.
+## Files
 
-Your config is saved to `WARMUP.md` at your project root. This file is
-personal — it contains your company, sources, and interests. Copy
-`WARMUP.example.md` from the repo root to see the full schema. `WARMUP.md`
-is gitignored and never leaves your machine.
+| File | Purpose |
+|---|---|
+| `SKILL.md` | The skill — setup, run, configure, schema, rules |
+| `warmup-template.html` | Full render engine with fonts baked in (placeholders: `__WARMUP_DATA__`, `__WARMUP_SAVED_AT__`) |
+| `scripts/inject.py` | Local render step (replaces save/get KV flow) |
+| `references/sources.md` | CISO / Product Leader / sector source suites |
+| `references/sections.md` | Report section structures + batch query tables |
+| `references/custom-mode.md` | Custom mode rules + source trust framework |
+| `WARMUP.example.md` | User config example |
+| `SKILL-DESIGN.md` | Design spec (for template maintenance only) |
 
-### Run the brief
-
-```
-run warmup
-```
-
-or
-
-```
-start my warmup
-```
-
-Reads your config, fetches live intelligence from each active source,
-synthesizes it into sections, and renders an Iron Log-branded HTML artifact.
-One summary line in chat. The brief is the artifact.
-
-### Manage your sources
-
-```
-warmup config
-show my warmup sources
-add [source name] to my warmup
-exclude [source name] from warmup
-```
-
----
-
-## Output
-
-The brief is a live HTML artifact that stays open and refreshes each time
-you run it. It follows the Iron Log design language from
-[missionbuilt.io](https://missionbuilt.io) — charcoal background, oxblood
-accents, JetBrains Mono instrument-panel labels, no rounded corners, no
-drop shadows. It reads like a field document, not a dashboard.
-
----
-
-## Customizing for your team
-
-The Warmup is designed to stay generic. The config that makes it yours —
-your sector, your vendors, your added sources — lives in `WARMUP.md` at your
-project root. Pull updates to the skill without touching your config.
-
----
-
-## License
-
-MIT. Use it, fork it, adapt it for your organization. Attribution per the MIT
-terms is appreciated.
-
----
-
-*Part of the [Mission Built](https://missionbuilt.io) ecosystem. The book
-teaches the principles. The Loadout puts the principles into operation.*
+MIT. Part of The Loadout · missionbuilt.io

@@ -1,31 +1,18 @@
 ---
 name: warmup
-description: >
-  The Warmup. A daily intelligence brief for the first coffee.
-  CISO mode delivers a structured cybersecurity digest — active threat actors
-  mapped to MITRE ATT&CK, emerging CVEs with exploitation status, research
-  from CrowdStrike, Palo Alto Unit 42, Elastic Security Labs, and others,
-  plus vendor M&A and regulatory movement.
-  Product Leader mode delivers a product intelligence brief for GMs, PMs, and
-  anyone steering a product — company signal, competitor moves, AI in product,
-  funding and M&A, platform risk, regulatory pressure, analyst sentiment, and
-  a vertical-specific section that adapts to what they build and who they build for.
-  Custom mode lets any user describe their morning interests — stocks, industry
-  news, competitor moves, policy, social signal — and maps them to a curated
-  source suite.
-  Output: a live Iron Log-branded HTML artifact, transparent about every
-  source used, pulled on demand with your first coffee.
-  Trigger phrases: "warmup", "run warmup", "run the warmup", "start my warmup",
-  "give me my warmup", "warmup setup", "set up the warmup",
-  "configure the warmup", "warmup config", "add source to warmup",
-  "remove source from warmup", "show my warmup sources".
+description: "The Warmup. A daily intelligence brief for the first coffee, in CISO, Product Leader, or Custom mode. Triggers: \"run my warmup\", \"warmup\", \"set up my warmup\", \"what's in the brief today\"."
 license: MIT
 author: H. Michael Nichols
-version: 0.7.2
+version: 0.9.4
 part_of: The Loadout
 ---
 
 # The Warmup
+
+## Full description
+
+The Warmup. A daily intelligence brief for the first coffee. CISO mode delivers a structured cybersecurity digest — active threat actors mapped to MITRE ATT&CK, emerging CVEs with exploitation status, research from CrowdStrike, Palo Alto Unit 42, Red Canary, and others, plus vendor M&A and regulatory movement. Product Leader mode delivers a product intelligence brief for GMs, PMs, and anyone steering a product — company signal, competitor moves, AI in product, funding and M&A, platform risk, regulatory pressure, analyst sentiment, and a vertical-specific section that adapts to what they build and who they build for. Custom mode lets any user describe their morning interests — stocks, industry news, competitor moves, policy, social signal — and maps them to a curated source suite. Output: a live Iron Log-branded HTML artifact, transparent about every source used, pulled on demand with your first coffee. Trigger phrases: "warmup", "run warmup", "run the warmup", "start my warmup", "give me my warmup", "warmup setup", "set up the warmup", "configure the warmup", "warmup config", "add source to warmup", "remove source from warmup", "show my warmup sources".
+
 
 ## Why "The Warmup"
 
@@ -372,12 +359,11 @@ window and note it in the chat summary line.
 
 ### Step 1 — Find workspace root, read config, compute lookback window
 
-**First: find workspace root** — call `list_artifacts`:
-- `"the-warmup"` exists → take its `html_path` and strip the filename.
-  e.g. `"/Users/jane/Projects/loadout/warmup.html"` → `"/Users/jane/Projects/loadout"`
-- No `"the-warmup"` artifact → find the user's selected workspace folder in your system context.
-  It is the folder the user mounted in Cowork — a short, human-readable path like `/Users/[name]/Projects/[folder]`.
-  It is **NOT** the working directory, outputs folder, or any session/temp path.
+**First: find workspace root** — the folder where `WARMUP.md` and `warmup.html`
+live across runs:
+- In Claude Code / Cowork: the project root the user has open.
+- In a chat-only environment: the conversation's persistent output area.
+- An existing `warmup.html` or `WARMUP.md` marks the root — prefer their location.
 
 **Validate** — if the workspace root contains any of these strings, you have the WRONG path:
 `"Application Support"` · `"sessions"` · `"outputs"` · `"uploads"` · `"local-agent"` · `"tmp"`
@@ -442,7 +428,7 @@ Search using compound batch queries — not one query per source. This cuts fetc
 | Batch | Sources covered | Query pattern |
 |---|---|---|
 | Gov pulse | CISA + NSA + FBI + FTC | `(site:cisa.gov OR site:nsa.gov OR site:ic3.gov OR site:ftc.gov) advisory alert after:YYYY-MM-DD` |
-| Research | MSTIC + CrowdStrike + Elastic + Wiz + Unit 42 | `(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:elastic.co/security-labs OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD` |
+| Research | MSTIC + CrowdStrike + Red Canary + Wiz + Unit 42 | `(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:redcanary.com/blog OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD` |
 | CVE sweep | NVD + CISA KEV | `(site:nvd.nist.gov OR site:cisa.gov/known-exploited-vulnerabilities) CVE critical after:YYYY-MM-DD` |
 | News | BleepingComputer + SecurityWeek + Krebs + THN + Dark Reading | `(site:bleepingcomputer.com OR site:securityweek.com OR site:krebsonsecurity.com OR site:thehackernews.com OR site:darkreading.com) [sector] after:YYYY-MM-DD` |
 | Market | Reuters + Bloomberg + sector vendors | `[company OR sector] acquisition OR breach OR regulatory site:reuters.com OR site:bloomberg.com after:YYYY-MM-DD` |
@@ -473,7 +459,7 @@ Step A — Allowlist check (instant, no API call):
 
   CISO allowlist domains:
     cisa.gov, nsa.gov, ic3.gov, fbi.gov, ftc.gov, nvd.nist.gov, attack.mitre.org,
-    crowdstrike.com, unit42.paloaltonetworks.com, elastic.co, cloud.google.com,
+    crowdstrike.com, unit42.paloaltonetworks.com, redcanary.com, cloud.google.com,
     microsoft.com, blog.talosintelligence.com, secureworks.com, recordedfuture.com,
     wiz.io, krebsonsecurity.com, thehackernews.com, darkreading.com,
     securityweek.com, bleepingcomputer.com, arstechnica.com, scmagazine.com,
@@ -600,66 +586,75 @@ Do not add a placeholder or ask about it during RUN.
 ### Step 4 — Render phase
 
 **ABSOLUTE RULE — NO EXCEPTIONS:**
-The brief HTML is ALWAYS built from the engine returned by the `warmup_get_template` **MCP tool** (chunked, with the `dataToolName` parameter set). **Never write HTML from scratch. Never use training-data memory of what the brief looks like.** The CSS, layout, typography, fonts, and PDF builder exist only in the tool response — reproducing them from memory will produce the wrong design.
+The brief HTML is ALWAYS built from the bundled `warmup-template.html` in this
+skill folder. **Never write the HTML from scratch. Never use training-data
+memory of what the brief looks like.** The CSS, layout, typography, embedded
+fonts, renderer, and PDF builder exist only in that template — reproducing
+them from memory will produce the wrong design.
 
-**v0.8 architecture — data lives in KV, not in the HTML.**
+**Self-contained architecture — data is injected at build time.**
 
-The artifact file is a pure renderer. It calls `warmup_get_data` via the Cowork MCP bridge at boot and on every visibility/focus event. WARMUP_DATA is no longer baked into the HTML. There is no `<script id="warmup-data">` placeholder anymore. There is no inline JSON injection, no `</script>` XSS escape, and no Path A vs Path B branching for data updates.
-
-A daily run is two MCP calls and (only on a fresh install or an engine bump) one template fetch.
+The template carries the full render engine with fonts baked in, plus two
+placeholders: `__WARMUP_DATA__` and `__WARMUP_SAVED_AT__`. Each run rebuilds
+`warmup.html` from template + today's data. There is no engine version check,
+no chunk stitching, no Path A vs Path B, and no server round trip.
 
 **The flow:**
 
-> **Why the file-state check is strict.** A prior run can leave a half-built artifact on disk — engine marker present at line 2, but the body truncated at `<!-- __WARMUP_SENTINEL__ -->` because chunks 1..N-1 never stitched (context limit, rate cutoff, interruption). The version marker alone is NOT proof of completeness. The `warmup_run` brief requires four checks before skipping a rebuild: marker present, sentinel absent, file ends with `</html>`, and the embedded `dataToolName` matches the current session. The post-assembly verify (step 7e) re-checks the sentinel and the `</html>` tail and resumes stitching rather than registering a broken file.
+1. Write the assembled WARMUP_DATA object as JSON to
+   `[workspace-root]/warmup-data.json`. Keep this file — it is the editable
+   record of the current brief and the input for corrections.
 
-1. **Save the brief to KV — always.** Call `warmup_save_data({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })`. The tool returns `{ ok, savedAt, bytes }`. If `ok: false`, STOP and surface the error to the user — the artifact will keep showing the previous brief until save succeeds.
+2. Run the bundled injection script:
+   `python3 [skill_dir]/scripts/inject.py warmup-data.json [skill_dir]/warmup-template.html warmup.html`
+   The script validates the JSON, escapes `</script>` sequences, injects the
+   data, and stamps the generation timestamp. It prints `[inject] OK` on
+   success and a specific error on failure — fix the data and re-run.
 
-2. **Ensure the artifact file exists and runs the current engine.** This is determined by Step 1b earlier in the run:
-   - **artifact_action === "skip"** → call `update_artifact({ id: "the-warmup", html_path })` to nudge Cowork. The artifact's visibilitychange/focus handler will fetch the new KV data on next focus and re-render automatically.
-   - **artifact_action === "create"** or **"refresh"** → build the artifact file (below).
+3. FALLBACK — no shell available: read the template with file tools, replace
+   every `</script>` inside the JSON string with `<\/script>`, swap the
+   literal `__WARMUP_DATA__` token for the escaped JSON and
+   `__WARMUP_SAVED_AT__` for the current UTC ISO timestamp (literal string
+   swaps — no regex), and write the result to `warmup.html`.
 
-**Building the artifact file (only on create / refresh):**
+4. Surface `warmup.html` to the user.
 
-The server returns the shell HTML in paginated 900-line chunks. Chunk 0 embeds your data-tool name in a `<script id="warmup-tools">` block — the shell reads that to call `warmup_get_data` at runtime.
+   - **In Cowork:** deliver it as a live artifact with `create_artifact`
+     (`html_path` = the built `warmup.html`). This is the preferred path — the
+     Cowork artifact viewer injects the `window.cowork` bridge, which is what
+     powers the **Deep Dive** buttons (they call `window.cowork.askClaude` for
+     an on-demand AI expansion of any item). No `mcp_tools` are required for
+     Deep Dive — `askClaude` is a built-in. On a re-run, use `update_artifact`
+     with the same id.
+   - **Anywhere else (Claude Code, chat, or a downloaded file):** present
+     `warmup.html` with the environment's file mechanism. It is fully
+     self-contained — fonts embedded, zero network — and works offline in any
+     browser.
 
-1. **Identify your full data-tool name.** Your loaded `warmup_get_data` tool name looks like `mcp__<uuid>__warmup_get_data`. Use that exact string as `dataToolName` below.
+   **Deep Dive degrades gracefully:** the buttons are hidden unless the live
+   `askClaude` bridge is detected at runtime, so a brief opened as a plain file
+   (or exported with "Save as HTML") never shows a non-functional Deep Dive
+   button. Deep Dive is therefore a Cowork-artifact feature; the offline brief
+   is otherwise identical.
 
-2. **Call** `warmup_get_template({ intent: "...", chunk: 0, dataToolName: "mcp__<uuid>__warmup_get_data" })`. Read `<!-- WARMUP_TOTAL_CHUNKS: N -->` to learn N. The response ends with `<!-- __WARMUP_SENTINEL__ -->` when N > 1. If the call returns `[ERROR]`, stop and report.
-
-3. **Write chunk 0 to** `[workspace-root]/warmup.html`. Overwrite any existing file — the v0.8 engine replaces v0.7 entirely.
-
-4. **Apply chunks 1..N-1 sequentially** (NEVER in parallel — Edits race on the same sentinel and corrupt the file):
-   - Call `warmup_get_template({ intent: "...", chunk: i })`. `dataToolName` is ignored on chunks 1+.
-   - Edit `old_string: "<!-- __WARMUP_SENTINEL__ -->"` → `new_string: [chunk text]`.
-   - Wait for Edit to succeed before starting i+1.
-
-5. **Verify assembly** — Grep the file for `<!-- __WARMUP_SENTINEL__ -->`. Must return 0 matches.
-
-6. **Register the artifact:**
-   - `artifact_action === "create"` → `create_artifact`.
-   - `artifact_action === "refresh"` → `update_artifact`.
-   - Pass:
-     - `id: "the-warmup"`
-     - `html_path: [workspace-root]/warmup.html`
-     - `mcp_tools: ["mcp__<uuid>__warmup_get_data", "mcp__<uuid>__warmup_get_fonts"]`
-   - Both tool names are REQUIRED in `mcp_tools`. Cowork silently blocks any `callMcpTool` call whose target isn't on this allowlist. Without `warmup_get_data` the artifact shows "No brief yet" forever; without `warmup_get_fonts` the design falls back to system fonts.
-
-> **Do not use bash for any of this.** Bash runs in a Linux sandbox where macOS file paths are remapped and won't resolve. Use the file tools directly with the real macOS path from `html_path`.
+   If the brief is already open from a prior run, the user reloads the page (or
+   taps Refresh in the masthead) to pick up the new brief.
 
 **User requests a correction to the existing brief (no new searches):**
 
 Triggered when the user asks to change something in the current report — fix a headline, correct a date, add or remove an item, rewrite a body — without running fresh fetches.
 
-1. Call `warmup_get_data({ intent: "..." })`. The response is `{ data: WARMUP_DATA, savedAt }`. Extract `data`.
-2. Apply the user's requested change to the relevant field(s) in WARMUP_DATA. Touch nothing else.
-3. Call `warmup_save_data({ intent: "...", warmup_data: JSON.stringify(WARMUP_DATA) })`. The open artifact picks up the corrected brief on its next visibility event.
+1. Read `[workspace-root]/warmup-data.json`.
+2. Apply the user's requested change to the relevant field(s). Touch nothing else.
+3. Re-run the injection script (Step 4.2) to rebuild `warmup.html`, then tell
+   the user to reload the page.
 
-No file edits required. No template fetch. No `update_artifact` call needed.
+No new searches. No template edits — only the data file changes.
 
 **When an engine bug is fixed:**
-1. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user's next run into `artifact_action: "refresh"`, which rewrites the file with the fixed engine.
-2. Apply the fix to `warmup-shell.rawjs` (the actual shell code imported by the worker; the legacy `warmup-template.html` files were retired in v0.8.0).
-3. After deploy, the next daily run on each device picks up the new engine.
+1. Apply the fix to `warmup-template.html` in this skill folder.
+2. Every run rebuilds `warmup.html` from the template, so the next daily run
+   picks up the fix automatically — no version bump mechanics needed.
 
 **`WARMUP_DATA` schema (v0.3.0 — Morning Edition):**
 
@@ -671,7 +666,7 @@ No file edits required. No template fetch. No `update_artifact` call needed.
     // Required
     "name": "Mike",
     "mode": "CISO",
-    "company": "Elastic",
+    "company": "Acme Corp",
     "sector": "Cybersecurity",
     "reportDate": "Thursday, 15 May 2026",   // REQUIRED — full display string for the masthead date (e.g. "Friday, 15 May 2026").
                                                // Format: "{Weekday}, {DD} {Month} {YYYY}". Use today's date in the user's timezone.
@@ -778,12 +773,9 @@ No file edits required. No template fetch. No `update_artifact` call needed.
 
 **`scanTime` — only write it if you actually know the time.** If a tool returned the current wall-clock time, write it as `"HH:MM TZ"` (24-hour, user's timezone, e.g. `"06:14 ET"`). If you don't have a reliable clock source, leave it as `""` — the renderer falls back to the user's local browser clock, which is accurate. A fabricated timestamp is worse than no timestamp. Do not write separate timestamp values anywhere else.
 
-**On engine bugs:**
-1. Apply the fix to `warmup-shell.rawjs` — that's the actual shell imported by the worker.
-2. Bump `WARMUP_ENGINE_VERSION` in `constants.ts`. This forces every user into `artifact_action: "refresh"` on their next run, which rewrites the file with the fix.
-3. Deploy. New runs pick up the fixed engine automatically.
-
-**Never build the artifact HTML from scratch.** Always start from the engine shell returned by `warmup_get_template`. Building from scratch risks re-introducing fixed bugs and diverging from the canonical engine.
+**Never build the artifact HTML from scratch.** Always start from the bundled
+`warmup-template.html`. Building from scratch risks re-introducing fixed bugs
+and diverging from the canonical engine.
 
 ### Step 5 — Summary line
 
@@ -905,499 +897,26 @@ sources perform. Do not ask after minor changes (typo fixes, timezone updates).
 
 ---
 
-## CISO Source Suite
+## Source suites
 
-The default source suite for CISO mode. Load all of these unless the user
-explicitly excludes one.
+The CISO, Product Leader, and Sector-Specific source suites live in
+`references/sources.md` in this skill folder. Read that file when entering
+Product Leader or Custom mode, or when adding sector sources.
 
-### Tier 1 — Government & Authoritative
+## Report section structures
 
-These are primary sources of truth. Treat their content as high-confidence.
-Never remove from the brief without user confirmation.
+The CISO and Product Leader report section structures (including the Product
+Leader batch query table) live in `references/sections.md`. Read that file
+during the synthesize phase.
 
-| Source | Search target | What it contributes |
-|---|---|---|
-| CISA Alerts & Advisories | site:cisa.gov advisories | Active exploits, critical advisories, joint alerts with NSA/FBI |
-| CISA Known Exploited Vulnerabilities (KEV) | site:cisa.gov known-exploited-vulnerabilities | CVEs with confirmed in-the-wild exploitation |
-| NVD / CVE Database | site:nvd.nist.gov OR "CVE-2026" new vulnerability | New and updated CVE records, CVSS scores |
-| MITRE ATT&CK | site:attack.mitre.org | TTP context for attributed campaigns; use for tagging items from other sources |
-| FBI Cyber Division | site:ic3.gov OR site:fbi.gov/investigate/cyber | Public PSAs, threat actor attributions, financial fraud patterns |
-| NSA Cybersecurity Advisories | site:nsa.gov cybersecurity advisory | Nation-state TTP guidance, hardening recommendations |
+## Custom mode & source trust
 
-### Tier 2 — Premier Research Firms
-
-High-quality, vetted research with named analysts and editorial review.
-Include all by default.
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| CrowdStrike Intelligence Blog | site:crowdstrike.com/blog | Adversary tracking (BEAR/SPIDER/KITTEN taxonomy), campaign analysis |
-| Palo Alto Unit 42 | site:unit42.paloaltonetworks.com | Threat research, malware reverse engineering, IR findings |
-| Elastic Security Labs | site:elastic.co/security-labs | Behavioral detection research, open-source SIEM rules |
-| Google Mandiant | "mandiant" threat intelligence blog | APT group tracking, IR case studies, zero-day attribution |
-| Microsoft Threat Intelligence (MSTIC) | site:microsoft.com/security/blog | Windows/Azure/cloud threat actor TTPs, nation-state activity |
-| Cisco Talos | site:blog.talosintelligence.com | Threat telemetry, malware family analysis, email threat data |
-| Secureworks CTU | site:secureworks.com/blog | GOLD/IRON/BRONZE group tracking, ransomware intelligence |
-| Recorded Future | site:recordedfuture.com/blog | Dark web intelligence, global threat signals, public research |
-
-### Tier 3 — Reputable Security News
-
-Reliable reporting with editorial standards. Label items [NEWS].
-Include all by default.
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| Krebs on Security | site:krebsonsecurity.com | Investigative security reporting, breach coverage |
-| The Hacker News | site:thehackernews.com | Breaking security news, vulnerability coverage |
-| Dark Reading | site:darkreading.com | CISO-relevant analysis, industry reporting |
-| SecurityWeek | site:securityweek.com | Vendor news, vulnerability roundups |
-| BleepingComputer | site:bleepingcomputer.com | Ransomware tracking, active exploit news |
-| Ars Technica Security | site:arstechnica.com/security | Technical security reporting, long-form analysis |
-
-### Tier 4 — Vendor & Market Intelligence
-
-For tracking M&A, funding, product launches, regulatory moves. Label items
-[VENDOR] or [REGULATORY]. Read with commercial interest context.
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| CRN | site:crn.com security | Channel news, vendor M&A, partner moves |
-| SC Magazine | site:scmagazine.com | Security product news, market coverage |
-| TechCrunch Security | site:techcrunch.com/category/security | Startup funding, cybersecurity acquisitions |
-| Cybersecurity Ventures | site:cybersecurityventures.com | Market reports, spending forecasts |
-
----
-
----
-
-## Product Leader Source Suite
-
-Default source suite for Product Leader mode. Core sources load for all users; vertical-specific sources added at SETUP.
-
-### Tier 1 — Primary Sources
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| SEC EDGAR | `site:sec.gov [company] OR [competitor]` | Public filings, 8-K events, earnings, exec changes |
-| Crunchbase News | `site:crunchbase.com [sector] funding OR acquisition` | Funding rounds, M&A, investor signals |
-| Company newsroom | `site:[company].com/news OR /press` | Official announcements, product launches, leadership moves |
-| Competitor newsrooms | `site:[competitor].com/news OR /press` | Official competitor announcements |
-
-### Tier 2 — Research & Premium Coverage
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| a16z | `site:a16z.com [sector] OR [vertical]` | Market theses, sector deep-dives, portfolio signals |
-| Sequoia Capital | `site:sequoiacap.com [sector]` | Market memos, economic outlook, founder research |
-| The Information | `site:theinformation.com [company] OR [sector]` | Investigative tech journalism (search for public excerpts) |
-| Stratechery | `site:stratechery.com [company] OR [sector]` | Strategic analysis of tech business models |
-| Benedict Evans | `site:ben-evans.com [sector] OR [topic]` | Consumer tech and market structure analysis |
-| CB Insights | `site:cbinsights.com [sector] intelligence` | Market maps, funding data, industry reports |
-| Gartner | `site:gartner.com [sector] magic quadrant OR report` | Analyst positioning, market category definitions |
-| Forrester | `site:forrester.com [sector] wave OR report` | Enterprise buyer-focused analyst coverage |
-| Product Hunt | `site:producthunt.com [category]` | New product launches, early competitor signal |
-
-### Tier 3 — News & Community
-
-Label items [NEWS] or [COMMUNITY].
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| TechCrunch | `site:techcrunch.com [company] OR [sector]` | Funding news, product launches, startup coverage |
-| The Verge | `site:theverge.com [company] OR [product category]` | Consumer tech, platform policy, product reviews |
-| Wired | `site:wired.com [company] OR [sector]` | Long-form technology and business reporting |
-| Fast Company | `site:fastcompany.com [company] OR innovation` | Innovation, design, product culture |
-| Reuters / Bloomberg | `site:reuters.com OR site:bloomberg.com [company] OR [sector]` | Breaking M&A (Tier 1); market color (Tier 3) |
-| Lenny's Newsletter | `site:lennysnewsletter.com [topic]` | Practitioner PM and growth content |
-| Reforge Blog | `site:reforge.com/blog [topic]` | Product growth and retention frameworks |
-| Hacker News | `site:news.ycombinator.com [company] OR [product]` | Developer community signal; earliest mention of product issues |
-| LinkedIn | `[person] OR [company] site:linkedin.com` | Exec commentary, people moves, product announcements |
-
-### Tier 4 — Vendor & Analyst Marketing
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| G2 | `site:g2.com [company] OR [competitor] reviews` | Customer review signal, competitive grids |
-| Capterra | `site:capterra.com [company] OR [competitor]` | B2B buyer reviews, alternative discovery |
-| Trustpilot | `site:trustpilot.com [company] OR [competitor]` | Consumer review signal |
-| Vendor blogs | `site:[vendor].com/blog [product area]` | AI vendor product updates, API changes |
-
-### AI Vendor Sources (always included for Product Leader)
-
-| Source | Search target | What it contributes |
-|---|---|---|
-| OpenAI Blog | `site:openai.com/blog` | Model releases, API changes, pricing |
-| Anthropic | `site:anthropic.com/news OR /research` | Model releases, safety research, API updates |
-| Google DeepMind | `site:deepmind.google OR site:blog.google/technology/ai` | Research, Gemini updates, infrastructure |
-| Meta AI | `site:ai.meta.com/blog OR site:research.facebook.com` | Open-source models (Llama), research |
-| Mistral AI | `site:mistral.ai/news` | European frontier model moves, open-weight releases |
-| Hugging Face | `site:huggingface.co/blog` | Open-source model ecosystem, tooling |
-| arXiv cs.AI | `site:arxiv.org cs.AI [topic]` | Pre-print research; leading indicator of capability direction |
-
-Additional AI vendor sources from `ai_vendors:` in WARMUP.md appended at runtime.
-
-### Vertical-Specific Sources (Product Leader)
-
-| Vertical | Add These Sources |
-|---|---|
-| **Security product** | Full CISO Tier 1–2 suite (CISA, NVD, CrowdStrike, Unit 42, MSTIC, Elastic Security Labs, etc.) |
-| **Fintech / payments** | OCC (`site:occ.gov`), CFPB (`site:consumerfinance.gov`), FS-ISAC, Payments Dive, PYMNTS |
-| **Healthcare / digital health** | FDA Digital Health, CMS (`site:cms.gov`), Rock Health, HIMSS |
-| **Consumer social / creator** | Social Media Today, Creator Economy Report, platform dev blogs (Meta, TikTok, YouTube, Snap) |
-| **Enterprise SaaS** | Bessemer State of Cloud, SaaStr, ChartMogul blog, Lighter Capital |
-| **Developer tools / platform** | GitHub Blog, Stack Overflow Developer Survey, npm trends, CNCF reports, Changelog |
-| **E-commerce / retail** | Digital Commerce 360, Shopify Engineering Blog, NRF research, Morning Brew Retail |
-| **Logistics / supply chain** | FreightWaves, Supply Chain Dive, Flexport blog |
-| **Marketplace** | a16z marketplace posts, NFX (`site:nfx.com`), a16z marketplace essays |
-
-## Sector-Specific Sources
-
-Append these when the user's sector matches. Add to the appropriate tier in
-the source suite.
-
-| Sector | Add These Sources |
-|---|---|
-| Healthcare | HHS HC3 (`site:hhs.gov hc3`), Health-ISAC news (`site:h-isac.org`), AHA cybersecurity alerts |
-| Financial Services | FS-ISAC public blog (`site:fsisac.com`), OCC alerts (`site:occ.gov`), FFIEC guidance |
-| Energy / Utilities | E-ISAC (`site:eisac.com`), CISA ICS-CERT (`site:cisa.gov ics-cert`), NERC CIP updates |
-| Government / Public Sector | FedRAMP news, FISMA updates, DoD CMMC bulletins (`site:dodcio.defense.gov`) |
-| Technology | GitHub Security Advisories (`site:github.com/advisories`), Wiz Research (`site:wiz.io/blog`), Snyk Vulnerability DB |
-| Retail / Consumer | PCI Security Council (`site:pcisecuritystandards.org`), NRF security news |
-| Manufacturing / OT | Dragos OT Intel (`site:dragos.com/blog`), Claroty Research (`site:claroty.com/team82`), Nozomi Research |
-| Critical Infrastructure | Extends Energy + Government sources; add ICS-CERT advisories explicitly |
-
----
-
-## CISO Report — Section Structure
-
-Organize the brief into these five sections, in this order.
-Each section has a defined scope. Stay within it.
-
-### Section 1 — THREAT LANDSCAPE
-
-**What belongs here:** Named threat actors currently active; their targeted
-sectors; their primary TTPs.
-
-- Use CrowdStrike naming convention for threat groups where possible
-  (SCATTERED SPIDER, COZY BEAR, VOLT TYPHOON, etc.). Note aliases when
-  relevant (e.g., "APT29 / COZY BEAR").
-- Tag each item with the actor name, 1–2 MITRE ATT&CK technique IDs
-  (e.g., T1566.001 — Spearphishing Attachment), and source.
-- If the user provided a sector, lead with actors known to target that
-  sector. If no sector-specific activity exists this week, say so briefly
-  rather than forcing items that do not fit.
-- If the user provided a company name, note explicitly if the company
-  or its sector has appeared in attribution reporting.
-
-**Scope boundary:** Attribution and TTPs only. Do not put CVEs here —
-those go in Emerging Threats. Do not put vendor news here — that goes
-in Industry Intel.
-
-### Section 2 — EMERGING THREATS
-
-**What belongs here:** New vulnerabilities and attack techniques entering
-circulation in the last 7 days.
-
-- CISA KEV additions: any CVE added to the Known Exploited Vulnerabilities
-  catalog this week.
-- High/critical CVEs with active exploitation evidence or public POC.
-- Zero-day disclosures. New malware families or significant variants.
-- Each CVE entry: CVE ID, CVSS score, affected product(s), exploitation
-  status (exploited in wild / POC available / no exploitation evidence).
-- Sort by exploitation urgency, not CVSS score alone. A CVSS 7.5 with
-  confirmed in-the-wild exploitation ranks above a CVSS 9.8 with no POC.
-
-**Scope boundary:** Technical vulnerabilities and new attack techniques only.
-
-### Section 3 — RESEARCH DIGEST
-
-**What belongs here:** New publications from Tier 1 and Tier 2 sources
-in the last 7 days.
-
-- New threat research reports, technical blog posts, malware analyses.
-- One headline + 2–3 sentence summary per item.
-- Tag with source name and publication date.
-- Exclude vendor marketing content. Only substantive research with
-  named threat data, indicators, or detection guidance qualifies.
-
-**Scope boundary:** Research publications only, not breaking news.
-If something is both news and research (e.g., a major IR firm publishes
-on an ongoing incident), put it here and note the news angle.
-
-### Section 4 — INDUSTRY INTEL
-
-**What belongs here:** Market and vendor movement a CISO cares about for
-budget and vendor portfolio decisions.
-
-- M&A activity: acquisitions, mergers, divestitures in the security market.
-- Significant product launches from vendors the user tracks.
-- Leadership changes at major security vendors.
-- Regulatory changes: SEC disclosure rules, GDPR/HIPAA/DORA enforcement
-  actions, CMMC updates, state-level privacy laws.
-- Tag each item: [M&A], [PRODUCT], [REGULATORY], or [EXEC].
-- If any news directly affects a vendor the user listed in their profile,
-  note that explicitly.
-
-**Scope boundary:** Market and regulatory movement. Not technical threat data.
-
-### Section 5 — SOCIAL SIGNAL
-
-**What belongs here:** High-signal community discussion from the security
-field. This section is optional and should be omitted if nothing substantive
-is found.
-
-- High-engagement threads or posts on r/netsec, LinkedIn security community,
-  or X/Twitter security accounts that discuss something of professional
-  consequence (a significant debate, a disclosed incident, a tool release
-  that is getting traction).
-- Every item in this section must carry a [COMMUNITY] tag.
-- Add this note at the top of the section:
-  *"Unverified community signal. Cross-reference Tier 1–2 sources before acting."*
-- If nothing of consequence is found: **omit the section entirely.**
-  Do not pad with low-signal posts to fill the section. Absence is better
-  than noise.
-
----
-
----
-
-## Product Leader Report — Section Structure
-
-Eight sections, in this order. Section 7 (Vertical Intel) is dynamic — its
-name and scope adapt to the user's declared vertical. Section 8 (Special
-Interests) is optional and omitted if not configured.
-
-### Section 1 — COMPANY INTEL
-
-**What belongs here:** Your own company's external signal — what the market,
-analysts, customers, and press are saying about you.
-
-- Analyst coverage: Gartner, Forrester, IDC mentions; category placement changes
-- Customer review movement: G2, Capterra, Trustpilot score shifts, notable reviews,
-  category ranking changes
-- Press coverage of the company: product launches, leadership moves, partnerships
-- Job posting signals: significant new role categories that suggest strategic direction
-  (e.g., suddenly posting 20 ML roles signals an AI pivot)
-- Earnings/analyst day commentary for public companies
-- Tag each item: [ANALYST], [REVIEW], [PRESS], [HIRING], [EXEC]
-
-**Scope boundary:** Only your own company. Competitor company signal goes in
-Section 2. Industry news goes in Section 7.
-
-### Section 2 — COMPETITOR INTEL
-
-**What belongs here:** Strategic moves from the competitor list in WARMUP.md.
-
-- Product launches and feature announcements — what they shipped
-- Pricing changes — especially if moving toward or away from your segment
-- Funding rounds, M&A activity, acqui-hires
-- Executive hires and departures (CTO/CPO/CEO changes are significant)
-- Customer wins or losses where named (case studies, press releases, reviews)
-- Any public roadmap signals (conference talks, job posts for new product areas)
-- Tag each item with the competitor name and: [PRODUCT], [FUNDING], [M&A], [EXEC],
-  [PRICING], or [CUSTOMER]
-- If a competitor ships something that directly threatens your roadmap, bold the
-  item and put it first in the section.
-
-**Scope boundary:** Named competitors only. New entrants or emerging threats
-go in Section 7 (Vertical Intel). Do not include your own company here.
-
-### Section 3 — AI IN PRODUCT
-
-**What belongs here:** Two tracks in one section.
-
-**Track A — Frontier model and AI vendor moves:**
-- New model releases and benchmark results (GPT, Claude, Gemini, Llama, Mistral, etc.)
-- API changes, deprecations, pricing shifts from major AI vendors
-- New capabilities that change what products can realistically build
-- Acquisitions or partnerships that shift the AI vendor landscape
-- Tag: [MODEL RELEASE], [API], [PRICING], [ACQUISITION]
-
-**Track B — AI in product development:**
-- New coding tools, agent frameworks, or dev-workflow AI (Cursor, Copilot, Devin, etc.)
-- Research pre-prints from arXiv cs.AI with near-term product implications
-- Notable real-world deployments of AI in products similar to the user's
-- Practitioner write-ups: how teams are actually shipping AI features
-- Tag: [TOOLING], [RESEARCH], [DEPLOYMENT], [FRAMEWORK]
-
-**Ordering:** Put Track A items first (they move the floor). Track B items follow.
-
-**Scope boundary:** AI capabilities, vendors, and tooling only. Do not put general
-tech news here. Do not duplicate competitor AI launches — those go in Section 2.
-
-### Section 4 — FUNDING & M&A
-
-**What belongs here:** Capital and consolidation moves in the user's market.
-
-- Funding rounds in the user's category or adjacent ones: Series A+, growth rounds,
-  late-stage. Note the lead investor — signals where smart money is pointing.
-- Acquisitions: who bought whom, implied valuation, strategic rationale
-- IPOs and SPACs in the sector
-- Notable shutdowns or acqui-hires that signal market consolidation
-- If a direct competitor raised or got acquired, this item belongs in Section 2,
-  not here — cross-reference rather than duplicate.
-- Tag: [FUNDING], [M&A], [IPO], [SHUTDOWN]
-
-**Scope boundary:** Capital events only. Not product launches, not general news.
-
-### Section 5 — PLATFORM & ECOSYSTEM RISK
-
-**What belongs here:** Changes to the platforms, APIs, and infrastructure your
-product depends on or competes within.
-
-- App store policy changes (Apple, Google Play) — pricing, review policies, categories
-- Major API changes, deprecations, or pricing shifts from platform dependencies
-  (Stripe, Twilio, AWS, Salesforce, Shopify, etc.)
-- Browser or OS changes with product implications (Safari privacy changes, Chrome
-  deprecations, new mobile OS features)
-- Cloud provider moves: new services, pricing changes, regional expansions that affect
-  build-vs-buy decisions
-- Developer platform news: GitHub, npm, open-source ecosystem shifts
-- Tag: [APP STORE], [API CHANGE], [DEPRECATION], [PLATFORM], [CLOUD]
-
-**Scope boundary:** Changes external to your product that affect what you can build
-or how your product reaches users. If it doesn't create platform risk or dependency
-change, it belongs elsewhere.
-
-### Section 6 — REGULATORY & POLICY
-
-**What belongs here:** Policy and regulatory movement that could change your product,
-market, or go-to-market.
-
-- Privacy regulation: GDPR enforcement actions, US state privacy laws (CCPA, etc.),
-  new proposals in the user's markets
-- EU AI Act milestones and compliance deadlines
-- Antitrust: actions against platforms the user builds on or competes with
-- Vertical-specific regulatory moves (appended from Vertical Intel sources)
-- FTC, DOJ, SEC enforcement actions relevant to the user's sector
-- Tag: [GDPR], [AI ACT], [ANTITRUST], [FTC], [PRIVACY], or the relevant jurisdiction
-
-**Scope boundary:** Policy and compliance only. Not market news, not product news.
-If a regulatory action has direct competitive implications, note it here and
-reference Section 2.
-
-### Section 7 — [VERTICAL INTEL] *(dynamic section name)*
-
-**What belongs here:** Market-specific intelligence that depends on what the user
-builds and who they build for. This section's name, sources, and scope are set
-at SETUP based on the user's declared vertical.
-
-**Vertical mapping — use the appropriate label and scope:**
-
-| Vertical | Section label | What belongs here |
-|---|---|---|
-| Security product | THREAT LANDSCAPE | Borrow CISO Sections 1–2 scope: active threat actors, CVEs, research publications relevant to the user's customer base |
-| Fintech / payments | FINANCIAL ECOSYSTEM | Banking regulation, payment network moves, fraud trend reports, central bank policy with product implications |
-| Healthcare / digital health | CLINICAL & REGULATORY | FDA digital health guidance, CMS reimbursement signals, EHR ecosystem moves, health data standards |
-| Consumer social / creator | PLATFORM & CREATOR ECONOMY | Platform API changes (Instagram, TikTok, YouTube), creator monetization updates, engagement trend data |
-| Enterprise SaaS | BUYER SIGNAL | CIO/CFO sentiment surveys, procurement trend reports, SaaS spend benchmarks, category-level churn data |
-| Developer tools / platform | ECOSYSTEM SIGNAL | GitHub trending, open-source project momentum, Stack Overflow data, developer community sentiment |
-| E-commerce / retail | COMMERCE SIGNAL | Consumer spending indexes, Shopify GMV data, platform policy changes, fulfillment and logistics signals |
-| Logistics / supply chain | SUPPLY CHAIN SIGNAL | Freight rate indexes, port congestion data, geopolitical disruption signals, carrier capacity data |
-| Marketplace | MARKETPLACE DYNAMICS | GMV and take-rate trends, regulatory risk to marketplace models, supply/demand liquidity signals |
-
-If the user's vertical doesn't match the table, use the SETUP Question 3 inference
-(the "bad week" question) to name and define this section appropriately.
-
-**Scope boundary:** Vertical Intel is for market forces specific to the user's industry.
-General tech news and competitor moves go in earlier sections.
-
-### Section 8 — SPECIAL INTERESTS *(optional)*
-
-Identical to the CISO mode Special Interests section. Render only if
-`special_interests` is set in WARMUP.md. Pull 1–3 conversational items per
-interest, label [INTERESTS], and position last.
-
----
-
-## Product Leader Report — Batch Query Table
-
-Run these batches concurrently during the fetch phase. Replace placeholders with
-values from WARMUP.md. Run all batches before synthesizing.
-
-| Batch | Sources covered | Query pattern |
-|---|---|---|
-| Company signal | Company newsroom + G2 + Gartner + press | `"[company]" announcement OR review OR analyst after:YYYY-MM-DD` |
-| Competitor sweep | All competitors from `competitors:` list | `([comp1] OR [comp2] OR [comp3]) launch OR funding OR acquisition OR pricing after:YYYY-MM-DD` |
-| AI frontier | OpenAI + Anthropic + Google + Meta + Mistral | `(site:openai.com OR site:anthropic.com OR site:deepmind.google OR site:ai.meta.com OR site:mistral.ai) after:YYYY-MM-DD` |
-| AI in product | arXiv + Hugging Face + practitioner blogs | `AI product development OR agent framework OR LLM tooling after:YYYY-MM-DD` |
-| Funding & M&A | Crunchbase + TechCrunch + SEC EDGAR | `[sector] funding OR acquisition OR IPO site:techcrunch.com OR site:crunchbase.com after:YYYY-MM-DD` |
-| Platform risk | App stores + major API providers + cloud | `[platform dependencies] API change OR deprecation OR policy after:YYYY-MM-DD` |
-| Regulatory | FTC + sector regulator + EU | `[sector OR company] regulatory OR compliance OR enforcement after:YYYY-MM-DD` |
-| Vertical intel | Vertical-specific sources from the table above | Query pattern matched to vertical (e.g., `site:hhs.gov digital health` for healthcare) |
-| Interests | One per special interest | Targeted query per interest |
-
-Adapt all queries to the user's company, sector, and competitor list from WARMUP.md.
-If a competitor list has more than five names, run two competitor sweep batches rather
-than cramming all into one query (search engines truncate long OR chains).
-
-**URL safety gate:** identical to RUN Step 2 — no exceptions. Every URL from every batch passes the same allowlist → URLScan.io check. Configured `competitors:` and `ai_vendors:` domains are pre-allowlisted. Anything that cannot be confirmed clean is excluded.
-
----
-
-## Custom Mode — Source-Building Rules
-
-When the user describes custom interests, map each interest to sources
-using these rules. Be explicit about tier and rationale for each recommendation.
-
-**Financial markets / equities:**
-- Yahoo Finance (Tier 2), CNBC Markets (Tier 3), Reuters Markets (Tier 1 for
-  primary data), Bloomberg (Tier 2 — note paywall). For individual stocks,
-  search SEC EDGAR filings (Tier 1) alongside news.
-
-**Company / competitor tracking:**
-- Official company newsroom / IR pages (Tier 1 for that company's announcements).
-- SEC EDGAR for public companies (Tier 1). Google News for aggregated coverage
-  (Tier 3). LinkedIn company pages (Tier 3).
-- Note: press releases from companies about themselves are Tier 4 (commercial
-  interest context applies).
-
-**Industry publications:**
-- Identify the 2–3 most authoritative publications for that domain. Examples:
-  - AI/ML: Hugging Face blog, Arxiv cs.AI recent papers, MIT Technology Review
-  - Product Management: Lenny's Newsletter, Reforge blog
-  - Enterprise Tech: Stratechery (Tier 2 — paywall), The Information (Tier 2 — paywall)
-  - For paywalled sources, search for public excerpts and link to the source.
-
-**Government / regulatory:**
-- Official agency sources are Tier 1 (SEC, FDA, FTC, EU Commission, etc.).
-- Think tanks (Brookings, RAND, CSIS) are Tier 2.
-- News coverage of regulatory actions is Tier 3.
-
-**Social media signals:**
-- Flag all social sources as Tier 3. Include only if the user explicitly
-  requests social signal.
-- Recommend that the user define which platforms and communities matter to
-  them: a security researcher's X feed is different from a startup founder's.
-
-**Local / city news:**
-- Local newspaper of record for the named city (Tier 2). AP/Reuters
-  local coverage (Tier 1). Local business journals (Tier 2).
-
-**In all cases:** present the recommended source list with tier and rationale
-before saving. Do not assume approval — ask.
-
----
-
-## Source Trust Framework
-
-Every source in the brief carries a visible trust tier indicator.
-
-| Tier | Label | Indicator | Color | Criteria |
-|---|---|---|---|---|
-| 1 | Authoritative | ● (filled circle) | oxblood (#a8211a) | Government agencies, official standards bodies, primary-source records. Content originates from or is authorized by the named institution. |
-| 2 | Research | ◉ (circle-dot) | chalk (#ebe5d8) | Established research firms, major media with dedicated security or financial beats, peer-reviewed publications. Content is vetted, attributed, and editorially reviewed. |
-| 3 | News / Community | ○ (open circle) | chalk-dim (#a8a094) | News outlets without specialized editorial review for the domain, community forums, social media, aggregators. May be accurate; independently verify before acting. |
-| 4 | Vendor | ◈ (diamond) | army (#7a8b3a) | Content produced by vendors about their own products, market, or competitors. Accurate for product facts; read competitive claims with commercial interest context. |
-
-This framework applies in both CISO and Custom modes. Every item in the
-artifact carries its source's tier indicator. No exceptions.
-
----
+Custom-mode source-building rules and the Source Trust Framework live in
+`references/custom-mode.md`. Read that file when the user runs Custom mode.
 
 ## Artifact Design Spec
 
-The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md`. It is not accessible via any MCP tool and cannot be read during a Cowork session. It is also not needed during normal operation: every artifact build starts from the engine shell returned by `warmup_get_template`, which already embeds all design tokens. Do not attempt to read SKILL-DESIGN.md at runtime.
+The full design spec — color tokens, fonts, layout, component patterns, and the five rules — is in `SKILL-DESIGN.md`. It is not needed during normal operation: every artifact build starts from the bundled `warmup-template.html`, which already embeds all design tokens. Read SKILL-DESIGN.md only when modifying the template itself.
 
 ---
 
@@ -1454,7 +973,7 @@ track_people:               # optional: exec, analyst, investor, journalist name
 ### Tier 2 — Research
 - CrowdStrike Blog | https://www.crowdstrike.com/blog | active
 - Palo Alto Unit 42 | https://unit42.paloaltonetworks.com | active
-- Elastic Security Labs | https://www.elastic.co/security-labs | active
+- Red Canary | https://redcanary.com/blog | active
 - Google Mandiant | https://cloud.google.com/blog/topics/threat-intelligence | active
 - Microsoft MSTIC | https://www.microsoft.com/en-us/security/blog | active
 - Cisco Talos | https://blog.talosintelligence.com | active
@@ -1601,3 +1120,16 @@ Source tiers and curation are the author's judgment, not endorsements.
 ## License
 
 MIT. See `LICENSE` in the Loadout repository.
+
+
+---
+
+## Version history (self-contained edition)
+
+| Version | Change |
+|---|---|
+| 0.9.0 | Self-contained release. KV data flow (warmup_save_data / warmup_get_data) replaced by build-time injection via scripts/inject.py against the bundled warmup-template.html. Fonts baked into the template (offline-capable). MCP font loader and KV auto-refresh dormant (dataTool empty); masthead Refresh reloads from disk. Source suites, section structures, and custom-mode rules moved to references/ for on-demand loading. No MCP server dependency anywhere in the skill. |
+| 0.9.1 | QA pass for open-source release. Removed all third-party-employer references: the former Tier-2 vendor "security labs" research source was replaced with "Red Canary" (behavioral detection research, open-source detection rules) across the description, batch query table, allowlist, source suite, and WARMUP.md example; schema example company genericized to "Acme Corp"; template subdomain-match comment updated. No functional or renderer changes. |
+| 0.9.4 | Section-collapse duplication fix. The "Done / Expand" pass appended a count badge and toggle button to each section eyebrow with no idempotency or export guard. In a downloaded/exported brief it re-ran on open and stacked a second set — two "N items" labels and two overlapping buttons (the garbled "Done"+"Expand" overlay), visible when a section was marked Done. The pass now removes any prior count/toggle before creating exactly one of each, and initializes the button from the section's existing collapsed state. Engine v0.9.4-local. |
+| 0.9.3 | Date-duplication fix. The "Article Dates & Sort" pass rendered a second `.item-date` after each headline (renderItem already renders one inline before it) and had no export guard — so a downloaded/exported brief re-ran the pass on open and showed the date three times. That pass is now sort-only: it never inserts a date element and only backfills `data-date` for the recency sort when renderItem didn't already set it. One date per item in the live artifact and the downloaded file. Engine v0.9.3-local. |
+| 0.9.2 | Deep Dive fix. The Deep Dive button needs the Cowork `askClaude` bridge, which only exists in the Cowork artifact viewer — opened as a plain file it showed a dead "requires the Cowork app" button. Buttons are now hidden by default (`display:none`) and revealed only when `window.cowork.askClaude` is detected at runtime (`body.cowork-on`), and the reveal class is stripped on Export so offline copies stay clean. RENDER phase updated: in Cowork, deliver via `create_artifact` (where Deep Dive works); elsewhere, present the self-contained file. Engine bumped to v0.9.2-local. Validated with a live CISO research run (Blue Yonder). |
