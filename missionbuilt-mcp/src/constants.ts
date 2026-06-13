@@ -11,11 +11,11 @@
  *   THE_APPROACH_VERSION  — The Approach skill version; bump when SKILL.md or template changes
  */
 
-export const SERVER_VERSION        = "1.3.0";
-export const WARMUP_VERSION        = "0.8.9";
-export const WARMUP_ENGINE_VERSION = "v0.8.9";
+export const SERVER_VERSION        = "1.3.1";
+export const WARMUP_VERSION        = "0.9.4";
+export const WARMUP_ENGINE_VERSION = "v0.9.4";
 export const SPOTTER_VERSION       = "1.1.2";
-export const THE_APPROACH_VERSION  = "0.2.9";
+export const THE_APPROACH_VERSION  = "0.3.1";
 
 /** Total number of registered MCP tools. Update when adding/removing tools. */
 export const TOOL_COUNT = 23;

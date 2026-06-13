@@ -47,7 +47,7 @@ to be asked again — go straight to the missing ones.
 
 1. **Target company** — name, website if known. Required; do not proceed without it.
 2. **Meeting contacts** — who are they meeting? Name and title if known. At minimum the team (e.g. "IT operations", "SOC", "CISO + VP of IT"). Optional but valuable.
-3. **Meeting context** — one to two sentences: what is this call about? Who is the seller and what are they selling? Example: "We work at Elastic and are talking to them about agentic security operations."
+3. **Meeting context** — one to two sentences: what is this call about? Who is the seller and what are they selling? Example: "We work at Sightline and are talking to them about agentic security operations."
 4. **Meeting date and time** — for the countdown timer and date-anchoring the research.
 5. **Seller name** — who is running the call? (AE name, SE name if joint.)
 
@@ -172,7 +172,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "callTime":      "14:30 ET",   // The scheduled meeting time — from the user's config. Write exactly as given.
     "callDate":      "Wed 20 May 2026", // The meeting date — read from system context (today's date). Always accurate.
     "briefNumber":   "001",
-    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Elastic Security.",
+    "deck":          "A brief for the first call with Jock Padgett, CTO — selling Sightline Security.",
     "sourceCount":   "14",
     "generated":     "20 May 2026", // Date only — read from system context. Do NOT write a time component.
                                     // Agents don't have a reliable clock. Write the date; omit the time.
@@ -189,7 +189,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "partial",
         "headline": "Breach cost, OT downtime, MILO fleet exposure",
         "evidence": "No named baseline yet. Peer breach data gives proxy numbers to anchor the conversation.",
-        "next":     "Ask: \'What does an hour of OT downtime cost you, ballpark?\'"
+        "next":     "Ask: 'What does an hour of OT downtime cost you, ballpark?'"
       },
       {
         "letter":   "E",
@@ -205,7 +205,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "unknown",
         "headline": "Not formalised — opportunity to shape",
         "evidence": "No public RFP. Conference talk emphasises operational visibility.",
-        "next":     "Ask: \'How will you know which platform is the right fit?\'"
+        "next":     "Ask: 'How will you know which platform is the right fit?'"
       },
       {
         "letter":   "D",
@@ -213,7 +213,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "status":   "unknown",
         "headline": "Founder-led, fast — mechanics unknown",
         "evidence": "No board, no PE. Bill makes calls quickly.",
-        "next":     "Ask: \'Walk me through how a decision like this gets made here.\'"
+        "next":     "Ask: 'Walk me through how a decision like this gets made here.'"
       },
       {
         "letter":   "P",
@@ -228,8 +228,8 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "label":    "Identify Pain",
         "status":   "confirmed",
         "headline": "Named publicly at DefCon — OT/IT convergence, MILO fleet, PCI scope",
-        "evidence": "DefCon 31 (Aug 2023): \'Security has to live where the work happens.\'",
-        "next":     "Quote his DefCon phrase. Don\'t re-discover what he already named."
+        "evidence": "DefCon 31 (Aug 2023): 'Security has to live where the work happens.'",
+        "next":     "Quote his DefCon phrase. Don't re-discover what he already named."
       },
       {
         "letter":   "C",
@@ -244,8 +244,8 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
         "label":    "Competition",
         "status":   "partial",
         "headline": "Splunk incumbent inferred",
-        "evidence": "3 job posts require \'Splunk or equivalent SIEM experience.\'",
-        "next":     "Ask: \'What are you running today for SIEM and endpoint?\'"
+        "evidence": "3 job posts require 'Splunk or equivalent SIEM experience.'",
+        "next":     "Ask: 'What are you running today for SIEM and endpoint?'"
       }
     ]
   },
@@ -256,7 +256,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
       "number": "01",
       "for":    "the AE",
       "title":  "Company snapshot.",
-      "deck":   "What they do, how they make money, and what shape they\'re in.",
+      "deck":   "What they do, how they make money, and what shape they're in.",
       "tldr":   "Founder-led. Private. **$700M+ revenue**. DTC e-commerce is the spine. **$45M manufacturing expansion** broke ground March 2026.",
       "prose":  [
         {
@@ -321,7 +321,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
     "deck":   "Stack, security events, demo prep, and risk flags. What the SE reads on the elevator up."
   },
 
-  "product": "Elastic Security pre-call brief",
+  "product": "Sightline Security pre-call brief",
   "version": "v0.2.4"
 }
 ```

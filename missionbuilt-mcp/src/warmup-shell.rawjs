@@ -290,7 +290,7 @@ transition: background-size 0.25s, color 0.15s;
 .item-lead .item-sum { font-size: 17px; line-height: 1.75; color: var(--ink); max-width: 64ch; }
 .item-lead .item-sum::first-letter { font-family: var(--font-display); font-weight: 500; font-size: 56px; line-height: 0.95; float: left; margin: 6px 12px 0 0; color: var(--blood); }
 .deep-btn {
-display: inline-flex;
+display: none;
 align-items: center;
 gap: 8px;
 margin-top: 14px;
@@ -309,6 +309,10 @@ transition: color 0.12s, border-color 0.12s;
 .deep-btn::before { content: ''; display: inline-block; width: 0; height: 0; border-style: solid; border-width: 4px 0 4px 7px; border-color: transparent transparent transparent var(--blood); }
 .deep-btn:hover { color: var(--blood); border-color: var(--blood); }
 .deep-btn:disabled { opacity: 0.5; cursor: wait; }
+/* Deep Dive is hidden by default and revealed only when the Cowork live-AI
+   bridge (window.cowork.askClaude) is detected at runtime. A plain browser or
+   exported/offline file never shows a non-functional Deep Dive button. */
+body.cowork-on .deep-btn { display: inline-flex; }
 .deep-result {
 display: none;
 margin-top: 16px;
@@ -1067,7 +1071,7 @@ gap: 10px;
     // Pre-scan: collect domains from items that actually render within the lookback window.
     // Used to derive source active/quiet status from what the reader can actually see —
     // not from what the agent researched. Suffix matching (rd.endsWith('.'+srcDom)) handles
-    // subdomain variants like ir.elastic.co matching source domain elastic.co.
+    // subdomain variants like ir.crowdstrike.com matching source domain crowdstrike.com.
     var _renderedDomSet = [];
     D.sections.forEach(function(sec) {
       (sec.items || []).forEach(function(it) {
@@ -1825,6 +1829,13 @@ gap: 10px;
       const eyebrow = section.querySelector('.s-eyebrow');
       if (!eyebrow) return;
 
+      // Idempotency: an exported/downloaded file already has the count badge and
+      // toggle button baked in, and this IIFE re-runs on open (event listeners
+      // are not serialized, so the baked button would otherwise be dead). Remove
+      // any prior count/toggle before re-creating exactly one of each — without
+      // this we stacked duplicate "N items" labels and overlapping buttons.
+      eyebrow.querySelectorAll('.section-count, .section-toggle').forEach(n => n.remove());
+
       const itemCount = section.querySelectorAll(':scope .item').length;
 
       // Item count badge — visible only when collapsed
@@ -1833,16 +1844,17 @@ gap: 10px;
       countLabel.textContent = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
       eyebrow.appendChild(countLabel);
 
-      // Done / Expand toggle button
+      // Done / Expand toggle button — respect any collapsed state baked into the
+      // exported DOM so the label and section state never disagree.
+      let done = section.classList.contains('is-done');
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'section-toggle';
-      btn.textContent = 'Done';
-      btn.setAttribute('aria-expanded', 'true');
+      btn.textContent = done ? 'Expand' : 'Done';
+      btn.classList.toggle('is-done', done);
+      btn.setAttribute('aria-expanded', done ? 'false' : 'true');
       btn.setAttribute('aria-controls', section.id);
       eyebrow.appendChild(btn);
-
-      let done = false;
       btn.addEventListener('click', () => {
         done = !done;
         section.classList.toggle('is-done', done);
@@ -1887,23 +1899,20 @@ gap: 10px;
       return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
     }
 
+    // Dates are rendered inline by renderItem() from each item's own `date`
+    // field — a single .item-date before the headline. This pass must NOT insert
+    // a second date element: doing so duplicated the date in the live brief and,
+    // because this IIFE has no export guard, TRIPLED it in a downloaded/exported
+    // file (it re-ran on open and appended yet another). We now only backfill
+    // dataset.date for the recency sort when renderItem didn't already set it.
     document.querySelectorAll('.item').forEach(item => {
+      if (item.dataset.date) return; // already dated inline — never add a second
       const hlEl = item.querySelector('.item-hl');
       if (!hlEl) return;
       const hl = hlEl.textContent.trim();
-      let ds = null;
       for (const [k, v] of Object.entries(DATES)) {
-        if (hl.includes(k)) { ds = v; break; }
+        if (hl.includes(k)) { item.dataset.date = v; break; }
       }
-      if (!ds) return;
-      item.dataset.date = ds;
-      const el = document.createElement('div');
-      el.className = 'item-date';
-      el.innerHTML =
-        `<span class="item-date-cal">${fmtDate(ds)}</span>` +
-        `<span class="item-date-dot">·</span>` +
-        `<span class="item-date-rel">${relTime(ds)}</span>`;
-      hlEl.after(el);
     });
 
     // V2: Lead item is editorially chosen — never re-sort it. Sort only
@@ -2046,6 +2055,23 @@ btn.textContent = 'Loading…';
       item.appendChild(resultDiv);
     }
   }); } catch(e) { console.error('[Warmup:DeepDive]', e); }
+
+  // ── DEEP DIVE AVAILABILITY ──
+  // Deep Dive needs window.cowork.askClaude, which only exists inside the Cowork
+  // artifact viewer. Poll briefly and reveal the buttons (via body.cowork-on)
+  // only if that bridge appears. In a plain browser or an exported/offline file
+  // the poll times out and the buttons stay hidden — no dead button is shown.
+  (function revealDeepDive() {
+    var _ddTries = 0;
+    (function _poll() {
+      if (window.cowork && typeof window.cowork.askClaude === 'function') {
+        document.body.classList.add('cowork-on');
+        return;
+      }
+      if (++_ddTries < 25) setTimeout(_poll, 200);
+    })();
+  })();
+
   // ── EXPORT ──
   try { (function () {
     // Apply print theme if configured
@@ -2081,9 +2107,14 @@ btn.textContent = 'Loading…';
       // Mark as exported so the re-opened file skips the DOM-clobbering renderer,
       // preserving any open deep dives. Remove immediately so the live artifact
       // is unaffected after the snapshot is taken.
+      // Strip the Deep Dive reveal class so the exported (offline) file never
+      // shows a non-functional Deep Dive button; restore it after the snapshot.
+      var _hadCowork = document.body.classList.contains('cowork-on');
+      document.body.classList.remove('cowork-on');
       document.body.dataset.warmupExported = '1';
       let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
       document.body.removeAttribute('data-warmup-exported');
+      if (_hadCowork) document.body.classList.add('cowork-on');
       // Bake WARMUP_DATA and savedAt into the exported file so it works offline.
       // savedAt is preserved as window.__warmupSavedAt so computeGenStr() can use
       // Priority 1 (accurate UTC timestamp) if the Timestamps guard is ever lifted.

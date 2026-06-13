@@ -4,7 +4,7 @@ description: >
   The Warmup. A daily intelligence brief for the first coffee.
   CISO mode delivers a structured cybersecurity digest — active threat actors
   mapped to MITRE ATT&CK, emerging CVEs with exploitation status, research
-  from CrowdStrike, Palo Alto Unit 42, Elastic Security Labs, and others,
+  from CrowdStrike, Palo Alto Unit 42, Red Canary, and others,
   plus vendor M&A and regulatory movement.
   Product Leader mode delivers a product intelligence brief for GMs, PMs, and
   anyone steering a product — company signal, competitor moves, AI in product,
@@ -442,7 +442,7 @@ Search using compound batch queries — not one query per source. This cuts fetc
 | Batch | Sources covered | Query pattern |
 |---|---|---|
 | Gov pulse | CISA + NSA + FBI + FTC | `(site:cisa.gov OR site:nsa.gov OR site:ic3.gov OR site:ftc.gov) advisory alert after:YYYY-MM-DD` |
-| Research | MSTIC + CrowdStrike + Elastic + Wiz + Unit 42 | `(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:elastic.co/security-labs OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD` |
+| Research | MSTIC + CrowdStrike + Red Canary + Wiz + Unit 42 | `(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:redcanary.com/blog OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD` |
 | CVE sweep | NVD + CISA KEV | `(site:nvd.nist.gov OR site:cisa.gov/known-exploited-vulnerabilities) CVE critical after:YYYY-MM-DD` |
 | News | BleepingComputer + SecurityWeek + Krebs + THN + Dark Reading | `(site:bleepingcomputer.com OR site:securityweek.com OR site:krebsonsecurity.com OR site:thehackernews.com OR site:darkreading.com) [sector] after:YYYY-MM-DD` |
 | Market | Reuters + Bloomberg + sector vendors | `[company OR sector] acquisition OR breach OR regulatory site:reuters.com OR site:bloomberg.com after:YYYY-MM-DD` |
@@ -473,7 +473,7 @@ Step A — Allowlist check (instant, no API call):
 
   CISO allowlist domains:
     cisa.gov, nsa.gov, ic3.gov, fbi.gov, ftc.gov, nvd.nist.gov, attack.mitre.org,
-    crowdstrike.com, unit42.paloaltonetworks.com, elastic.co, cloud.google.com,
+    crowdstrike.com, unit42.paloaltonetworks.com, redcanary.com, cloud.google.com,
     microsoft.com, blog.talosintelligence.com, secureworks.com, recordedfuture.com,
     wiz.io, krebsonsecurity.com, thehackernews.com, darkreading.com,
     securityweek.com, bleepingcomputer.com, arstechnica.com, scmagazine.com,
@@ -671,7 +671,7 @@ No file edits required. No template fetch. No `update_artifact` call needed.
     // Required
     "name": "Mike",
     "mode": "CISO",
-    "company": "Elastic",
+    "company": "Acme Corp",
     "sector": "Cybersecurity",
     "reportDate": "Thursday, 15 May 2026",   // REQUIRED — full display string for the masthead date (e.g. "Friday, 15 May 2026").
                                                // Format: "{Weekday}, {DD} {Month} {YYYY}". Use today's date in the user's timezone.
@@ -933,7 +933,7 @@ Include all by default.
 |---|---|---|
 | CrowdStrike Intelligence Blog | site:crowdstrike.com/blog | Adversary tracking (BEAR/SPIDER/KITTEN taxonomy), campaign analysis |
 | Palo Alto Unit 42 | site:unit42.paloaltonetworks.com | Threat research, malware reverse engineering, IR findings |
-| Elastic Security Labs | site:elastic.co/security-labs | Behavioral detection research, open-source SIEM rules |
+| Red Canary | site:redcanary.com/blog | Behavioral detection research, open-source detection rules |
 | Google Mandiant | "mandiant" threat intelligence blog | APT group tracking, IR case studies, zero-day attribution |
 | Microsoft Threat Intelligence (MSTIC) | site:microsoft.com/security/blog | Windows/Azure/cloud threat actor TTPs, nation-state activity |
 | Cisco Talos | site:blog.talosintelligence.com | Threat telemetry, malware family analysis, email threat data |
@@ -1040,7 +1040,7 @@ Additional AI vendor sources from `ai_vendors:` in WARMUP.md appended at runtime
 
 | Vertical | Add These Sources |
 |---|---|
-| **Security product** | Full CISO Tier 1–2 suite (CISA, NVD, CrowdStrike, Unit 42, MSTIC, Elastic Security Labs, etc.) |
+| **Security product** | Full CISO Tier 1–2 suite (CISA, NVD, CrowdStrike, Unit 42, MSTIC, Red Canary, etc.) |
 | **Fintech / payments** | OCC (`site:occ.gov`), CFPB (`site:consumerfinance.gov`), FS-ISAC, Payments Dive, PYMNTS |
 | **Healthcare / digital health** | FDA Digital Health, CMS (`site:cms.gov`), Rock Health, HIMSS |
 | **Consumer social / creator** | Social Media Today, Creator Economy Report, platform dev blogs (Meta, TikTok, YouTube, Snap) |
@@ -1454,7 +1454,7 @@ track_people:               # optional: exec, analyst, investor, journalist name
 ### Tier 2 — Research
 - CrowdStrike Blog | https://www.crowdstrike.com/blog | active
 - Palo Alto Unit 42 | https://unit42.paloaltonetworks.com | active
-- Elastic Security Labs | https://www.elastic.co/security-labs | active
+- Red Canary | https://redcanary.com/blog | active
 - Google Mandiant | https://cloud.google.com/blog/topics/threat-intelligence | active
 - Microsoft MSTIC | https://www.microsoft.com/en-us/security/blog | active
 - Cisco Talos | https://blog.talosintelligence.com | active

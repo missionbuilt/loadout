@@ -694,7 +694,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   | Batch | Query pattern |\n` +
                 `   |---|---|\n` +
                 `   | Gov pulse | \`(site:cisa.gov OR site:nsa.gov OR site:ic3.gov OR site:ftc.gov) advisory alert after:YYYY-MM-DD\` |\n` +
-                `   | Research | \`(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:elastic.co/security-labs OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD\` |\n` +
+                `   | Research | \`(site:microsoft.com/security OR site:crowdstrike.com/blog OR site:redcanary.com/blog OR site:wiz.io/blog OR site:unit42.paloaltonetworks.com) [sector] threat after:YYYY-MM-DD\` |\n` +
                 `   | CVE sweep | \`(site:nvd.nist.gov OR site:cisa.gov/known-exploited-vulnerabilities) CVE critical after:YYYY-MM-DD\` |\n` +
                 `   | News | \`(site:bleepingcomputer.com OR site:securityweek.com OR site:krebsonsecurity.com OR site:thehackernews.com OR site:darkreading.com) [sector] after:YYYY-MM-DD\` |\n` +
                 `   | Market | \`[company OR sector] acquisition OR breach OR regulatory site:reuters.com OR site:bloomberg.com after:YYYY-MM-DD\` |\n` +
