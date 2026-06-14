@@ -108,9 +108,9 @@
   .tcell .tpct { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin-top: auto; color: var(--ink); }
   .tcell.ext .tpct { font-size: 10px; font-family: var(--font-mono); font-weight: 500; color: var(--ink-faint); letter-spacing: 0.04em; }
   .badges { position: absolute; top: 7px; right: 7px; display: flex; gap: 3px; }
-  .bdg { font-family: var(--font-mono); font-size: 8px; font-weight: 700; letter-spacing: 0.06em; padding: 1px 4px; border: 1px solid currentColor; line-height: 1.3; }
-  .bdg.choke { color: var(--blood); }
-  .bdg.tempo { color: var(--cov-amber); }
+  .bdg { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.03em; padding: 2px 5px; border: none; line-height: 1; color: var(--paper); display: inline-flex; align-items: center; gap: 3px; }
+  .bdg.choke { background: var(--blood); }
+  .bdg.tempo { background: var(--cov-amber); }
   .strip-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; color: var(--ink-soft); }
   .strip-legend .lg { display: flex; align-items: center; gap: 6px; }
   .strip-legend .sw { width: 12px; height: 12px; border: 1px solid var(--ink-faint); display: inline-block; }
@@ -225,6 +225,8 @@
   <p class="deck" id="co-deck">—</p>
   <div class="meta" id="head-meta"></div>
 </header>
+
+<section class="sec" id="assume-host" style="display:none"></section>
 
 <div class="riskread" id="riskread" style="display:none">
   <div class="k">The read</div>
@@ -352,9 +354,12 @@
       var hasSrc  = (t.sources||[]).some(function(s){return applicableSet[s];});
       return inScope && hasSrc;
     }
-    function techCovered(t){
-      return (t.sources||[]).some(function(s){return FL.enabled[s];});
-    }
+    // applicable sources for a technique, and depth of coverage (fraction enabled).
+    // Depth-weighting rewards redundancy — single-source coverage (which EDR-killers
+    // and log-clearing can destroy) scores as partial, not full.
+    function appSrcs(t){ return (t.sources||[]).filter(function(s){return applicableSet[s];}); }
+    function techFrac(t){ var a=appSrcs(t); if(!a.length) return 0; var on=0; a.forEach(function(s){if(FL.enabled[s])on++;}); return on/a.length; }
+    function techVisible(t){ return appSrcs(t).some(function(s){return FL.enabled[s];}); }
     var APP_TECHS = TECHS.filter(techApplicable);
 
     // ── computation ─────────────────────────────────────────────────
@@ -363,19 +368,20 @@
       APP_TECHS.forEach(function(t){
         if((t.tactics||[]).indexOf(tid)===-1) return;
         var w=techWeight(t); den+=w; ntot++;
-        if(techCovered(t)){ num+=w; ncov++; }
+        num += w * techFrac(t);
+        if(techVisible(t)) ncov++;
       });
       return { ratio: den? num/den : 0, den: den, ntot: ntot, ncov: ncov };
     }
     function overall(){
       var num=0, den=0;
-      APP_TECHS.forEach(function(t){ var w=techWeight(t); den+=w; if(techCovered(t)) num+=w; });
+      APP_TECHS.forEach(function(t){ var w=techWeight(t); den+=w; num += w*techFrac(t); });
       return den? num/den : 0;
     }
     function chokeCoverage(){
-      var tot=0, cov=0;
-      APP_TECHS.forEach(function(t){ if(!t.chokepoint) return; tot++; if(techCovered(t)) cov++; });
-      return { cov: cov, tot: tot, ratio: tot? cov/tot : 0 };
+      var num=0, den=0, tot=0, vis=0;
+      APP_TECHS.forEach(function(t){ if(!t.chokepoint) return; var w=techWeight(t); den+=w; num+=w*techFrac(t); tot++; if(techVisible(t)) vis++; });
+      return { ratio: den? num/den : 0, tot: tot, vis: vis };
     }
     function colorClass(r){ return r>=0.67?'g':(r>=0.34?'a':'r'); }
 
@@ -401,7 +407,7 @@
       var enN = applicable.filter(function(id){return FL.enabled[id];}).length;
       var kpis = [
         { num: pct(ov)+'%', cls: colorClass(ov), lbl: 'Threat-weighted visibility' },
-        { num: ck.cov+'/'+ck.tot, cls: colorClass(ck.ratio), lbl: 'Choke points covered' },
+        { num: pct(ck.ratio)+'%', cls: colorClass(ck.ratio), lbl: 'Choke-point visibility (' + ck.vis + '/' + ck.tot + ' any)' },
         { num: enN+'/'+applicable.length, cls: colorClass(applicable.length?enN/applicable.length:0), lbl: 'Data sources enabled' }
       ];
       $('kpi-row').innerHTML = kpis.map(function(k){
@@ -439,11 +445,13 @@
       var techs = APP_TECHS.filter(function(x){return (x.tactics||[]).indexOf(drillOpen)!==-1;})
         .sort(function(a,b){return techWeight(b)-techWeight(a);});
       var rows = techs.map(function(x){
-        var cov = techCovered(x);
-        var srcHtml = (x.sources||[]).filter(function(sid){return applicableSet[sid];}).map(function(sid){
+        var a = appSrcs(x); var onN = a.filter(function(s){return FL.enabled[s];}).length;
+        var cov = onN>0;
+        var srcHtml = a.map(function(sid){
           var nm = (srcById[sid]&&srcById[sid].name)||sid;
           return '<span class="'+(FL.enabled[sid]?'on':'off')+'">'+esc(nm)+'</span>';
         }).join(' · ');
+        var covLabel = onN>0 ? ('visible '+onN+'/'+a.length) : ('blind 0/'+a.length);
         var tags='';
         if(x.chokepoint) tags+='<span class="ttag choke">CHOKE</span>';
         if(x.trend) tags+='<span class="ttag tempo">RISING</span>';
@@ -451,7 +459,7 @@
         return '<div class="tech"><div class="th">'
           + '<span class="tid">'+esc(x.id)+'</span>'
           + '<span class="tnm">'+esc(x.name)+tags+'</span>'
-          + '<span class="cov '+(cov?'yes':'no')+'">'+(cov?'visible':'blind')+'</span></div>'
+          + '<span class="cov '+(cov?'yes':'no')+'">'+esc(covLabel)+'</span></div>'
           + (x.note?'<div class="tnote">'+esc(x.note)+'</div>':'')
           + '<div class="tsrc">Telemetry: '+(srcHtml||'<span class="off">none in scope</span>')+'</div></div>';
       }).join('');
@@ -467,22 +475,24 @@
     function renderRoadmap(){
       var disabled = applicable.filter(function(id){return !FL.enabled[id];});
       var ranked = disabled.map(function(id){
-        var gain=0, nt=0;
+        var gain=0, newVis=0, strengthen=0;
         APP_TECHS.forEach(function(t){
-          if(techCovered(t)) return;
-          if((t.sources||[]).indexOf(id)===-1) return;
-          gain += techWeight(t); nt++;
+          var a = appSrcs(t); if(a.indexOf(id)===-1) return;        // source not relevant to this technique
+          gain += techWeight(t) * (1/a.length);                     // marginal depth gain
+          strengthen++;
+          if(!techVisible(t)) newVis++;                             // currently blind → becomes visible
         });
-        return { id:id, gain:gain, nt:nt };
+        return { id:id, gain:gain, nt:newVis, strengthen:strengthen };
       }).filter(function(r){return r.gain>0;}).sort(function(a,b){return b.gain-a.gain;});
       if(!ranked.length){ $('roadmap').innerHTML=''; $('roadmap-empty').style.display=''; return; }
       $('roadmap-empty').style.display='none';
       var maxGain = ranked[0].gain || 1;
       $('roadmap').innerHTML = ranked.map(function(r,i){
         var s = srcById[r.id]||{};
+        var impact = r.nt>0 ? ('closes '+r.nt+' blind technique'+(r.nt===1?'':'s')) : ('strengthens '+r.strengthen+' technique'+(r.strengthen===1?'':'s'));
         return '<div class="ritem"><span class="rn">'+(i+1)+'</span>'
           + '<div><div class="rname">'+esc(s.name||r.id)+'</div>'
-          + '<div class="rmeta">'+esc(s.category||'')+(s.crownJewel?' · crown-jewel':'')+' · closes '+r.nt+' blind technique'+(r.nt===1?'':'s')+'</div></div>'
+          + '<div class="rmeta">'+esc(s.category||'')+(s.crownJewel?' · crown-jewel':'')+' · '+impact+'</div></div>'
           + '<div class="rgain">+'+Math.round(r.gain*10)/10+'<small>coverage pts</small></div></div>';
       }).join('');
     }
@@ -550,11 +560,12 @@
 
     function renderAssumptions(){
       var a = D.assumptions || [];
-      if(!a.length) return;
-      var html = '<section class="sec"><div class="assume"><div class="k">Assumptions — correct these if wrong</div><ul>'
+      var host = $('assume-host'); if(!host) return;
+      if(!a.length){ host.style.display='none'; return; }
+      host.style.display='';
+      host.innerHTML = '<div class="assume"><div class="k">Assumptions — correct these if wrong</div><ul>'
         + a.map(function(x){return '<li>'+rich(x)+'</li>';}).join('')
-        + '</ul><div class="edit-note">These drive the analysis. Tell the assistant what’s off and re-run for a sharper picture.</div></div></section>';
-      $('riskread').insertAdjacentHTML('beforebegin', html);
+        + '</ul><div class="edit-note">These drive the analysis. Tell the assistant what’s off and re-run for a sharper picture.</div></div>';
     }
 
     function renderRiskRead(){

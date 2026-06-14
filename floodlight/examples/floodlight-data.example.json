@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "company": "Northwind Mutual",
+    "industry": "Regional insurance",
+    "region": "US (Midwest)",
+    "deck": "A visibility-first read of where Northwind can watch an attacker move — and where the room is still dark.",
+    "subtitle": "Hybrid · no OT/ICS · deploys ML underwriting",
+    "generated": "13 Jun 2026"
+  },
+
+  "applicableSources": [
+    "cloud_signin", "identity_audit", "nhi_monitoring", "cloud_control_plane",
+    "process_creation", "powershell_logs", "windows_auth", "email_security",
+    "email_mailbox_audit", "network_flow", "dns_query", "edr_endpoint"
+  ],
+
+  "currentState": {
+    "enabledSources": ["cloud_signin", "email_security", "edr_endpoint", "windows_auth"]
+  },
+
+  "adversaryDeck": "Mid-market insurers sit squarely in the eCrime ransomware lane, and the intrusions are **identity-first** — stolen sessions and MFA abuse, not malware on the wire.",
+
+  "adversaries": [
+    {
+      "rank": 1,
+      "name": "Ransomware affiliates (eCrime)",
+      "motivation": "Financial",
+      "why": "Carriers hold dense PII and pay to restore operations fast — a top eCrime target in 2025–26. Entry is increasingly through stolen identity rather than email payloads.",
+      "techniques": ["T1078.004", "T1539", "T1621", "T1486", "T1490"],
+      "citation": "Red Canary Threat Detection Report 2025",
+      "citationUrl": "https://redcanary.com/threat-detection-report/"
+    },
+    {
+      "rank": 2,
+      "name": "Business email compromise operators",
+      "motivation": "Financial",
+      "why": "Claims and premium flows make insurers a high-value BEC target; AiTM phishing defeats basic MFA and pivots to mailbox rules.",
+      "techniques": ["T1566", "T1539", "T1059.001"],
+      "citation": "CISA — Phishing and AiTM guidance",
+      "citationUrl": "https://www.cisa.gov/"
+    }
+  ],
+
+  "otherPriorities": [
+    {
+      "title": "Recent sector incident",
+      "body": "A peer Midwest carrier disclosed a ransomware event in Q1 2026 — public reporting points to **identity** as the entry point, not an endpoint payload."
+    }
+  ],
+
+  "regulations": ["pci", "hipaa", "gdpr"],
+
+  "assumptions": [
+    "Hybrid environment with cloud-first identity (Entra/Okta). No OT/ICS in scope.",
+    "Deploys ML for underwriting — MITRE ATLAS is adjacent but out of scope for this visibility map.",
+    "No verified public breach was found for Northwind itself; sector and region data are used as a proxy and labeled as such.",
+    "Current-state log sources are an opening guess — correct them with the in-report toggles and the map will recolor."
+  ]
+}
