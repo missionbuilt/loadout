@@ -44,7 +44,11 @@ It's also a coaching tool. When a PM disagrees with The Spotter's verdict, that 
 
 ## Install
 
-The Spotter runs via the Mission Built MCP server — no local file copy needed.
+The Spotter runs two ways. The hosted MCP server is the recommended path — one connection, OAuth, always the current version. Or download the standalone skill folder for an offline, pinned copy. The skill is self-contained either way: fonts are baked into the worksheet and nothing in the artifact calls the server.
+
+### Option A — hosted MCP server (recommended)
+
+Always up to date, nothing to copy.
 
 **Add to Claude Code** (`~/.claude/claude.json` or your project's `.mcp.json`):
 
@@ -61,13 +65,24 @@ The Spotter runs via the Mission Built MCP server — no local file copy needed.
 
 **Cowork:** install the Mission Built plugin from the Cowork plugin directory.
 
+### Option B — standalone download (offline / pinned)
+
+Copy the folder into your skills directory — no server connection required:
+
+```bash
+git clone https://github.com/missionbuilt/loadout.git
+cp -r loadout/spotter ~/.claude/skills/spotter
+```
+
+The skill assembles the worksheet locally via `scripts/inject.py`. The live "Refine with Spotter" pass runs through Cowork's `askClaude` bridge when the worksheet is opened in Cowork; in a plain browser the worksheet is read-only — accept, skip, and export still work.
+
 Then say *"run the spotter on this epic"* (after pasting one) or *"build an epic for [feature]"* — the skill triggers automatically.
 
 ## How to use
 
 ### Review an existing epic
 
-Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter evaluates the epic across all nine areas, builds a SPOTTER_DATA payload, and calls `spotter_get_template` to produce a worksheet artifact. Each area shows the relevant excerpt from your epic, a verdict pip trio, and typed critique notes. Accept notes you've addressed, skip ones you're setting aside, then hit **Send to Spotter** to refine a given area. When every area is closed, the export button unlocks.
+Paste your epic into Claude Code or Cowork and say *"run the spotter"* (or *"review this epic"*). The Spotter evaluates the epic across all nine areas, builds a SPOTTER_DATA payload, injects it into the self-contained worksheet template, and delivers the artifact. Each area shows the relevant excerpt from your epic, a verdict pip trio, and typed critique notes. Accept notes you've addressed, skip ones you're setting aside, then hit **Send to Spotter** to refine a given area. When every area is closed, the export button unlocks.
 
 ### Build a new epic
 

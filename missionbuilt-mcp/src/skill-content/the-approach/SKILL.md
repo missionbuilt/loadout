@@ -159,9 +159,7 @@ Use tokens in: `meta.deck`, `meddpicc.deck`, `sections[].deck`, `sections[].tldr
 
 ```json
 {
-  "config": {
-    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
-  },
+  "config": {},
 
   "meta": {
     "company":       "Rogue Fitness",
@@ -368,35 +366,24 @@ The `actDivider` renders automatically before the first `"the SE"` section. Sect
 Every Approach brief is built fresh from `approach_get_template`. No Path A / Path B. No engine version check. `approach_data` is required on every chunk call — the server re-injects it each time (stateless).
 
 ```
-a) Identify your loaded warmup_get_fonts tool name. It looks like:
-      "mcp__<uuid>__warmup_get_fonts"
-   The UUID prefix changes per session — use the exact name from your loaded tool list.
-
-b) Ensure config.fontToolName is set in APPROACH_DATA:
-      "config": {
-        "fontToolName": "mcp__<uuid>__warmup_get_fonts",
-        ... (all other config fields)
-      }
-
-c) Call approach_get_template({ chunk: 0, approach_data: JSON.stringify(APPROACH_DATA) }).
+a) Call approach_get_template({ chunk: 0, approach_data: JSON.stringify(APPROACH_DATA) }).
    Read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response to learn N.
    The response ends with <!-- __APPROACH_SENTINEL__ --> when N > 1.
    If the call returns [ERROR], stop and report.
 
-d) Write chunk 0 to [workspace_root]/approach-brief.html using the Write file tool.
+b) Write chunk 0 to [workspace_root]/approach-brief.html using the Write file tool.
 
-e) For chunks 1..N-1 (sequentially — NEVER in parallel):
+c) For chunks 1..N-1 (sequentially — NEVER in parallel):
    - Call approach_get_template({ chunk: i, approach_data: JSON.stringify(APPROACH_DATA) }).
    - Edit approach-brief.html: old_string="<!-- __APPROACH_SENTINEL__ -->" → new_string=[chunk text].
    - Wait for Edit to succeed before starting i+1.
 
-f) Verify assembly — Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.
+d) Verify assembly — Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.
 
-g) Call create_artifact (or update_artifact if re-running for the same company):
+e) Call create_artifact (or update_artifact if re-running for the same company):
       id: "the-approach"
       html_path: [path to approach-brief.html]
-      mcp_tools: ["mcp__<uuid>__warmup_get_fonts"]
-   Without mcp_tools, Cowork blocks the font call and the brief renders in fallback fonts.
+   Fonts load from the Google Fonts CDN with a system-font fallback — no font tool or mcp_tools needed.
 
 Do NOT use bash to move or copy any files. Bash runs in a sandbox that cannot reach
 Cowork session paths. Use the Read and Write file tools with the real macOS path.

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title id="page-title">Floodlight · Security Visibility Posture</title>
+<!-- Google Fonts via CDN. Falls back to system font stacks if blocked. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ══════════════════════════════════════════════════════════════════════
+     FLOODLIGHT · SECURITY VISIBILITY POSTURE  (Iron Log editorial)
+     Static catalog (FLOODLIGHT_CATALOG) + per-run data (FLOODLIGHT_DATA).
+     The first step to security is visibility — this is the visibility plan.
+     ══════════════════════════════════════════════════════════════════════ */
+  :root {
+    color-scheme: light;
+    --paper:        #f3ecdc;
+    --paper-warm:   #ebe2cf;
+    --paper-card:   #ede5d2;
+    --paper-soft:   #efe8d6;
+    --ink:          #1a1612;
+    --ink-soft:     #3a342d;
+    --ink-dim:      #3d332a;
+    --ink-faint:    #52473a;
+    --rule:         #c8bea7;
+    --rule-soft:    #d8cfb8;
+    --blood:        #8a2017;
+    --blood-bright: #a8281e;
+    --army:         #5f6e26;
+    --army-soft:    #dfe3c4;
+    /* coverage signal */
+    --cov-green:    #5f6e26;
+    --cov-green-bg: #dfe3c4;
+    --cov-amber:    #946011;
+    --cov-amber-bg: #ecdcae;
+    --cov-red:      #8a2017;
+    --cov-red-bg:   #e7c9c2;
+
+    --font-display: 'Oswald', sans-serif;
+    --font-serif:   'Merriweather', Georgia, serif;
+    --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; box-shadow: none !important; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--font-serif); font-size: 17px; line-height: 1.7; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  ::selection { background: rgba(138,32,23,0.18); }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 32px; }
+
+  /* ── TOOLBAR ── */
+  .toolbar-bar { max-width: 860px; margin: 0 auto; padding: 14px 32px 0; display: flex; justify-content: flex-end; gap: 6px; }
+  .tb-btn { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); background: transparent; border: 1px solid var(--rule); padding: 5px 11px; line-height: 1; cursor: pointer; transition: .1s; white-space: nowrap; }
+  .tb-btn:hover { color: var(--ink); background: var(--paper-warm); }
+  .tb-export { position: relative; display: flex; }
+  .tb-dropdown { display: none; position: absolute; top: 100%; right: 0; background: var(--paper); border: 1px solid var(--rule); border-top: none; z-index: 300; min-width: 180px; }
+  .tb-dropdown.open { display: block; }
+  .tb-dropdown button { display: block; width: 100%; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); background: transparent; border: none; border-bottom: 1px solid var(--rule); padding: 10px 16px; text-align: left; cursor: pointer; white-space: nowrap; }
+  .tb-dropdown button:last-child { border-bottom: none; }
+  .tb-dropdown button:hover { color: var(--ink); background: var(--paper-warm); }
+  .tb-dropdown button.dd-primary { color: var(--blood); }
+  .tb-dropdown button.dd-primary:hover { color: var(--paper); background: var(--blood); }
+  @media print { .toolbar-bar { display: none !important; } .src-toggle { display:none !important; } .no-print { display:none !important; } }
+
+  /* ── MASTHEAD ── */
+  .head { max-width: 860px; margin: 0 auto; padding: 44px 32px 30px; border-bottom: 3px double var(--ink); }
+  .head .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--blood); font-weight: 700; margin-bottom: 22px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .head .eyebrow .fsq { display:inline-block; width:9px; height:9px; background:var(--blood); }
+  .head h1 { font-family: var(--font-display); font-weight: 700; font-size: 64px; letter-spacing: -0.02em; line-height: 0.96; margin-bottom: 16px; }
+  .head .deck { font-family: var(--font-serif); font-style: italic; font-size: 21px; line-height: 1.5; max-width: 60ch; text-wrap: pretty; }
+  .head .meta { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule-soft); display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; font-family: var(--font-mono); font-size: 13px; }
+  .head .meta .k { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; margin-bottom: 5px; display: block; }
+  .head .meta .v { color: var(--ink); font-weight: 600; }
+
+  /* ── SECTION SHELL ── */
+  .sec { max-width: 860px; margin: 0 auto; padding: 40px 32px 8px; }
+  .kicker { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--blood); font-weight: 700; display: block; margin-bottom: 8px; }
+  .sec h2 { font-family: var(--font-display); font-weight: 700; font-size: 34px; letter-spacing: -0.01em; line-height: 1.05; margin-bottom: 8px; }
+  .sec .deck { font-family: var(--font-serif); font-style: italic; color: var(--ink-soft); font-size: 16px; max-width: 64ch; margin-bottom: 22px; }
+
+  /* ── RISK READ ── */
+  .riskread { background: var(--paper-warm); border-left: 4px solid var(--blood); padding: 20px 24px; margin: 0 auto 8px; max-width: 860px; }
+  .riskread .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--blood); font-weight: 700; margin-bottom: 8px; }
+  .riskread p { font-size: 18px; line-height: 1.55; }
+
+  /* ── KPI ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; border: 1px solid var(--rule); border-bottom: none; }
+  .kpi { padding: 18px 20px; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); background: var(--paper-soft); }
+  .kpi:last-child { border-right: none; }
+  .kpi .num { font-family: var(--font-display); font-weight: 700; font-size: 44px; line-height: 1; color: var(--ink); }
+  .kpi .num.g { color: var(--cov-green); } .kpi .num.a { color: var(--cov-amber); } .kpi .num.r { color: var(--cov-red); }
+  .kpi .lbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); margin-top: 8px; line-height: 1.4; }
+  .scored-note { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 10px; line-height: 1.5; }
+
+  /* ── TACTIC STRIP ── */
+  .strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px; }
+  .tcell { position: relative; border: 1px solid var(--rule); padding: 10px 9px 11px; background: var(--paper-soft); cursor: pointer; min-height: 92px; display: flex; flex-direction: column; transition: .1s; }
+  .tcell:hover { border-color: var(--ink); }
+  .tcell.sel { outline: 2px solid var(--ink); outline-offset: -1px; }
+  .tcell.g { background: var(--cov-green-bg); border-color: var(--cov-green); }
+  .tcell.a { background: var(--cov-amber-bg); border-color: var(--cov-amber); }
+  .tcell.r { background: var(--cov-red-bg); border-color: var(--cov-red); }
+  .tcell.ext { background: repeating-linear-gradient(45deg, var(--paper-soft), var(--paper-soft) 6px, var(--paper-warm) 6px, var(--paper-warm) 12px); cursor: default; opacity: 0.85; }
+  .tcell.ext:hover { border-color: var(--rule); }
+  .tcell .ord { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); letter-spacing: 0.1em; }
+  .tcell .tname { font-family: var(--font-display); font-weight: 600; font-size: 13.5px; line-height: 1.08; margin-top: 4px; color: var(--ink); }
+  .tcell .tpct { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin-top: auto; color: var(--ink); }
+  .tcell.ext .tpct { font-size: 10px; font-family: var(--font-mono); font-weight: 500; color: var(--ink-faint); letter-spacing: 0.04em; }
+  .badges { position: absolute; top: 7px; right: 7px; display: flex; gap: 3px; }
+  .bdg { font-family: var(--font-mono); font-size: 8px; font-weight: 700; letter-spacing: 0.06em; padding: 1px 4px; border: 1px solid currentColor; line-height: 1.3; }
+  .bdg.choke { color: var(--blood); }
+  .bdg.tempo { color: var(--cov-amber); }
+  .strip-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; color: var(--ink-soft); }
+  .strip-legend .lg { display: flex; align-items: center; gap: 6px; }
+  .strip-legend .sw { width: 12px; height: 12px; border: 1px solid var(--ink-faint); display: inline-block; }
+  .strip-legend .sw.g { background: var(--cov-green-bg); border-color: var(--cov-green); }
+  .strip-legend .sw.a { background: var(--cov-amber-bg); border-color: var(--cov-amber); }
+  .strip-legend .sw.r { background: var(--cov-red-bg); border-color: var(--cov-red); }
+
+  /* ── DRILL-DOWN ── */
+  .drill { max-width: 860px; margin: 16px auto 0; padding: 0 32px; }
+  .drill-box { border: 1px solid var(--ink); background: var(--paper-card); padding: 20px 22px; }
+  .drill-box .dt { font-family: var(--font-display); font-weight: 700; font-size: 22px; margin-bottom: 2px; }
+  .drill-box .dsub { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 14px; }
+  .tech { border-top: 1px solid var(--rule); padding: 11px 0; }
+  .tech .th { display: flex; align-items: baseline; gap: 10px; }
+  .tech .tid { font-family: var(--font-mono); font-size: 11px; color: var(--blood); font-weight: 500; flex-shrink: 0; }
+  .tech .tnm { font-family: var(--font-serif); font-weight: 700; font-size: 15px; }
+  .tech .cov { margin-left: auto; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; flex-shrink: 0; }
+  .tech .cov.yes { color: var(--cov-green); } .tech .cov.no { color: var(--cov-red); }
+  .tech .tnote { font-size: 14px; color: var(--ink-soft); margin: 5px 0 7px; }
+  .tech .tsrc { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); line-height: 1.7; }
+  .tech .tsrc .on { color: var(--cov-green); font-weight: 500; }
+  .tech .tsrc .off { color: var(--ink-faint); text-decoration: line-through; }
+  .tech .ttag { font-family: var(--font-mono); font-size: 8.5px; font-weight:700; letter-spacing:0.06em; padding:1px 4px; border:1px solid currentColor; margin-left:6px; }
+  .tech .ttag.choke { color: var(--blood); } .tech .ttag.tempo { color: var(--cov-amber); } .tech .ttag.prev { color: var(--army); }
+
+  /* ── ROADMAP ── */
+  .ritem { border-top: 1px solid var(--rule); padding: 14px 0; display: grid; grid-template-columns: 28px 1fr auto; gap: 14px; align-items: baseline; }
+  .ritem .rn { font-family: var(--font-mono); font-size: 11px; color: var(--blood); font-weight: 700; }
+  .ritem .rname { font-family: var(--font-display); font-weight: 600; font-size: 18px; }
+  .ritem .rmeta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-soft); margin-top: 3px; line-height: 1.6; }
+  .ritem .rgain { font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--army); text-align: right; white-space: nowrap; }
+  .ritem .rgain small { display:block; font-family: var(--font-mono); font-size: 9px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+
+  /* ── SOURCES ── */
+  .src { border-top: 1px solid var(--rule); padding: 15px 0; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+  .src .sname { font-family: var(--font-display); font-weight: 600; font-size: 18px; display: flex; align-items: center; gap: 9px; }
+  .src .scat { font-family: var(--font-mono); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--ink-faint); color: var(--ink-dim); }
+  .src .scat.crown { color: var(--blood); border-color: var(--blood); }
+  .src .sfields { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); margin-top: 6px; line-height: 1.6; }
+  .src .sfields b { color: var(--ink); font-weight: 500; }
+  .src .squal { font-size: 13.5px; color: var(--ink-soft); font-style: italic; margin-top: 6px; line-height: 1.5; }
+  .src .sret { font-family: var(--font-mono); font-size: 10.5px; color: var(--army); margin-top: 6px; }
+  .src-toggle { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; padding: 6px 12px; border: 1px solid var(--rule); background: transparent; color: var(--ink-dim); cursor: pointer; white-space: nowrap; min-width: 96px; transition: .1s; }
+  .src-toggle.on { background: var(--cov-green-bg); border-color: var(--cov-green); color: var(--cov-green); }
+  .src-toggle.off { background: var(--paper); border-color: var(--rule); color: var(--ink-faint); }
+  .src.is-off { opacity: 0.62; }
+
+  /* ── ADVERSARIES ── */
+  .adv { border-top: 1px solid var(--rule); padding: 16px 0; }
+  .adv .ah { display: flex; align-items: baseline; gap: 12px; }
+  .adv .arank { font-family: var(--font-display); font-weight: 700; font-size: 26px; color: var(--blood); line-height: 1; }
+  .adv .aname { font-family: var(--font-display); font-weight: 600; font-size: 21px; }
+  .adv .amot { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-left: auto; border: 1px solid var(--rule); padding: 2px 7px; }
+  .adv .awhy { font-size: 15px; color: var(--ink-soft); margin: 8px 0 6px; line-height: 1.6; }
+  .adv .acite { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+  .adv .acite a { border-bottom: 1px solid var(--rule); }
+  .adv .atech { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 8px; line-height: 1.7; }
+
+  /* ── GENERIC CARD / PRIORITIES ── */
+  .card { border-top: 1px solid var(--rule); padding: 15px 0; }
+  .card h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin-bottom: 5px; }
+  .card p { font-size: 15px; color: var(--ink-soft); line-height: 1.65; }
+
+  /* ── ASSUMPTIONS ── */
+  .assume { background: var(--paper-card); border-left: 3px solid var(--ink); padding: 16px 20px; }
+  .assume .k { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; margin-bottom: 10px; }
+  .assume ul { list-style: none; }
+  .assume li { font-size: 14.5px; color: var(--ink-soft); padding: 4px 0 4px 18px; position: relative; line-height: 1.55; }
+  .assume li::before { content: "›"; position: absolute; left: 0; color: var(--blood); font-weight: 700; }
+  .assume .edit-note { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 10px; }
+
+  /* ── RETENTION TABLE ── */
+  .reg-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  .reg-table th, .reg-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .reg-table th { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); border-bottom: 1px solid var(--ink); }
+  .reg-table .rg { font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+  .reg-table .rt { font-family: var(--font-mono); font-size: 12px; color: var(--blood); }
+
+  /* ── COLOPHON ── */
+  .colophon { max-width: 760px; margin: 56px auto 0; padding: 28px 32px 64px; border-top: 3px double var(--ink); text-align: center; }
+  .colophon .mark { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 8px; }
+  .colophon .mark .fsq { width: 9px; height: 9px; background: var(--blood); display: inline-block; }
+  .colophon .sub { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); margin-top: 10px; line-height: 1.7; }
+  .colophon .disc { font-family: var(--font-serif); font-style: italic; font-size: 13px; color: var(--ink-faint); margin-top: 14px; max-width: 60ch; margin-left:auto; margin-right:auto; line-height: 1.6; }
+
+  @media (max-width: 720px) {
+    .head h1 { font-size: 46px; }
+    .head .meta { grid-template-columns: repeat(2,1fr); }
+    .kpi-row { grid-template-columns: 1fr; }
+    .strip { grid-template-columns: repeat(3, 1fr); }
+    .ritem { grid-template-columns: 22px 1fr; }
+    .ritem .rgain { grid-column: 2; text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar-bar no-print">
+  <button class="tb-btn" id="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+  <div class="tb-export">
+    <button class="tb-btn" onclick="toggleExport(event)">Export ▾</button>
+    <div class="tb-dropdown" id="export-dd">
+      <button class="dd-primary" onclick="exportHTML()">Save as HTML</button>
+      <button onclick="window.print()">Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+
+<header class="head">
+  <div class="eyebrow"><span class="fsq"></span><span>Floodlight</span><span class="sep">·</span><span id="eyebrow-sub">Security Visibility Posture</span></div>
+  <h1 id="co-name">—</h1>
+  <p class="deck" id="co-deck">—</p>
+  <div class="meta" id="head-meta"></div>
+</header>
+
+<div class="riskread" id="riskread" style="display:none">
+  <div class="k">The read</div>
+  <p id="riskread-text">—</p>
+</div>
+
+<section class="sec">
+  <span class="kicker">Posture at a glance</span>
+  <h2>How much can you see?</h2>
+  <p class="deck">Coverage is weighted toward the techniques the adversaries targeting you actually use, and toward choke points and high-tempo tactics. Toggle the data sources you have below — the numbers move with you.</p>
+  <div class="kpi-row" id="kpi-row"></div>
+  <p class="scored-note" id="scored-note"></p>
+</section>
+
+<section class="sec">
+  <span class="kicker">ATT&amp;CK Tactic Coverage</span>
+  <h2>Where you have eyes — and where you're blind.</h2>
+  <p class="deck">Each cell is one ATT&amp;CK tactic, from initial intrusion to impact. Color shows threat-weighted visibility into that phase. <b>◆ Choke</b> marks tactics attackers can't avoid — a blind choke point is your highest-value fix. <b>▲ Tempo</b> marks the fast, evasion-heavy phases. Click any cell for the techniques and the exact telemetry behind it.</p>
+  <div class="strip" id="strip"></div>
+  <div class="strip-legend">
+    <span class="lg"><span class="sw g"></span> Strong visibility</span>
+    <span class="lg"><span class="sw a"></span> Partial — gaps remain</span>
+    <span class="lg"><span class="sw r"></span> Blind spot</span>
+    <span class="lg"><span class="bdg choke" style="position:static">◆ Choke</span> convergence point</span>
+    <span class="lg"><span class="bdg tempo" style="position:static">▲ Tempo</span> fast / evasion-heavy</span>
+  </div>
+</section>
+<div class="drill" id="drill"></div>
+
+<section class="sec">
+  <span class="kicker">Quick wins</span>
+  <h2>What to turn on first.</h2>
+  <p class="deck">Every source you don't yet have, ranked by how much threat-weighted coverage it would add right now. This is your roadmap — start at the top.</p>
+  <div id="roadmap"></div>
+  <p class="scored-note no-print" id="roadmap-empty" style="display:none">Every recommended source is enabled. Toggle some off below to see what you'd lose.</p>
+</section>
+
+<section class="sec">
+  <span class="kicker">Your data sources</span>
+  <h2>The visibility plan.</h2>
+  <p class="deck">The crown-jewel telemetry for your profile, each with the specific fields that make it useful and the retention it warrants. Toggle to model your current state — coverage, the strip, and the roadmap all recalculate live.</p>
+  <div id="sources"></div>
+</section>
+
+<section class="sec" id="adv-sec" style="display:none">
+  <span class="kicker">Who's coming for you</span>
+  <h2>Adversaries, in priority order.</h2>
+  <p class="deck" id="adv-deck">Drawn from your sector, region, and recent activity. Attribution is directional, not certain — treat this as where to look first.</p>
+  <div id="adversaries"></div>
+</section>
+
+<section class="sec" id="prio-sec" style="display:none">
+  <span class="kicker">Beyond the endpoint</span>
+  <h2>Other priorities.</h2>
+  <p class="deck">Risks that visibility alone won't close — but that your collection strategy should account for.</p>
+  <div id="priorities"></div>
+</section>
+
+<section class="sec" id="reg-sec" style="display:none">
+  <span class="kicker">Retention</span>
+  <h2>How long to keep it.</h2>
+  <p class="deck">The regulations that likely shape your retention. Speed of modern attacks raises the value of centralized, off-host collection — and defense-evasion log clearing means logs must leave the host before they can be wiped.</p>
+  <table class="reg-table"><thead><tr><th>Regulation</th><th>Applies to</th><th>Retention</th></tr></thead><tbody id="reg-body"></tbody></table>
+</section>
+
+<footer class="colophon">
+  <div class="mark"><span class="fsq"></span> Floodlight</div>
+  <div class="sub" id="col-sub">The first step to security is visibility.</div>
+  <div class="disc">Floodlight is a starting-point overview, not a substitute for a CISO-led risk assessment or a detection-engineering program. Coverage scoring is directional and based on stated assumptions — verify against your real environment.</div>
+</footer>
+
+<!-- Static, version-stamped framework catalog. Injected by inject.py. -->
+<script id="floodlight-catalog">window.FLOODLIGHT_CATALOG = __FLOODLIGHT_CATALOG__;</script>
+<!-- Per-run company data. Injected by inject.py; re-serialized on export. -->
+<script id="floodlight-data">window.FLOODLIGHT_DATA = __FLOODLIGHT_DATA__;</script>
+
+<script>
+(function () {
+  "use strict";
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function safeUrl(u){u=String(u==null?'':u).trim();return /^javascript:/i.test(u)?'#':u;}
+  function rich(s){return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/_(.+?)_/g,'<em>$1</em>');}
+  function $(id){return document.getElementById(id);}
+  function pct(n){return Math.round(n*100);}
+
+  var CAT = window.FLOODLIGHT_CATALOG || {};
+  var D   = window.FLOODLIGHT_DATA || {};
+
+  try {
+    var TACTICS = CAT.tactics || [];
+    var SOURCES = CAT.logSources || [];
+    var TECHS   = CAT.techniques || [];
+    var srcById = {}; SOURCES.forEach(function(s){ srcById[s.id]=s; });
+    var tacById = {}; TACTICS.forEach(function(t){ tacById[t.id]=t; });
+    var instrumentable = {}; TACTICS.forEach(function(t){ if(t.instrumentable) instrumentable[t.id]=true; });
+
+    // ── scope & state ───────────────────────────────────────────────
+    // applicableSources = what's recommended for this org (defaults to all crown-jewel).
+    var applicable = (D.applicableSources && D.applicableSources.length)
+      ? D.applicableSources.slice()
+      : SOURCES.filter(function(s){return s.crownJewel;}).map(function(s){return s.id;});
+    var applicableSet = {}; applicable.forEach(function(id){ applicableSet[id]=true; });
+
+    // enabled = current-state (what they have today). Default: assume none enabled, user toggles up.
+    var initEnabled = (D.currentState && D.currentState.enabledSources) || [];
+    var FL = { enabled: {} };
+    initEnabled.forEach(function(id){ if(applicableSet[id]) FL.enabled[id]=true; });
+
+    // ── weighting model (transparent) ───────────────────────────────
+    // base 1 + chokepoint 1.5 + prevalence-ranked 1 + rising-trend 0.5 + adversary boost.
+    function advBoost(t){
+      var advs = D.adversaries || []; var boost = 0; var parent = t.id.split('.')[0];
+      advs.forEach(function(a){
+        var list = a.techniques || [];
+        var hit = list.some(function(x){ return x===t.id || x===parent || x.split('.')[0]===parent; });
+        if(hit){ var r = Math.max(1, Math.min(5, a.rank||5)); boost += (6 - r); }
+      });
+      return boost;
+    }
+    function techWeight(t){
+      return 1 + (t.chokepoint?1.5:0) + (t.prevalence?1:0) + (t.trend?0.5:0) + advBoost(t);
+    }
+    function techApplicable(t){
+      var inScope = (t.tactics||[]).some(function(x){return instrumentable[x];});
+      var hasSrc  = (t.sources||[]).some(function(s){return applicableSet[s];});
+      return inScope && hasSrc;
+    }
+    function techCovered(t){
+      return (t.sources||[]).some(function(s){return FL.enabled[s];});
+    }
+    var APP_TECHS = TECHS.filter(techApplicable);
+
+    // ── computation ─────────────────────────────────────────────────
+    function tacticScore(tid){
+      var num=0, den=0, ntot=0, ncov=0;
+      APP_TECHS.forEach(function(t){
+        if((t.tactics||[]).indexOf(tid)===-1) return;
+        var w=techWeight(t); den+=w; ntot++;
+        if(techCovered(t)){ num+=w; ncov++; }
+      });
+      return { ratio: den? num/den : 0, den: den, ntot: ntot, ncov: ncov };
+    }
+    function overall(){
+      var num=0, den=0;
+      APP_TECHS.forEach(function(t){ var w=techWeight(t); den+=w; if(techCovered(t)) num+=w; });
+      return den? num/den : 0;
+    }
+    function chokeCoverage(){
+      var tot=0, cov=0;
+      APP_TECHS.forEach(function(t){ if(!t.chokepoint) return; tot++; if(techCovered(t)) cov++; });
+      return { cov: cov, tot: tot, ratio: tot? cov/tot : 0 };
+    }
+    function colorClass(r){ return r>=0.67?'g':(r>=0.34?'a':'r'); }
+
+    // ── renderers ───────────────────────────────────────────────────
+    function renderHead(){
+      var m = D.meta || {};
+      $('co-name').textContent = m.company || 'Your organization';
+      $('co-deck').innerHTML = rich(m.deck || 'A visibility-first security posture overview.');
+      if(m.subtitle) $('eyebrow-sub').textContent = m.subtitle;
+      var meta = [
+        ['Industry', m.industry || '—'],
+        ['Region', m.region || '—'],
+        ['Framework', (CAT.meta && CAT.meta.attackVersion) ? 'ATT&CK v18' : 'ATT&CK'],
+        ['Generated', m.generated || '—']
+      ];
+      $('head-meta').innerHTML = meta.map(function(kv){
+        return '<div><span class="k">'+esc(kv[0])+'</span><span class="v">'+esc(kv[1])+'</span></div>';
+      }).join('');
+    }
+
+    function renderKPIs(){
+      var ov = overall(); var ck = chokeCoverage();
+      var enN = applicable.filter(function(id){return FL.enabled[id];}).length;
+      var kpis = [
+        { num: pct(ov)+'%', cls: colorClass(ov), lbl: 'Threat-weighted visibility' },
+        { num: ck.cov+'/'+ck.tot, cls: colorClass(ck.ratio), lbl: 'Choke points covered' },
+        { num: enN+'/'+applicable.length, cls: colorClass(applicable.length?enN/applicable.length:0), lbl: 'Data sources enabled' }
+      ];
+      $('kpi-row').innerHTML = kpis.map(function(k){
+        return '<div class="kpi"><div class="num '+k.cls+'">'+esc(k.num)+'</div><div class="lbl">'+esc(k.lbl)+'</div></div>';
+      }).join('');
+      $('scored-note').innerHTML = 'How it’s scored: each technique is weighted by adversary use (your prioritized threats count most), plus choke-point, prevalence, and rising-trend factors. Visibility = covered weight ÷ total weight across '+APP_TECHS.length+' in-scope techniques. Directional, not a guarantee.';
+    }
+
+    function renderStrip(){
+      var ordered = TACTICS.slice().sort(function(a,b){return (a.order||0)-(b.order||0);});
+      $('strip').innerHTML = ordered.map(function(t){
+        if(!t.instrumentable){
+          return '<div class="tcell ext" title="'+esc(t.note||'External to your environment')+'">'
+            + '<span class="ord">'+esc(String(t.order))+'</span>'
+            + '<span class="tname">'+esc(t.name)+'</span>'
+            + '<span class="tpct">external</span></div>';
+        }
+        var s = tacticScore(t.id); var cc = colorClass(s.ratio);
+        var badges = '';
+        if(t.chokepoint) badges += '<span class="bdg choke">◆</span>';
+        if(t.highTempo)  badges += '<span class="bdg tempo">▲</span>';
+        return '<div class="tcell '+cc+'" data-tid="'+esc(t.id)+'" onclick="__flDrill(\''+esc(t.id)+'\')">'
+          + (badges?'<div class="badges">'+badges+'</div>':'')
+          + '<span class="ord">'+esc(String(t.order))+'</span>'
+          + '<span class="tname">'+esc(t.name)+'</span>'
+          + '<span class="tpct">'+pct(s.ratio)+'%</span></div>';
+      }).join('');
+    }
+
+    var drillOpen = null;
+    function renderDrill(){
+      if(!drillOpen){ $('drill').innerHTML=''; return; }
+      var t = tacById[drillOpen]; if(!t){ $('drill').innerHTML=''; return; }
+      var s = tacticScore(drillOpen);
+      var techs = APP_TECHS.filter(function(x){return (x.tactics||[]).indexOf(drillOpen)!==-1;})
+        .sort(function(a,b){return techWeight(b)-techWeight(a);});
+      var rows = techs.map(function(x){
+        var cov = techCovered(x);
+        var srcHtml = (x.sources||[]).filter(function(sid){return applicableSet[sid];}).map(function(sid){
+          var nm = (srcById[sid]&&srcById[sid].name)||sid;
+          return '<span class="'+(FL.enabled[sid]?'on':'off')+'">'+esc(nm)+'</span>';
+        }).join(' · ');
+        var tags='';
+        if(x.chokepoint) tags+='<span class="ttag choke">CHOKE</span>';
+        if(x.trend) tags+='<span class="ttag tempo">RISING</span>';
+        if(x.prevalence) tags+='<span class="ttag prev">TOP '+esc(String(x.prevalence))+'</span>';
+        return '<div class="tech"><div class="th">'
+          + '<span class="tid">'+esc(x.id)+'</span>'
+          + '<span class="tnm">'+esc(x.name)+tags+'</span>'
+          + '<span class="cov '+(cov?'yes':'no')+'">'+(cov?'visible':'blind')+'</span></div>'
+          + (x.note?'<div class="tnote">'+esc(x.note)+'</div>':'')
+          + '<div class="tsrc">Telemetry: '+(srcHtml||'<span class="off">none in scope</span>')+'</div></div>';
+      }).join('');
+      $('drill').innerHTML = '<div class="drill-box">'
+        + '<div class="dt">'+esc(t.name)+' &middot; '+pct(s.ratio)+'% visible</div>'
+        + '<div class="dsub">'+s.ncov+' of '+s.ntot+' in-scope techniques covered'
+        + (t.chokepoint?' &middot; choke point':'')+(t.highTempo?' &middot; high tempo':'')+'</div>'
+        + rows + '</div>';
+    }
+    window.__flDrill = function(tid){ drillOpen = (drillOpen===tid)?null:tid; renderDrill(); paintSel(); if(drillOpen){ $('drill').scrollIntoView({behavior:'smooth',block:'nearest'}); } };
+    function paintSel(){ Array.prototype.forEach.call(document.querySelectorAll('.tcell'),function(c){ c.classList.toggle('sel', c.getAttribute('data-tid')===drillOpen); }); }
+
+    function renderRoadmap(){
+      var disabled = applicable.filter(function(id){return !FL.enabled[id];});
+      var ranked = disabled.map(function(id){
+        var gain=0, nt=0;
+        APP_TECHS.forEach(function(t){
+          if(techCovered(t)) return;
+          if((t.sources||[]).indexOf(id)===-1) return;
+          gain += techWeight(t); nt++;
+        });
+        return { id:id, gain:gain, nt:nt };
+      }).filter(function(r){return r.gain>0;}).sort(function(a,b){return b.gain-a.gain;});
+      if(!ranked.length){ $('roadmap').innerHTML=''; $('roadmap-empty').style.display=''; return; }
+      $('roadmap-empty').style.display='none';
+      var maxGain = ranked[0].gain || 1;
+      $('roadmap').innerHTML = ranked.map(function(r,i){
+        var s = srcById[r.id]||{};
+        return '<div class="ritem"><span class="rn">'+(i+1)+'</span>'
+          + '<div><div class="rname">'+esc(s.name||r.id)+'</div>'
+          + '<div class="rmeta">'+esc(s.category||'')+(s.crownJewel?' · crown-jewel':'')+' · closes '+r.nt+' blind technique'+(r.nt===1?'':'s')+'</div></div>'
+          + '<div class="rgain">+'+Math.round(r.gain*10)/10+'<small>coverage pts</small></div></div>';
+      }).join('');
+    }
+
+    function renderSources(){
+      // group: applicable first (toggleable), in category order
+      var list = applicable.map(function(id){return srcById[id];}).filter(Boolean);
+      $('sources').innerHTML = list.map(function(s){
+        var on = !!FL.enabled[s.id];
+        var fields = (s.fields||[]).map(function(f){return '<b>'+esc(f)+'</b>';}).join(', ');
+        var tele = (s.telemetry||[]).map(esc).join(' · ');
+        return '<div class="src'+(on?'':' is-off')+'" id="src-'+esc(s.id)+'">'
+          + '<div><div class="sname"><span class="scat'+(s.crownJewel?' crown':'')+'">'+esc(s.category||'')+'</span>'+esc(s.name)+'</div>'
+          + (fields?'<div class="sfields">Fields: '+fields+'</div>':'')
+          + (tele?'<div class="sfields">Telemetry: '+tele+'</div>':'')
+          + (s.quality?'<div class="squal">'+esc(s.quality)+'</div>':'')
+          + (s.recommendedRetention?'<div class="sret">Retention: '+esc(s.recommendedRetention)+'</div>':'')
+          + '</div>'
+          + '<button class="src-toggle no-print '+(on?'on':'off')+'" onclick="__flToggle(\''+esc(s.id)+'\')">'+(on?'✓ Have it':'+ Add')+'</button>'
+          + '</div>';
+      }).join('');
+    }
+    window.__flToggle = function(id){ if(FL.enabled[id]) delete FL.enabled[id]; else FL.enabled[id]=true; recompute(); };
+
+    function renderAdversaries(){
+      var advs = D.adversaries || [];
+      if(!advs.length){ return; }
+      $('adv-sec').style.display='';
+      if(D.adversaryDeck) $('adv-deck').innerHTML = rich(D.adversaryDeck);
+      $('adversaries').innerHTML = advs.map(function(a){
+        var techNames = (a.techniques||[]).map(function(id){
+          var t = TECHS.filter(function(x){return x.id===id;})[0];
+          return t ? (id+' '+t.name) : id;
+        });
+        var cite = a.citation ? '<div class="acite">Source: '+(a.citationUrl?'<a href="'+safeUrl(a.citationUrl)+'" target="_blank" rel="noopener">'+esc(a.citation)+'</a>':esc(a.citation))+'</div>' : '';
+        return '<div class="adv"><div class="ah">'
+          + '<span class="arank">'+esc(String(a.rank||'•'))+'</span>'
+          + '<span class="aname">'+esc(a.name||'')+'</span>'
+          + (a.motivation?'<span class="amot">'+esc(a.motivation)+'</span>':'')+'</div>'
+          + (a.why?'<div class="awhy">'+rich(a.why)+'</div>':'')
+          + (techNames.length?'<div class="atech">Known techniques: '+esc(techNames.join('  ·  '))+'</div>':'')
+          + cite + '</div>';
+      }).join('');
+    }
+
+    function renderPriorities(){
+      var ps = D.otherPriorities || [];
+      if(!ps.length) return;
+      $('prio-sec').style.display='';
+      $('priorities').innerHTML = ps.map(function(p){
+        return '<div class="card"><h3>'+esc(p.title||'')+'</h3><p>'+rich(p.body||'')+'</p></div>';
+      }).join('');
+    }
+
+    function renderRegs(){
+      var ids = D.regulations || [];
+      var all = CAT.retentionByRegulation || [];
+      var rows = ids.map(function(id){ return all.filter(function(r){return r.id===id;})[0]; }).filter(Boolean);
+      if(!rows.length) return;
+      $('reg-sec').style.display='';
+      $('reg-body').innerHTML = rows.map(function(r){
+        return '<tr><td class="rg">'+esc(r.name)+'</td><td>'+esc(r.applies)+'</td><td class="rt">'+esc(r.retention)+'</td></tr>';
+      }).join('');
+    }
+
+    function renderAssumptions(){
+      var a = D.assumptions || [];
+      if(!a.length) return;
+      var html = '<section class="sec"><div class="assume"><div class="k">Assumptions — correct these if wrong</div><ul>'
+        + a.map(function(x){return '<li>'+rich(x)+'</li>';}).join('')
+        + '</ul><div class="edit-note">These drive the analysis. Tell the assistant what’s off and re-run for a sharper picture.</div></div></section>';
+      $('riskread').insertAdjacentHTML('beforebegin', html);
+    }
+
+    function renderRiskRead(){
+      var reds = TACTICS.filter(function(t){return t.instrumentable;}).map(function(t){
+        return { t:t, s:tacticScore(t.id).ratio };
+      }).filter(function(o){return o.s<0.5;}).sort(function(a,b){
+        // worst first; choke/tempo prioritized on ties
+        var pa = a.s - (a.t.chokepoint?0.08:0) - (a.t.highTempo?0.04:0);
+        var pb = b.s - (b.t.chokepoint?0.08:0) - (b.t.highTempo?0.04:0);
+        return pa-pb;
+      });
+      var phrase = {
+        'TA0001':'attackers can get in unseen','TA0002':'malicious code can run without a trace',
+        'TA0003':'a foothold can persist undetected','TA0004':'privilege escalation goes unnoticed',
+        'TA0005':'tampering with your defenses stays invisible','TA0006':'credential theft would go unnoticed',
+        'TA0007':'reconnaissance inside your network is silent','TA0008':'an intruder can move host-to-host invisibly',
+        'TA0009':'data staging goes unseen','TA0011':'command-and-control traffic slips out',
+        'TA0010':'data could leave without a trace','TA0040':'you’d learn of ransomware only when files lock'
+      };
+      var rr = $('riskread');
+      if(!reds.length){
+        rr.style.display='';
+        $('riskread-text').innerHTML = 'Solid coverage across the kill chain for your stated profile. Keep retention long enough to investigate, and revisit as your environment and threats change.';
+        return;
+      }
+      var worst = reds.slice(0,3);
+      var names = worst.map(function(o){return esc(o.t.name);});
+      var lead = worst.map(function(o){return phrase[o.t.id]||('you have limited visibility into '+esc(o.t.name));})[0];
+      var chokeBlind = worst.filter(function(o){return o.t.chokepoint;}).map(function(o){return esc(o.t.name);});
+      var txt = 'You’re weakest on <strong>'+names.join('</strong>, <strong>')+'</strong> — meaning '+lead+'. ';
+      if(chokeBlind.length){ txt += chokeBlind.join(' and ')+' '+(chokeBlind.length>1?'are':'is')+' a choke point attackers can’t avoid, so closing '+(chokeBlind.length>1?'those gaps':'that gap')+' buys the most detection per dollar. '; }
+      txt += 'Start with the quick wins below.';
+      rr.style.display='';
+      $('riskread-text').innerHTML = txt;
+    }
+
+    function recompute(){
+      renderKPIs(); renderStrip(); renderRoadmap(); renderRiskRead();
+      // update source card opacity/toggle states without full re-render
+      (applicable).forEach(function(id){
+        var el = $('src-'+id); if(!el) return;
+        var on = !!FL.enabled[id];
+        el.classList.toggle('is-off', !on);
+        var btn = el.querySelector('.src-toggle');
+        if(btn){ btn.className='src-toggle no-print '+(on?'on':'off'); btn.textContent = on?'✓ Have it':'+ Add'; }
+      });
+      if(drillOpen){ renderDrill(); paintSel(); }
+    }
+
+    // ── boot ─────────────────────────────────────────────────────────
+    renderHead();
+    renderAssumptions();
+    renderSources();
+    renderAdversaries();
+    renderPriorities();
+    renderRegs();
+    recompute();
+
+  } catch(err){
+    document.body.insertAdjacentHTML('afterbegin',
+      '<p style="position:fixed;top:0;left:0;right:0;padding:12px 16px;background:#b6271d;color:#fff;font-family:monospace;font-size:13px;z-index:9999">Floodlight render error — '+String(err)+'</p>');
+  }
+
+  // ── EXPORT ────────────────────────────────────────────────────────
+  function toggleExport(e){ if(e) e.stopPropagation(); var dd=$('export-dd'); if(dd) dd.classList.toggle('open'); }
+  function closeExport(){ var dd=$('export-dd'); if(dd) dd.classList.remove('open'); }
+  document.addEventListener('click', function(e){ if(!e.target.closest || !e.target.closest('.tb-export')) closeExport(); });
+  function exportHTML(){
+    closeExport();
+    // capture current toggle state into the data so the saved file reflects selections
+    try {
+      window.FLOODLIGHT_DATA = window.FLOODLIGHT_DATA || {};
+      window.FLOODLIGHT_DATA.currentState = window.FLOODLIGHT_DATA.currentState || {};
+      window.FLOODLIGHT_DATA.currentState.enabledSources = Object.keys(FL.enabled);
+    } catch(e){}
+    var m = (window.FLOODLIGHT_DATA && window.FLOODLIGHT_DATA.meta) || {};
+    var co = ((m.company)||'').replace(/[^a-z0-9]/gi,'').toLowerCase().slice(0,16);
+    var iso = new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    var filename = 'floodlight-'+(co||'posture')+'-'+iso+'.html';
+    var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    try {
+      var dataStr = JSON.stringify(window.FLOODLIGHT_DATA).replace(/<\/script>/gi,'<\\/script>');
+      html = html.replace(/<script id="floodlight-data">[\s\S]*?<\/script>/, function(){
+        return '<script id="floodlight-data">window.FLOODLIGHT_DATA = '+dataStr+';<'+'/script>';
+      });
+    } catch(exportErr){ console.warn('[Floodlight:Export] data injection failed', exportErr); }
+    var blob = new Blob([html],{type:'text/html'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+  function toggleFullscreen(){
+    var el=document.documentElement;
+    if(document.fullscreenElement||document.webkitFullscreenElement){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
+    else { var req=el.requestFullscreen||el.webkitRequestFullscreen; if(req) req.call(el).catch(function(e){console.warn(e);}); }
+  }
+  document.addEventListener('fullscreenchange',function(){ var b=$('fs-btn'); if(b) b.textContent=document.fullscreenElement?'← Exit':'⛶ Fullscreen'; });
+  window.toggleExport=toggleExport; window.closeExport=closeExport; window.exportHTML=exportHTML; window.toggleFullscreen=toggleFullscreen;
+})();
+</script>
+</body>
+</html>

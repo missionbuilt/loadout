@@ -31,14 +31,6 @@ new_sqlite_classes = ["MissionBuiltMCP"]
 binding = "OAUTH_KV"
 id = "fb12345f109441aeb933732673ebce93"
 
-# KV namespace for daily Warmup briefs (v0.8+). Stores the latest WARMUP_DATA
-# per OAuth-authenticated user at key `warmup:{email}:current`. The artifact
-# reads via warmup_get_data on every visibility event for auto-refresh.
-# Create via: npx wrangler kv namespace create WARMUP_KV
-[[kv_namespaces]]
-binding = "WARMUP_KV"
-id = "8b49cf6dfb08428ebb5954b30f87bd59"
-
 # Observability — free tier includes this.
 [observability]
 enabled = true

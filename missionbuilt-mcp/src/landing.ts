@@ -107,9 +107,7 @@ export function renderLanding(args: LandingArgs): string {
         <li><code>spotter_get_calibration_epic</code><span>Returns synthetic calibration epic #1 with deliberate gaps</span></li>
         <li><code>spotter_get_calibration_epics</code><span>Returns all three calibration epics for batch grading</span></li>
         <li><code>spotter_get_template</code><span>Returns spotter-template.html with SPOTTER_DATA injected — artifact-ready</span></li>
-        <li><code>spotter_review</code><span>Primes the agent to review an epic</span></li>
-        <li><code>spotter_build</code><span>Primes the agent to build an epic from scratch</span></li>
-        <li><code>spotter_iterate</code><span>Primes the agent to push a draft forward</span></li>
+        <li><code>spotter_run</code><span>Primes the agent to review an epic and render the worksheet</span></li>
       </ul>
     </section>
 

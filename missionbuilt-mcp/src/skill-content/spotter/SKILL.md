@@ -3,7 +3,7 @@ name: spotter
 description: The Spotter — a skill for reviewing, building, and iterating on B2B product epics across nine areas spanning empathy, competitive landscape, AI decisions, governance, and post-launch ownership. Use when asked to review, critique, strengthen, draft, or push forward an epic.
 license: MIT
 author: H. Michael Nichols
-version: 1.0.0
+version: 1.2.0
 part_of: The Loadout
 ---
 
@@ -314,30 +314,27 @@ When the client requests structured output (e.g., the user asks for "JSON output
 
 This schema is designed to be forward-compatible with the Phase 2 MCP server that will render branded UI cards per area. The MCP server reads the same SKILL.md and area-examples.md content; the structured output is the contract between the agent's reasoning and the rendering surface.
 
-## Worksheet artifact (v1.0) — MCP tool flow
+## Worksheet artifact — standalone render
 
-The Spotter v1.0 renders as an **interactive worksheet artifact** rather than a static report. The worksheet lets the PM work each area one at a time: accept Spotter's read, iterate on it by sending a short note, or mark it blocked. When all areas are settled, an export button activates.
+The Spotter renders as an **interactive worksheet artifact**. The PM works each area one at a time: accept Spotter's read, refine it by sending a short note (Spotter rewrites that area live via the Cowork `askClaude` bridge), or skip it. When all areas are closed, export unlocks.
 
-### How the agent builds the worksheet
+The worksheet is self-contained — fonts are baked in and nothing calls this server at runtime. The `spotter_run` tool returns the authoritative build flow; in summary:
 
-The worksheet artifact is assembled from template chunks — the full procedure is in `spotter_review`. Summary:
+1. Grade all nine areas silently and build the SPOTTER_DATA object (schema below).
+2. Call `spotter_get_template({ intent: "…", chunk: 0, spotter_data: JSON.stringify(SPOTTER_DATA) })`. The server injects your data into the worksheet. Read `<!-- SPOTTER_TOTAL_CHUNKS: N -->` to learn N; `spotter_data` is required on every chunk call.
+3. Write chunk 0 to `[workspace-root]/spotter-[slug]-[YYYY-MM-DD-HH-MM].html`.
+4. For chunks 1..N−1: call `spotter_get_template({ chunk: i, spotter_data: ... })`, then Edit-replace `<!-- __SPOTTER_SENTINEL__ -->` with the chunk.
+5. Call `create_artifact` with the file path and a timestamp-stamped ID. No `mcp_tools` needed — fonts are baked and the worksheet uses `askClaude`, not an MCP tool.
 
-1. Grade all nine areas and build the SPOTTER_DATA object (schema below).
-2. Call `spotter_get_template({ intent: "…", chunk: 0 })`. Read `<!-- SPOTTER_TOTAL_CHUNKS: N -->` from the response to learn how many chunks there are.
-3. Write chunk 0 to disk at `[workspace-root]/spotter-[slug]-[YYYY-MM-DD-HH-MM].html`.
-4. For each remaining chunk (1 to N−1): call `spotter_get_template({ chunk: i })`, then Edit the file — replace `<!-- __SPOTTER_SENTINEL__ -->` with the chunk content.
-5. Inject SPOTTER_DATA: Edit the `<script id="spotter-data">` block and set `window.SPOTTER_DATA = <literal JSON text>;`.
-6. Call `create_artifact` with the file path, a timestamp-stamped ID, and `mcp_tools` containing the full prefixed name of `warmup_get_fonts`.
+(Downloaded standalone copies render the same template locally with `scripts/inject.py` instead of `spotter_get_template`.)
 
-Never reconstruct the HTML yourself. The design lives in the template served by `spotter_get_template`.
+Never reconstruct the HTML yourself.
 
 ### SPOTTER_DATA v1.0 schema
 
 ```json
 {
-  "config": {
-    "fontToolName": "mcp__<uuid>__warmup_get_fonts"
-  },
+  "config": {},
   "meta": {
     "epicTitle": "Comments on Dashboards",
     "epicDeck": "A review of Mike's epic. Nine areas, three judges each.",
@@ -373,7 +370,7 @@ Never reconstruct the HTML yourself. The design lives in the template served by 
 
 **Field-by-field reference:**
 
-`config.fontToolName` — Required. The fully-qualified MCP tool name for loading fonts, e.g. `"mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts"`. Read it from your available tools list before building SPOTTER_DATA.
+`config` — Reserved for future options; pass `{}`. Fonts are baked into the template, so no font tool name is needed.
 
 `meta.epicTitle` — The epic name as written. Used in the page `<h1>` and browser title.
 
@@ -439,9 +436,9 @@ Note type guidance:
 
 ### Worksheet interaction model (agent awareness)
 
-The worksheet artifact handles iteration entirely in the browser via `window.cowork.askClaude`. The agent does **not** need to handle iterate or rerun calls after the artifact is created — the PM works the worksheet directly. The agent's job is to produce a thorough first-read SPOTTER_DATA object and create the artifact.
+The worksheet handles iteration entirely in the browser via `window.cowork.askClaude` (Cowork's live-AI bridge — not this server). After the artifact is created, the PM works it directly: refine an area, accept, or skip. The agent does **not** handle iterate or rerun calls.
 
-If the PM asks the agent to re-run the Spotter on a revised epic (outside the worksheet), treat it as a new review run: call `spotter_review` from scratch with the revised epic.
+Outside Cowork the bridge is absent, so the worksheet is read-only: accept/skip and export still work, but the live "Refine with Spotter" control is hidden. To re-grade a revised epic, run a fresh review via `spotter_run`.
 
 ## Anti-patterns
 

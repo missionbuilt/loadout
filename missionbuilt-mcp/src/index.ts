@@ -31,16 +31,13 @@ import { z } from "zod";
 
 // Skill content bundled at build time via Wrangler text imports.
 import WARMUP_SKILL_MD from "./skill-content/warmup/SKILL.md";
-import WARMUP_SHELL_JS from "./warmup-shell.rawjs";
 import SPOTTER_SKILL_MD from "./skill-content/spotter/SKILL.md";
 import SPOTTER_AREA_EXAMPLES_MD from "./skill-content/spotter/area-examples.md";
 import SPOTTER_SYNTHETIC_EPIC_MD from "./skill-content/spotter/synthetic-epic.md";
 import SPOTTER_SYNTHETIC_EPIC_2_MD from "./skill-content/spotter/synthetic-epic-2.md";
 import SPOTTER_SYNTHETIC_EPIC_3_MD from "./skill-content/spotter/synthetic-epic-3.md";
 import SPOTTER_TEMPLATE_HTML from "./skill-content/spotter/spotter-template.html";
-// spotter-shell.rawjs kept for reference during v1.0 transition; not used by spotter_get_template.
-import SPOTTER_SHELL_JS from "./spotter-shell.rawjs";
-import WARMUP_FONTS_CSS from "./skill-content/warmup/fonts.css";
+import WARMUP_TEMPLATE_HTML from "./skill-content/warmup/warmup-template.html";
 import APPROACH_SKILL_MD from "./skill-content/the-approach/SKILL.md";
 import APPROACH_TEMPLATE_HTML from "./skill-content/the-approach/approach-template.html";
 
@@ -224,31 +221,12 @@ const SPOTTER_AREAS = [
 interface Env {
   MCP_OBJECT: DurableObjectNamespace;
   OAUTH_KV: KVNamespace;
-  WARMUP_KV: KVNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   COOKIE_ENCRYPTION_KEY: string;
   OAUTH_PROVIDER: OAuthHelpers;
 }
 
-// ── Warmup KV helpers ─────────────────────────────────────────────────────────
-
-/**
- * Derive the user's KV key from their OAuth email.
- *
- * Email is lowercased and stripped of whitespace before being interpolated.
- * Lengths are bounded so an absurdly long email can't blow up the key. We do
- * NOT URL-encode here — KV keys accept arbitrary strings, and emails contain
- * only RFC-5322 safe chars.
- */
-function warmupKeyFor(email: string | undefined): string {
-  const e = (email ?? "").trim().toLowerCase().slice(0, 200);
-  if (!e || e.indexOf("@") === -1) return "";
-  return `warmup:${e}:current`;
-}
-
-/** Maximum WARMUP_DATA payload accepted by warmup_save_data. */
-const WARMUP_DATA_MAX_BYTES = 250_000; // ~250KB; typical brief is ~20KB.
 
 // ── Agent ─────────────────────────────────────────────────────────────────────
 
@@ -323,14 +301,6 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       })
     );
 
-    this.server.tool(
-      "warmup_get_fonts",
-      "Returns the warmup artifact font CSS as a JSON object { css, version }. Called by the warmup artifact at open time to load the design fonts (Oswald, Merriweather, Permanent Marker, JetBrains Mono) into the Cowork sandbox — external font CDNs are blocked in the artifact sandbox. The CSS is automatically cached in localStorage so this tool is only called once per browser profile, not on every open.",
-      { intent: intentField },
-      async () => ({
-        content: [{ type: "text" as const, text: JSON.stringify({ css: WARMUP_FONTS_CSS, version: "1.0" }) }],
-      })
-    );
 
     this.server.tool(
       "warmup_list_modes",
@@ -350,230 +320,56 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_get_template",
-      "Returns the warmup artifact HTML in paginated 900-line chunks. The v0.8 shell fetches WARMUP_DATA via the Cowork MCP bridge at boot — there is no inline data injection. The artifact's only one-time configuration is the data-tool name, which must be passed as dataToolName on chunk 0. Call with chunk:0 and dataToolName='mcp__<your-uuid>__warmup_get_data' to get the shell. Write to disk, then call again with chunk:1, 2, ... N-1, replacing the <!-- __WARMUP_SENTINEL__ --> placeholder in the file with each subsequent chunk. After assembly, call create_artifact or update_artifact and warmup_save_data — the artifact pulls fresh data on every visibility event.",
+      "Return the data-filled Warmup brief HTML in paginated 900-line chunks. " +
+      "Pass warmup_data on EVERY chunk call — the server re-injects it each time (stateless). " +
+      "Fonts are baked into the template; the brief makes no MCP calls at runtime. " +
+      "Call with chunk:0 first; read <!-- WARMUP_TOTAL_CHUNKS: N --> from the response to learn the total. " +
+      "Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i and Edit-replace <!-- __WARMUP_SENTINEL__ --> with each chunk. " +
+      "After assembly, call create_artifact (no mcp_tools needed — fonts are baked). " +
+      "Do NOT use bash to move files — use the Read/Write file tools.",
       {
         intent: intentField,
-        chunk: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
-          .describe(
-            "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> " +
-            "from chunk 0 to learn the total number of chunks."
-          ),
-        dataToolName: z
-          .string()
-          .max(200)
-          .optional()
-          .describe(
-            "Full prefixed MCP tool name for warmup_get_data — e.g. 'mcp__<uuid>__warmup_get_data'. " +
-            "Required on chunk 0. Embedded into the artifact's <script id=\"warmup-tools\"> block " +
-            "so the rendered page can call warmup_get_data via the Cowork bridge at boot. " +
-            "Ignored on chunks 1+."
-          ),
-        warmup_data: z
-          .string()
-          .optional()
-          .describe(
-            "Deprecated in v0.8 — ignored on all chunks. Data now flows through warmup_save_data → KV → warmup_get_data."
-          ),
+        chunk: z.number().int().min(0).default(0).describe(
+          "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- WARMUP_TOTAL_CHUNKS: N --> from chunk 0 to learn the total."
+        ),
+        warmup_data: z.string().max(300000).describe(
+          "The WARMUP_DATA JSON string produced by the Warmup workflow. Required on EVERY chunk call — the server re-injects it each time. Must be valid JSON."
+        ),
       },
-      async ({ warmup_data: _ignoredWarmupData, chunk = 0, dataToolName }) => {
-        // Paginated delivery architecture (v0.8 — pure-renderer shell):
-        //
-        // The shell fetches WARMUP_DATA via the Cowork MCP bridge at boot. The
-        // only one-time configuration baked into the artifact is the prefixed
-        // MCP tool name for warmup_get_data — passed as `dataToolName` here
-        // and inlined into the preamble's <script id="warmup-tools"> block.
-        //
-        // Chunking remains because the filled shell is ~1900 lines / ~90KB, and
-        // Cowork persists MCP responses over ~67KB to disk (which the agent
-        // then can't read inline). Splitting into 900-line chunks keeps each
-        // response under the threshold. The agent writes chunk 0, then walks
-        // chunks 1..N-1, each replacing the <!-- __WARMUP_SENTINEL__ --> marker.
-        //
-        // Structure of the shell HTML (chunk 0):
-        //   Lines 0–12:  13-line preamble (DOCTYPE … <body><script>)
-        //   Lines 13+:   WARMUP_SHELL_JS lines
-        //   Closing:     empty line + </script></body> + </html>
-        //
-        // warmup_data parameter: deprecated in v0.8, ignored. Use warmup_save_data.
-
-        const CHUNK_LINES  = 900;
-        const SENTINEL     = '<!-- __WARMUP_SENTINEL__ -->';
-        // Lines 0–12 in the preamble (includes the injected TOTAL_CHUNKS comment at index 2).
-        // DOCTYPE, engine-marker, TOTAL_CHUNKS-comment, html, head, meta×2, title, /head,
-        // script-tools, tools-line, /script, body+script  = 13 lines.
-        const PREAMBLE_LINES = 13;
-
-        const shellLines   = WARMUP_SHELL_JS.split('\n');
-        // Closing lines appended after the shell: \n before </script></body> creates an empty line.
-        const closingLines = ['', '</script></body>', '</html>'];
-        const totalLines   = PREAMBLE_LINES + shellLines.length + closingLines.length;
-        const totalChunks  = Math.ceil(totalLines / CHUNK_LINES);
-
-        // ── Chunk 0: return shell with the WARMUP_TOOLS config baked in ─────────
-        // No inline data injection in v0.8. The artifact reads WARMUP_TOOLS.dataTool
-        // at boot, polls for window.cowork, then calls that MCP tool to load fresh
-        // WARMUP_DATA from KV. Subsequent visibility events trigger re-fetches.
+      async ({ chunk = 0, warmup_data }) => {
+        try { JSON.parse(warmup_data); } catch (e) {
+          return { content: [{ type: "text" as const, text: `[warmup_get_template] ERROR: warmup_data is not valid JSON — ${String(e)}. Fix the WARMUP_DATA object and retry.` }] };
+        }
+        // XSS + $-expansion safety: escape </script>, inject via replacer function.
+        const safe = warmup_data.replace(/<\/script>/gi, '<\\/script>');
+        const savedAt = new Date().toISOString().replace(/\.\d+Z$/, '.000Z');
+        let filled = WARMUP_TEMPLATE_HTML.replace("__WARMUP_DATA__", () => safe);
+        if (filled === WARMUP_TEMPLATE_HTML) {
+          return { content: [{ type: "text" as const, text: "[warmup_get_template] ERROR: placeholder __WARMUP_DATA__ not found in template. Report this to the developer." }] };
+        }
+        filled = filled.replace("__WARMUP_SAVED_AT__", () => savedAt);
+        const CHUNK_LINES = 900;
+        const SENTINEL    = '<!-- __WARMUP_SENTINEL__ -->';
+        const lines       = filled.split('\n');
+        const totalChunks = Math.ceil(lines.length / CHUNK_LINES);
         if (chunk === 0) {
-          // dataToolName comes from agent caller — validate the shape so a
-          // bad value can't break the JSON literal in the preamble.
-          const safeToolName = (dataToolName ?? "")
-            .replace(/[^A-Za-z0-9_\-:]/g, "")
-            .slice(0, 200);
-          const toolsLine = safeToolName
-            ? `window.WARMUP_TOOLS = { dataTool: ${JSON.stringify(safeToolName)} };`
-            : `window.WARMUP_TOOLS = { dataTool: null }; /* AGENT: pass dataToolName to warmup_get_template */`;
-
-          const shellInlined =
-            `<!DOCTYPE html>\n` +
-            `<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->\n` +
-            `<!-- WARMUP_TOTAL_CHUNKS: ${totalChunks} -->\n` +
-            `<html lang="en">\n` +
-            `<head>\n` +
-            `  <meta charset="utf-8">\n` +
-            `  <meta name="viewport" content="width=device-width, initial-scale=1">\n` +
-            `  <title>The Warmup \xB7 Morning Edition</title>\n` +
-            `</head>\n` +
-            `<script id="warmup-tools">\n` +
-            `${toolsLine}\n` +
-            `</script>\n` +
-            `<body><script>\n` +
-            `${WARMUP_SHELL_JS}\n` +
-            `</script></body>\n` +
-            `</html>`;
-
-          const lines  = shellInlined.split('\n');
-          const chunk0 = lines.slice(0, CHUNK_LINES);
-          if (totalChunks > 1) chunk0.push(SENTINEL);
-          return { content: [{ type: "text" as const, text: chunk0.join('\n') }] };
+          const chunkLines = lines.slice(0, CHUNK_LINES);
+          chunkLines.unshift(`<!-- WARMUP_TOTAL_CHUNKS: ${totalChunks} -->`);
+          if (totalChunks > 1) chunkLines.push(SENTINEL);
+          return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
         }
-
-        // ── Chunks 1+: serve shell lines (no warmup_data needed) ─────────────────
-        const startPos = chunk * CHUNK_LINES;
-        if (startPos >= totalLines) {
-          return {
-            content: [{ type: "text" as const, text: `[warmup_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]` }],
-          };
+        const startLine = chunk * CHUNK_LINES;
+        if (startLine >= lines.length) {
+          return { content: [{ type: "text" as const, text: `[warmup_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]` }] };
         }
-
-        const endPos     = Math.min((chunk + 1) * CHUNK_LINES, totalLines);
-        const resultLines: string[] = [];
-
-        for (let pos = startPos; pos < endPos; pos++) {
-          const shellIdx = pos - PREAMBLE_LINES;
-          if (shellIdx < 0) {
-            // Should never occur for chunks 1+ since PREAMBLE_LINES (13) < CHUNK_LINES (400)
-            resultLines.push('');
-          } else if (shellIdx < shellLines.length) {
-            resultLines.push(shellLines[shellIdx]);
-          } else {
-            resultLines.push(closingLines[shellIdx - shellLines.length] ?? '');
-          }
-        }
-
-        const isLast = endPos >= totalLines;
-        if (!isLast) resultLines.push(SENTINEL);
-        return { content: [{ type: "text" as const, text: resultLines.join('\n') }] };
+        const endLine    = Math.min((chunk + 1) * CHUNK_LINES, lines.length);
+        const chunkLines = lines.slice(startLine, endLine);
+        if (endLine < lines.length) chunkLines.push(SENTINEL);
+        return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
       }
     );
 
-    this.server.tool(
-      "warmup_save_data",
-      "Stores the user's latest WARMUP_DATA brief in KV under their OAuth-authenticated email. The artifact reads the same key via warmup_get_data and auto-refreshes when it sees a newer savedAt. Replaces any prior brief — v0.8 keeps only the current. Returns {ok, savedAt, bytes} on success, or {ok:false, error} on failure. Always pass warmup_data as a JSON string (JSON.stringify your WARMUP_DATA object first).",
-      {
-        intent: intentField,
-        warmup_data: z
-          .string()
-          .max(WARMUP_DATA_MAX_BYTES, `WARMUP_DATA exceeds ${WARMUP_DATA_MAX_BYTES} bytes.`)
-          .describe(
-            "The WARMUP_DATA object as a JSON string. Must JSON-parse and contain a 'config' object. Stringify before passing — e.g. JSON.stringify(WARMUP_DATA)."
-          ),
-      },
-      async ({ warmup_data }) => {
-        const email = this.props?.email as string | undefined;
-        const key = warmupKeyFor(email);
-        if (!key) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "Not authenticated. warmup_save_data requires an active OAuth session." }, null, 2),
-            }],
-          };
-        }
 
-        let parsed: any;
-        try {
-          parsed = JSON.parse(warmup_data);
-        } catch (err) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "warmup_data is not valid JSON: " + String((err as Error).message ?? err) }, null, 2),
-            }],
-          };
-        }
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.config || typeof parsed.config !== "object") {
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ ok: false, error: "warmup_data must be a JSON object with a 'config' field." }, null, 2),
-            }],
-          };
-        }
-
-        const savedAt = new Date().toISOString();
-        // Envelope holds savedAt alongside the user-supplied brief so the artifact's
-        // visibility poller can cheaply detect "is this newer than what I rendered?"
-        const envelope = JSON.stringify({ data: parsed, savedAt });
-        await this.env.WARMUP_KV.put(key, envelope);
-
-        return {
-          content: [{
-            type: "text" as const,
-            text: JSON.stringify({ ok: true, savedAt, bytes: envelope.length }, null, 2),
-          }],
-        };
-      }
-    );
-
-    this.server.tool(
-      "warmup_get_data",
-      "Returns the authenticated user's latest WARMUP_DATA brief from KV. The warmup artifact calls this on load and on every visibilitychange/focus event to detect when a fresh brief has been saved. Returns {data, savedAt} when a brief exists, {empty:true} when the user has never run a warmup, or {empty:true, error} when unauthenticated.",
-      {
-        intent: intentField,
-      },
-      async () => {
-        const email = this.props?.email as string | undefined;
-        const key = warmupKeyFor(email);
-        if (!key) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ empty: true, error: "Not authenticated." }, null, 2),
-            }],
-          };
-        }
-        const raw = await this.env.WARMUP_KV.get(key);
-        if (!raw) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: JSON.stringify({ empty: true }, null, 2),
-            }],
-          };
-        }
-        // raw is already a {data, savedAt} JSON envelope — pass through verbatim.
-        return {
-          content: [{
-            type: "text" as const,
-            text: raw,
-          }],
-        };
-      }
-    );
 
     this.server.tool(
       "warmup_setup",
@@ -633,7 +429,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "warmup_run",
-      "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config, fetches live intelligence from each active source, synthesizes it into sections, runs link safety verification, saves the brief to KV via warmup_save_data, and ensures the artifact file is current. The artifact auto-refreshes from KV on every visibility event — no inline HTML edits, no manual reload.",
+      "Primes the agent to generate a Warmup intelligence brief. Reads the user's WARMUP.md config, fetches live intelligence from each active source, synthesizes it into sections, runs link safety verification, synthesizes WARMUP_DATA, and renders a self-contained brief artifact. Data is injected at render time and fonts are baked in; nothing calls the server at runtime.",
       {
         intent: intentField,
         config_summary: z
@@ -657,21 +453,16 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `# The Warmup — Run Brief\n\n` +
                 `**Engine version: ${WARMUP_ENGINE_VERSION}**\n\n` +
                 `${configNote}\n\n` +
-                `## How v0.8 works (read this once)\n\n` +
-                `The brief lives in KV on the MCP server, keyed by your OAuth email. The artifact HTML is a pure renderer — it fetches WARMUP_DATA via the Cowork bridge at boot and on every visibilitychange/focus event. Your job each run is:\n\n` +
-                `  1. Build WARMUP_DATA from fresh searches\n` +
-                `  2. Call \`warmup_save_data\` to put it in KV\n` +
-                `  3. Make sure the artifact file exists and runs v${WARMUP_ENGINE_VERSION} — build/refresh only when missing or stale\n\n` +
-                `No inline HTML editing of the data. No </script> XSS guard. No Path A vs Path B. Just save the data and (rarely) refresh the template.\n\n` +
+                `## How it works (read this once)\n\n` +
+                `The brief is a self-contained HTML artifact. You build WARMUP_DATA from fresh searches, then render it with warmup_get_template — the server injects your data and stamps the generated-at time, and fonts are baked into the file. No KV, no auto-refresh, no runtime calls back to the server. Each run writes a fresh brief.\n\n` +
                 `## Before starting\n\n` +
                 `Ensure these deferred tools are loaded — load them now via ToolSearch if any are missing:\n\n` +
-                `- warmup_save_data, warmup_get_data\n` +
-                `- warmup_get_template (only when you need to write the artifact file)\n` +
+                `- warmup_get_template (renders the brief)\n` +
                 `- list_artifacts, create_artifact, update_artifact (Cowork)\n` +
                 `- WebSearch\n\n` +
                 `## Permitted tools\n\n` +
                 `  MCP:  list_artifacts · create_artifact · update_artifact\n` +
-                `        warmup_get_skill · warmup_get_template · warmup_save_data · warmup_get_data · WebSearch\n` +
+                `        warmup_get_skill · warmup_get_template · WebSearch\n` +
                 `  File: Read · Write · Edit · Grep\n\n` +
                 `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
                 `## How to generate the brief\n\n` +
@@ -680,15 +471,8 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   • No "the-warmup" artifact → use the user's selected workspace folder from your system context.\n` +
                 `     A correct root looks like /Users/[name]/Projects/[folder]. It must NOT contain "Application Support", "sessions", "outputs", "uploads", "local-agent", or "tmp".\n` +
                 `   Read [workspace-root]/WARMUP.md. If missing, run warmup_setup first.\n\n` +
-                `2. ARTIFACT FILE STATE — decide whether you need to build the artifact HTML this run.\n` +
-                `   a) "the-warmup" does NOT exist in list_artifacts → set artifact_action = "create". Will build.\n` +
-                `   b) "the-warmup" exists → run ALL four checks below. Every check must pass to skip; any failure → set artifact_action = "refresh". The engine-version marker alone is NOT proof the file is complete — a prior run can leave a half-built file with the marker present but the body truncated at a sentinel.\n` +
-                `      i)   Read the first 10 lines → must contain "<!-- warmup-engine: ${WARMUP_ENGINE_VERSION} -->" (correct engine version).\n` +
-                `      ii)  Grep the file for "<!-- __WARMUP_SENTINEL__ -->" → must return 0 matches (no truncated chunk stitching from a prior interrupted run).\n` +
-                `      iii) Read the last 3 lines → must contain "</html>" (file wasn't cut off mid-write).\n` +
-                `      iv)  Grep the file for your full "mcp__<uuid>__warmup_get_data" tool name → must return ≥ 1 match (embedded dataToolName matches this session; defends against MCP UUID rotation across days).\n` +
-                `      All four pass → artifact_action = "skip". Any fail or file unreadable → artifact_action = "refresh".\n` +
-                `   Output one chat line: "📋 Artifact: [create / skip / refresh] · Fetching intelligence now."\n\n` +
+                `2. ARTIFACT ACTION — set artifact_action = "create" if no "the-warmup" artifact exists in list_artifacts, otherwise "update". Either way you render a fresh brief with this run's data (there is no skip path now that data is injected at render time).\n` +
+                `   Output one chat line: "📋 Fetching intelligence now."\n\n` +
                 `3. FETCH PHASE — run all batches concurrently in a single parallel pass. Standard depth: top 5 results / 200 words. Deep: top 10 / 400 words. Reject items where item.date < lookback_start. If skip_scan: true in WARMUP.md, skip step 4 and set config.skipScan: true, safety.domains: [], safety.totalUrls: 0.\n\n` +
                 `   CISO mode compound batch queries (concurrent, NOT one-per-source):\n` +
                 `   | Batch | Query pattern |\n` +
@@ -717,7 +501,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `     vendors: copy from WARMUP.md; "" if blank, never omit\n` +
                 `     searchDepth: "standard" | "deep" (copy from WARMUP.md)\n` +
                 `     skipScan: true if skip_scan in WARMUP.md, otherwise omit\n` +
-                `     fontToolName: full prefixed MCP name for warmup_get_fonts (e.g. "mcp__<uuid>__warmup_get_fonts") — required so the artifact can lazy-load fonts via the Cowork bridge\n\n` +
+                `     (no fontToolName — fonts are baked into the template)\n\n` +
                 `   sections[] — each section MUST have all four fields or the renderer throws:\n` +
                 `     id: kebab-case DOM id (e.g. "threat", "emerging", "research", "industry", "social", "interests")\n` +
                 `     label: heading string\n` +
@@ -731,28 +515,15 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
                 `   sources[] — each entry MUST have: nm, dom, dot ("d1"-"d4"), ct ("N items" or "—"), status ("active"|"quiet"|"excluded")\n\n` +
                 `   safety: domains [{domain, verdict:"ALLOWLISTED"|"CLEAN"}] — length must equal active sources count; [] if skipScan\n` +
                 `           totalUrls: int (0 if skipScan)  flagged: int  scannedAt: ""\n\n` +
-                `6. SAVE TO KV — call warmup_save_data({ warmup_data: JSON.stringify(WARMUP_DATA) }).\n` +
-                `   • If the response says ok:false, STOP and report the error to the user. The artifact will keep showing the prior brief until save succeeds.\n` +
-                `   • On ok:true, note savedAt and proceed.\n\n` +
-                `7. ARTIFACT — act on artifact_action from step 2.\n\n` +
-                `   • artifact_action === "skip" → call update_artifact({ id: "the-warmup", html_path }) with no other changes, just to nudge Cowork. Done.\n\n` +
-                `   • artifact_action === "create" or "refresh" → build the file:\n` +
-                `     a) Identify your full data-tool name. Your loaded warmup_get_data tool is named like "mcp__<uuid>__warmup_get_data". Use that exact string as dataToolName below.\n` +
-                `     b) Call warmup_get_template({ chunk: 0, dataToolName: "<your mcp__<uuid>__warmup_get_data>" }). Read <!-- WARMUP_TOTAL_CHUNKS: N --> to learn N. Response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
-                `     c) Write chunk 0 to [workspace-root]/warmup.html (the file is NEW or being REFRESHED — overwrite).\n` +
-                `     d) For i = 1..N-1, sequentially (never parallel):\n` +
-                `        - Call warmup_get_template({ chunk: i }) — dataToolName is ignored on chunks 1+.\n` +
-                `        - Edit replace <!-- __WARMUP_SENTINEL__ --> with the chunk content.\n` +
-                `     e) Verify assembly. BOTH checks must pass before step 7f — never call create_artifact / update_artifact on an incomplete file:\n` +
-                `        - Grep for "<!-- __WARMUP_SENTINEL__ -->" → must return 0 matches. If > 0, the stitching loop did not finish (context limit, rate cutoff, or other interruption). Resume from step 7d at the next unfilled chunk index until the sentinel is gone.\n` +
-                `        - Read the last 3 lines → must contain "</html>". If absent, the file is truncated; restart from step 7c (re-fetch and overwrite chunk 0 fresh, then iterate 7d again).\n` +
-                `     f) artifact_action === "create" → call create_artifact. artifact_action === "refresh" → call update_artifact.\n` +
-                `        Either way, pass:\n` +
-                `          id: "the-warmup"\n` +
-                `          html_path: [workspace-root]/warmup.html\n` +
-                `          mcp_tools: [your warmup_get_data full name, your warmup_get_fonts full name]\n` +
-                `        Cowork blocks any callMcpTool call whose target is not in this allowlist — both names are required or the artifact silently fails to load data or fonts.\n\n` +
-                `8. DONE — one summary line in chat. The artifact picks up the new brief on its next visibilitychange/focus event. No manual reload needed.\n\n` +
+                `6. RENDER — write the brief with your data injected by the server.\n` +
+                `   a) Call warmup_get_template({ chunk: 0, warmup_data: JSON.stringify(WARMUP_DATA) }). Read <!-- WARMUP_TOTAL_CHUNKS: N --> to learn N. The response ends with <!-- __WARMUP_SENTINEL__ --> when N > 1.\n` +
+                `   b) Write chunk 0 to [workspace-root]/warmup.html (overwrite — every run is a fresh file).\n` +
+                `   c) For i = 1..N-1, sequentially (never parallel): call warmup_get_template({ chunk: i, warmup_data: JSON.stringify(WARMUP_DATA) }), then Edit replace <!-- __WARMUP_SENTINEL__ --> with the chunk content. warmup_data is required on every chunk call — the server re-injects it each time.\n` +
+                `   d) Verify before registering — never register an incomplete file:\n` +
+                `      - Grep for "<!-- __WARMUP_SENTINEL__ -->" → must return 0 matches. If > 0, resume the loop at the next unfilled chunk until the sentinel is gone.\n` +
+                `      - Read the last 3 lines → must contain "</html>". If absent, re-fetch chunk 0 fresh and re-stitch.\n` +
+                `   e) Register: artifact_action === "create" → create_artifact; "update" → update_artifact. Pass id: "the-warmup" and html_path: [workspace-root]/warmup.html. No mcp_tools needed — fonts are baked and the brief makes no MCP calls at runtime.\n\n` +
+                `8. DONE — one summary line in chat. The brief is complete and self-contained.\n\n` +
                 `## Voice\n\n` +
                 `The brief is factual and labeled. Every item shows its source and trust tier. No editorializing. No hype. Scannable and honest.\n\n` +
                 `## Reference sections (call warmup_get_skill only when needed — round-trips)\n\n` +
@@ -824,7 +595,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_skill",
-      "Returns a named section of The Spotter SKILL.md. This is a HELPER tool — call it only after spotter_review has given you the review workflow and instructed you which section to load. Do NOT call this as the entry point for an epic review; always call spotter_review first. Calling this tool without first calling spotter_review produces a chat-only review with no artifact. Sections: 'areas' (all nine review areas + sub-checks — load for grading), 'review' (review output format), 'iterate' (iterate mode output format), 'build' (build mode output format), 'output' (all three output formats), 'schema' (JSON output schema), 'antipatterns' (what the skill must not do), 'full' (entire document).",
+      "Returns a named section of The Spotter SKILL.md. This is a HELPER tool — call it only after spotter_run has given you the review workflow and instructed you which section to load. Do NOT call this as the entry point for an epic review; always call spotter_run first. Calling this tool without first calling spotter_run produces a chat-only review with no artifact. Sections: 'areas' (all nine review areas + sub-checks — load for grading), 'review' (review output format), 'iterate' (iterate mode output format), 'build' (build mode output format), 'output' (all three output formats), 'schema' (JSON output schema), 'antipatterns' (what the skill must not do), 'full' (entire document).",
       {
         intent: intentField,
         section: z
@@ -905,55 +676,56 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
 
     this.server.tool(
       "spotter_get_template",
-      "Returns the Spotter worksheet HTML in paginated 900-line chunks for disk assembly. No data injection — SPOTTER_DATA is written client-side by the agent after assembly. Call with chunk:0 first; read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn how many chunks to fetch. Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i and Edit-replace <!-- __SPOTTER_SENTINEL__ --> with each chunk. After assembly, Edit the <script id=\"spotter-data\"> block to inject window.SPOTTER_DATA, then call create_artifact or update_artifact.",
+      "Return the data-filled Spotter worksheet HTML in paginated 900-line chunks. " +
+      "Pass spotter_data on EVERY chunk call — the server re-injects it each time (stateless). " +
+      "Fonts are baked in; the worksheet's live refine uses the Cowork askClaude bridge, not an MCP tool. " +
+      "Call with chunk:0 first; read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn the total. " +
+      "Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i and Edit-replace <!-- __SPOTTER_SENTINEL__ --> with each chunk. " +
+      "After assembly, call create_artifact (no mcp_tools needed — fonts are baked). " +
+      "Do NOT use bash to move files — use the Read/Write file tools.",
       {
         intent: intentField,
-        chunk: z
-          .number()
-          .int()
-          .min(0)
-          .optional()
-          .describe(
-            "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- SPOTTER_TOTAL_CHUNKS: N --> " +
-            "from chunk 0 to learn the total number of chunks."
-          ),
+        chunk: z.number().int().min(0).default(0).describe(
+          "Which 900-line chunk to return (0-indexed). Default: 0. Read <!-- SPOTTER_TOTAL_CHUNKS: N --> from chunk 0 to learn the total."
+        ),
+        spotter_data: z.string().max(300000).describe(
+          "The SPOTTER_DATA JSON string produced by the Spotter review. Required on EVERY chunk call — the server re-injects it each time. Must be valid JSON."
+        ),
       },
-      async ({ chunk = 0 }) => {
+      async ({ chunk = 0, spotter_data }) => {
+        try { JSON.parse(spotter_data); } catch (e) {
+          return { content: [{ type: "text" as const, text: `[spotter_get_template] ERROR: spotter_data is not valid JSON — ${String(e)}. Fix the SPOTTER_DATA object and retry.` }] };
+        }
+        // XSS + $-expansion safety: escape </script>, inject via replacer function.
+        const safe = spotter_data.replace(/<\/script>/gi, '<\\/script>');
+        const filled = SPOTTER_TEMPLATE_HTML.replace("__SPOTTER_DATA__", () => safe);
+        if (filled === SPOTTER_TEMPLATE_HTML) {
+          return { content: [{ type: "text" as const, text: "[spotter_get_template] ERROR: placeholder __SPOTTER_DATA__ not found in template. Report this to the developer." }] };
+        }
         const CHUNK_LINES = 900;
         const SENTINEL    = '<!-- __SPOTTER_SENTINEL__ -->';
-
-        // Pre-process: stamp engine version and inject total-chunks comment after it.
-        // The \n in the replacement inserts a second line — allLines[2] becomes that line.
-        const processed = SPOTTER_TEMPLATE_HTML.replace(
-          '<!-- spotter-engine: SPOTTER_ENGINE_VERSION_MARKER -->',
-          () => `<!-- spotter-engine: v${SPOTTER_VERSION} -->\n<!-- SPOTTER_TOTAL_CHUNKS: PLACEHOLDER -->`
-        );
-        const allLines    = processed.split('\n');
-        const totalLines  = allLines.length;
-        const totalChunks = Math.ceil(totalLines / CHUNK_LINES);
-        allLines[2]       = `<!-- SPOTTER_TOTAL_CHUNKS: ${totalChunks} -->`;
-
-        if (chunk >= totalChunks) {
-          return {
-            content: [{
-              type: "text" as const,
-              text: `[spotter_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]`,
-            }],
-          };
+        const lines       = filled.split('\n');
+        const totalChunks = Math.ceil(lines.length / CHUNK_LINES);
+        if (chunk === 0) {
+          const chunkLines = lines.slice(0, CHUNK_LINES);
+          chunkLines.unshift(`<!-- SPOTTER_TOTAL_CHUNKS: ${totalChunks} -->`);
+          if (totalChunks > 1) chunkLines.push(SENTINEL);
+          return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
         }
-
-        const start  = chunk * CHUNK_LINES;
-        const end    = Math.min(start + CHUNK_LINES, totalLines);
-        const result = allLines.slice(start, end);
-        if (chunk < totalChunks - 1) result.push(SENTINEL);
-
-        return { content: [{ type: "text" as const, text: result.join('\n') }] };
+        const startLine = chunk * CHUNK_LINES;
+        if (startLine >= lines.length) {
+          return { content: [{ type: "text" as const, text: `[spotter_get_template ERROR: chunk:${chunk} is out of range — total chunks is ${totalChunks}. Stop and report this error.]` }] };
+        }
+        const endLine    = Math.min((chunk + 1) * CHUNK_LINES, lines.length);
+        const chunkLines = lines.slice(startLine, endLine);
+        if (endLine < lines.length) chunkLines.push(SENTINEL);
+        return { content: [{ type: "text" as const, text: chunkLines.join('\n') }] };
       }
     );
 
     this.server.tool(
-      "spotter_review",
-      "REQUIRED ENTRY POINT for all Spotter epic reviews. Call this first — before any other spotter tool — when the user says 'spot my epic', 'review my epic', 'run the spotter', 'check my epic', or pastes a product epic for review. Returns the full step-by-step workflow: workspace setup, silent grading protocol, artifact file creation, and create_artifact registration. Do NOT attempt to review an epic by calling spotter_get_skill directly — that tool only returns framework content and has no artifact pipeline. Calling spotter_get_skill without calling this tool first produces a chat-only review with no artifact, which is a task failure.",
+      "spotter_run",
+      "REQUIRED ENTRY POINT for all Spotter epic reviews. Call this first — before any other spotter tool — when the user says 'spot my epic', 'review my epic', 'run the spotter', 'check my epic', or pastes a product epic for review. Returns the full step-by-step standalone workflow: grade the nine areas silently, build SPOTTER_DATA, render the self-contained worksheet, and register it with create_artifact. Do NOT call spotter_get_skill directly as the entry point — it only returns framework content and has no render pipeline.",
       {
         intent: intentField,
         epic: z.string().min(50).max(20000).describe("The full text of the epic to review."),
@@ -963,109 +735,58 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
           {
             type: "text" as const,
             text:
-              `# The Spotter v${SPOTTER_VERSION} — Review Mode\n\n` +
+              `# The Spotter v${SPOTTER_VERSION} — Review Mode (standalone)\n\n` +
               `## The deliverable\n\n` +
-              `The output of this review is an HTML file written to the user's workspace folder and registered in the Cowork artifact panel. That file IS the review.\n\n` +
-              `The chat message you post at the end is a summary pointer to the artifact — not the review itself.\n\n` +
+              `The output is a self-contained HTML worksheet written to the user's workspace folder and registered in the Cowork artifact panel. That file IS the review. The chat message at the end is a short pointer, not the review.\n\n` +
+              `The worksheet is self-contained: fonts are baked in, and the live "Refine with Spotter" pass runs through the Cowork askClaude bridge — not an MCP tool. Nothing in the artifact calls this server at runtime.\n\n` +
               `**Task failure:** If grades, findings, or verdicts appear in chat before the artifact file exists on disk, the task has failed. Build the artifact first. Always.\n\n` +
               `## Sequence\n\n` +
               `Execute steps 1 → 2 → 3 → 4. No grades, findings, or verdicts to chat until Step 4.\n\n` +
-              `1. SETUP    — call list_artifacts → find workspace path → determine PATH A or B\n` +
+              `1. SETUP    — call list_artifacts → find workspace path\n` +
               `2. GRADE    — load framework → grade all 9 areas silently → build SPOTTER_DATA\n` +
-              `3. ARTIFACT — write HTML to disk → register artifact  ← THIS IS THE DELIVERABLE\n` +
-              `4. CONFIRM  — post grade summary to chat (only after artifact exists)\n\n` +
+              `3. ARTIFACT — render filled HTML → register artifact  ← THIS IS THE DELIVERABLE\n` +
+              `4. CONFIRM  — post grade summary to chat (only after the artifact exists)\n\n` +
               `## Permitted tools\n\n` +
-              `Only these tools may be used. Everything else is forbidden.\n\n` +
               `  MCP:  list_artifacts · create_artifact · update_artifact · request_cowork_directory\n` +
               `        spotter_get_skill · spotter_get_examples · spotter_get_template\n` +
               `  File: Read · Write · Edit · Grep\n\n` +
-              `  Forbidden always: bash · mcp__workspace__bash · WebFetch · web_fetch · curl · wget\n\n` +
-              `Note: spotter_get_template is an MCP tool call to the Loadout server — it is required and permitted. It is not a web fetch.\n\n` +
               `## Step 1 — Setup\n\n` +
               `a. Call list_artifacts.\n` +
-              `b. Find workspace root:\n` +
-              `   • Artifacts exist → take the html_path of any artifact and strip the filename.\n` +
-              `     e.g. "/Users/jane/Projects/loadout/warmup-brief.html" → "/Users/jane/Projects/loadout"\n` +
-              `   • No artifacts exist → find the user's selected workspace folder in your system context.\n` +
-              `     It is the folder the user mounted in Cowork — a short, human-readable path like /Users/[name]/Projects/[folder].\n` +
-              `     It is NOT the working directory, outputs folder, or any session/temp path.\n\n` +
-              `   Validate before continuing — if the workspace root contains any of these strings, you have the WRONG path:\n` +
-              `     "Application Support"  "sessions"  "outputs"  "uploads"  "local-agent"  "tmp"\n` +
-              `   A correct workspace root looks like: /Users/mike/Projects/loadout\n` +
-              `   If you cannot determine a valid workspace root, call request_cowork_directory (no arguments) to prompt the user to select a folder, then use the path they approve.\n\n` +
-              `c. Set target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html\n` +
-              `   Use today's date and current HH-MM (24h). e.g. epic "Comments on Dashboards" at 14:23 on 21 May 2026 → spotter-comments-on-dashboards-2026-05-21-14-23.html\n` +
-              `   Including the time guarantees a fresh Cowork panel on every run — date-only fails when the same epic is reviewed twice in one day.\n\n` +
+              `b. Find workspace root: take the html_path of any artifact and strip the filename; if none exist, use the user's mounted Cowork folder (a short path like /Users/[name]/Projects/[folder]). It is NOT a session/outputs/uploads/tmp path. If unsure, call request_cowork_directory and use the approved path.\n` +
+              `c. Target file: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html (the HH-MM keeps every run on a fresh panel).\n\n` +
               `## Step 2 — Grade (silent — no chat output)\n\n` +
-              `Writing grades, findings, or verdicts to chat in this step is a task failure.\n` +
-              `Grade exactly once — into SPOTTER_DATA. SPOTTER_DATA is the single source of truth.\n` +
-              `Step 4 reads grades from SPOTTER_DATA. It does not re-grade independently.\n\n` +
               `a. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter review framework" }).\n` +
-              `b. Grade all nine areas against the epic silently.\n` +
-              `   ✓ Pass → ["w","w","w"]  ·  ⚠️ Needs work → ["w","w","r"]  ·  ✗ Missing → ["r","r","r"]\n` +
-              `c. Area 1 has 8 sub-checks and carries disproportionate weight.\n` +
-              `   Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps verdict at "Not ready."\n` +
-              `d. Call spotter_get_examples({ area: N, intent: "..." }) if you need calibration on any area.\n` +
-              `e. Build SPOTTER_DATA now — this is the one and only grading pass:\n` +
-              `   meta: { epicTitle, epicDeck ("A Spotter review · Nine areas, three judges each."),\n` +
-              `           author (PM name or "PM"), date ("21 May 2026") }\n` +
-              `   areas: [ { id ("a01"–"a09"), num ("01"–"09"),\n` +
-              `              cat (from standard mapping), title (from standard mapping),\n` +
-              `              deck (area's one-line question),\n` +
-              `              verdict ("good" for Pass, "no-lift" for Needs work or Missing),\n` +
-              `              verdictLabel ("Pass" / "Needs work" / "Missing"),\n` +
-              `              pips (["w","w","w"] / ["w","w","r"] / ["r","r","r"]),\n` +
-              `              pipSub ("3 of 3 white" / "2 of 3 white" / "0 of 3 white"),\n` +
-              `              excerpt (verbatim epic text for this area, or "" if isEmpty),\n` +
-              `              excerptLabel (e.g. "Problem section"), excerptMeta (e.g. "82 words"),\n` +
-              `              isEmpty (true if epic has no content for this area),\n` +
-              `              notes: [{ type ("missing"|"suggest"|"recommend"|"observation"), body }],\n` +
-              `              chips: ["short chip label"] } ]\n` +
-              `   config: { fontToolName: the full prefixed name of warmup_get_fonts,\n` +
-              `             e.g. "mcp__3096d634-4b43-4ea7-9121-ad04763776a6__warmup_get_fonts" }\n` +
-              `   The artifact uses warmup_get_fonts to load fonts — Cowork blocks Google Fonts CDN.\n` +
+              `b. Grade all nine areas silently. ✓ Pass → ["w","w","w"] · ⚠️ Needs work → ["w","w","r"] · ✗ Missing → ["r","r","r"].\n` +
+              `c. Area 1 carries disproportionate weight (8 sub-checks). Area 9 is a gate: ✗ Missing on any B2B feature with agent actions or data access caps the verdict at "Not ready."\n` +
+              `d. Call spotter_get_examples({ area: N, intent: "..." }) if you need calibration.\n` +
+              `e. Build SPOTTER_DATA (the one and only grading pass):\n` +
+              `   meta: { epicTitle, epicDeck ("A Spotter review · Nine areas, three judges each."), author (PM name or "PM"), date ("21 May 2026") }\n` +
+              `   areas: [ { id ("a01"–"a09"), num ("01"–"09"), cat, title (standard mapping), deck (area question),\n` +
+              `              verdict ("good" for Pass, "no-lift" for Needs work/Missing), verdictLabel ("Pass"/"Needs work"/"Missing"),\n` +
+              `              pips (["w","w","w"] / ["w","w","r"] / ["r","r","r"]), pipSub ("3 of 3 white" ...),\n` +
+              `              excerpt (verbatim epic text, or "" if isEmpty), excerptLabel, excerptMeta, isEmpty,\n` +
+              `              notes: [{ type ("missing"|"suggest"|"recommend"|"observation"), body }], chips: ["short label"] } ]\n` +
+              `   config: {}   (fonts are baked — no font tool name needed)\n` +
               `   Voice: every note body is "you could strengthen this by…" — never "you missed" or "this is wrong."\n\n` +
-              `## Step 3 — Artifact  ← Write the file. This is the output.\n\n` +
-              `Always write a fresh file every session — this guarantees the artifact loads clean without stale state from a prior session.\n\n` +
-              `B-1. Fetch the template in chunks. Call spotter_get_template({ intent: "…", chunk: 0 }).\n` +
-              `     Read <!-- SPOTTER_TOTAL_CHUNKS: N --> from the response to learn N.\n` +
-              `     Call it exactly once per chunk. Do not re-call any chunk for any reason.\n` +
-              `     If a chunk call fails, stop and report the error.\n\n` +
-              `B-2. Write chunk 0 to disk:\n` +
-              `     file_path: [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html  (same path as Step 1c)\n` +
-              `     content: the chunk 0 string, exactly as returned — do not modify it.\n\n` +
-              `B-3. For i = 1 to N-1, sequentially (never parallel):\n` +
-              `     a. Call spotter_get_template({ chunk: i }).\n` +
-              `     b. Edit the file: replace <!-- __SPOTTER_SENTINEL__ --> with the chunk content.\n` +
-              `     When done: Grep the file for <!-- __SPOTTER_SENTINEL__ --> — it must not appear.\n\n` +
-              `B-4. Inject SPOTTER_DATA:\n` +
-              `     a. Grep the file for '<script id="spotter-data">'.\n` +
-              `     b. Read that script block (2–3 lines).\n` +
-              `     c. Edit: replace the entire block (use exact content from Read as old_string) with:\n` +
-              `          <script id="spotter-data">\n` +
-              `          window.SPOTTER_DATA = JSON_TEXT_HERE;\n` +
-`        JSON_TEXT_HERE means: paste the literal JSON text from JSON.stringify(SPOTTER_DATA)\n` +
-`        directly — no brackets, no outer quotes, no variable reference. Result looks like:\n` +
-`          window.SPOTTER_DATA = {"config":{...},"meta":{...},"areas":[...]};\n` +
-              `          </script>\n\n` +
-              `B-5. Call create_artifact — always create, never update_artifact.\n` +
-              `     id: "spotter-[epic-slug]-[YYYY-MM-DD-HH-MM]"   html_path: the same file_path used in B-2\n` +
-              `     mcp_tools: [the full prefixed name of warmup_get_fonts]\n` +
-              `     The artifact calls warmup_get_fonts at open time to load fonts — it must be in mcp_tools\n` +
-              `     or Cowork will block the font call and the report will render in fallback fonts.\n` +
-              `     The HH-MM timestamp guarantees a fresh Cowork panel on every run — date-only fails when the same epic is reviewed more than once in a day.\n\n` +
-              `Step 3 is complete when the file is on disk and registered. Do not proceed to Step 4 until B-3, B-4, and B-5 have all succeeded.\n\n` +
-              `## Step 4 — Confirm (artifact must already exist before this step)\n\n` +
-              `Read grades from SPOTTER_DATA. Do not re-evaluate any area. The grades in this summary must exactly match the judges arrays in SPOTTER_DATA — if they differ, the review is wrong.\n\n` +
-              `Write this and nothing else:\n\n` +
-              `  Review complete — open the artifact panel to see the full report.\n\n` +
+              `## Step 3 — Artifact  ← Render the file. This is the output.\n\n` +
+              `B-1. Call spotter_get_template({ intent: "…", chunk: 0, spotter_data: JSON.stringify(SPOTTER_DATA) }).\n` +
+              `     The server injects SPOTTER_DATA into the worksheet and returns it data-filled. Read <!-- SPOTTER_TOTAL_CHUNKS: N --> to learn N. Call each chunk exactly once.\n` +
+              `B-2. Write chunk 0 to [workspace-root]/spotter-[epic-slug]-[YYYY-MM-DD-HH-MM].html, exactly as returned.\n` +
+              `B-3. For i = 1..N-1 (sequential, never parallel): call spotter_get_template({ chunk: i, spotter_data: JSON.stringify(SPOTTER_DATA) }), then Edit the file replacing <!-- __SPOTTER_SENTINEL__ --> with the chunk. When done, Grep for the sentinel — it must not appear.\n` +
+              `B-4. Call create_artifact — always create, never update.\n` +
+              `     id: "spotter-[epic-slug]-[YYYY-MM-DD-HH-MM]"   html_path: the file from B-2\n` +
+              `     No mcp_tools are needed — fonts are baked and the worksheet uses askClaude, not an MCP tool.\n\n` +
+              `Step 3 is complete when the file is on disk and registered. The data is already injected — there is no separate SPOTTER_DATA edit step.\n\n` +
+              `## Step 4 — Confirm (artifact must already exist)\n\n` +
+              `Read grades from SPOTTER_DATA — do not re-evaluate. Write this and nothing else:\n\n` +
+              `  Review complete — open the artifact panel to see the full worksheet.\n\n` +
               `  **[Overall verdict]** · [N] of 9 areas passed\n\n` +
               `  | # | Area | Grade |\n` +
               `  |---|------|-------|\n` +
               `  | 1 | [name] | ✓ Pass / ⚠️ Needs work / ✗ Missing |\n` +
               `  | … |\n\n` +
               `  [1–2 sentences: biggest strength and the single most important thing to address.]\n\n` +
-              `  *Full report → artifact panel. Questions? Reply here.*\n\n` +
+              `  *Full worksheet → artifact panel. Questions? Reply here.*\n\n` +
               `## Epic\n\n\`\`\`\n${epic}\n\`\`\`\n\n` +
               `Read all instructions above before starting. Then execute steps 1 → 2 → 3 → 4.`,
           },
@@ -1073,81 +794,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       })
     );
 
-    this.server.tool(
-      "spotter_build",
-      "Primes the agent to help a PM build a new epic from scratch using The Spotter's framework. The agent walks the PM through the nine areas with guiding questions, lingering on Area 1 before moving on. Output is a polished draft epic.",
-      {
-        intent: intentField,
-        feature: z.string().describe("Brief description of the feature or capability the PM wants to build an epic for."),
-        answers: z.string().max(20000).optional().describe("Pre-supplied answers for all nine areas. If provided, skip the conversational phase and proceed directly to drafting."),
-      },
-      async ({ feature, answers }) => {
-        const conversationalMode =
-          `## How to run build mode\n\n` +
-          `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter build framework" }) to load the area framework and sub-checks before starting.\n` +
-          `2. Walk the PM through the nine areas with guiding questions. Ask — don't lecture.\n` +
-          `3. Linger on Area 1: empathy (A), current state (B), why-not-solved (C), no solutioning (D), scope/value framing (E), assumptions surfaced (F), alternatives considered (G), epistemic openness (H). Get real answers on all eight sub-checks before moving to Area 2.\n` +
-          `4. If the PM rushes past the user, gently slow them down: "Before we go further, can you tell me what it actually feels like to be this user on a hard day?"\n` +
-          `5. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) when ready to draft the final epic.\n` +
-          `6. The output at the end is a polished draft epic structured by area.\n` +
-          `7. After delivering the draft, post this exact closing line — do not paraphrase it:\n` +
-          `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?`;
 
-        const directMode =
-          `## Instructions\n\n` +
-          `The PM has pre-supplied answers for all nine areas. Skip the conversational phase entirely.\n\n` +
-          `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter build framework" }) to load the framework.\n` +
-          `2. Call spotter_get_skill({ section: "build", intent: "Loading build output format" }) to load the output format.\n` +
-          `3. Using the answers below, write a polished draft epic structured by area.\n` +
-          `4. Post this exact closing line — do not paraphrase it:\n` +
-          `   Draft complete. Want to run it through The Spotter review to grade all nine areas and get a full report?\n\n` +
-          `## PM Answers\n\n\`\`\`\n${answers}\n\`\`\``;
-
-        return ({
-          content: [
-            {
-              type: "text" as const,
-              text:
-                `# The Spotter v${SPOTTER_VERSION} — Build Mode\n\n` +
-                `A PM is building an epic for: **${feature}**.\n\n` +
-                (answers ? directMode : conversationalMode) +
-                `\n\n## Voice\n\n` +
-                `Critique, not criticism. Ask questions; don't lecture. Every flag is "you could strengthen this by..." — never "you missed..."\n\n` +
-                (answers ? `` : `Begin with Area 1. Ask about the user first.`),
-            },
-          ],
-        });
-      }
-    );
-
-    this.server.tool(
-      "spotter_iterate",
-      "Primes the agent to push a partial draft epic forward. The agent engages only the areas that have content, asks targeted questions for each gap, and offers structure where the PM is stuck.",
-      {
-        intent: intentField,
-        draft: z.string().min(50).max(20000).describe("The current partial draft of the epic. Can be incomplete or rough."),
-      },
-      async ({ draft }) => ({
-        content: [
-          {
-            type: "text" as const,
-            text:
-              `# The Spotter v${SPOTTER_VERSION} — Iterate Mode\n\n` +
-              `A PM has a partial draft they want to push forward.\n\n` +
-              `## How to run iterate mode\n\n` +
-              `1. Call spotter_get_skill({ section: "areas", intent: "Loading Spotter framework for iteration" }) to load the area framework and sub-checks before engaging.\n` +
-              `2. Scan the draft for which areas have content — engage only those.\n` +
-              `3. For each area with content: acknowledge what's there, ask one or two specific questions that push the section forward, offer structure where the PM is stuck.\n` +
-              `4. For areas not yet drafted, ask: "Have you started thinking about [area]? I can help you frame it."\n` +
-              `5. Call spotter_get_skill({ section: "iterate", intent: "Loading iterate output format" }) for the output format guidance.\n\n` +
-              `## Voice\n\n` +
-              `Critique, not criticism. Each suggestion uses "you could strengthen this by..." framing — never "you missed..."\n\n` +
-              `## Draft to iterate on\n\n\`\`\`\n${draft}\n\`\`\`\n\n` +
-              `Load the areas (step 1), then walk the areas present in the draft. Push each one forward.`,
-          },
-        ],
-      })
-    );
 
     // ══════════════════════════════════════════════════════════════════════════
     // ── approach_get_skill ──────────────────────────────────────────────────
@@ -1179,7 +826,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "Call with chunk:0 first; read <!-- APPROACH_TOTAL_CHUNKS: N --> from the response " +
       "to learn the total. Write chunk 0 to disk, then for chunks 1..N-1 call with chunk:i " +
       "and Edit-replace <!-- __APPROACH_SENTINEL__ --> with each chunk. " +
-      "After assembly, call create_artifact (pass warmup_get_fonts in mcp_tools). " +
+      "After assembly, call create_artifact. " +
       "Do NOT use bash to move files — use the Read/Write file tools.",
       {
         intent: intentField,
@@ -1310,25 +957,12 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
               "       Edit approach-brief.html: old_string='<!-- __APPROACH_SENTINEL__ -->' → new_string=[chunk text].",
               "       Wait for Edit to succeed before starting i+1.",
               "  5. Verify: Grep approach-brief.html for <!-- __APPROACH_SENTINEL__ -->. Must be 0 matches.",
-              "  6. Call create_artifact({ html_path: '...approach-brief.html', mcp_tools: ['mcp__<uuid>__warmup_get_fonts'] }).",
+              "  6. Call create_artifact({ html_path: '...approach-brief.html' }).",
               "  Do NOT use bash to move or copy files — use Read/Write file tools with real macOS paths.",
               "",
-              "## Font loading — required",
+              "## Fonts",
               "",
-              "Cowork's CSP blocks Google Fonts CDN. The artifact loads fonts via the Cowork bridge",
-              "by calling warmup_get_fonts at open time. You must:",
-              "",
-              "  1. Include config.fontToolName in APPROACH_DATA:",
-              "       config: {",
-              "         fontToolName: \"mcp__<uuid>__warmup_get_fonts\"  // your full prefixed tool name",
-              "         ...other config fields...",
-              "       }",
-              "     Your loaded warmup_get_fonts tool is named like \"mcp__<uuid>__warmup_get_fonts\".",
-              "     Use that exact string — the UUID prefix changes per session.",
-              "",
-              "  2. Pass warmup_get_fonts in mcp_tools when calling create_artifact:",
-              "       mcp_tools: [\"mcp__<uuid>__warmup_get_fonts\"]",
-              "     Without this, Cowork blocks the font call and the brief renders in fallback fonts.",
+              "Fonts load from the Google Fonts CDN with a system-font fallback — nothing to configure, and no font tool is needed.",
             ].join("\n"),
           }],
         };

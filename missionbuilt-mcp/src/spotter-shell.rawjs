@@ -1222,7 +1222,7 @@ a { color: inherit; text-decoration: none; }
       mode: 'build',
       epic: {
         name: 'Add multi-tenant SSO to the customer admin dashboard.',
-        company: 'Elastic',
+        company: 'Sightline',
         teamShape: '2 eng \xB7 0.5 design',
         window: '7 weeks',
         attempt: 1,

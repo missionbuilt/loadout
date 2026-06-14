@@ -1,0 +1,341 @@
+{
+  "meta": {
+    "name": "Floodlight Visibility Catalog",
+    "catalogVersion": "0.3.0",
+    "attackVersion": "ATT&CK v18 (October 2025 — Detection Strategy / Log Sources model)",
+    "generated": "2026-06-13",
+    "scope": "Curated high-value subset, not exhaustive. ~60 techniques anchored on Red Canary 2025 prevalence + CTID Top ATT&CK Techniques (prevalence, choke points, actionability), mapped to crown-jewel log sources with specific fields. Built to teach visibility-first posture, not to replace a detection-engineering program.",
+    "identityEmphasis": "Identity is the primary modern battleground, accelerated by AI: AiTM/token theft is now the top M365 breach vector, MFA is the target (bombing, federation/Golden SAML, help-desk resets), and non-human/AI-agent identities outnumber humans ~80:1. The catalog weights identity, cloud, and email sources accordingly and treats Identity Threat Detection & Response (ITDR) telemetry as crown-jewel.",
+    "tempoEmphasis": "Attacks are extremely accelerated: average eCrime breakout time is ~29 minutes (fastest 27 seconds), with AI-generated polymorphic, fileless, and LOLBin execution. Execution (TA0002) and Defense Evasion (TA0005) are flagged highTempo and weighted heavily. Critically, Defense Evasion attacks visibility itself — EDR killers via BYOVD (54 tools, 35 vulnerable drivers, 300+ EDR products terminable) blind endpoint telemetry — so the report must argue for breadth and redundancy: off-host log shipping, plus identity/cloud/network sources that survive endpoint blinding. Speed also raises the value of retention and fast, centralized collection.",
+    "sources": [
+      {"id": "attack", "name": "MITRE ATT&CK Enterprise v18", "url": "https://attack.mitre.org/"},
+      {"id": "ctid-top", "name": "CTID Top ATT&CK Techniques (prevalence + choke points + actionability)", "url": "https://github.com/center-for-threat-informed-defense/top-attack-techniques"},
+      {"id": "redcanary-2025", "name": "Red Canary Threat Detection Report — Top Techniques (2025 data)", "url": "https://redcanary.com/threat-detection-report/techniques/"},
+      {"id": "dettect", "name": "DeTT&CT — data-source quality & visibility scoring", "url": "https://github.com/rabobank-cdc/DeTTECT"},
+      {"id": "ms-audit", "name": "Microsoft — Advanced security audit policy / event IDs", "url": "https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/advanced-security-audit-policy-settings"},
+      {"id": "sysmon", "name": "Microsoft Sysinternals — Sysmon event reference", "url": "https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon"},
+      {"id": "m2131", "name": "OMB M-21-31 — federal event-logging maturity (EL1-EL3)", "url": "https://www.whitehouse.gov/wp-content/uploads/2021/08/M-21-31-Improving-the-Federal-Governments-Investigative-and-Remediation-Capabilities-Related-to-Cybersecurity-Incidents.pdf"}
+    ],
+    "disclaimer": "Event IDs and field names reflect common Windows/Sysmon/cloud telemetry as of mid-2026. Names vary by platform and configuration; treat as the high-value starting set, not an authoritative per-environment mapping. Choke-point and prevalence flags are directional, drawn from CTID and Red Canary — not a guarantee of what targets a specific organization."
+  },
+
+  "tactics": [
+    {"id": "TA0043", "name": "Reconnaissance",        "order": 1,  "instrumentable": false, "external": true,  "note": "Occurs outside your environment — limited internal visibility by nature."},
+    {"id": "TA0042", "name": "Resource Development",  "order": 2,  "instrumentable": false, "external": true,  "note": "Adversary builds infrastructure off your network — not internally observable."},
+    {"id": "TA0001", "name": "Initial Access",        "order": 3,  "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0002", "name": "Execution",             "order": 4,  "instrumentable": true,  "chokepoint": true,  "highTempo": true, "note": "Convergence point and high-tempo — nearly every intrusion must run code, increasingly fileless / LOLBin / AI-generated. Process and script-block visibility here is among the highest-value you can have."},
+    {"id": "TA0003", "name": "Persistence",           "order": 5,  "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0004", "name": "Privilege Escalation",  "order": 6,  "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0005", "name": "Defense Evasion",       "order": 7,  "instrumentable": true,  "chokepoint": false, "highTempo": true, "note": "High-tempo and adversarial to visibility itself — EDR killers/BYOVD, rootkits, and log clearing attack your sensors. Catch it from off-host log shipping and sources that survive endpoint blinding."},
+    {"id": "TA0006", "name": "Credential Access",     "order": 8,  "instrumentable": true,  "chokepoint": true,  "note": "Convergence point — credential theft funnels most hands-on-keyboard intrusions."},
+    {"id": "TA0007", "name": "Discovery",             "order": 9,  "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0008", "name": "Lateral Movement",      "order": 10, "instrumentable": true,  "chokepoint": true,  "note": "Convergence point — moving between hosts is hard to avoid and high-signal to catch."},
+    {"id": "TA0009", "name": "Collection",            "order": 11, "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0011", "name": "Command and Control",   "order": 12, "instrumentable": true,  "chokepoint": true,  "note": "Convergence point — C2 was the single most-observed tactic in 2025 telemetry."},
+    {"id": "TA0010", "name": "Exfiltration",          "order": 13, "instrumentable": true,  "chokepoint": false},
+    {"id": "TA0040", "name": "Impact",                "order": 14, "instrumentable": true,  "chokepoint": false}
+  ],
+
+  "logSources": [
+    {
+      "id": "cloud_signin",
+      "name": "Cloud / identity sign-in logs",
+      "category": "Identity",
+      "platforms": ["Entra ID", "Okta", "AWS", "Google Workspace"],
+      "fields": ["user_principal", "application", "source_ip", "geo_location", "device_id", "mfa_result", "auth_method", "conditional_access_result", "auth_result", "session_id", "token_issued_time", "user_agent"],
+      "telemetry": ["Entra ID SigninLogs (interactive + non-interactive)", "Okta system log (user.session.start)", "AWS CloudTrail ConsoleLogin / AssumeRole", "Google Workspace login audit"],
+      "recommendedRetention": "12 months minimum (identity is the new perimeter; longest practical retention preferred)",
+      "quality": "Must include source IP, MFA result, auth method and conditional-access outcome — not just success/fail. Capture token/session issuance so AiTM session-token theft (now the primary M365 breach vector, ~31% in 2025) is detectable: a valid session with no fresh MFA, or reuse from a new IP/device, is the tell. Federated/SSO events must be correlated to the IdP, not the downstream app.",
+      "crownJewel": true
+    },
+    {
+      "id": "identity_audit",
+      "name": "Directory / identity change audit",
+      "category": "Identity",
+      "platforms": ["Entra ID", "Okta", "Active Directory", "AWS IAM", "Google Workspace"],
+      "fields": ["actor", "target_account", "operation", "role_or_group", "app_id", "consent_scope", "mfa_reset", "recovery_method_change", "credential_added", "result", "timestamp"],
+      "telemetry": ["Entra audit logs (Add member to role, Consent to application, Reset password, Update MFA)", "Windows Security 4720/4722/4724/4728/4732/4756/5136", "AWS CloudTrail IAM events", "Okta system log (help-desk MFA reset / recovery)"],
+      "recommendedRetention": "12 months minimum; role/permission grants are slow-burn persistence.",
+      "quality": "Capture the actor AND the target, plus OAuth consent scopes and role assignments. Help-desk-driven MFA resets and account-recovery changes are now a primary intrusion path (Scattered Spider) — these operations must be audited and alertable. Group/role changes without the granting principal are low value.",
+      "crownJewel": true
+    },
+    {
+      "id": "nhi_monitoring",
+      "name": "Non-human / AI-agent identity inventory & usage",
+      "category": "Identity",
+      "platforms": ["Entra service principals", "AWS IAM roles/keys", "OAuth apps", "Kubernetes/workload identity", "AI agent identities", "secrets managers"],
+      "fields": ["identity_type", "owner", "privilege_scope", "credential_type", "credential_age", "last_used", "source_ip", "token_age", "associated_app_or_agent"],
+      "telemetry": ["Entra service-principal sign-ins & app credential additions", "AWS IAM credential report / Access Analyzer", "OAuth app grant inventory", "secrets-scanning (exposed keys)", "ITDR / CSPM non-human identity discovery"],
+      "recommendedRetention": "12 months; machine credentials are long-lived and abuse is slow to surface.",
+      "quality": "Non-human identities (service accounts, API keys, OAuth apps, and now AI agents) outnumber humans roughly 80:1 and are typically over-privileged, unrotated, and unmonitored — the AI-era blind spot. Inventory them, track credential age and last-used, and alert on service-principal sign-ins from new IPs or sudden privilege scope changes.",
+      "crownJewel": true
+    },
+    {
+      "id": "cloud_control_plane",
+      "name": "Cloud management / API audit",
+      "category": "Cloud",
+      "platforms": ["AWS", "Azure", "GCP"],
+      "fields": ["event_name", "principal", "source_ip", "user_agent", "resource_arn", "request_parameters", "error_code", "read_only_flag"],
+      "telemetry": ["AWS CloudTrail (management events)", "Azure Activity Log", "GCP Admin Activity audit log"],
+      "recommendedRetention": "12 months minimum; control-plane abuse precedes most cloud incidents.",
+      "quality": "Management events must be on in ALL regions/accounts. Data events (e.g. S3 object access) are separate and often disabled by default — enable for crown-jewel buckets.",
+      "crownJewel": true
+    },
+    {
+      "id": "cloud_storage_access",
+      "name": "Cloud object-storage data access logs",
+      "category": "Cloud",
+      "platforms": ["AWS S3", "Azure Blob", "GCP Cloud Storage"],
+      "fields": ["bucket_or_container", "object_key", "operation", "principal", "source_ip", "bytes", "result"],
+      "telemetry": ["AWS CloudTrail S3 data events / S3 server access logs", "Azure Storage analytics logs", "GCP data access audit logs"],
+      "recommendedRetention": "12 months; primary evidence for cloud data theft (Red Canary #4, T1530).",
+      "quality": "Data-event logging is OFF by default on most platforms and is the #1 cloud blind spot. Enable at least for sensitive buckets.",
+      "crownJewel": true
+    },
+    {
+      "id": "process_creation",
+      "name": "Process creation / execution telemetry",
+      "category": "Endpoint",
+      "platforms": ["Windows", "macOS", "Linux"],
+      "fields": ["process_name", "command_line", "parent_process_name", "process_hash", "user", "integrity_level", "process_guid"],
+      "telemetry": ["Windows Security 4688 (with command-line auditing enabled)", "Sysmon Event ID 1", "EDR process events", "Linux auditd execve"],
+      "recommendedRetention": "6-12 months; command line is the single richest endpoint field.",
+      "quality": "4688 without command-line auditing is nearly worthless — the command line is the signal. Parent process and hash distinguish living-off-the-land abuse from benign use.",
+      "crownJewel": true
+    },
+    {
+      "id": "powershell_logs",
+      "name": "PowerShell / script-block logging",
+      "category": "Endpoint",
+      "platforms": ["Windows"],
+      "fields": ["script_block_text", "command_invoked", "host_application", "user", "deobfuscated_content"],
+      "telemetry": ["PowerShell/Operational 4104 (script block)", "4103 (module/pipeline)", "transcription logs"],
+      "recommendedRetention": "6-12 months.",
+      "quality": "Script-block logging (4104) captures deobfuscated content — essential for T1027 and T1059.001. Module logging alone misses obfuscated payloads.",
+      "crownJewel": true
+    },
+    {
+      "id": "windows_auth",
+      "name": "Endpoint / domain authentication logs",
+      "category": "Identity",
+      "platforms": ["Windows", "Active Directory"],
+      "fields": ["account", "logon_type", "source_ip", "source_workstation", "auth_package", "result", "ticket_options", "service_name"],
+      "telemetry": ["Windows Security 4624 (success) / 4625 (fail) / 4634 / 4648", "Kerberos 4768/4769/4771/4776", "NTLM 4776"],
+      "recommendedRetention": "12 months; logon_type 3/10 underpins lateral-movement detection.",
+      "quality": "Logon type matters: type 10 (RDP), type 3 (network/SMB). 4769 with weak encryption flags Kerberoasting. Collect from domain controllers, not just endpoints.",
+      "crownJewel": true
+    },
+    {
+      "id": "email_security",
+      "name": "Email gateway / message trace",
+      "category": "Email",
+      "platforms": ["Microsoft 365", "Google Workspace", "secure email gateway"],
+      "fields": ["sender", "recipient", "subject", "attachment_name", "attachment_hash", "embedded_urls", "spf_result", "dkim_result", "dmarc_result", "verdict", "delivery_action"],
+      "telemetry": ["M365 message trace / Defender for Office", "Google Workspace email log search", "SEG logs"],
+      "recommendedRetention": "6-12 months; phishing is still the dominant initial-access vector.",
+      "quality": "Authentication results (SPF/DKIM/DMARC) and the final delivery action are what separate blocked from delivered. URL and attachment detonation verdicts add detection depth.",
+      "crownJewel": true
+    },
+    {
+      "id": "email_mailbox_audit",
+      "name": "Mailbox / collaboration audit",
+      "category": "Email",
+      "platforms": ["Microsoft 365", "Google Workspace"],
+      "fields": ["operation", "mailbox", "actor", "rule_name", "rule_parameters", "forwarding_target", "permission_granted", "client_ip"],
+      "telemetry": ["M365 Unified Audit Log (New-InboxRule, Set-InboxRule, UpdateInboxRules, Set-Mailbox, Add-MailboxPermission)", "Google Workspace admin audit"],
+      "recommendedRetention": "12 months; inbox-rule abuse is top-10 prevalent (Red Canary #6 & #9).",
+      "quality": "Mailbox auditing must be explicitly enabled and rule PARAMETERS captured (forward-to address, delete/move actions) — the rule name alone misses the intent.",
+      "crownJewel": true
+    },
+    {
+      "id": "network_flow",
+      "name": "Network traffic / flow logs",
+      "category": "Network",
+      "platforms": ["firewall", "router", "cloud VPC", "Zeek"],
+      "fields": ["src_ip", "dst_ip", "src_port", "dst_port", "protocol", "bytes_in", "bytes_out", "duration", "action"],
+      "telemetry": ["NetFlow / IPFIX", "firewall connection logs", "VPC/NSG flow logs", "Zeek conn.log", "Sysmon Event ID 3"],
+      "recommendedRetention": "3-6 months (high volume); aggregate/flow retained longer than full packet.",
+      "quality": "Byte counts and direction enable exfil detection. East-west (internal) flow is the lateral-movement blind spot most orgs lack.",
+      "crownJewel": true
+    },
+    {
+      "id": "dns_query",
+      "name": "DNS query logs",
+      "category": "Network",
+      "platforms": ["DNS server", "endpoint", "Zeek"],
+      "fields": ["query_name", "query_type", "response_code", "resolved_ip", "client_ip", "process"],
+      "telemetry": ["Sysmon Event ID 22", "DNS server analytical logs", "Zeek dns.log", "protective-DNS provider logs"],
+      "recommendedRetention": "3-6 months.",
+      "quality": "DNS is cheap to collect and high-value for C2/tunneling/DGA. Client-IP-to-query attribution is essential; resolver-only logs lose the originating host.",
+      "crownJewel": true
+    },
+    {
+      "id": "web_proxy",
+      "name": "Web proxy / secure web gateway logs",
+      "category": "Network",
+      "platforms": ["proxy", "SWG", "CASB"],
+      "fields": ["url", "http_method", "user_agent", "status_code", "bytes_sent", "bytes_received", "category", "user"],
+      "telemetry": ["proxy/SWG access logs", "CASB logs"],
+      "recommendedRetention": "3-6 months.",
+      "quality": "User attribution and full URL (not just domain) drive detection of tool transfer, web-service exfil, and RMM abuse.",
+      "crownJewel": false
+    },
+    {
+      "id": "file_monitoring",
+      "name": "File / object monitoring",
+      "category": "Endpoint",
+      "platforms": ["Windows", "macOS", "Linux"],
+      "fields": ["file_name", "file_path", "action", "process", "file_hash", "share_name"],
+      "telemetry": ["Sysmon 11 (create) / 23 (delete)", "Windows Security 4663 (object access)", "5140/5145 (file share access)", "EDR file events"],
+      "recommendedRetention": "3-6 months.",
+      "quality": "Mass file modification rate is the signature of ransomware (T1486). Share access (5145) supports lateral tool transfer detection.",
+      "crownJewel": false
+    },
+    {
+      "id": "registry",
+      "name": "Windows registry monitoring",
+      "category": "Endpoint",
+      "platforms": ["Windows"],
+      "fields": ["registry_key", "value_name", "value_data", "process", "user"],
+      "telemetry": ["Sysmon 12/13/14", "Windows Security 4657"],
+      "recommendedRetention": "3-6 months.",
+      "quality": "Scope to autostart, service, and security-tool keys — full registry auditing is noise. Process attribution is essential.",
+      "crownJewel": false
+    },
+    {
+      "id": "scheduled_task_service",
+      "name": "Scheduled task / service / WMI persistence",
+      "category": "Endpoint",
+      "platforms": ["Windows"],
+      "fields": ["task_or_service_name", "command_or_image_path", "author_or_account", "trigger", "start_type"],
+      "telemetry": ["Windows Security 4698/4699/4702 (tasks)", "4697 / System 7045 (services)", "Sysmon 19/20/21 (WMI subscription)"],
+      "recommendedRetention": "6-12 months; persistence is slow-burn.",
+      "quality": "Capture the command/image path and creating account — the task name is trivially spoofed.",
+      "crownJewel": false
+    },
+    {
+      "id": "windows_event_logs",
+      "name": "Security log integrity / system events",
+      "category": "Endpoint",
+      "platforms": ["Windows"],
+      "fields": ["event_id", "log_channel", "account", "service_name", "action"],
+      "telemetry": ["Windows Security 1102 (audit log cleared)", "System 104 (log cleared)", "service stop/start", "7045"],
+      "recommendedRetention": "12 months.",
+      "quality": "Log-clearing (1102/104) is a high-fidelity evasion signal — but only if logs are shipped off-host before they can be cleared.",
+      "crownJewel": false
+    },
+    {
+      "id": "edr_endpoint",
+      "name": "EDR behavioral telemetry",
+      "category": "Endpoint",
+      "platforms": ["Windows", "macOS", "Linux"],
+      "fields": ["process_tree", "module_loads", "remote_thread", "process_access", "api_telemetry", "network_per_process"],
+      "telemetry": ["EDR sensor (CrowdStrike/Defender/SentinelOne/etc.)", "Sysmon 7/8/10 as a partial open-source substitute"],
+      "recommendedRetention": "Vendor-dependent; 6-12 months of detections/metadata.",
+      "quality": "Cross-cuts many techniques (injection, credential dumping, defense evasion). The single highest-leverage endpoint investment, but does not replace identity/cloud/email visibility.",
+      "crownJewel": true
+    }
+  ],
+
+  "techniques": [
+    {"id": "T1566",     "name": "Phishing",                                   "tactics": ["TA0001"], "chokepoint": false, "prevalence": null, "sources": ["email_security", "email_mailbox_audit", "web_proxy", "process_creation"], "note": "Dominant initial-access vector; correlate delivered mail with subsequent execution."},
+    {"id": "T1190",     "name": "Exploit Public-Facing Application",          "tactics": ["TA0001"], "chokepoint": false, "prevalence": null, "sources": ["web_proxy", "network_flow", "process_creation"], "note": "Watch for web-server processes spawning shells/child processes."},
+    {"id": "T1078",     "name": "Valid Accounts",                             "tactics": ["TA0001","TA0003","TA0004","TA0005"], "chokepoint": true, "prevalence": null, "sources": ["cloud_signin", "windows_auth", "identity_audit"], "note": "Choke point. Legitimate credentials evade most controls — anomalous sign-in context is the tell."},
+    {"id": "T1078.004", "name": "Valid Accounts: Cloud Accounts",             "tactics": ["TA0001","TA0003","TA0004","TA0005"], "chokepoint": true, "prevalence": 1, "sources": ["cloud_signin", "identity_audit", "cloud_control_plane"], "note": "Red Canary #1 (2025). Impossible-travel, new-device, and MFA-fatigue patterns in sign-in logs."},
+    {"id": "T1133",     "name": "External Remote Services",                   "tactics": ["TA0001","TA0003"], "chokepoint": false, "prevalence": null, "sources": ["cloud_signin", "network_flow", "windows_auth"], "note": "VPN/RDP/gateway exposure; unsecured RDP led most 2025 ransomware cases."},
+    {"id": "T1199",     "name": "Trusted Relationship",                       "tactics": ["TA0001"], "chokepoint": false, "prevalence": null, "sources": ["cloud_control_plane", "identity_audit", "cloud_signin"], "note": "Supply-chain / third-party access abuse — watch external/partner principals."},
+
+    {"id": "T1059",     "name": "Command and Scripting Interpreter",          "tactics": ["TA0002"], "chokepoint": true, "prevalence": null, "sources": ["process_creation", "powershell_logs"], "note": "Choke point. Command line is the signal."},
+    {"id": "T1059.001", "name": "PowerShell",                                 "tactics": ["TA0002"], "chokepoint": true, "prevalence": 2, "sources": ["powershell_logs", "process_creation"], "note": "Red Canary #2. Script-block logging (4104) captures deobfuscated content."},
+    {"id": "T1059.003", "name": "Windows Command Shell",                      "tactics": ["TA0002"], "chokepoint": true, "prevalence": 3, "sources": ["process_creation"], "note": "Red Canary #3. cmd.exe with suspicious parent/child chains."},
+    {"id": "T1047",     "name": "Windows Management Instrumentation",         "tactics": ["TA0002"], "chokepoint": true, "prevalence": 7, "sources": ["process_creation", "powershell_logs", "scheduled_task_service"], "note": "Red Canary #7. wmic/WMI for execution and lateral movement."},
+    {"id": "T1204.004", "name": "User Execution: Malicious Copy and Paste",   "tactics": ["TA0002"], "chokepoint": false, "prevalence": 8, "sources": ["process_creation", "powershell_logs", "email_security"], "note": "Red Canary #8 (ClickFix). User pastes attacker command into Run/terminal."},
+    {"id": "T1053",     "name": "Scheduled Task/Job",                         "tactics": ["TA0002","TA0003","TA0004"], "chokepoint": false, "prevalence": null, "sources": ["scheduled_task_service", "process_creation"], "note": "Execution + persistence; capture command and creating account."},
+    {"id": "T1203",     "name": "Exploitation for Client Execution",          "tactics": ["TA0002"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["email_security", "process_creation", "edr_endpoint"], "note": "Malicious document/browser exploit; office or browser process spawning child processes."},
+    {"id": "T1106",     "name": "Native API",                                 "tactics": ["TA0002"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["edr_endpoint", "process_creation"], "note": "Fileless execution via direct API calls — bypasses command-line-only logging. EDR/in-memory telemetry required."},
+    {"id": "T1072",     "name": "Software Deployment Tools",                  "tactics": ["TA0002","TA0008"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["process_creation", "cloud_control_plane", "network_flow"], "note": "Abusing RMM/SCCM/Intune to push payloads to many hosts at once — a force multiplier for fast, wide compromise."},
+    {"id": "T1559",     "name": "Inter-Process Communication",               "tactics": ["TA0002"], "chokepoint": false, "prevalence": null, "sources": ["edr_endpoint", "process_creation"], "note": "COM/DDE abuse for stealthy execution; office spawning anomalous children."},
+
+    {"id": "T1136",     "name": "Create Account",                             "tactics": ["TA0003"], "chokepoint": false, "prevalence": null, "sources": ["identity_audit", "windows_auth", "cloud_control_plane"], "note": "New local/domain/cloud accounts as backdoor persistence."},
+    {"id": "T1098",     "name": "Account Manipulation",                       "tactics": ["TA0003","TA0004"], "chokepoint": false, "prevalence": null, "sources": ["identity_audit", "cloud_control_plane", "email_mailbox_audit"], "note": "Added credentials, roles, app permissions, mailbox rights."},
+    {"id": "T1114.003", "name": "Email Collection: Email Forwarding Rule",    "tactics": ["TA0003","TA0009"], "chokepoint": false, "prevalence": 6, "sources": ["email_mailbox_audit"], "note": "Red Canary #6. Auto-forwarding to external address; capture rule parameters."},
+    {"id": "T1564.008", "name": "Hide Artifacts: Email Hiding Rules",         "tactics": ["TA0005"], "chokepoint": false, "prevalence": 9, "sources": ["email_mailbox_audit"], "note": "Red Canary #9. Rules that delete/move replies to hide BEC activity."},
+    {"id": "T1505.003", "name": "Server Software Component: Web Shell",       "tactics": ["TA0003"], "chokepoint": false, "prevalence": null, "sources": ["web_proxy", "process_creation", "file_monitoring"], "note": "Web-server process spawning shells; new files in web roots."},
+    {"id": "T1547",     "name": "Boot or Logon Autostart Execution",         "tactics": ["TA0003","TA0004"], "chokepoint": false, "prevalence": null, "sources": ["registry", "file_monitoring", "process_creation"], "note": "Run keys, startup folder — scope registry auditing to autostart keys."},
+    {"id": "T1543.003", "name": "Create/Modify System Process: Windows Service","tactics": ["TA0003","TA0004"], "chokepoint": false, "prevalence": null, "sources": ["scheduled_task_service", "registry", "process_creation"], "note": "Service install (7045/4697) for persistence and SYSTEM-level execution."},
+
+    {"id": "T1055",     "name": "Process Injection",                          "tactics": ["TA0004","TA0005"], "chokepoint": true, "prevalence": null, "sources": ["edr_endpoint", "process_creation"], "note": "Choke point. CreateRemoteThread/process access (Sysmon 8/10); EDR is primary."},
+    {"id": "T1068",     "name": "Exploitation for Privilege Escalation",      "tactics": ["TA0004"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "edr_endpoint"], "note": "Anomalous child processes / token changes after exploit."},
+    {"id": "T1484",     "name": "Domain or Tenant Policy Modification",       "tactics": ["TA0004","TA0005"], "chokepoint": false, "prevalence": null, "sources": ["identity_audit", "cloud_control_plane"], "note": "GPO / conditional-access / federation tampering."},
+
+    {"id": "T1027",     "name": "Obfuscated Files or Information",            "tactics": ["TA0005"], "chokepoint": false, "prevalence": 10, "sources": ["powershell_logs", "process_creation", "file_monitoring"], "note": "Red Canary #10. Encoded commands; 4104 deobfuscation is key."},
+    {"id": "T1070.001", "name": "Indicator Removal: Clear Windows Event Logs","tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["windows_event_logs"], "note": "1102/104 — only catchable if logs ship off-host first."},
+    {"id": "T1562.001", "name": "Impair Defenses: Disable or Modify Tools",  "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["windows_event_logs", "process_creation", "registry", "edr_endpoint"], "note": "EDR killers / BYOVD — 54 known tools abuse 35 vulnerable signed drivers to terminate 300+ EDR products before encryption. The sensor going silent IS the signal: alert on unexpected sensor stop, driver loads, and gaps in expected telemetry. This technique blinds endpoint visibility, so it must be caught from off-host log shipping and surviving identity/cloud/network sources."},
+    {"id": "T1036",     "name": "Masquerading",                               "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "file_monitoring"], "note": "Renamed system binaries; path/hash mismatch vs. process name."},
+    {"id": "T1218",     "name": "System Binary Proxy Execution",              "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["process_creation"], "note": "LOLBins (rundll32, mshta, regsvr32) — parent/child + command line."},
+    {"id": "T1112",     "name": "Modify Registry",                            "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["registry"], "note": "Defense-evasion registry edits; scope to security-relevant keys."},
+    {"id": "T1574",     "name": "Hijack Execution Flow (DLL sideloading)",    "tactics": ["TA0005","TA0003","TA0004"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["process_creation", "file_monitoring", "edr_endpoint"], "note": "DLL search-order hijacking / sideloading — a signed legit binary loads a malicious DLL. Module-load telemetry and file writes next to trusted binaries are the tell."},
+    {"id": "T1620",     "name": "Reflective Code Loading",                     "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["edr_endpoint"], "note": "In-memory/fileless loading that leaves no file on disk — requires behavioral/memory telemetry; command-line and file logs miss it."},
+    {"id": "T1140",     "name": "Deobfuscate/Decode Files or Information",     "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["powershell_logs", "process_creation"], "note": "AI-generated polymorphic/obfuscated payloads; 4104 script-block logging captures the decoded content at runtime."},
+    {"id": "T1070.004", "name": "Indicator Removal: File Deletion",           "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["file_monitoring", "process_creation"], "note": "Self-deletion of tooling/artifacts to frustrate forensics."},
+    {"id": "T1553.002", "name": "Subvert Trust Controls: Code Signing",       "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "file_monitoring"], "note": "Stolen/abused signing certs to make malware look trusted — signature presence is no longer sufficient; check signer reputation."},
+    {"id": "T1497",     "name": "Virtualization/Sandbox Evasion",             "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["edr_endpoint", "process_creation"], "note": "Environment checks to dodge sandboxes/analysis before detonating."},
+    {"id": "T1014",     "name": "Rootkit",                                    "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "trend": "accelerated", "sources": ["edr_endpoint", "windows_event_logs", "registry"], "note": "Kernel-level (often via vulnerable driver) hiding of processes/files — watch driver loads and integrity of the boot/kernel chain."},
+    {"id": "T1211",     "name": "Exploitation for Defense Evasion",           "tactics": ["TA0005"], "chokepoint": false, "prevalence": null, "sources": ["edr_endpoint", "process_creation"], "note": "Exploiting a flaw to disable or bypass a security control (overlaps BYOVD kernel exploitation)."},
+
+    {"id": "T1003",     "name": "OS Credential Dumping",                      "tactics": ["TA0006"], "chokepoint": true, "prevalence": null, "sources": ["edr_endpoint", "process_creation"], "note": "Choke point. LSASS access (Sysmon 10) is the classic signal; EDR primary."},
+    {"id": "T1110",     "name": "Brute Force",                                "tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "sources": ["windows_auth", "cloud_signin"], "note": "4625 / failed sign-in bursts; password spray spans many accounts, few attempts each."},
+    {"id": "T1558.003", "name": "Kerberoasting",                              "tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "sources": ["windows_auth"], "note": "4769 service-ticket requests with weak (RC4) encryption."},
+    {"id": "T1528",     "name": "Steal Application Access Token",             "tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "sources": ["cloud_signin", "identity_audit", "cloud_control_plane"], "note": "Red Canary featured. Illicit OAuth consent grants and token theft."},
+    {"id": "T1555",     "name": "Credentials from Password Stores",          "tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "sources": ["edr_endpoint", "file_monitoring", "process_creation"], "note": "Browser/credential-manager access; infostealer behavior."},
+    {"id": "T1539",     "name": "Steal Web Session Cookie",                   "tactics": ["TA0006"], "chokepoint": true, "prevalence": null, "trend": "ai-accelerated", "sources": ["cloud_signin", "edr_endpoint", "web_proxy"], "note": "AiTM session-token theft — now the primary M365 breach vector (~31% in 2025). Valid session with no fresh MFA, reused from a new IP/device."},
+    {"id": "T1621",     "name": "Multi-Factor Authentication Request Generation","tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "trend": "ai-accelerated", "sources": ["cloud_signin", "identity_audit"], "note": "MFA-fatigue / push bombing. Bursts of MFA prompts to a user, especially from unusual IPs not matching a user-initiated login."},
+    {"id": "T1556",     "name": "Modify Authentication Process",              "tactics": ["TA0003","TA0005","TA0006"], "chokepoint": false, "prevalence": null, "trend": "ai-accelerated", "sources": ["identity_audit", "cloud_signin", "cloud_control_plane"], "note": "Disabling/weakening MFA, altering conditional access, or tampering with federation to persist. Includes T1556.006 (MFA)."},
+    {"id": "T1606.002", "name": "Forge Web Credentials: SAML Tokens",         "tactics": ["TA0006"], "chokepoint": false, "prevalence": null, "trend": "ai-accelerated", "sources": ["identity_audit", "cloud_control_plane"], "note": "Golden SAML — forging tokens with a stolen signing certificate to impersonate any user across federated services. Watch token-signing cert access and anomalous SAML issuance."},
+
+    {"id": "T1087",     "name": "Account Discovery",                          "tactics": ["TA0007"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "powershell_logs"], "note": "net user / AD enumeration; BloodHound-style collection."},
+    {"id": "T1018",     "name": "Remote System Discovery",                    "tactics": ["TA0007"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "network_flow"], "note": "Network scanning / host enumeration from a single source."},
+    {"id": "T1482",     "name": "Domain Trust Discovery",                     "tactics": ["TA0007"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "windows_auth"], "note": "Trust enumeration preceding cross-domain movement."},
+
+    {"id": "T1021",     "name": "Remote Services",                            "tactics": ["TA0008"], "chokepoint": true, "prevalence": null, "sources": ["windows_auth", "network_flow", "process_creation"], "note": "Choke point. RDP (logon type 10), SMB (type 3), WinRM between hosts."},
+    {"id": "T1021.001", "name": "Remote Services: RDP",                       "tactics": ["TA0008"], "chokepoint": true, "prevalence": null, "sources": ["windows_auth", "network_flow"], "note": "Logon type 10; unusual source→dest RDP pairs."},
+    {"id": "T1570",     "name": "Lateral Tool Transfer",                      "tactics": ["TA0008"], "chokepoint": false, "prevalence": null, "sources": ["network_flow", "file_monitoring"], "note": "Admin-share writes (5140/5145) of tooling between hosts."},
+    {"id": "T1550",     "name": "Use Alternate Authentication Material",      "tactics": ["TA0008","TA0006"], "chokepoint": false, "prevalence": null, "sources": ["windows_auth", "cloud_signin"], "note": "Pass-the-hash / stolen session cookies; anomalous auth material reuse."},
+
+    {"id": "T1530",     "name": "Data from Cloud Storage",                    "tactics": ["TA0009"], "chokepoint": false, "prevalence": 4, "sources": ["cloud_storage_access", "cloud_control_plane"], "note": "Red Canary #4. Mass object reads; requires data-event logging enabled."},
+    {"id": "T1114",     "name": "Email Collection",                           "tactics": ["TA0009"], "chokepoint": false, "prevalence": null, "sources": ["email_mailbox_audit", "email_security"], "note": "Bulk mailbox access/export; correlate with forwarding rules."},
+    {"id": "T1213",     "name": "Data from Information Repositories",         "tactics": ["TA0009"], "chokepoint": false, "prevalence": null, "sources": ["cloud_control_plane", "cloud_signin"], "note": "SharePoint/Confluence/wiki mass access by a single principal."},
+    {"id": "T1560",     "name": "Archive Collected Data",                     "tactics": ["TA0009"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "file_monitoring"], "note": "rar/7z/zip staging before exfil."},
+
+    {"id": "T1071",     "name": "Application Layer Protocol",                 "tactics": ["TA0011"], "chokepoint": true, "prevalence": null, "sources": ["network_flow", "web_proxy", "dns_query"], "note": "Choke point. C2 over HTTP(S)/DNS; C2 was the most-observed tactic in 2025."},
+    {"id": "T1105",     "name": "Ingress Tool Transfer",                      "tactics": ["TA0011"], "chokepoint": true, "prevalence": 5, "sources": ["network_flow", "web_proxy", "file_monitoring", "process_creation"], "note": "Red Canary #5 + choke point. Downloading payloads/tools post-access."},
+    {"id": "T1572",     "name": "Protocol Tunneling",                         "tactics": ["TA0011"], "chokepoint": false, "prevalence": null, "sources": ["network_flow", "dns_query"], "note": "DNS/ICMP/SSH tunneling; long-lived or high-entropy flows."},
+    {"id": "T1219",     "name": "Remote Access Software",                     "tactics": ["TA0011"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "network_flow", "web_proxy"], "note": "RMM abuse (AnyDesk/ScreenConnect/etc.) for hands-on access."},
+
+    {"id": "T1041",     "name": "Exfiltration Over C2 Channel",              "tactics": ["TA0010"], "chokepoint": false, "prevalence": null, "sources": ["network_flow", "web_proxy"], "note": "Outbound byte volume on established C2; direction matters."},
+    {"id": "T1567.002", "name": "Exfiltration to Cloud Storage",             "tactics": ["TA0010"], "chokepoint": false, "prevalence": null, "sources": ["web_proxy", "network_flow", "dns_query"], "note": "Uploads to mega/dropbox/etc.; unusual destination + volume."},
+    {"id": "T1048",     "name": "Exfiltration Over Alternative Protocol",    "tactics": ["TA0010"], "chokepoint": false, "prevalence": null, "sources": ["network_flow", "dns_query"], "note": "DNS/FTP/non-standard-port exfil bypassing the proxy."},
+
+    {"id": "T1486",     "name": "Data Encrypted for Impact",                 "tactics": ["TA0040"], "chokepoint": false, "prevalence": null, "sources": ["file_monitoring", "process_creation", "edr_endpoint"], "note": "Ransomware signature. Mass file-modification rate + shadow-copy deletion."},
+    {"id": "T1490",     "name": "Inhibit System Recovery",                   "tactics": ["TA0040"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "powershell_logs"], "note": "vssadmin/wbadmin delete; precedes encryption — a late-stage warning."},
+    {"id": "T1489",     "name": "Service Stop",                               "tactics": ["TA0040"], "chokepoint": false, "prevalence": null, "sources": ["process_creation", "windows_event_logs"], "note": "Stopping DBs/backups/security services before impact."},
+    {"id": "T1485",     "name": "Data Destruction",                          "tactics": ["TA0040"], "chokepoint": false, "prevalence": null, "sources": ["file_monitoring", "process_creation"], "note": "Wiper behavior; mass deletion distinct from encryption."}
+  ],
+
+  "retentionByRegulation": [
+    {"id": "pci",   "name": "PCI DSS 4.0 (Req. 10.5.1)", "applies": "Anyone storing/processing/transmitting cardholder data", "retention": "12 months total; most recent 3 months immediately available", "citation": "PCI DSS v4.0 Requirement 10.5.1"},
+    {"id": "hipaa", "name": "HIPAA Security Rule",         "applies": "Healthcare covered entities & business associates (US)", "retention": "6 years for required documentation; audit logs commonly retained 6 years by extension", "citation": "45 CFR 164.316(b)(2); HHS guidance"},
+    {"id": "m2131", "name": "OMB M-21-31",                "applies": "US federal agencies (and many federal contractors by flow-down)", "retention": "30 months total — 12 months active (hot) + 18 months cold storage", "citation": "OMB M-21-31 EL1 logging maturity"},
+    {"id": "nerc",  "name": "NERC CIP-007",               "applies": "Bulk electric system / North American power utilities", "retention": "Minimum last 90 consecutive calendar days of security event logs", "citation": "NERC CIP-007-6 R4"},
+    {"id": "soc2",  "name": "SOC 2 / common audit",       "applies": "SaaS & service organizations (customer-driven)", "retention": "Commonly 12 months; set by control objectives, not a fixed statute", "citation": "AICPA Trust Services Criteria (no fixed period)"},
+    {"id": "gdpr",  "name": "GDPR / CCPA (tension)",       "applies": "EU/UK personal data (GDPR); California residents (CCPA)", "retention": "Data minimization — retain only as long as necessary; security logs justifiable under legitimate interest but must be scoped and access-controlled", "citation": "GDPR Art. 5(1)(c) & (e); note the detection-vs-minimization tension"}
+  ],
+
+  "motivationProfiles": [
+    {"id": "ransomware",  "name": "Financially motivated / ransomware", "typicalTactics": ["TA0001","TA0006","TA0008","TA0011","TA0040"], "note": "The default threat for nearly every organization. Initial access via phishing/RDP/valid accounts, then encrypt-and-extort."},
+    {"id": "espionage",   "name": "State-sponsored / espionage",        "typicalTactics": ["TA0001","TA0003","TA0006","TA0009","TA0010"], "note": "Stealth and persistence over impact. Relevant to defense, government, critical infrastructure, high tech, and their suppliers."},
+    {"id": "hacktivism",  "name": "Hacktivism / disruption",            "typicalTactics": ["TA0001","TA0040"], "note": "Public-facing exploitation and defacement/DDoS/data-destruction; spikes with geopolitical or reputational triggers."},
+    {"id": "insider",     "name": "Insider threat",                     "typicalTactics": ["TA0006","TA0009","TA0010"], "note": "Legitimate access abused; identity, data-access, and exfil logs carry the signal."},
+    {"id": "supplychain", "name": "Supply-chain / third-party",         "typicalTactics": ["TA0001","TA0003"], "note": "Compromise via trusted vendor/software. Watch external principals and control-plane changes (T1199)."}
+  ]
+}
