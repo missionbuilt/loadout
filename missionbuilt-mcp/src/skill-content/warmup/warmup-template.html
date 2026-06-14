@@ -88,7 +88,6 @@
 </style>
 </head>
 <script id="warmup-tools">
-window.WARMUP_TOOLS = { dataTool: '' };
 window.WARMUP_DATA = __WARMUP_DATA__;
 window.__warmupSavedAt = "__WARMUP_SAVED_AT__";
 </script>
@@ -883,34 +882,9 @@ gap: 10px;
 
   /* ── v0.8 boot: fetch WARMUP_DATA via MCP, then continue to renderers ────── */
 
-  var WARMUP_TOOLS = (typeof window.WARMUP_TOOLS === 'object' && window.WARMUP_TOOLS) || {};
-  var DATA_TOOL    = WARMUP_TOOLS.dataTool || '';
   var CACHE_KEY    = 'warmup-data-cache-v1';
   var STATE_KEY    = 'warmup-restore-state-v1';
 
-  // Tolerant unwrap — callMcpTool may return string, object, MCP content array,
-  // or wrapped {content:[{type,text}]} shape depending on the runtime version.
-  function _unwrapMcp(raw) {
-    function tryParse(val) {
-      if (val == null) return null;
-      if (typeof val === 'string') {
-        var t = val.trim();
-        if (t.startsWith('{') || t.startsWith('[')) {
-          try { return JSON.parse(t); } catch(_) {}
-        }
-        return null;
-      }
-      return val;
-    }
-    if (typeof raw === 'string') return tryParse(raw);
-    if (raw && (raw.data || raw.empty)) return raw;
-    if (Array.isArray(raw) && raw[0] && raw[0].text) return tryParse(raw[0].text);
-    if (raw && raw.content && Array.isArray(raw.content)) {
-      var item = raw.content[0];
-      return item && item.text ? tryParse(item.text) : null;
-    }
-    return null;
-  }
 
   // Phase 1 — fast-paint from localStorage cache if we have one. This means a
   // re-opened artifact renders immediately with the last-known brief, even
@@ -926,35 +900,6 @@ gap: 10px;
     }
   } catch(_) { /* corrupt cache entry — ignore, will refetch */ }
 
-  // Phase 2 — foreground fetch. Await so all renderers below see fresh data.
-  // If the bridge never appears or the fetch errors, we fall through with
-  // whatever the cache gave us (possibly nothing).
-  if (DATA_TOOL) {
-    await new Promise(function(resolve) {
-      var attempts = 0;
-      function poll() {
-        if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
-          if (++attempts < 25) { setTimeout(poll, 200); return; } // up to 5s
-          resolve();
-          return;
-        }
-        window.cowork.callMcpTool(DATA_TOOL, { intent: 'Loading warmup brief' })
-          .then(function(rawResp) {
-            var payload = _unwrapMcp(rawResp);
-            if (payload && payload.empty) {
-              window.__warmupEmpty = !window.WARMUP_DATA; // empty only if we have no cache either
-            } else if (payload && payload.data && payload.savedAt) {
-              window.WARMUP_DATA = payload.data;
-              window.__warmupSavedAt = payload.savedAt;
-              try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch(_) {}
-            }
-          })
-          .catch(function(err) { console.warn('[Warmup:Boot] fetch failed', err); })
-          .finally(resolve);
-      }
-      setTimeout(poll, 50);
-    });
-  }
 
   // Empty state — no brief saved on the server AND no localStorage cache.
   // Render a friendly placeholder, still wire up the visibility poller so the
@@ -967,7 +912,7 @@ gap: 10px;
       '<p style="font-size:15px;color:#3a342d;line-height:1.6;margin-bottom:18px;">Ask Claude to <em>run my warmup</em> in chat. Your brief lands here and updates automatically each run.</p>' +
       '<p style="font-family:monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#968974;">Reload this page after the run completes.</p>';
     document.body.appendChild(_es);
-    setupAutoRefresh();
+    window._warmupRefresh = function() { location.reload(); };
     return;
   }
 
@@ -976,125 +921,7 @@ gap: 10px;
   // just executed after the await above.
   const WARMUP_CONFIG = (window.WARMUP_DATA || {}).config || {};
 
-  /* ── Font loader: lazy-loads via MCP tool, caches in localStorage ─────────── *
-   *  The Cowork artifact sandbox blocks all external font CDNs (Google Fonts,   *
-   *  jsDelivr, etc). Fonts are served by the Loadout MCP server instead.        *
-   *  - First open: calls warmup_get_fonts via window.cowork.callMcpTool         *
-   *  - Subsequent opens: served instantly from localStorage cache               *
-   *  fontToolName is written into WARMUP_DATA.config by the agent at build time *
-   * ─────────────────────────────────────────────────────────────────────────── */
-  (function loadFonts() {
-    // v0.8: cache key bumped to v2 to invalidate any partial/garbage entries
-    // left by v0.7 installs. Cached values are also validated against an
-    // @font-face presence check before being trusted.
-    var FONT_CACHE_KEY  = 'warmup-fonts-v2';
-    var toolName   = WARMUP_CONFIG.fontToolName || '';
 
-    // Visible diagnostic banner — only shown on failure so it can't hide
-    // a working render. Each failure stage labels itself so debugging
-    // doesn't require opening DevTools (which Cowork doesn't surface).
-    function showFontError(stage, detail) {
-      try {
-        if (document.getElementById('warmup-font-err')) return;
-        var b = document.createElement('div');
-        b.id = 'warmup-font-err';
-        b.style.cssText = 'position:fixed;bottom:8px;right:8px;z-index:99999;max-width:520px;'
-          + 'background:#fff8f8;color:#900;border:1px solid #c00;'
-          + 'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:8px 10px;';
-        b.textContent = '[Warmup:Fonts] ' + stage + ' — ' + (detail || 'see console');
-        (document.body || document.documentElement).appendChild(b);
-      } catch(_) {}
-    }
-
-    // Fonts are baked into this self-contained build as <style id="warmup-fonts"> — skip the MCP loader entirely.
-    if (document.getElementById('warmup-fonts')) return;
-    if (!toolName) { console.warn('[Warmup:Fonts] no fontToolName and no embedded fonts — using system fonts.'); return; }
-
-    function injectCSS(css) {
-      if (document.getElementById('warmup-fonts')) return;
-      var s = document.createElement('style');
-      s.id          = 'warmup-fonts';
-      s.textContent = css;
-      document.head.insertBefore(s, document.head.firstChild);
-    }
-
-    // Try localStorage cache first — but only trust caches that actually
-    // contain @font-face rules. Defends against partial writes or unrelated
-    // values being stored under this key.
-    try {
-      var cached = localStorage.getItem(FONT_CACHE_KEY);
-      if (cached && cached.length > 100 && cached.indexOf('@font-face') > -1) { injectCSS(cached); return; }
-      if (cached) { try { localStorage.removeItem(FONT_CACHE_KEY); } catch(e){} }
-    } catch(e) { /* storage unavailable */ }
-
-    var _fontAttempts = 0;
-    function tryFetchFonts() {
-      if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') {
-        if (++_fontAttempts < 25) { setTimeout(tryFetchFonts, 200); return; }
-        // Cowork sandbox not available (e.g. public demo) — silent fallback, no UI banner
-        console.warn('[Warmup:Fonts] window.cowork unavailable — fonts not loaded (expected outside Cowork)');
-        return;
-      }
-
-      window.cowork.callMcpTool(toolName, { intent: 'Loading warmup fonts' })
-        .then(function(raw) {
-          try {
-            // callMcpTool may return several shapes — normalise all of them:
-            //  1. Plain JSON string  → '{"css":"...","version":"1.0"}'
-            //  2. Parsed object      → { css: "...", version: "1.0" }
-            //  3. MCP content array  → [{ type:"text", text:'{"css":"..."}' }]
-            //  4. MCP response obj   → { content:[{ type:"text", text:'{"css":"..."}' }] }
-            var css = null;
-            function tryParseCss(val) {
-              if (!val) return null;
-              if (typeof val === 'string') {
-                if (val.trim().startsWith('{')) {
-                  try { var p = JSON.parse(val); return (p && p.css) ? p.css : val; } catch(e) {}
-                }
-                return val;
-              }
-              if (val && val.css) return val.css;
-              return null;
-            }
-            if (typeof raw === 'string') {
-              css = tryParseCss(raw);
-            } else if (raw && raw.css) {
-              css = raw.css;
-            } else if (Array.isArray(raw) && raw[0] && raw[0].text) {
-              css = tryParseCss(raw[0].text);
-            } else if (raw && raw.content && Array.isArray(raw.content)) {
-              var item = raw.content[0];
-              css = item ? tryParseCss(item.text) : null;
-            }
-            if (!css) {
-              var shape;
-              try { shape = JSON.stringify(raw).slice(0, 200); } catch(_) { shape = String(raw).slice(0, 200); }
-              console.warn('[Warmup:Fonts] unrecognized response shape', raw);
-              showFontError('unrecognized response shape from callMcpTool', shape);
-              return;
-            }
-            if (css.length < 100) {
-              showFontError('css too short (' + css.length + ' chars)', css.slice(0, 80));
-              return;
-            }
-            if (css.indexOf('@font-face') === -1) {
-              showFontError('css has no @font-face rules', css.slice(0, 80));
-              return;
-            }
-            injectCSS(css);
-            try { localStorage.setItem(FONT_CACHE_KEY, css); } catch(e) { console.warn('[Warmup:Fonts] localStorage write failed', e); }
-          } catch(e) {
-            console.error('[Warmup:Fonts] parse error', e);
-            showFontError('parse error', String(e && e.message || e));
-          }
-        })
-        .catch(function(err) {
-          console.error('[Warmup:Fonts] MCP call rejected', err);
-          showFontError('MCP call rejected', String(err && err.message || err));
-        });
-    }
-    setTimeout(tryFetchFonts, 100);
-  })();
 
 
   // ── SECURITY HELPERS ─────────────────────────────────────────────────────────
@@ -2220,7 +2047,7 @@ btn.textContent = 'Loading…';
           const savedAtLine = savedAtStr ? '\nwindow.__warmupSavedAt = ' + JSON.stringify(savedAtStr) + ';' : '';
           html = html.replace(
             /<script id="warmup-tools">[\s\S]*?<\/script>/,
-            () => '<script id="warmup-tools">\nwindow.WARMUP_TOOLS = { dataTool: \'\' };\nwindow.WARMUP_DATA = ' + dataStr + ';' + savedAtLine + '\n<' + '/script>'
+            () => '<script id="warmup-tools">\nwindow.WARMUP_DATA = ' + dataStr + ';' + savedAtLine + '\n<' + '/script>'
           );
         } catch (exportErr) { console.warn('[Warmup:Export] data injection failed', exportErr); }
       }
@@ -2285,8 +2112,8 @@ btn.textContent = 'Loading…';
   // Expose inline-onclick handler (script-scope in template, must be window in IIFE)
   window.toggleFullscreen = toggleFullscreen;
 
-  /* ── v0.8: Wire up post-render auto-refresh + restore in-flight state ───── */
-  setupAutoRefresh();
+  /* ── Self-contained refresh: the brief lives in this file ─────────────── */
+  window._warmupRefresh = function() { location.reload(); };
   restoreFromSavedState();
 
   /**
@@ -2296,44 +2123,7 @@ btn.textContent = 'Loading…';
    * reload boots the shell fresh against the new cache; restoreFromSavedState
    * below then puts the user back where they were.
    */
-  function setupAutoRefresh() {
-    var THROTTLE_MS = 15000;
-    var lastCheck   = 0;
-    var inFlight    = false;
-    function checkForUpdate() {
-      if (!DATA_TOOL) return;
-      if (inFlight) return;
-      if (Date.now() - lastCheck < THROTTLE_MS) return;
-      if (document.visibilityState !== 'visible') return;
-      if (!window.cowork || typeof window.cowork.callMcpTool !== 'function') return;
-      lastCheck = Date.now();
-      inFlight  = true;
-      window.cowork.callMcpTool(DATA_TOOL, { intent: 'Checking for fresher warmup brief' })
-        .then(function(rawResp) {
-          var payload = _unwrapMcp(rawResp);
-          if (!payload || payload.empty || !payload.savedAt) return;
-          if (payload.savedAt <= (window.__warmupSavedAt || '')) return;
-          // Newer brief — cache it, save in-flight UI state, reload.
-          try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch(_) {}
-          try {
-            sessionStorage.setItem(STATE_KEY, JSON.stringify({
-              scrollY: window.scrollY || window.pageYOffset || 0,
-              sectionsDone: [].slice.call(document.querySelectorAll('.section.is-done')).map(function(s){ return s.id; }),
-            }));
-          } catch(_) {}
-          location.reload();
-        })
-        .catch(function(err) { console.warn('[Warmup:Refresh] check failed', err); })
-        .finally(function() { inFlight = false; });
-    }
-    document.addEventListener('visibilitychange', checkForUpdate);
-    window.addEventListener('focus', checkForUpdate);
-    // Refresh button in the masthead bypasses the throttle and forces a check.
-    // Self-contained build: the brief lives in this file. Refresh = re-read from disk.
-    window._warmupRefresh = DATA_TOOL
-      ? function() { lastCheck = 0; checkForUpdate(); }
-      : function() { location.reload(); };
-  }
+
 
   /**
    * After a reload triggered by setupAutoRefresh, restores scroll position
