@@ -54,15 +54,6 @@ It's a starting overview, not a CISO — no maturity grade, no peer benchmark, n
 
 Each skill has a live click-through demo on its page at [missionbuilt.io/loadout](https://missionbuilt.io/loadout). The demos are built from the actual skill templates — same HTML, same data schema, same layout as a live agent run. They're maintained in the `missionbuilt-site` repo under `scripts/build_demos.py`.
 
-## Planned
-
-Future skills in the kit. Names tentative, scope under exploration:
-
-- **The Sitrep** — status updates that respect the reader's time
-- **Form Check** — code or design review with the same lift-not-gate orientation
-- **The Cooldown** — retros and post-mortems that learn forward, not blame backward
-- **The Programming** — strategy and roadmap planning, structured like a training cycle
-
 ## How skills work
 
 Each skill in The Loadout is a markdown-based skill compatible with Claude Code, Cowork, and other agents that support the SKILL.md convention. They're plain text — no installer, no runtime, no API key required. You can fork them, adapt them for your team, and ship your own derivatives under the same MIT license.
