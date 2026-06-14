@@ -2,7 +2,7 @@
 
 The unified MCP server for The Loadout — exposes The Warmup, The Spotter, and The Approach through a single OAuth-protected endpoint at `mcp.missionbuilt.io`.
 
-**23 tools. 3 skills. 1 connection.**
+**18 tools. 3 skills. 1 connection.**
 
 ---
 
@@ -20,11 +20,8 @@ The unified MCP server for The Loadout — exposes The Warmup, The Spotter, and 
 | Tool | Description |
 |---|---|
 | `warmup_get_skill` | Returns a section of the Warmup SKILL.md (use `section` param to load only what you need) |
-| `warmup_get_fonts` | Returns font CSS for the artifact sandbox (cached in localStorage after first load) |
 | `warmup_list_modes` | Returns the three modes with section descriptions |
-| `warmup_get_template` | Returns the warmup artifact HTML in paginated chunks |
-| `warmup_save_data` | Stores the user's WARMUP_DATA brief in KV (artifact auto-refreshes on next open) |
-| `warmup_get_data` | Returns the user's latest WARMUP_DATA brief from KV |
+| `warmup_get_template` | Injects your WARMUP_DATA into the self-contained brief and returns it in paginated chunks (fonts baked in) |
 | `warmup_setup` | Primes the agent to run the first-time setup flow |
 | `warmup_run` | Primes the agent to fetch intelligence and generate a brief |
 | `warmup_config` | Primes the agent to manage sources in WARMUP.md |
@@ -38,10 +35,8 @@ The unified MCP server for The Loadout — exposes The Warmup, The Spotter, and 
 | `spotter_get_examples` | Returns worked area examples (strong, needs-work, missing) with teaching notes |
 | `spotter_get_calibration_epic` | Returns synthetic calibration epic #1 (gap-heavy — target verdict: Needs polish) |
 | `spotter_get_calibration_epics` | Returns all three synthetic calibration epics for batch grading range tests |
-| `spotter_get_template` | Returns the v1.0 worksheet HTML with SPOTTER_DATA injected — write to disk, pass to artifact |
-| `spotter_review` | Primes the agent to review an epic and produce a worksheet |
-| `spotter_build` | Primes the agent to build an epic from scratch |
-| `spotter_iterate` | Primes the agent to push a partial draft forward |
+| `spotter_get_template` | Injects your SPOTTER_DATA into the self-contained worksheet and returns it in paginated chunks (fonts baked in) |
+| `spotter_run` | Primes the agent to review an epic and render the worksheet |
 
 ### The Approach
 
@@ -160,25 +155,15 @@ Remove the old DNS entries (`warmup-mcp.missionbuilt.io`, `spotter-mcp.missionbu
 
 ## Skill content
 
-Skill content lives in `src/skill-content/` and is bundled at build time via Wrangler text imports. Canonical SKILL.md copies sit in the editorial directories — always edit there first, then sync:
+The MCP server serves its skill content from `src/skill-content/{warmup,spotter,the-approach}/`, bundled at build time via Wrangler text imports. **Edit those files directly** — they are the source of truth for what the server ships to agents.
 
-```bash
-# After editing warmup/SKILL.md:
-cp warmup/SKILL.md missionbuilt-mcp/src/skill-content/warmup/SKILL.md
+This repo also carries a second, *standalone* edition of each skill in the editorial directories at the loadout repo root (`warmup/`, `spotter/`, `the-approach/`). Those are the self-contained, downloadable skills — they render locally via `scripts/inject.py` with no MCP server. The two editions are **intentionally not identical**: a standalone `SKILL.md` references local rendering and on-disk files, while the bundled `SKILL.md` references MCP tools. Do **not** blindly `cp` between them — port changes by hand, and keep only the genuinely shared content (the worked examples in `area-examples.md`, the HTML templates) in step.
 
-# After editing spotter/SKILL.md or spotter/examples/:
-cp spotter/SKILL.md missionbuilt-mcp/src/skill-content/spotter/SKILL.md
-cp spotter/examples/area-examples.md missionbuilt-mcp/src/skill-content/spotter/area-examples.md
+**Warmup:** The runtime is the self-contained `src/skill-content/warmup/warmup-template.html` (fonts baked, `__WARMUP_DATA__` placeholder). `warmup_get_template` injects your data at request time and chunks the result — no KV, no font tool, and no runtime calls from the rendered brief. Bump `WARMUP_ENGINE_VERSION` in `constants.ts` after any template change.
 
-# After editing the-approach/SKILL.md:
-cp the-approach/SKILL.md missionbuilt-mcp/src/skill-content/approach/SKILL.md
-```
+**Spotter:** As of v1.0, The Spotter produces a fully interactive worksheet artifact rather than text output. The template lives at `src/skill-content/spotter/spotter-template.html` — edit it directly (no canonical/bundled split). Worked examples live in `src/skill-content/spotter/area-examples.md`. Bump `SPOTTER_VERSION` in `constants.ts` after any template or SKILL.md change.
 
-**Warmup:** The runtime is `src/warmup-shell.rawjs` (no canonical/bundled split). Edit and bump `WARMUP_ENGINE_VERSION` in `constants.ts` so users pick up the new shell on their next run. Warmup data flows through `warmup_save_data` → KV → `warmup_get_data`; the artifact is a pure renderer with no inline data.
-
-**Spotter:** As of v1.0, The Spotter produces a fully interactive worksheet artifact rather than text output. The template lives at `src/skill-content/spotter/spotter-template.html` — edit it directly (no canonical/bundled split). Bump `SPOTTER_VERSION` in `constants.ts` after any template or SKILL.md change.
-
-**The Approach:** Template lives at `src/skill-content/approach/approach-template.html`. Bump `THE_APPROACH_VERSION` in `constants.ts` after any template or SKILL.md change.
+**The Approach:** Template lives at `src/skill-content/the-approach/approach-template.html`. Bump `THE_APPROACH_VERSION` in `constants.ts` after any template or SKILL.md change.
 
 ---
 

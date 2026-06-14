@@ -22,7 +22,7 @@ When a Claude Code or Cowork user installs a skill, they copy a single subdirect
 1. **Fork** this repository.
 2. **Find the file.** Each skill's content lives in:
    - `<skill>/SKILL.md` — the skill itself (criteria, modes, output formats)
-   - `<skill>/examples/lens-examples.md` (or equivalent) — the worked examples that teach the criteria
+   - `<skill>/examples/area-examples.md` (or equivalent) — the worked examples that teach the criteria
    - `<skill>/README.md` — install and use documentation
    - `<skill>/ATTRIBUTION.md` — credits and inspiration sources
 3. **Make your change.** Keep the diff minimal — don't reformat surrounding text.

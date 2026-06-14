@@ -42,6 +42,12 @@ A spotter in powerlifting watches your form, catches the bar if something breaks
 
 → [Read The Spotter's documentation](spotter/README.md)
 
+### Floodlight (in development)
+
+A standalone skill that builds an initial security-visibility posture from three inputs — company name, industry and region, and environment shape. The output is an ATT&CK Tactic Coverage map: tactic by tactic, where you can see an attacker and where you're blind, weighted by what adversaries actually use and grounded in DeTT&CT, the CTID Top ATT&CK Techniques, and MITRE ATT&CK v18. The thesis is simple — the first step to security is visibility. No MCP server: it runs disconnected, because a security posture is exactly the kind of thing you should be able to run with your data staying put.
+
+→ [See the Floodlight page](https://missionbuilt.io/loadout/floodlight)
+
 ## See it in action
 
 Each skill has a live click-through demo on its page at [missionbuilt.io/loadout](https://missionbuilt.io/loadout). The demos are built from the actual skill templates — same HTML, same data schema, same layout as a live agent run. They're maintained in the `missionbuilt-site` repo under `scripts/build_demos.py`.
@@ -65,7 +71,7 @@ Skills are also available through the hosted MCP server — one connection gives
 
 ### Option A — Hosted MCP server (recommended)
 
-Connect once and both skills are available:
+Connect once and all three skills are available:
 
 ```bash
 # Claude Code
@@ -97,6 +103,7 @@ git clone https://github.com/missionbuilt/loadout.git /tmp/loadout
 mkdir -p .claude/skills
 cp -r /tmp/loadout/spotter .claude/skills/
 cp -r /tmp/loadout/warmup .claude/skills/
+cp -r /tmp/loadout/the-approach .claude/skills/
 ```
 
 Then trigger with a phrase from each skill's README.

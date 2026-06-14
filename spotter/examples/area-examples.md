@@ -1,6 +1,6 @@
-# Lens Examples
+# Area Examples
 
-This file holds worked examples for every lens — strong (✓), needs work (⚠️), and missing (✗) — with teaching notes explaining why each example earns its grade.
+This file holds worked examples for every area — strong (✓), needs work (⚠️), and missing (✗) — with teaching notes explaining why each example earns its grade.
 
 All examples are excerpts from B2B product epics. They're anchored against the synthetic epic in `examples/synthetic-epic.md` (an agentic incident response feature for a B2B endpoint security platform), with empathy framing drawn from Mike Nichols' first-person SOC analyst experience.
 
@@ -8,9 +8,9 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 ---
 
-## Lens 1 — The user & the problem (not the solution)
+## Area 1 — The user & the problem (not the solution)
 
-**The most important lens. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are subtle: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. Eight sub-checks: empathy, current state, why-not-solved, no-solutioning, problem scope and value framing, assumptions surfaced, alternatives considered, and epistemic openness.
+**The most important area. The one that separates good PMs from great ones.** Most epic failures originate here, and the most consequential failures are subtle: unexamined assumptions, single-path thinking, and epics written with the conclusion already in mind. Eight sub-checks: empathy, current state, why-not-solved, no-solutioning, problem scope and value framing, assumptions surfaced, alternatives considered, and epistemic openness.
 
 ### Sub-check A: Empathy
 
@@ -32,7 +32,7 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 > User: Tier 1 SOC analysts at mid-to-large enterprises (>500 endpoints) running our endpoint security platform. They work 12-hour shifts, handle 30–80 alerts per shift, and have 2–5 years of experience.
 
-*Teaching note: This is the user paragraph from the synthetic epic. It's a persona, not empathy. Specific demographics with no interior life. The skill flags: "You've described who they are. The lens needs you to describe what their day feels like."*
+*Teaching note: This is the user paragraph from the synthetic epic. It's a persona, not empathy. Specific demographics with no interior life. The skill flags: "You've described who they are. The area needs you to describe what their day feels like."*
 
 ### Sub-check B: Current state
 
@@ -64,7 +64,7 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 > The capability to automate response exists in this product today. Most customers don't use it. Two barriers explain why. The first is a product gap. Static playbooks break on novel signals, and attackers operate in patterns no playbook anticipates. When the playbook fails, the cost is operational, and every failure erodes trust further. The second is a trust gap, and it's the larger one. Security users are skeptical by trade. That's the job. Their mission is asymmetric: a breach is worst case, but a wrongful CEO-laptop isolation from a false-positive automation is almost as bad. They've been burned, or they've watched colleagues get burned. The cost of a mistake shows up in the post-mortem and in the analyst's career. Until both barriers are addressed together, automation stays a feature with the box checked but the toggle off.
 
-*Teaching note: The product gap and trust gap framing is the conceptual gravity well of Lens 1. A PM who reaches this depth has done the work — they've talked to customers, they understand why prior automation efforts have failed, and they know the trust gap is the bigger one. The asymmetric-cost insight (CEO-laptop equivalent to breach) is the kind of line that earns the rest of the epic.*
+*Teaching note: The product gap and trust gap framing is the conceptual gravity well of Area 1. A PM who reaches this depth has done the work — they've talked to customers, they understand why prior automation efforts have failed, and they know the trust gap is the bigger one. The asymmetric-cost insight (CEO-laptop equivalent to breach) is the kind of line that earns the rest of the epic.*
 
 **⚠️ Needs work**
 
@@ -108,7 +108,7 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 > This feature targets MITRE ATT&CK Enterprise specifically. We are explicitly not addressing Mobile, ICS, or Atlas in v1 — those are separate problem spaces with different data shapes, different adversary models, and different customer personas, and each deserves its own epic. Within Enterprise, we are scoping to detection-rule coverage (custom and vendor-supplied), not data-source coverage and not adversary emulation coverage. The value the customer receives is not "see a coverage map." Coverage maps are table stakes. The value is *prioritized detection investment*: given the customer's vertical (e.g., financial services), the adversary groups most likely to target them (FIN7, Carbanak, Lazarus subgroups), and the data sources they currently ingest, where should they build next? The map is the means. The prioritized recommendation is the value.
 
-*Teaching note: Names the explicit scope boundary at two levels — which MITRE matrix (Enterprise, not Mobile/ICS/Atlas) and which coverage dimension (rules, not data-source). Distinguishes the means (a coverage view) from the value (prioritized investment by vertical and adversary group). The PM has thought about why the work matters, not just what it does. This is the highest-leverage sub-check on Lens 1 because it forces the team to commit to a narrow problem space and explicit value proposition before downstream lenses can be evaluated.*
+*Teaching note: Names the explicit scope boundary at two levels — which MITRE matrix (Enterprise, not Mobile/ICS/Atlas) and which coverage dimension (rules, not data-source). Distinguishes the means (a coverage view) from the value (prioritized investment by vertical and adversary group). The PM has thought about why the work matters, not just what it does. This is the highest-leverage sub-check on Area 1 because it forces the team to commit to a narrow problem space and explicit value proposition before downstream areas can be evaluated.*
 
 **⚠️ Needs work**
 
@@ -190,7 +190,7 @@ When the agent loads this file, it should learn the *contrast* between strong an
 
 ---
 
-## Lens 2 — Competitive landscape
+## Area 2 — Competitive landscape
 
 How do leading competitors handle this problem? Is the proposed work novel, catch-up, or somewhere in between? *And — critically — what do we do differently?*
 
@@ -214,7 +214,7 @@ How do leading competitors handle this problem? Is the proposed work novel, catc
 
 *Teaching note: Missing entirely. The PM has implicitly assumed either that the work is greenfield or that competitive context doesn't matter. Neither is usually true in B2B. The skill flags: "In a market with established competitors, an epic without competitive analysis defaults the team's positioning. Name three competitors, summarize each, position the work."*
 
-## Lens 3 — Strategic differentiation (moat)
+## Area 3 — Strategic differentiation (moat)
 
 What makes this special in your company? Why does someone get this from you rather than a competitor? Sometimes there is no moat — being explicit about that is also passing.
 
@@ -226,9 +226,9 @@ What makes this special in your company? Why does someone get this from you rath
 
 **✓ Strong (no moat, explicit)**
 
-> We do not have a moat on the underlying capability. CrowdStrike, SentinelOne, and Microsoft can all build autonomous response — they already are. We are building this work for two reasons unrelated to differentiation. First, it is table stakes for renewal in the mid-market and above; our customers will not renew the platform if their threat response stack is missing autonomous capabilities the competitors offer. Second, it gives us a credible position to ship the trust gradient (Lens 9) once the underlying capability is in place — that's where we may eventually establish differentiation, but not on day one. Building this without a moat is the right call. The team should know that's what they're doing.
+> We do not have a moat on the underlying capability. CrowdStrike, SentinelOne, and Microsoft can all build autonomous response — they already are. We are building this work for two reasons unrelated to differentiation. First, it is table stakes for renewal in the mid-market and above; our customers will not renew the platform if their threat response stack is missing autonomous capabilities the competitors offer. Second, it gives us a credible position to ship the trust gradient (Area 9) once the underlying capability is in place — that's where we may eventually establish differentiation, but not on day one. Building this without a moat is the right call. The team should know that's what they're doing.
 
-*Teaching note: This also passes. The PM has thought about whether there's a moat and concluded there isn't — and named the strategic reason for building anyway (renewal table stakes plus setup for future differentiation). This is the lens being honest. PMs often invent moats because they feel obligated to. The skill should treat "no moat but explicit" as ✓, not as ⚠️.*
+*Teaching note: This also passes. The PM has thought about whether there's a moat and concluded there isn't — and named the strategic reason for building anyway (renewal table stakes plus setup for future differentiation). This is the area being honest. PMs often invent moats because they feel obligated to. The skill should treat "no moat but explicit" as ✓, not as ⚠️.*
 
 **✗ Missing**
 
@@ -258,7 +258,7 @@ What makes this special in your company? Why does someone get this from you rath
 
 *Teaching note: When the press-release test is skipped, the PM hasn't been forced into outside-in framing. The epic may have strong moat and competitive analysis but lack a sharp customer-facing value statement — which means sales, marketing, and customer success will each invent their own when the time comes, and they will not agree. The skill prompts: "Write the press release sentence. Even one sentence. If it's hard to write, the value isn't sharp enough yet — and that's information worth surfacing now, not after the team has been building for three months."*
 
-## Lens 4 — Solution approach
+## Area 4 — Solution approach
 
 The HOW the team will build, with explicit choices about AI, reusability, and UI. Four sub-checks: explicit AI decision, agentic-not-static, skills-first reusability, UI restraint.
 
@@ -276,13 +276,13 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 > AI considered and declined. The proposed work is a UX refinement to the existing alert detail view, surfacing existing detection metadata in a cleaner layout. The capabilities the user needs are already deterministic — confidence scores, alert categorization, MITRE technique mapping — and have been correctly classified by our detection engine for two years. Adding an LLM layer here would introduce non-determinism and latency without changing the user outcome. We are not using AI for this work, and that is the right call.
 
-*Teaching note: This is also a passing answer. The PM has thought about AI and explicitly chosen not to use it. The reasoning is grounded (existing data is already deterministic, latency cost outweighs benefit). This is how Lens 4 passes for non-AI work. The skill should treat this as ✓, not ⚠️.*
+*Teaching note: This is also a passing answer. The PM has thought about AI and explicitly chosen not to use it. The reasoning is grounded (existing data is already deterministic, latency cost outweighs benefit). This is how Area 4 passes for non-AI work. The skill should treat this as ✓, not ⚠️.*
 
 **⚠️ Needs work (AI declined for the narrow case only)**
 
 > AI considered and declined. We evaluated whether to use LLMs to auto-classify our existing detection rules against MITRE ATT&CK techniques, but found that our static analysis of rule logic produces deterministic, auditable mappings without LLM cost or latency. AI is not the right tool for this work.
 
-*Teaching note: This is the trickiest failure mode on Lens 4 and the most common in B2B epics that touch evolving domains. The PM made an explicit decision and gave reasoning. The reasoning is even correct for the one use case considered (auto-classifying existing rules). The failure is that AI was only evaluated for that one narrow case. The PM didn't ask whether AI is valuable for related use cases the epic implies: keeping the mapping current as MITRE evolves twice a year and adds new techniques; identifying which coverage gaps are most consequential given the customer's vertical or recent threat intel; recommending which detections to build to close gaps; helping users interpret the coverage data conversationally. Any of these is a strong AI use case the decline doesn't address. The skill flags: "Strong that the decision is explicit and the reasoning is sound for the case you considered. Worth checking: did you also consider AI for (a) keeping mappings current as the domain evolves, (b) prioritizing gaps by adversary relevance to the customer's vertical, (c) recommending which detections to build, (d) conversational interpretation of the data? If you considered each and declined, name why. If you didn't consider them, the decision may need revisiting." A declined decision that names only the narrow case is incomplete.*
+*Teaching note: This is the trickiest failure mode on Area 4 and the most common in B2B epics that touch evolving domains. The PM made an explicit decision and gave reasoning. The reasoning is even correct for the one use case considered (auto-classifying existing rules). The failure is that AI was only evaluated for that one narrow case. The PM didn't ask whether AI is valuable for related use cases the epic implies: keeping the mapping current as MITRE evolves twice a year and adds new techniques; identifying which coverage gaps are most consequential given the customer's vertical or recent threat intel; recommending which detections to build to close gaps; helping users interpret the coverage data conversationally. Any of these is a strong AI use case the decline doesn't address. The skill flags: "Strong that the decision is explicit and the reasoning is sound for the case you considered. Worth checking: did you also consider AI for (a) keeping mappings current as the domain evolves, (b) prioritizing gaps by adversary relevance to the customer's vertical, (c) recommending which detections to build, (d) conversational interpretation of the data? If you considered each and declined, name why. If you didn't consider them, the decision may need revisiting." A declined decision that names only the narrow case is incomplete.*
 
 **⚠️ Needs work (implicit AI)**
 
@@ -314,7 +314,7 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 > The autonomous response capability is exposed two ways. First, inside the product as an integrated experience for analysts running the platform UI. Second, as a skill callable from any MCP-compatible client. Customers who run security operations through their own agentic workflows — increasingly common in mid-market and above — can compose this capability with their existing tools (their SIEM, their case management agent, their on-call routing) without locking into our UI. Skills-first delivery extends the addressable use cases without requiring us to build every integration ourselves.
 
-*Teaching note: The PM has thought about reusability. The capability lives in two places. The argument for skills-first is named (customers compose their own workflows; we don't have to build every integration). This is the rare Lens 4 sub-check that most epics ignore entirely, and it's the one that makes the difference between a feature locked into one tool and a capability that travels with the customer's agent stack.*
+*Teaching note: The PM has thought about reusability. The capability lives in two places. The argument for skills-first is named (customers compose their own workflows; we don't have to build every integration). This is the rare Area 4 sub-check that most epics ignore entirely, and it's the one that makes the difference between a feature locked into one tool and a capability that travels with the customer's agent stack.*
 
 **⚠️ Needs work**
 
@@ -342,9 +342,9 @@ The HOW the team will build, with explicit choices about AI, reusability, and UI
 
 > The solution requires a three-panel dashboard with a left navigation expansion: (1) "Active Agent Actions" panel showing real-time agent activity, (2) "Pending Approvals" panel where the analyst clicks Approve or Deny, and (3) "Trust Settings" panel where the user configures granular permissions. Mockups attached. The core IA is locked for v1.
 
-*Teaching note: Compound failure — this crosses two lens lines (Lens 1 D no-solutioning and Lens 4 D UI restraint). The PM has not just added a new dashboard, they've prescribed its information architecture, named its panels, and attached mockups. Engineering and design have no room to innovate, and there was no consideration of whether existing surfaces could carry the capability. The skill flags both gaps and points the PM at the strong UI restraint example.*
+*Teaching note: Compound failure — this crosses two area lines (Area 1 D no-solutioning and Area 4 D UI restraint). The PM has not just added a new dashboard, they've prescribed its information architecture, named its panels, and attached mockups. Engineering and design have no room to innovate, and there was no consideration of whether existing surfaces could carry the capability. The skill flags both gaps and points the PM at the strong UI restraint example.*
 
-## Lens 5 — Holistic impact
+## Area 5 — Holistic impact
 
 The work's full scope across the product — not just the team's piece. Cross-product cascade, adjacent areas, side effects.
 
@@ -360,7 +360,7 @@ The work's full scope across the product — not just the team's piece. Cross-pr
 
 *Teaching note: Two sentences of confident hand-waving. "Will integrate" is not a plan. "Continue to function normally" is faith. The skill flags: "Name the downstream effects. When the agent acts, what changes in the SIEM? The case management tool? The on-call rotation? The identity systems? The endpoint inventory? Each integration is either in scope or explicitly deferred — name which, and assign an owner to the deferred items."*
 
-## Lens 6 — Packaging & pricing
+## Area 6 — Packaging & pricing
 
 Tier, model fit, competitor pricing benchmarks, escalation flag.
 
@@ -382,7 +382,7 @@ Tier, model fit, competitor pricing benchmarks, escalation flag.
 
 *Teaching note: Defers the conversation entirely. In B2B, packaging is a product decision that affects launch readiness, sales enablement, and adoption mechanics. The skill flags: "Pricing and packaging cannot be deferred to post-launch. Even a one-line tier decision is better than nothing. Name the tier(s), benchmark against competitors, flag if cross-functional review is needed."*
 
-## Lens 7 — Launch readiness
+## Area 7 — Launch readiness
 
 Documentation, field enablement, content surfaces. *The launch is not over when you ship.*
 
@@ -398,7 +398,7 @@ Documentation, field enablement, content surfaces. *The launch is not over when 
 
 *Teaching note: From the synthetic epic. Three placeholders. Each is a category, not a plan. The skill flags: "These are categories, not commitments. Name who writes what, by when. Add field enablement beyond a single sales training (customer success, demos, calculators, battle cards). Add PLG content (in-product guides, tooltips). Add video and customer comms. Name release sequencing — marquee, quiet, or design-partner-first?"*
 
-## Lens 8 — Post-launch ownership
+## Area 8 — Post-launch ownership
 
 Telemetry, adoption mechanics, success criteria. The work after the work.
 
@@ -420,7 +420,7 @@ Telemetry, adoption mechanics, success criteria. The work after the work.
 
 *Teaching note: A common B2B failure mode — the PM treats GA as the end of the work. The skill flags: "Shipping is a milestone, not a finish line. The work after the work is what determines whether the feature delivers value. Name metrics with thresholds, telemetry plan, adoption mechanics, and ownership cadence."*
 
-## Lens 9 — Trust, governance & auditability
+## Area 9 — Trust, governance & auditability
 
 Required for B2B features. Especially required when AI is involved. Five sub-checks: granular trust model, human-on-the-loop pattern, RBAC, audit trail, transparency.
 
