@@ -1,0 +1,17 @@
+{
+  "mappings": {
+    "properties": {
+      "session_id": { "type": "keyword" },
+      "date": { "type": "date" },
+      "time_of_day": { "type": "keyword" },
+      "location": { "properties": { "name": { "type": "keyword" }, "travel": { "type": "boolean" } } },
+      "program": { "properties": { "day": { "type": "integer" }, "total_days": { "type": "integer" } } },
+      "phase": { "type": "keyword" },
+      "exercise": { "type": "keyword" },
+      "set_number": { "type": "integer" },
+      "order": { "type": "integer" },
+      "text": { "type": "text" },
+      "tags": { "type": "keyword" }
+    }
+  }
+}

@@ -50,6 +50,14 @@ It's a starting overview, not a CISO — no maturity grade, no peer benchmark, n
 
 → [Read Floodlight's documentation](floodlight/README.md)
 
+### [Ironstack](ironstack/)
+
+Train with a partner. Own your data. See everything. Ironstack turns Claude into your training partner and Elasticsearch + Kibana into your training log. You log sessions conversationally — Claude asks the questions a good partner asks, records every set and how it felt, and keeps you honest and motivated (earned encouragement, never hype). Kibana dashboards show your training from every angle, and the **workout-recall** skill lets you ask your history anything: *“What did I squat a couple weeks ago? How did I feel when I was traveling in Las Vegas?”*
+
+The skills are public; your data never is. Your logs live in your own private repo and your own Elasticsearch — free self-hosted or Elastic Cloud Serverless — with semantic search over your training notes where available. Ironstack logs and motivates; it does not build programs or give injury advice — it is not a doctor substitute.
+
+→ [Read Ironstack's documentation](ironstack/README.md)
+
 ## See it in action
 
 Each skill has a live click-through demo on its page at [missionbuilt.io/loadout](https://missionbuilt.io/loadout). The demos are built from the actual skill templates — same HTML, same data schema, same layout as a live agent run. They're maintained in the `missionbuilt-site` repo under `scripts/build_demos.py`.

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/missionbuilt/ironstack/schema/workout.schema.json",
+  "title": "Ironstack Workout Log",
+  "description": "One training session. This file is the source of truth; the indexer explodes it into workout-sessions, workout-sets, and workout-notes documents.",
+  "type": "object",
+  "required": ["session", "exercises"],
+  "additionalProperties": false,
+  "properties": {
+    "session": {
+      "type": "object",
+      "required": ["date"],
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "Unique id. Defaults to the date; add a suffix for a second session in one day (e.g. 2026-09-01-pm).",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[a-z0-9-]+)?$"
+        },
+        "date": { "type": "string", "format": "date" },
+        "start_time": {
+          "type": "string",
+          "description": "Local start time, HH:MM (24h).",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+        },
+        "timezone": { "type": "string", "description": "IANA timezone, e.g. America/New_York." },
+        "duration_min": { "type": "number", "minimum": 0 },
+        "time_of_day": { "enum": ["morning", "midday", "evening", "night"] },
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "description": "Coarse by design: town or city level. Travel sessions use the city you're in." },
+            "geo": {
+              "type": "object",
+              "description": "Optional coarse coordinates (town-level). Never required.",
+              "required": ["lat", "lon"],
+              "additionalProperties": false,
+              "properties": {
+                "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+                "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+              }
+            },
+            "travel": { "type": "boolean", "description": "True when training away from the home gym." }
+          }
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "temp_f": { "type": "number" },
+            "humidity_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "conditions": { "type": "string" },
+            "wind": { "type": "string" },
+            "setting": { "type": "string", "description": "e.g. 'garage doors open, music loud'" }
+          }
+        },
+        "program": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "block": { "type": "string" },
+            "day": { "type": "integer", "minimum": 1 },
+            "total_days": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "gear_notes": { "type": "string" },
+        "wrap_up": { "type": "string", "description": "How the session felt, in the lifter's words." },
+        "watch_items": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "exercises": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "sets"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "category": { "enum": ["prep", "main", "accessory"] },
+          "equipment": { "type": "string" },
+          "emphasis": { "type": "string", "description": "Intent, e.g. 'feet shoulder width for max quad emphasis'." },
+          "gear": { "type": "array", "items": { "type": "string" }, "description": "Default gear for this exercise's sets; a set's own gear list overrides." },
+          "sets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["reps"],
+              "additionalProperties": false,
+              "properties": {
+                "set_number": { "type": "integer", "minimum": 1, "description": "Defaults to position in the array." },
+                "set_type": { "enum": ["prep", "working"], "default": "working" },
+                "weight_lb": { "type": "number", "minimum": 0, "description": "Total load. 0 for bodyweight." },
+                "reps": { "type": "number", "minimum": 0 },
+                "rep_unit": { "enum": ["reps", "walks", "seconds"], "default": "reps" },
+                "distance_ft": { "type": "number", "minimum": 0, "description": "Per rep, for carries (rep_unit: walks)." },
+                "load_type": { "enum": ["external", "bodyweight"], "default": "external" },
+                "rpe": { "type": "number", "minimum": 0, "maximum": 10, "description": "Single effort scale. Convert reps-in-reserve: RPE = 10 - RIR." },
+                "gear": { "type": "array", "items": { "type": "string" } },
+                "notes": { "type": "string" },
+                "tags": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "description": "Mindset and observation notes, in session order.",
+      "items": {
+        "type": "object",
+        "required": ["phase", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "phase": { "enum": ["pre", "prep", "exercise", "wrap-up"] },
+          "exercise": { "type": "string" },
+          "set_number": { "type": "integer", "minimum": 1 },
+          "text": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "From the taxonomy where possible: felt-strong, motivation, soreness, body-awareness:<area>, grip, asymmetry:left, asymmetry:right, cue, technique, gear-note, environment, experiment, fatigue, travel."
+          }
+        }
+      }
+    }
+  }
+}

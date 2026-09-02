@@ -1,0 +1,42 @@
+name: Index workouts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "workouts/**/*.json"
+      - "schema/**"
+      - "ingest/**"
+  workflow_dispatch: {}
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    env:
+      ES_ENDPOINT: ${{ secrets.ES_ENDPOINT }}
+      ES_API_KEY: ${{ secrets.ES_API_KEY }}
+      ES_SEMANTIC: ${{ vars.ES_SEMANTIC || 'auto' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r ingest/requirements.txt
+
+      - name: Validate workout logs
+        run: python ingest/index_workouts.py --validate
+
+      - name: Ensure indices exist
+        if: ${{ env.ES_ENDPOINT != '' }}
+        run: python ingest/setup_indices.py
+
+      - name: Index workout logs
+        if: ${{ env.ES_ENDPOINT != '' }}
+        run: python ingest/index_workouts.py
+
+      - name: Elasticsearch not configured — skipping index
+        if: ${{ env.ES_ENDPOINT == '' }}
+        run: echo "Set the ES_ENDPOINT and ES_API_KEY repository secrets to enable indexing. Validation still ran above."

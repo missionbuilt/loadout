@@ -1,0 +1,49 @@
+{
+  "mappings": {
+    "properties": {
+      "session_id": { "type": "keyword" },
+      "date": { "type": "date" },
+      "start_time": { "type": "keyword" },
+      "timestamp": { "type": "date" },
+      "duration_min": { "type": "float" },
+      "time_of_day": { "type": "keyword" },
+      "location": {
+        "properties": {
+          "name": { "type": "keyword" },
+          "geo": { "type": "geo_point" },
+          "travel": { "type": "boolean" }
+        }
+      },
+      "environment": {
+        "properties": {
+          "temp_f": { "type": "float" },
+          "humidity_pct": { "type": "float" },
+          "conditions": { "type": "keyword" },
+          "wind": { "type": "keyword" },
+          "setting": { "type": "text" }
+        }
+      },
+      "program": {
+        "properties": {
+          "name": { "type": "keyword" },
+          "block": { "type": "keyword" },
+          "day": { "type": "integer" },
+          "total_days": { "type": "integer" }
+        }
+      },
+      "totals": {
+        "properties": {
+          "tonnage_lb": { "type": "float" },
+          "sets": { "type": "integer" },
+          "working_sets": { "type": "integer" },
+          "reps": { "type": "integer" },
+          "exercises": { "type": "integer" }
+        }
+      },
+      "avg_working_rpe": { "type": "float" },
+      "gear_notes": { "type": "text" },
+      "wrap_up": { "type": "text" },
+      "watch_items": { "type": "keyword" }
+    }
+  }
+}
