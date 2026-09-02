@@ -10,21 +10,31 @@ Validation-only mode (no Elasticsearch needed): --validate
 Idempotent: every document gets a deterministic _id derived from the
 session, exercise, and set, so re-running after an edit updates in place.
 
+Session links (prev_session_id / next_session_id / streak_day) are computed
+from every log under workouts/, not hand-written, so they stay correct even
+when only one file is passed on the command line.
+
 Env:
   ES_ENDPOINT  e.g. https://my-project.es.us-east4.gcp.elastic.cloud:443
   ES_API_KEY   an API key with write access to the workout-* indices
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "workout.schema.json"
+WORKOUTS_DIR = REPO_ROOT / "workouts"
+
+PROGRAM_FIELDS = ("name", "block", "phase", "week", "day", "total_days", "meet_date")
 
 
 def slugify(name: str) -> str:
@@ -45,29 +55,114 @@ def load_schema() -> Draft202012Validator:
     return Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
 
 
-def explode(log: dict) -> list[tuple[str, str, dict]]:
+def session_key(session: dict) -> str:
+    return session.get("session_id") or session["date"]
+
+
+def timestamp_for(session: dict) -> str:
+    """ISO instant for the session start. Falls back to the date at midnight local."""
+    day = session["date"]
+    start = session.get("start_time") or "00:00"
+    tz_name = session.get("timezone")
+    naive = datetime.fromisoformat(f"{day}T{start}:00")
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+
+            return naive.replace(tzinfo=ZoneInfo(tz_name)).isoformat()
+        except Exception:  # unknown zone: index as a naive local time
+            pass
+    return naive.isoformat()
+
+
+def weekday_for(day: str) -> str:
+    """'1 Mon' .. '7 Sun': sorts chronologically as a keyword, reads as a label."""
+    d = date.fromisoformat(day)
+    return f"{d.isoweekday()} {d.strftime('%a')}"
+
+
+def days_to_meet(session: dict) -> int | None:
+    """Days from this session to program.meet_date, as of the session date."""
+    meet = (session.get("program") or {}).get("meet_date")
+    if not meet:
+        return None
+    return (date.fromisoformat(meet) - date.fromisoformat(session["date"])).days
+
+
+def program_block(program: dict) -> dict:
+    """The denormalized program context carried by every document."""
+    return {k: program[k] for k in PROGRAM_FIELDS if program.get(k) is not None}
+
+
+# --------------------------------------------------------------------------- links
+
+
+def catalog_sessions(extra_paths: list[Path]) -> list[tuple[str, str]]:
+    """All (date, session_id) pairs the repo knows about, sorted chronologically."""
+    seen: dict[str, str] = {}
+    paths = list(WORKOUTS_DIR.rglob("*.json")) if WORKOUTS_DIR.exists() else []
+    paths += extra_paths
+    for path in paths:
+        try:
+            session = json.loads(path.read_text()).get("session") or {}
+            if "date" in session:
+                seen[session_key(session)] = session["date"]
+        except (OSError, ValueError):
+            continue
+    return sorted(((d, sid) for sid, d in seen.items()), key=lambda pair: (pair[0], pair[1]))
+
+
+def session_links(ordered: list[tuple[str, str]]) -> dict[str, dict]:
+    """prev/next ids and streak_day (consecutive calendar days trained) per session."""
+    links: dict[str, dict] = {}
+    prev_day: date | None = None
+    streak = 0
+    for i, (day_str, sid) in enumerate(ordered):
+        day = date.fromisoformat(day_str)
+        if prev_day is None or day - prev_day > timedelta(days=1):
+            streak = 1
+        elif day - prev_day == timedelta(days=1):
+            streak += 1
+        # same day: streak unchanged
+        prev_day = day
+        links[sid] = {
+            "prev_session_id": ordered[i - 1][1] if i > 0 else None,
+            "next_session_id": ordered[i + 1][1] if i + 1 < len(ordered) else None,
+            "streak_day": streak,
+        }
+    return links
+
+
+# --------------------------------------------------------------------------- explode
+
+
+def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, str, dict]]:
     """Turn one workout log into (index, _id, document) tuples."""
     session = log["session"]
-    session_id = session.get("session_id") or session["date"]
+    session_id = session_key(session)
+    program = program_block(session.get("program") or {})
     context = {
         "session_id": session_id,
         "date": session["date"],
+        "weekday": weekday_for(session["date"]),
         "time_of_day": session.get("time_of_day"),
         "location": {
             "name": (session.get("location") or {}).get("name"),
             "travel": (session.get("location") or {}).get("travel", False),
         },
+        "program": program,
     }
-    program = session.get("program") or {}
     docs: list[tuple[str, str, dict]] = []
 
     tonnage = 0.0
     total_sets = working_sets = total_reps = 0
     working_rpes: list[float] = []
+    seq = 0  # order of every set within the session, across exercises
 
     for exercise in log["exercises"]:
         slug = slugify(exercise["name"])
         for position, s in enumerate(exercise["sets"], start=1):
+            seq += 1
             set_number = s.get("set_number", position)
             set_type = s.get("set_type", "working")
             weight = s.get("weight_lb", 0)
@@ -88,7 +183,6 @@ def explode(log: dict) -> list[tuple[str, str, dict]]:
 
             doc = {
                 **context,
-                "program": program,
                 "exercise": {
                     "name": exercise["name"],
                     "slug": slug,
@@ -96,6 +190,7 @@ def explode(log: dict) -> list[tuple[str, str, dict]]:
                     "equipment": exercise.get("equipment"),
                     "emphasis": exercise.get("emphasis"),
                 },
+                "seq": seq,
                 "set_number": set_number,
                 "set_type": set_type,
                 "weight_lb": weight,
@@ -117,9 +212,8 @@ def explode(log: dict) -> list[tuple[str, str, dict]]:
     for order, note in enumerate(log.get("notes", []), start=1):
         doc = {
             **context,
-            "program": {"day": program.get("day"), "total_days": program.get("total_days")},
             "phase": note["phase"],
-            "exercise": note.get("exercise"),
+            "exercise": {"name": note["exercise"], "slug": slugify(note["exercise"])} if note.get("exercise") else None,
             "set_number": note.get("set_number"),
             "order": order,
             "text": note["text"],
@@ -130,9 +224,11 @@ def explode(log: dict) -> list[tuple[str, str, dict]]:
     session_doc = {
         **context,
         "start_time": session.get("start_time"),
+        "timestamp": timestamp_for(session),
         "duration_min": session.get("duration_min"),
+        "days_to_meet": days_to_meet(session),
         "environment": session.get("environment"),
-        "program": program,
+        "metrics": session.get("metrics"),
         "totals": {
             "tonnage_lb": round(tonnage, 1),
             "sets": total_sets,
@@ -144,6 +240,7 @@ def explode(log: dict) -> list[tuple[str, str, dict]]:
         "gear_notes": session.get("gear_notes"),
         "wrap_up": session.get("wrap_up"),
         "watch_items": session.get("watch_items", []),
+        **((links or {}).get(session_id) or {}),
     }
     geo = (session.get("location") or {}).get("geo")
     if geo:
@@ -158,6 +255,9 @@ def strip_nones(value):
     if isinstance(value, list):
         return [strip_nones(v) for v in value]
     return value
+
+
+# --------------------------------------------------------------------------- index
 
 
 def bulk_index(docs: list[tuple[str, str, dict]]) -> None:
@@ -200,12 +300,13 @@ def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     validate_only = "--validate" in sys.argv
 
-    paths = [Path(a) for a in args] or sorted((REPO_ROOT / "workouts").rglob("*.json"))
+    paths = [Path(a) for a in args] or sorted(WORKOUTS_DIR.rglob("*.json"))
     if not paths:
-        print("no workout logs found — nothing to do")
+        print("no workout logs found: nothing to do")
         return
 
     validator = load_schema()
+    links = session_links(catalog_sessions([p for p in paths if WORKOUTS_DIR not in p.resolve().parents]))
     all_docs: list[tuple[str, str, dict]] = []
     failed = False
     for path in paths:
@@ -217,7 +318,7 @@ def main() -> None:
             for error in errors[:10]:
                 print(f"  {error.json_path}: {error.message}")
             continue
-        docs = explode(log)
+        docs = explode(log, links)
         all_docs.extend(docs)
         print(f"ok {path} -> {len(docs)} document(s)")
 

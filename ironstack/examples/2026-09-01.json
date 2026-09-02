@@ -8,7 +8,10 @@
     "time_of_day": "evening",
     "location": {
       "name": "Springfield",
-      "geo": { "lat": 39.8, "lon": -89.65 },
+      "geo": {
+        "lat": 39.8,
+        "lon": -89.65
+      },
       "travel": false
     },
     "environment": {
@@ -20,12 +23,22 @@
     "program": {
       "name": "Example Press Block",
       "block": "block-1",
+      "phase": "hypertrophy",
+      "week": 1,
       "day": 1,
-      "total_days": 12
+      "total_days": 12,
+      "meet_date": "2026-11-14"
     },
     "gear_notes": "Wrist wraps starting to fray — replace before heavy singles.",
     "wrap_up": "Strong opener to the block. Bench moved well at every weight, carries felt heavy but solid. Shoulder was present on incline — not pain, just aware of it. Motivated for day 2.",
-    "watch_items": ["right-shoulder awareness on incline", "wrist wrap condition"]
+    "watch_items": [
+      "right-shoulder awareness on incline",
+      "wrist wrap condition"
+    ],
+    "metrics": {
+      "bodyweight_lb": 185,
+      "sleep_hrs": 7.5
+    }
   },
   "exercises": [
     {
@@ -33,21 +46,61 @@
       "category": "prep",
       "gear": [],
       "sets": [
-        { "set_type": "prep", "weight_lb": 0, "reps": 15, "load_type": "bodyweight" },
-        { "set_type": "prep", "weight_lb": 0, "reps": 12, "load_type": "bodyweight" }
+        {
+          "set_type": "prep",
+          "weight_lb": 0,
+          "reps": 15,
+          "load_type": "bodyweight"
+        },
+        {
+          "set_type": "prep",
+          "weight_lb": 0,
+          "reps": 12,
+          "load_type": "bodyweight"
+        }
       ]
     },
     {
       "name": "Competition Bench Press",
       "category": "main",
       "equipment": "power bar + competition bench",
-      "gear": ["wrist wraps"],
+      "gear": [
+        "wrist wraps"
+      ],
       "sets": [
-        { "set_type": "prep", "weight_lb": 45, "reps": 10, "notes": "empty bar, grooving the touch point" },
-        { "set_type": "prep", "weight_lb": 95, "reps": 5 },
-        { "set_type": "prep", "weight_lb": 135, "reps": 3 },
-        { "set_type": "working", "weight_lb": 155, "reps": 5, "rpe": 6, "notes": "smooth, good leg drive", "tags": ["felt-strong"] },
-        { "set_type": "working", "weight_lb": 155, "reps": 5, "rpe": 6.5, "notes": "reported 3 in the tank — logged as RPE, bar speed still good" }
+        {
+          "set_type": "prep",
+          "weight_lb": 45,
+          "reps": 10,
+          "notes": "empty bar, grooving the touch point"
+        },
+        {
+          "set_type": "prep",
+          "weight_lb": 95,
+          "reps": 5
+        },
+        {
+          "set_type": "prep",
+          "weight_lb": 135,
+          "reps": 3
+        },
+        {
+          "set_type": "working",
+          "weight_lb": 155,
+          "reps": 5,
+          "rpe": 6,
+          "notes": "smooth, good leg drive",
+          "tags": [
+            "felt-strong"
+          ]
+        },
+        {
+          "set_type": "working",
+          "weight_lb": 155,
+          "reps": 5,
+          "rpe": 6.5,
+          "notes": "reported 3 in the tank — logged as RPE, bar speed still good"
+        }
       ]
     },
     {
@@ -55,24 +108,58 @@
       "category": "accessory",
       "equipment": "adjustable bench + dumbbells",
       "sets": [
-        { "set_type": "working", "weight_lb": 90, "reps": 10, "rpe": 7 },
-        { "set_type": "working", "weight_lb": 90, "reps": 10, "rpe": 7.5, "notes": "right shoulder aware on last 2 reps — no pain, adjusted grip slightly", "tags": ["body-awareness:right-shoulder"] }
+        {
+          "set_type": "working",
+          "weight_lb": 90,
+          "reps": 10,
+          "rpe": 7
+        },
+        {
+          "set_type": "working",
+          "weight_lb": 90,
+          "reps": 10,
+          "rpe": 7.5,
+          "notes": "right shoulder aware on last 2 reps — no pain, adjusted grip slightly",
+          "tags": [
+            "body-awareness:right-shoulder"
+          ]
+        }
       ]
     },
     {
       "name": "Farmers Carry",
       "category": "accessory",
       "equipment": "farmers handles",
-      "gear": ["chalk"],
+      "gear": [
+        "chalk"
+      ],
       "sets": [
-        { "set_type": "working", "weight_lb": 180, "reps": 3, "rep_unit": "walks", "distance_ft": 50, "rpe": 7, "notes": "grip solid with chalk", "tags": ["grip"] }
+        {
+          "set_type": "working",
+          "weight_lb": 180,
+          "reps": 3,
+          "rep_unit": "walks",
+          "distance_ft": 50,
+          "rpe": 7,
+          "notes": "grip solid with chalk",
+          "tags": [
+            "grip"
+          ]
+        }
       ]
     },
     {
       "name": "Plank",
       "category": "accessory",
       "sets": [
-        { "set_type": "working", "weight_lb": 0, "reps": 45, "rep_unit": "seconds", "load_type": "bodyweight", "rpe": 6 }
+        {
+          "set_type": "working",
+          "weight_lb": 0,
+          "reps": 45,
+          "rep_unit": "seconds",
+          "load_type": "bodyweight",
+          "rpe": 6
+        }
       ]
     }
   ],
@@ -80,25 +167,35 @@
     {
       "phase": "pre",
       "text": "First day of the new press block — excited to get under the bar again after the deload.",
-      "tags": ["motivation"]
+      "tags": [
+        "motivation"
+      ]
     },
     {
       "phase": "exercise",
       "exercise": "Competition Bench Press",
       "set_number": 5,
       "text": "Second working set felt better than the first once I set my arch earlier. Keeping that cue.",
-      "tags": ["cue", "felt-strong"]
+      "tags": [
+        "cue",
+        "felt-strong"
+      ]
     },
     {
       "phase": "exercise",
       "exercise": "Incline DB Press",
       "text": "Right shoulder let me know it was there on the last reps. Not pain — just presence. Watching it.",
-      "tags": ["body-awareness:right-shoulder"]
+      "tags": [
+        "body-awareness:right-shoulder"
+      ]
     },
     {
       "phase": "wrap-up",
       "text": "Evening session with the garage door open — great way to start the block. Ready for day 2.",
-      "tags": ["motivation", "environment"]
+      "tags": [
+        "motivation",
+        "environment"
+      ]
     }
   ]
 }

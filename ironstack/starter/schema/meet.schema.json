@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/missionbuilt/ironstack/schema/meet.schema.json",
+  "title": "Ironstack Meet Record",
+  "description": "One competition. kg is the source of truth; lb is derived by the indexer. Each attempt becomes one workout-meets document.",
+  "type": "object",
+  "required": [
+    "meet_id",
+    "date",
+    "attempts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "meet_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[a-z0-9-]+)?$",
+      "description": "Defaults to the date."
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "name": {
+      "type": "string"
+    },
+    "federation": {
+      "type": "string"
+    },
+    "bodyweight_kg": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Weigh-in."
+    },
+    "total_kg": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Official total. Computed from best made attempts when omitted."
+    },
+    "dots": {
+      "type": "number",
+      "minimum": 0
+    },
+    "notes": {
+      "type": "string"
+    },
+    "attempts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "lift",
+          "attempt_no",
+          "weight_kg",
+          "made"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "lift": {
+            "enum": [
+              "squat",
+              "bench",
+              "deadlift"
+            ]
+          },
+          "attempt_no": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4
+          },
+          "weight_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "made": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lift_names": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How each competition lift is named in your workout logs (defaults: Competition Squat / Competition Bench Press / Competition Deadlift). Lets a meet's best lift drill into its training history.",
+      "properties": {
+        "squat": {
+          "type": "string"
+        },
+        "bench": {
+          "type": "string"
+        },
+        "deadlift": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

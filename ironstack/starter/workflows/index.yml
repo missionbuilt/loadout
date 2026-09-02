@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "workouts/**/*.json"
+      - "meets/*.json"
       - "schema/**"
       - "ingest/**"
   workflow_dispatch: {}
@@ -29,6 +30,9 @@ jobs:
       - name: Validate workout logs
         run: python ingest/index_workouts.py --validate
 
+      - name: Validate meet records
+        run: python ingest/index_meets.py --validate
+
       - name: Ensure indices exist
         if: ${{ env.ES_ENDPOINT != '' }}
         run: python ingest/setup_indices.py
@@ -37,6 +41,10 @@ jobs:
         if: ${{ env.ES_ENDPOINT != '' }}
         run: python ingest/index_workouts.py
 
-      - name: Elasticsearch not configured — skipping index
+      - name: Index meet records
+        if: ${{ env.ES_ENDPOINT != '' }}
+        run: python ingest/index_meets.py
+
+      - name: Elasticsearch not configured, skipping index
         if: ${{ env.ES_ENDPOINT == '' }}
         run: echo "Set the ES_ENDPOINT and ES_API_KEY repository secrets to enable indexing. Validation still ran above."

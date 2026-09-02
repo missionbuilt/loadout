@@ -1,17 +1,84 @@
 {
   "mappings": {
     "properties": {
-      "session_id": { "type": "keyword" },
-      "date": { "type": "date" },
-      "time_of_day": { "type": "keyword" },
-      "location": { "properties": { "name": { "type": "keyword" }, "travel": { "type": "boolean" } } },
-      "program": { "properties": { "day": { "type": "integer" }, "total_days": { "type": "integer" } } },
-      "phase": { "type": "keyword" },
-      "exercise": { "type": "keyword" },
-      "set_number": { "type": "integer" },
-      "order": { "type": "integer" },
-      "text": { "type": "text" },
-      "tags": { "type": "keyword" }
+      "session_id": {
+        "type": "keyword"
+      },
+      "date": {
+        "type": "date"
+      },
+      "weekday": {
+        "type": "keyword"
+      },
+      "time_of_day": {
+        "type": "keyword"
+      },
+      "location": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "travel": {
+            "type": "boolean"
+          }
+        }
+      },
+      "program": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "block": {
+            "type": "keyword"
+          },
+          "phase": {
+            "type": "keyword"
+          },
+          "week": {
+            "type": "integer"
+          },
+          "day": {
+            "type": "integer"
+          },
+          "total_days": {
+            "type": "integer"
+          },
+          "meet_date": {
+            "type": "date"
+          }
+        }
+      },
+      "phase": {
+        "type": "keyword"
+      },
+      "exercise": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "slug": {
+            "type": "keyword"
+          }
+        }
+      },
+      "set_number": {
+        "type": "integer"
+      },
+      "order": {
+        "type": "integer"
+      },
+      "text": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 2048
+          }
+        }
+      },
+      "tags": {
+        "type": "keyword"
+      }
     }
   }
 }

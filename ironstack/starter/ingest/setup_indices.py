@@ -24,7 +24,7 @@ import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MAPPINGS_DIR = REPO_ROOT / "schema" / "mappings"
-INDICES = ["workout-sessions", "workout-sets", "workout-notes"]
+INDICES = ["workout-sessions", "workout-sets", "workout-notes", "workout-meets"]
 
 # Fields that gain a semantic_text sibling when semantic mode is on.
 # source field -> semantic field (populated via copy_to)

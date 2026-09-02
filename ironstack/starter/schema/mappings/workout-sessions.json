@@ -1,49 +1,149 @@
 {
   "mappings": {
     "properties": {
-      "session_id": { "type": "keyword" },
-      "date": { "type": "date" },
-      "start_time": { "type": "keyword" },
-      "timestamp": { "type": "date" },
-      "duration_min": { "type": "float" },
-      "time_of_day": { "type": "keyword" },
+      "session_id": {
+        "type": "keyword"
+      },
+      "date": {
+        "type": "date"
+      },
+      "start_time": {
+        "type": "keyword"
+      },
+      "timestamp": {
+        "type": "date"
+      },
+      "weekday": {
+        "type": "keyword"
+      },
+      "duration_min": {
+        "type": "float"
+      },
+      "days_to_meet": {
+        "type": "integer"
+      },
+      "time_of_day": {
+        "type": "keyword"
+      },
       "location": {
         "properties": {
-          "name": { "type": "keyword" },
-          "geo": { "type": "geo_point" },
-          "travel": { "type": "boolean" }
+          "name": {
+            "type": "keyword"
+          },
+          "geo": {
+            "type": "geo_point"
+          },
+          "travel": {
+            "type": "boolean"
+          }
         }
       },
       "environment": {
         "properties": {
-          "temp_f": { "type": "float" },
-          "humidity_pct": { "type": "float" },
-          "conditions": { "type": "keyword" },
-          "wind": { "type": "keyword" },
-          "setting": { "type": "text" }
+          "temp_f": {
+            "type": "float"
+          },
+          "humidity_pct": {
+            "type": "float"
+          },
+          "conditions": {
+            "type": "keyword"
+          },
+          "wind": {
+            "type": "keyword"
+          },
+          "setting": {
+            "type": "text"
+          }
         }
       },
       "program": {
         "properties": {
-          "name": { "type": "keyword" },
-          "block": { "type": "keyword" },
-          "day": { "type": "integer" },
-          "total_days": { "type": "integer" }
+          "name": {
+            "type": "keyword"
+          },
+          "block": {
+            "type": "keyword"
+          },
+          "phase": {
+            "type": "keyword"
+          },
+          "week": {
+            "type": "integer"
+          },
+          "day": {
+            "type": "integer"
+          },
+          "total_days": {
+            "type": "integer"
+          },
+          "meet_date": {
+            "type": "date"
+          }
+        }
+      },
+      "prev_session_id": {
+        "type": "keyword"
+      },
+      "next_session_id": {
+        "type": "keyword"
+      },
+      "streak_day": {
+        "type": "integer"
+      },
+      "metrics": {
+        "properties": {
+          "bodyweight_lb": {
+            "type": "float"
+          },
+          "sleep_hrs": {
+            "type": "float"
+          }
         }
       },
       "totals": {
         "properties": {
-          "tonnage_lb": { "type": "float" },
-          "sets": { "type": "integer" },
-          "working_sets": { "type": "integer" },
-          "reps": { "type": "integer" },
-          "exercises": { "type": "integer" }
+          "tonnage_lb": {
+            "type": "float"
+          },
+          "sets": {
+            "type": "integer"
+          },
+          "working_sets": {
+            "type": "integer"
+          },
+          "reps": {
+            "type": "integer"
+          },
+          "exercises": {
+            "type": "integer"
+          }
         }
       },
-      "avg_working_rpe": { "type": "float" },
-      "gear_notes": { "type": "text" },
-      "wrap_up": { "type": "text" },
-      "watch_items": { "type": "keyword" }
+      "avg_working_rpe": {
+        "type": "float"
+      },
+      "gear_notes": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 2048
+          }
+        }
+      },
+      "wrap_up": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 2048
+          }
+        }
+      },
+      "watch_items": {
+        "type": "keyword"
+      }
     }
   }
 }

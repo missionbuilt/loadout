@@ -1,0 +1,73 @@
+{
+  "mappings": {
+    "properties": {
+      "meet_id": {
+        "type": "keyword"
+      },
+      "date": {
+        "type": "date"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "federation": {
+        "type": "keyword"
+      },
+      "lift": {
+        "type": "keyword"
+      },
+      "exercise": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "slug": {
+            "type": "keyword"
+          }
+        }
+      },
+      "attempt_no": {
+        "type": "integer"
+      },
+      "weight_kg": {
+        "type": "float"
+      },
+      "weight_lb": {
+        "type": "float"
+      },
+      "made": {
+        "type": "boolean"
+      },
+      "best": {
+        "type": "boolean"
+      },
+      "total_kg": {
+        "type": "float"
+      },
+      "total_lb": {
+        "type": "float"
+      },
+      "dots": {
+        "type": "float"
+      },
+      "bodyweight_kg": {
+        "type": "float"
+      },
+      "bodyweight_lb": {
+        "type": "float"
+      },
+      "attempts_made": {
+        "type": "integer"
+      },
+      "notes": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 2048
+          }
+        }
+      }
+    }
+  }
+}

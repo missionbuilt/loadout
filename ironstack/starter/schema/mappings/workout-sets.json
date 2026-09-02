@@ -1,40 +1,120 @@
 {
   "mappings": {
     "properties": {
-      "session_id": { "type": "keyword" },
-      "date": { "type": "date" },
-      "time_of_day": { "type": "keyword" },
-      "location": { "properties": { "name": { "type": "keyword" }, "travel": { "type": "boolean" } } },
+      "session_id": {
+        "type": "keyword"
+      },
+      "date": {
+        "type": "date"
+      },
+      "weekday": {
+        "type": "keyword"
+      },
+      "time_of_day": {
+        "type": "keyword"
+      },
+      "location": {
+        "properties": {
+          "name": {
+            "type": "keyword"
+          },
+          "travel": {
+            "type": "boolean"
+          }
+        }
+      },
       "program": {
         "properties": {
-          "name": { "type": "keyword" },
-          "block": { "type": "keyword" },
-          "day": { "type": "integer" },
-          "total_days": { "type": "integer" }
+          "name": {
+            "type": "keyword"
+          },
+          "block": {
+            "type": "keyword"
+          },
+          "phase": {
+            "type": "keyword"
+          },
+          "week": {
+            "type": "integer"
+          },
+          "day": {
+            "type": "integer"
+          },
+          "total_days": {
+            "type": "integer"
+          },
+          "meet_date": {
+            "type": "date"
+          }
         }
       },
       "exercise": {
         "properties": {
-          "name": { "type": "keyword" },
-          "slug": { "type": "keyword" },
-          "category": { "type": "keyword" },
-          "equipment": { "type": "keyword" },
-          "emphasis": { "type": "text" }
+          "name": {
+            "type": "keyword"
+          },
+          "slug": {
+            "type": "keyword"
+          },
+          "category": {
+            "type": "keyword"
+          },
+          "equipment": {
+            "type": "keyword"
+          },
+          "emphasis": {
+            "type": "text"
+          }
         }
       },
-      "set_number": { "type": "integer" },
-      "set_type": { "type": "keyword" },
-      "weight_lb": { "type": "float" },
-      "reps": { "type": "float" },
-      "rep_unit": { "type": "keyword" },
-      "distance_ft": { "type": "float" },
-      "load_type": { "type": "keyword" },
-      "rpe": { "type": "float" },
-      "volume_lb": { "type": "float" },
-      "est_e1rm": { "type": "float" },
-      "gear": { "type": "keyword" },
-      "notes": { "type": "text" },
-      "tags": { "type": "keyword" }
+      "seq": {
+        "type": "integer"
+      },
+      "set_number": {
+        "type": "integer"
+      },
+      "set_type": {
+        "type": "keyword"
+      },
+      "weight_lb": {
+        "type": "float"
+      },
+      "reps": {
+        "type": "float"
+      },
+      "rep_unit": {
+        "type": "keyword"
+      },
+      "distance_ft": {
+        "type": "float"
+      },
+      "load_type": {
+        "type": "keyword"
+      },
+      "rpe": {
+        "type": "float"
+      },
+      "volume_lb": {
+        "type": "float"
+      },
+      "est_e1rm": {
+        "type": "float"
+      },
+      "gear": {
+        "type": "keyword"
+      },
+      "notes": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 2048
+          }
+        }
+      },
+      "tags": {
+        "type": "keyword"
+      }
     }
   }
 }

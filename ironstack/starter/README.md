@@ -28,14 +28,17 @@ Then in the new repo on GitHub: **Settings → Secrets and variables → Actions
 
 Optional repo **variable**: `ES_SEMANTIC` — `auto` (default), `on`, or `off` — controls the ELSER semantic layer.
 
-From now on, every push that touches `workouts/**` validates your logs against the schema and indexes them. Running by hand works too, and both scripts are idempotent:
+From now on, every push that touches `workouts/**` or `meets/*.json` validates your files against the schemas and indexes them. Running by hand works too, and every script is idempotent:
 
 ```bash
 pip install -r ingest/requirements.txt
 export ES_ENDPOINT=... ES_API_KEY=...
-python ingest/setup_indices.py
-python ingest/index_workouts.py
+python ingest/setup_indices.py      # creates or updates the four indices
+python ingest/index_meets.py        # meets/*.json  -> workout-meets
+python ingest/index_workouts.py     # workouts/**   -> workout-sessions / -sets / -notes
 ```
+
+Pass file paths to either indexer to index a subset. `--validate` checks files against the schema without touching Elasticsearch.
 
 ## Log a workout
 
@@ -48,13 +51,22 @@ workouts/2026/2026-09-01.json   # for the pipeline (validated against schema/wor
 
 Commit both. A complete example pair lives in the Loadout at `ironstack/examples/`.
 
+The `program` block is what ties sessions into the dashboards: `block`, `phase` (hypertrophy, strength, peaking), `week`, `day` of `total_days`, and `meet_date`. The indexer adds `prev_session_id`, `next_session_id`, and `streak_day` to every session from the set of logs it can see, so never write those by hand. Optional `metrics` (`bodyweight_lb`, `sleep_hrs`) feed the companion tiles when present.
+
+## Record a meet
+
+One JSON file per competition in `meets/`, named by date, validated against `schema/meet.schema.json`. Kilograms are the source of truth; the indexer derives pounds. Each attempt becomes one document in `workout-meets`, carrying the meet total, DOTS, and weigh-in so the Meets dashboard and the meet-max reference lines read from one place. Two real (already public) meets ship as examples; replace them with yours.
+
 ## What's here
 
 ```
 schema/workout.schema.json      every log must validate against this
-schema/mappings/                Elasticsearch mappings for the three indices
+schema/meet.schema.json         every meet record must validate against this
+schema/mappings/                Elasticsearch mappings for the four indices
 ingest/setup_indices.py         creates/updates indices (semantic layer auto-detected)
 ingest/index_workouts.py        validates + bulk-indexes logs (deterministic _ids, safe re-runs)
-workflows/index.yml             the GitHub Action — move to .github/workflows/index.yml
+ingest/index_meets.py           validates + bulk-indexes meet records (same guarantees)
+workflows/index.yml             the GitHub Action, move to .github/workflows/index.yml
 workouts/                       your logs live here
+meets/                          your meet records live here
 ```

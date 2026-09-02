@@ -22,12 +22,13 @@ ironstack/
 │   ├── workout-partner/    log + motivate: your training partner with a notebook
 │   └── workout-recall/     ask your training history anything
 ├── starter/         ← the plumbing: copy this into your own PRIVATE repo
-│   ├── schema/             JSON Schema for logs + Elasticsearch index mappings
-│   ├── ingest/             setup_indices.py + index_workouts.py (idempotent)
+│   ├── schema/             JSON Schemas (workout, meet) + mappings for the four indices
+│   ├── ingest/             setup_indices.py, index_workouts.py, index_meets.py (all idempotent)
 │   ├── workflows/          GitHub Action → place at .github/workflows/index.yml
-│   └── workouts/           where your logs go
+│   ├── workouts/           where your logs go
+│   └── meets/              where your meet records go (two public examples included)
 ├── examples/        ← one fictionalized session (md + json) showing the format
-└── kibana/          ← dashboard saved objects for import
+└── kibana/          ← build_dashboards.py → dashboards.ndjson, import.py, dashboard map
 ```
 
 **Skills** are shared and public — they live here in the Loadout. **Your data** is private — it lives in a repo you create from `starter/`, plus your own Elasticsearch. The two meet in your Claude session.
@@ -41,9 +42,9 @@ you + Claude (workout-partner skill)
 workouts/2026/2026-09-01.md + .json     ← your private repo (source of truth)
         │  git push → GitHub Action validates & indexes
         ▼
-your Elasticsearch (workout-sessions / workout-sets / workout-notes)
+your Elasticsearch (workout-sessions / workout-sets / workout-notes / workout-meets)
         │
-        ├─ Kibana dashboards: Overview → Session drill-down → Mindset
+        ├─ Kibana dashboards: Overview → Program / Session / Lift / History / Meets / Mindset
         └─ you + Claude (workout-recall skill): ask your history anything
 ```
 
@@ -65,11 +66,31 @@ Copy `starter/` into a new **private** repo (see [starter/README.md](starter/REA
 - `ES_ENDPOINT` — your Elasticsearch URL
 - `ES_API_KEY` — the write API key
 
-Every push that touches `workouts/**` now validates and indexes automatically. No CI? Run `python ingest/setup_indices.py` and `python ingest/index_workouts.py` by hand — both are idempotent.
+Every push that touches `workouts/**` or `meets/` now validates and indexes automatically. No CI? Run `python ingest/setup_indices.py`, `python ingest/index_meets.py`, and `python ingest/index_workouts.py` by hand — all three are idempotent.
 
 ### 3. Import the dashboards
 
-Kibana → Stack Management → Saved Objects → Import → `kibana/dashboards.ndjson`. Three dashboards: **Overview**, **Session Drill-down**, **Mindset**. (See `kibana/README.md`.)
+```bash
+export KIBANA_URL=https://<your-project>.kb.<region>.gcp.elastic.cloud
+export ES_API_KEY=<key with Kibana saved-object privileges>
+python kibana/import.py
+```
+
+(Or Kibana → Stack Management → Saved Objects → Import → `kibana/dashboards.ndjson`.) Switch Kibana to dark mode; the palette assumes it.
+
+Seven dashboards, one navigation graph, every aggregate a door to its detail:
+
+| Dashboard | What it shows |
+|---|---|
+| **Overview** | Days to meet, the block's tonnage timeline by phase, best e1RM per lift, total vs your meet max, calendar and streak, latest session, watch items |
+| **Program** | Block → week → day. Pick a week, open a day |
+| **Session** | One session: header, tiles, where and in what weather, every set, RPE by set, notes in order, wrap-up |
+| **Lift** | One exercise over time: e1RM, top set, volume by phase, every set and note about it |
+| **History** | Sessions over any range; the time picker is the range toggle |
+| **Meets** | Competition record: totals, DOTS, best lifts, every attempt |
+| **Mindset** | Every note, searchable (semantic where ELSER is on), tags over time, watch items |
+
+Click a bar, a tile, or a row and you land on its detail with the context carried as a filter: Overview → lift tile → Lift → point → Session → prev / next. `kibana/README.md` has the full map and the drilldown table.
 
 ### 4. Train with Claude
 
@@ -83,6 +104,8 @@ See `examples/` for what a logged session looks like.
 ## Conventions
 
 - Effort is one scale: **RPE** (10 = max). Reps-in-reserve converts as RPE = 10 − RIR.
+- Every session carries its `program` context: block, phase (hypertrophy / strength / peaking), week, day of N, and the meet date. The indexer adds prev / next session links, streak day, and days to meet; never write those by hand.
+- Meets are logged in **kg** (the source of truth); pounds are derived.
 - Carries log as `walks` with `distance_ft`; holds as `seconds`; bodyweight work as `weight_lb: 0`.
 - Location is **coarse by design** — town/city only. Traveling? Log the city and `travel: true`, and "how did I feel in Vegas?" becomes answerable.
 - Mindset notes carry tags from a small taxonomy (`felt-strong`, `body-awareness:<area>`, `grip`, `cue`, …) so themes trend over time.
