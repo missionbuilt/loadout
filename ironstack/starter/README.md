@@ -38,6 +38,15 @@ python ingest/index_meets.py        # meets/*.json  -> workout-meets
 python ingest/index_workouts.py     # workouts/**   -> workout-sessions / -sets / -notes
 ```
 
+If a mapping change alters a field's type, Elasticsearch won't apply it to a live index —
+`setup_indices.py` says which index needs a rebuild and stops. Every document is rebuilt from
+this repo, so recreating loses nothing:
+
+```bash
+python ingest/setup_indices.py --recreate workout-sessions
+python ingest/index_workouts.py
+```
+
 Pass file paths to either indexer to index a subset. `--validate` checks files against the schema without touching Elasticsearch.
 
 ## Log a workout

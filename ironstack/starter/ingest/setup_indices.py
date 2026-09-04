@@ -4,6 +4,15 @@
 Idempotent: safe to run on every deploy. Existing indices get a mapping
 update (additive only); missing indices are created.
 
+Some mapping changes cannot be applied in place: Elasticsearch will not change a
+field's type on a live index (watch_items went keyword -> text, for one). When that
+happens this script says so and stops. Pass --recreate to delete and rebuild the
+affected indices — safe here because every document is rebuilt from the repo by
+index_workouts.py / index_meets.py with deterministic ids:
+
+    python ingest/setup_indices.py --recreate workout-sessions
+    python ingest/index_workouts.py
+
 Semantic search (ELSER via semantic_text) is optional by design:
   ES_SEMANTIC=auto  (default) try semantic mappings, fall back to plain
   ES_SEMANTIC=on    require semantic mappings, fail loudly if unsupported
@@ -63,14 +72,27 @@ def with_semantic(index: str, body: dict) -> dict:
     return body
 
 
-def put_index(session: requests.Session, endpoint: str, index: str, body: dict) -> requests.Response:
-    exists = session.head(f"{endpoint}/{index}")
-    if exists.status_code == 200:
+def put_index(session: requests.Session, endpoint: str, index: str, body: dict,
+              recreate: bool = False) -> requests.Response:
+    exists = session.head(f"{endpoint}/{index}").status_code == 200
+    if exists and recreate:
+        session.delete(f"{endpoint}/{index}")
+        exists = False
+    if exists:
         return session.put(f"{endpoint}/{index}/_mapping", json=body["mappings"])
     return session.put(f"{endpoint}/{index}", json=body)
 
 
+def is_type_conflict(resp: requests.Response) -> bool:
+    """A mapping change Elasticsearch will not make in place."""
+    return resp.status_code == 400 and "cannot be changed from type" in resp.text
+
+
 def main() -> None:
+    argv = sys.argv[1:]
+    recreate_all = "--recreate" in argv
+    named = [a for a in argv if not a.startswith("--")]
+
     endpoint = env("ES_ENDPOINT")
     api_key = env("ES_API_KEY")
     semantic_mode = os.environ.get("ES_SEMANTIC", "auto").lower()
@@ -80,7 +102,9 @@ def main() -> None:
         {"Authorization": f"ApiKey {api_key}", "Content-Type": "application/json"}
     )
 
+    conflicts = []
     for index in INDICES:
+        recreate = recreate_all and (not named or index in named)
         base = json.loads((MAPPINGS_DIR / f"{index}.json").read_text())
         attempts = []
         if semantic_mode in ("auto", "on"):
@@ -90,14 +114,30 @@ def main() -> None:
 
         last = None
         for label, body in attempts:
-            resp = put_index(session, endpoint, index, body)
+            resp = put_index(session, endpoint, index, body, recreate)
             last = (label, resp)
             if resp.ok:
-                print(f"{index}: ok ({label})")
+                print(f"{index}: ok ({label}{', recreated' if recreate else ''})")
                 break
         else:
             label, resp = last
+            if is_type_conflict(resp):
+                conflicts.append(index)
+                print(f"{index}: needs a rebuild — a field's type changed and "
+                      "Elasticsearch won't do that in place")
+                continue
             sys.exit(f"error: {index} ({label}) -> {resp.status_code} {resp.text[:500]}")
+
+    if conflicts:
+        names = " ".join(conflicts)
+        sys.exit(
+            "\nNothing was changed on: " + names + "\n"
+            "Every document in these indices is rebuilt from this repo, so deleting and\n"
+            "recreating them loses nothing. To do that:\n\n"
+            f"    python ingest/setup_indices.py --recreate {names}\n"
+            "    python ingest/index_workouts.py\n"
+            "    python ingest/index_meets.py\n"
+        )
 
 
 if __name__ == "__main__":
