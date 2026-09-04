@@ -37,6 +37,12 @@ WORKOUTS_DIR = REPO_ROOT / "workouts"
 PROGRAM_FIELDS = ("name", "block", "phase", "week", "day", "total_days", "meet_date")
 
 
+def _fmt_number(value) -> str:
+    if value is None:
+        return "0"
+    return str(int(value)) if float(value) == int(value) else str(value)
+
+
 def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
@@ -142,6 +148,7 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
     session_id = session_key(session)
     program = program_block(session.get("program") or {})
     context = {
+        "@timestamp": timestamp_for(session),
         "session_id": session_id,
         "date": session["date"],
         "weekday": weekday_for(session["date"]),
@@ -188,12 +195,22 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
                     "slug": slug,
                     "category": exercise["category"],
                     "equipment": exercise.get("equipment"),
+                    "equipment_ids": [i["id"] for i in exercise.get("equipment_items", [])],
+                    "equipment_names": [i["name"] for i in exercise.get("equipment_items", [])],
+                    "equipment_kinds": sorted({i["kind"] for i in exercise.get("equipment_items", [])
+                                               if i.get("kind")}),
+                    "bar_weight_lb": next((i["weight_lb"] for i in exercise.get("equipment_items", [])
+                                           if i.get("kind") == "barbell" and i.get("weight_lb")), None),
                     "emphasis": exercise.get("emphasis"),
                 },
                 "seq": seq,
                 "set_number": set_number,
                 "set_type": set_type,
                 "weight_lb": weight,
+                "weight_each_lb": s.get("weight_each_lb"),
+                "each_side": s.get("each_side", False),
+                "scheme": s.get("scheme"),
+                "cardio": s.get("cardio"),
                 "reps": reps,
                 "rep_unit": rep_unit,
                 "distance_ft": s.get("distance_ft"),
@@ -221,6 +238,32 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
         }
         docs.append(("workout-notes", f"{session_id}-note-{order}", doc))
 
+    for order, item in enumerate(session.get("watch_items", []) or [], start=1):
+        # A watch item is a note the lifter wrote about the future; it deserves to be
+        # findable the same way ("when was my grip last a problem?").
+        docs.append(("workout-notes", f"{session_id}-watch-{order}", {
+            **context,
+            "phase": "watch",
+            "exercise": None,
+            "set_number": None,
+            "order": 1000 + order,
+            "text": item,
+            "tags": ["watch"],
+        }))
+
+    top_sets = []
+    for exercise in log["exercises"]:
+        if exercise["category"] != "main":
+            continue
+        working = [s for s in exercise["sets"] if s.get("set_type", "working") == "working"]
+        if not working:
+            continue
+        best = max(working, key=lambda s: (s.get("weight_lb") or 0, s["reps"]))
+        label = f"{exercise['name']} {_fmt_number(best.get('weight_lb'))} lb x{_fmt_number(best['reps'])}"
+        if best.get("rpe") is not None:
+            label += f" at RPE {_fmt_number(best['rpe'])}"
+        top_sets.append(label)
+
     session_doc = {
         **context,
         "start_time": session.get("start_time"),
@@ -242,11 +285,77 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
         "watch_items": session.get("watch_items", []),
         **((links or {}).get(session_id) or {}),
     }
+    session_doc["digest"] = session_digest(log, session_doc["totals"],
+                                           session_doc["avg_working_rpe"], top_sets)
     geo = (session.get("location") or {}).get("geo")
     if geo:
         session_doc["location"] = {**session_doc["location"], "geo": geo}
     docs.append(("workout-sessions", session_id, session_doc))
     return docs
+
+
+def session_digest(log: dict, totals: dict, avg_rpe, top_sets: list) -> str:
+    """One paragraph that says what the session was, for semantic search to embed.
+
+    Composed here rather than written by hand: the log stays terse, and the
+    AI-facing view is rebuilt from it on every index run.
+    """
+    session = log["session"]
+    day = date.fromisoformat(session["date"])
+    parts = [day.strftime("%A, %B %-d, %Y")]
+    if session.get("time_of_day"):
+        parts.append(session["time_of_day"])
+
+    location = session.get("location") or {}
+    where = location.get("name")
+    if where:
+        parts.append(f"traveling in {where}" if location.get("travel") else where)
+    env = session.get("environment") or {}
+    weather = [f"{env['temp_f']:.0f}F" if env.get("temp_f") is not None else "",
+               env.get("conditions", ""), env.get("setting", "")]
+    weather = [w for w in weather if w]
+    if weather:
+        parts.append(", ".join(weather))
+
+    program = session.get("program") or {}
+    if program.get("name"):
+        block = " ".join(dict.fromkeys(str(x) for x in [program.get("block"), program.get("phase")] if x))
+        label = f"{program['name']} {block}".strip()
+        if program.get("week") is not None:
+            label += f", week {program['week']}"
+        if program.get("day") is not None:
+            label += f" day {program['day']}"
+        parts.append(label)
+    remaining = days_to_meet(session)
+    if remaining is not None:
+        parts.append(f"{remaining} days to the meet")
+
+    lines = [". ".join(parts) + "."]
+    if top_sets:
+        lines.append("Top sets: " + "; ".join(top_sets) + ".")
+    names = [e["name"] for e in log["exercises"] if e["category"] != "prep"]
+    if names:
+        lines.append("Trained: " + ", ".join(names) + ".")
+    equipment = []
+    for exercise in log["exercises"]:
+        equipment += [i["name"] for i in exercise.get("equipment_items", [])]
+    if equipment:
+        lines.append("Equipment: " + ", ".join(dict.fromkeys(equipment)) + ".")
+    lines.append(f"{totals['working_sets']} working sets, {totals['tonnage_lb']:,.0f} lb moved"
+                 + (f", average working RPE {avg_rpe}." if avg_rpe else "."))
+    metrics = session.get("metrics") or {}
+    if metrics.get("bodyweight_lb") is not None:
+        body = f"Bodyweight {metrics['bodyweight_lb']} lb"
+        if metrics.get("sleep_hrs") is not None:
+            body += f", {metrics['sleep_hrs']} hours of sleep"
+        lines.append(body + ".")
+    for note in log.get("notes", []):
+        lines.append(note["text"])
+    if session.get("wrap_up"):
+        lines.append(session["wrap_up"])
+    if session.get("watch_items"):
+        lines.append("Watching: " + "; ".join(session["watch_items"]) + ".")
+    return " ".join(lines)
 
 
 def strip_nones(value):

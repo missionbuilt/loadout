@@ -1,6 +1,9 @@
 {
   "mappings": {
     "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
       "session_id": {
         "type": "keyword"
       },
@@ -142,7 +145,22 @@
         }
       },
       "watch_items": {
-        "type": "keyword"
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "digest": {
+        "type": "text",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
       }
     }
   }

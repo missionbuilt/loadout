@@ -30,7 +30,17 @@ INDICES = ["workout-sessions", "workout-sets", "workout-notes", "workout-meets"]
 # source field -> semantic field (populated via copy_to)
 SEMANTIC_FIELDS = {
     "workout-notes": {"text": "text_semantic"},
-    "workout-sessions": {"wrap_up": "wrap_up_semantic"},
+    "workout-sets": {"notes": "notes_semantic"},
+    "workout-meets": {"notes": "notes_semantic"},
+    "workout-sessions": {
+        "wrap_up": "wrap_up_semantic",
+        "gear_notes": "gear_notes_semantic",
+        "watch_items": "watch_semantic",
+        # `digest` is the whole session written out as a paragraph by the indexer.
+        # It is the field to search when the question is about a session rather
+        # than a sentence: "how did I feel training in Las Vegas?"
+        "digest": "digest_semantic",
+    },
 }
 
 

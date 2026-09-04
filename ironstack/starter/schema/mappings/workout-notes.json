@@ -1,6 +1,9 @@
 {
   "mappings": {
     "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
       "session_id": {
         "type": "keyword"
       },

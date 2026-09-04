@@ -1,6 +1,9 @@
 {
   "mappings": {
     "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
       "meet_id": {
         "type": "keyword"
       },

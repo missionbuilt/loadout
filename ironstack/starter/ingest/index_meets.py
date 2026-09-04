@@ -67,6 +67,7 @@ def explode(meet: dict) -> list[tuple[str, str, dict]]:
         total_kg = sum(best_kg.values())
 
     header = {
+        "@timestamp": meet["date"],
         "meet_id": meet_id,
         "date": meet["date"],
         "name": meet.get("name"),

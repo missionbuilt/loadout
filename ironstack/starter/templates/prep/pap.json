@@ -1,0 +1,105 @@
+[
+  {
+    "name": "Deadbug",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 10,
+        "load_type": "bodyweight",
+        "notes": "same-side leg and arm"
+      }
+    ]
+  },
+  {
+    "name": "Single-leg Glute Bridge",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 20,
+        "load_type": "bodyweight",
+        "notes": "ladder: 6, 5, 4, 3, 2 + hold"
+      }
+    ]
+  },
+  {
+    "name": "Glute Bridge",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 10,
+        "load_type": "bodyweight"
+      }
+    ]
+  },
+  {
+    "name": "Standing Lunge",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 20,
+        "load_type": "bodyweight",
+        "notes": "ladder: 6, 5, 4, 3, 2 + hold"
+      }
+    ]
+  },
+  {
+    "name": "Iso Push-up",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 30,
+        "rep_unit": "seconds",
+        "load_type": "bodyweight"
+      }
+    ]
+  },
+  {
+    "name": "Push-up",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 10,
+        "load_type": "bodyweight"
+      }
+    ]
+  },
+  {
+    "name": "Plank",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 30,
+        "rep_unit": "seconds",
+        "load_type": "bodyweight"
+      }
+    ]
+  },
+  {
+    "name": "Couch Stretch",
+    "category": "prep",
+    "sets": [
+      {
+        "set_type": "prep",
+        "weight_lb": 0,
+        "reps": 0,
+        "rep_unit": "seconds",
+        "load_type": "bodyweight",
+        "notes": "stretch hamstrings; duration not logged"
+      }
+    ]
+  }
+]

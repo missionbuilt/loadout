@@ -1,6 +1,9 @@
 {
   "mappings": {
     "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
       "session_id": {
         "type": "keyword"
       },
@@ -64,6 +67,18 @@
           },
           "emphasis": {
             "type": "text"
+          },
+          "equipment_ids": {
+            "type": "keyword"
+          },
+          "equipment_names": {
+            "type": "keyword"
+          },
+          "equipment_kinds": {
+            "type": "keyword"
+          },
+          "bar_weight_lb": {
+            "type": "float"
           }
         }
       },
@@ -114,6 +129,43 @@
       },
       "tags": {
         "type": "keyword"
+      },
+      "weight_each_lb": {
+        "type": "float"
+      },
+      "each_side": {
+        "type": "boolean"
+      },
+      "scheme": {
+        "type": "keyword"
+      },
+      "cardio": {
+        "properties": {
+          "distance_mi": {
+            "type": "float"
+          },
+          "calories": {
+            "type": "float"
+          },
+          "avg_watts": {
+            "type": "float"
+          },
+          "peak_watts": {
+            "type": "float"
+          },
+          "cadence_rpm": {
+            "type": "float"
+          },
+          "peak_mph": {
+            "type": "float"
+          },
+          "avg_hr": {
+            "type": "float"
+          },
+          "max_hr": {
+            "type": "float"
+          }
+        }
       }
     }
   }

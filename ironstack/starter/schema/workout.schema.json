@@ -282,8 +282,80 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "weight_each_lb": {
+                  "type": "number",
+                  "description": "Load in each hand; weight_lb stays the total."
+                },
+                "each_side": {
+                  "type": "boolean",
+                  "description": "reps are per side, not combined."
+                },
+                "scheme": {
+                  "type": "string",
+                  "description": "Ladders and other rep schemes: '6,5,4,3,2 + hold'."
+                },
+                "cardio": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Conditioning numbers as fields rather than a sentence.",
+                  "properties": {
+                    "distance_mi": {
+                      "type": "number"
+                    },
+                    "calories": {
+                      "type": "number"
+                    },
+                    "avg_watts": {
+                      "type": "number"
+                    },
+                    "peak_watts": {
+                      "type": "number"
+                    },
+                    "cadence_rpm": {
+                      "type": "number"
+                    },
+                    "peak_mph": {
+                      "type": "number"
+                    },
+                    "avg_hr": {
+                      "type": "number"
+                    },
+                    "max_hr": {
+                      "type": "number"
+                    }
+                  }
                 }
               }
+            }
+          },
+          "equipment_items": {
+            "type": "array",
+            "description": "Structured equipment, expanded from @ids in config/equipment.json. `equipment` stays the readable line.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "weight_lb": {
+                  "type": "number"
+                },
+                "brand": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
             }
           }
         }

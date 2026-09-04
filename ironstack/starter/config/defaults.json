@@ -1,0 +1,30 @@
+{
+  "_comment": "Filled in for any session that doesn't say otherwise, so the daily log stays short. `require` is the metadata every session should carry \u2014 log.py names what's missing, and --strict refuses to write without it.",
+  "location_detail": "coarse",
+  "session": {
+    "timezone": "America/New_York"
+  },
+  "location": {
+    "name": "Home gym",
+    "geo": {
+      "lat": 40.35,
+      "lon": -80.05
+    },
+    "travel": false
+  },
+  "program": {
+    "name": "My program",
+    "total_days": 4
+  },
+  "environment": {
+    "setting": "garage gym"
+  },
+  "require": [
+    "start_time",
+    "duration_min",
+    "location",
+    "environment.temp_f",
+    "metrics.bodyweight_lb",
+    "metrics.sleep_hrs"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "_comment": "The gym, once. Reference a piece by its id in the shorthand (@texas-db) and the log stores the id, the name and the bar weight \u2014 so 'everything I pulled with the Texas bar' is a filter, not a text search. Add a line when you add a piece. Ids must not start with a digit.",
+  "rep-rack": {
+    "name": "Rep 6-post tall rack",
+    "kind": "rack",
+    "brand": "Rep Fitness"
+  },
+  "dumbbells": {
+    "name": "dumbbells",
+    "kind": "implement"
+  },
+  "cable-machine": {
+    "name": "cable machine",
+    "kind": "machine"
+  },
+  "lat-pulldown": {
+    "name": "lat pulldown machine",
+    "kind": "machine"
+  },
+  "lever-belt": {
+    "name": "lever belt",
+    "kind": "worn"
+  },
+  "knee-sleeves": {
+    "name": "knee sleeves",
+    "kind": "worn"
+  },
+  "wrist-wraps": {
+    "name": "wrist wraps",
+    "kind": "worn"
+  },
+  "chalk": {
+    "name": "chalk",
+    "kind": "worn"
+  },
+  "ohio-power": {
+    "name": "Ohio Power Bar",
+    "kind": "barbell",
+    "weight_lb": 45,
+    "brand": "Rogue"
+  }
+}
