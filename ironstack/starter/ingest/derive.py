@@ -16,7 +16,6 @@ exercise, the same shape as `session_links()` in the indexer.
 from __future__ import annotations
 
 import json
-import sys
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -53,16 +52,21 @@ def load_taxonomy() -> dict:
     return _taxonomy
 
 
+class UnknownExercise(ValueError):
+    """Raised when a log names an exercise the taxonomy has never seen."""
+
+
 def classify(name: str) -> dict:
     """An unknown exercise name is a hard error, not a silent gap.
 
     The same rule as an unknown `key=` in the shorthand: a renamed lift must not
-    quietly drop out of the muscle-group and ratio metrics.
+    quietly drop out of the muscle-group and ratio metrics. Raised rather than
+    exited so callers stay testable and can report it their own way.
     """
     taxonomy = load_taxonomy()
     if name not in taxonomy:
-        sys.exit(
-            f"error: exercise {name!r} is not in config/exercises.json.\n"
+        raise UnknownExercise(
+            f"exercise {name!r} is not in config/exercises.json. "
             "Add it (and its movement pattern) there, or fix the name in the log."
         )
     return taxonomy[name]
@@ -172,7 +176,7 @@ def build_reference(logs: list[tuple[str, str, dict]]) -> Reference:
 
 # ------------------------------------------------------------- derived fields
 
-def set_fields(exercise: dict, s: dict, session_id: str, slug: str,
+def set_fields(exercise: dict, s: dict, session_id: str,
                reference: Reference | None) -> dict:
     """Analytics fields for one set document."""
     taxonomy = classify(exercise["name"])
@@ -265,7 +269,10 @@ def session_fields(set_docs: list[dict], session: dict, totals: dict,
         "fatigue_index": round(sum(drops) / len(drops), 1) if drops else None,
         "density_lb_per_min": metrics.density(totals.get("tonnage_lb"), duration),
         "load_au": metrics.session_au(avg_working_rpe, duration),
-        "load_estimated": bool(duration) and session.get("session_rpe") is None,
+        # AU is always derived from the session's average working RPE; no session RPE
+        # is logged today. The flag says "this load figure is an estimate", which it is
+        # whenever there is a duration to compute one from.
+        "load_estimated": bool(duration),
     }
 
 
@@ -442,10 +449,13 @@ def rollup_docs(docs: list[tuple[str, str, dict]]) -> list[tuple[str, str, dict]
 
         # Projected meet total from the week's best estimates of the three lifts,
         # and the DOTS that total would score at the week's bodyweight.
+        # Projection uses the competition lifts only. A high-bar squat or a wide-grip
+        # bench belongs to the same family for grouping, but it does not transfer to
+        # the platform one for one, and a total built from variants reads high.
         comp_best = {family: 0.0 for family in COMP_FAMILIES}
         window = end - timedelta(days=REFERENCE_WINDOW_DAYS)
         for slug, entries in e1rm_history.items():
-            family = _family_of_slug(slug)
+            family = _projection_family(slug)
             if family not in comp_best:
                 continue
             recent = [v for d, v in entries if window <= d <= end]
@@ -497,8 +507,12 @@ def rollup_docs(docs: list[tuple[str, str, dict]]) -> list[tuple[str, str, dict]
 _slug_family: dict[str, str] | None = None
 
 
-def _family_of_slug(slug: str) -> str | None:
-    """Competition lift family for a canonical slug, or None."""
+def _projection_family(slug: str) -> str | None:
+    """Competition lift family for a canonical slug, competition lifts only.
+
+    Deliberately stricter than `lift_family`: Comp Bench qualifies, Extra Wide
+    Bench Press does not, even though both are in the bench family.
+    """
     global _slug_family
     if _slug_family is None:
         from index_workouts import slugify
@@ -506,6 +520,6 @@ def _family_of_slug(slug: str) -> str | None:
         _slug_family = {}
         for entry in load_taxonomy().values():
             family = entry.get("lift_family")
-            if family in COMP_FAMILIES:
+            if family in COMP_FAMILIES and entry.get("competition"):
                 _slug_family[slugify(entry["canonical"])] = family
     return _slug_family.get(slug)

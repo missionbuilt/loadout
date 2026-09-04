@@ -241,7 +241,7 @@ def explode(log: dict, links: dict[str, dict] | None = None,
                 "notes": s.get("notes"),
                 "tags": s.get("tags", []),
             }
-            doc.update(derive.set_fields(exercise, s, session_id, slug, reference))
+            doc.update(derive.set_fields(exercise, s, session_id, reference))
             set_docs.append(doc)
             docs.append(("workout-sets", f"{session_id}-{slug}-{set_type}-{set_number}", doc))
 
@@ -440,9 +440,13 @@ def main() -> None:
 
     validator = load_schema()
     outside = [p for p in paths if WORKOUTS_DIR not in p.resolve().parents]
-    links = session_links(catalog_sessions(outside))
-    reference = derive.build_reference(catalog_logs(outside))
-    all_docs: list[tuple[str, str, dict]] = []
+    # One walk of the corpus. Links, the analytics reference and the rollups all need
+    # the whole history regardless of which files were named on the command line.
+    corpus = catalog_logs(outside)
+    links = session_links(sorted(((day, sid) for day, sid, _ in corpus),
+                                 key=lambda pair: (pair[0], pair[1])))
+    reference = derive.build_reference(corpus)
+    requested: set[str] = set()
     failed = False
     for path in paths:
         log = json.loads(path.read_text())
@@ -453,21 +457,24 @@ def main() -> None:
             for error in errors[:10]:
                 print(f"  {error.json_path}: {error.message}")
             continue
-        docs = explode(log, links, reference)
-        all_docs.extend(docs)
-        print(f"ok {path} -> {len(docs)} document(s)")
-
+        requested.add(session_key(log["session"]))
     if failed:
         sys.exit("error: fix the invalid log(s) above")
 
-    # Daily and weekly rollups describe the whole history, not the files named on
-    # the command line, so they are always built from every log in the repo. The
-    # ids are deterministic, so re-emitting every week on every run is an upsert.
-    every = all_docs
-    if len(paths) != len(catalog_logs([])):
-        every = []
-        for _day, _sid, log in catalog_logs([]):
+    # Explode the whole corpus once. The requested sessions are indexed; the rest are
+    # here because the daily and weekly rollups describe the whole history and cannot
+    # be computed from a single day. Deterministic ids make re-emitting them an upsert.
+    every: list[tuple[str, str, dict]] = []
+    try:
+        for _day, _sid, log in corpus:
             every.extend(explode(log, links, reference))
+    except derive.UnknownExercise as exc:
+        sys.exit(f"error: {exc}")
+
+    all_docs = [d for d in every if d[2].get("session_id") in requested]
+    for sid in sorted(requested):
+        print(f"ok {sid} -> {sum(1 for d in all_docs if d[2].get('session_id') == sid)} document(s)")
+
     rollups = derive.rollup_docs(every)
     all_docs.extend(rollups)
     print(f"rollups -> {len(rollups)} document(s)")

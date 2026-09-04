@@ -19,6 +19,15 @@ pip install requests
 python kibana/import.py
 ```
 
+The NDJSON is written in the dashboard format Kibana 9 and Serverless save natively (panels as `vis` / `legacy_vis`, drilldowns in `embeddableConfig.drilldowns`, `typeMigrationVersion` 10.3.0). Older Kibana versions may not import it.
+
+The dashboards read six indices. Four are the log (`workout-sessions`, `workout-sets`,
+`workout-notes`, `workout-meets`); two are the rollups the indexer emits alongside them
+(`workout-daily`, `workout-weekly`), which carry ACWR, monotony, strain, weekly INOL, the
+projected total and DOTS. Run `ingest/setup_indices.py` and `ingest/index_workouts.py` before
+importing, or the readiness, DOTS trajectory, weekly loading and load-monitoring panels will
+render empty.
+
 Re-importing is safe. Every object has a fixed id, so an import overwrites in place and drilldowns and bookmarks keep working. To change a panel, edit `build_dashboards.py`, regenerate, and import again; do not edit the NDJSON by hand.
 
 Or import by hand: Kibana, Stack Management, Saved Objects, Import, pick `dashboards.ndjson`, check "overwrite".

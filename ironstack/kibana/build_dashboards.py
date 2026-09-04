@@ -21,6 +21,10 @@ import sys
 import uuid
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import templates as tpl  # noqa: E402
+from templates import brand_bar  # noqa: E402
+
 OUT = Path(__file__).resolve().parent / "dashboards.ndjson"
 
 # --------------------------------------------------------------------------- Iron Log
@@ -39,7 +43,8 @@ PHASES = [  # order is the training arc
     ("peaking", "Peaking", "#7a7873"),
 ]
 
-MEET_MAX_LB = 909.4  # last meet total; the oxblood reference line on Overview
+MEET_MAX_LB = 909.4    # last meet total; the oxblood reference line on Overview
+MEET_BEST_DOTS = 266.72  # Nov 16 2024; the line the DOTS trajectory is measured against
 
 # --------------------------------------------------------------------------- ids
 
@@ -56,6 +61,8 @@ DV = {
     "sets": ("ironstack-dv-sets", "workout-sets", "date"),
     "notes": ("ironstack-dv-notes", "workout-notes", "date"),
     "meets": ("ironstack-dv-meets", "workout-meets", "date"),
+    "daily": ("ironstack-dv-daily", "workout-daily", "@timestamp"),
+    "weekly": ("ironstack-dv-weekly", "workout-weekly", "@timestamp"),
 }
 
 DASH = {
@@ -230,7 +237,7 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
             "layerId": "ref", "layerType": "referenceLine", "accessors": ["ref"],
             "yConfig": [{
                 "forAccessor": "ref", "axisMode": "left", "color": BLOOD, "lineStyle": "dashed",
-                "lineWidth": 2, "icon": "none", "iconPosition": "auto", "textVisibility": True, "fill": "none",
+                "lineWidth": 2, "iconPosition": "auto", "textVisibility": True, "fill": "none",
             }],
         })
     vis = {**XY_BASE, "preferredSeriesType": series, "layers": vis_layers}
@@ -376,12 +383,47 @@ def session_map(id_):
 
 # --------------------------------------------------------------------------- dashboards
 
+class Inline:
+    """A by-value panel (custom content, links). `key` makes the panelIndex deterministic."""
+
+    def __init__(self, key: str, ptype: str, config: dict, refs: list[dict] | None = None):
+        self.key = key
+        self.ptype = ptype
+        self.config = config
+        self.refs = refs or []  # names are relative; the dashboard prefixes them with the panelIndex
+
+
+def custom(key: str, template: str, esql: str | None = None) -> Inline:
+    """Custom content panel. Liquid only runs when a query is attached."""
+    return Inline(key, "custom_content", {"esql_query": [esql] if esql else [], "template": template,
+                                          "hidePanelTitles": True})
+
+
+NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mindset"]
+
+
+def links(current: str) -> Inline:
+    """Kibana Links panel: the app nav. Carries filters and time so context survives a hop."""
+    items, refs = [], []
+    for key in NAV_ORDER:
+        link_id = uid("nav", current, key)
+        items.append({"type": "dashboardLink", "label": key.upper() if key != current else f"[ {key.upper()} ]",
+                      "options": {"open_in_new_tab": False, "use_time_range": True, "use_filters": True},
+                      "destinationRefName": f"link_{link_id}_dashboard"})
+        refs.append({"name": f"link_{link_id}_dashboard", "type": "dashboard", "id": DASH[key]})
+    return Inline(f"nav-{current}", "links", {"title": "", "layout": "horizontal", "links": items,
+                                              "hidePanelTitles": True}, refs)
+
+
 class Dashboard:
-    """Collects panels row by row on Kibana's 48-column grid."""
+    """Collects panels row by row on Kibana's 48-column grid, in the dashboard format this
+    Kibana writes itself (typeMigrationVersion 10.3.0): by-reference panels are `vis` /
+    `legacy_vis` / `map` with a `{panelIndex}:savedObjectRef` reference; by-value panels carry
+    their config inline; drilldowns live in `embeddableConfig.drilldowns`."""
 
-    W = 48
+    PANEL_TYPE = {"lens": "vis", "visualization": "legacy_vis", "map": "map"}
 
-    def __init__(self, key, title, description, controls=None, time_from="now-1y"):
+    def __init__(self, key, title, description, tagline, controls=None, time_from="now-1y"):
         self.id = DASH[key]
         self.key = key
         self.title = title
@@ -391,42 +433,43 @@ class Dashboard:
         self.panels: list[dict] = []
         self.refs: list[dict] = []
         self.y = 0
-
-    def nav(self):
-        self.row((nav_strip(self.key), 48, []), h=3)
+        self.objects: list[dict] = []  # saved objects this dashboard owns (Lens etc.)
+        # chrome: brand bar + nav
+        self.row((custom(f"brand-{key}", brand_bar(key.upper(), tagline)), 48, []), h=4)
+        self.row((links(key), 48, []), h=2)
 
     def row(self, *items, h=8):
-        """items: (saved object, width, drilldowns) with drilldowns a list of (target key, name) or ('url', template, name)."""
+        """items: (saved object | Inline, width, drilldowns); drilldowns are (target key, name) or ('url', template, name)."""
         x = 0
         for obj, w, drills in items:
-            idx = uid(self.id, obj["id"])
-            enhancements = {"dynamicActions": {"events": []}}
+            inline = isinstance(obj, Inline)
+            idx = uid(self.id, obj.key if inline else obj["id"])
+            drilldowns = []
             for d in drills:
-                event_id = uid(self.id, obj["id"], str(d))
                 if d[0] == "url":
-                    enhancements["dynamicActions"]["events"].append({
-                        "eventId": event_id, "triggers": ["VALUE_CLICK_TRIGGER"],
-                        "action": {"factoryId": "URL_DRILLDOWN", "name": d[2],
-                                   "config": {"url": {"template": d[1]}, "openInNewTab": False, "encodeUrl": True}},
-                    })
+                    drilldowns.append({"type": "url_drilldown", "label": d[2], "trigger": "on_click_value",
+                                       "open_in_new_tab": False, "encode_url": True, "url": d[1]})
                 else:
                     target, name = d
-                    enhancements["dynamicActions"]["events"].append({
-                        "eventId": event_id, "triggers": ["VALUE_CLICK_TRIGGER"],
-                        "action": {"factoryId": "DASHBOARD_TO_DASHBOARD_DRILLDOWN", "name": name,
-                                   "config": {"useCurrentFilters": True, "useCurrentDateRange": True, "openInNewTab": False}},
-                    })
-                    self.refs.append({"name": f"{idx}:drilldown:DASHBOARD_TO_DASHBOARD_DRILLDOWN:{event_id}:dashboardId",
-                                      "type": "dashboard", "id": DASH[target]})
-            self.panels.append({
-                "version": "8.9.0", "type": obj["type"],
-                "gridData": {"x": x, "y": self.y, "w": w, "h": h, "i": idx},
-                "panelIndex": idx,
-                "embeddableConfig": {"enhancements": enhancements},
-                "title": obj["attributes"]["title"],
-                "panelRefName": f"panel_{idx}",
-            })
-            self.refs.append({"name": f"panel_{idx}", "type": obj["type"], "id": obj["id"]})
+                    ref_name = f"dashboard_drilldown_{DASH[target]}"
+                    drilldowns.append({"type": "dashboard_drilldown", "label": name, "trigger": "on_apply_filter",
+                                       "open_in_new_tab": False, "use_time_range": True, "use_filters": True,
+                                       "dashboardRefName": ref_name})
+                    self.refs.append({"name": f"{idx}:{ref_name}", "type": "dashboard", "id": DASH[target]})
+            if inline:
+                config = dict(obj.config)
+                ptype = obj.ptype
+                for r in obj.refs:
+                    self.refs.append({**r, "name": f"{idx}:{r['name']}"})
+            else:
+                config = {"title": obj["attributes"]["title"]}
+                ptype = self.PANEL_TYPE[obj["type"]]
+                self.refs.append({"name": f"{idx}:savedObjectRef", "type": obj["type"], "id": obj["id"]})
+                self.objects.append(obj)
+            if drilldowns:
+                config["drilldowns"] = drilldowns
+            self.panels.append({"type": ptype, "embeddableConfig": config, "panelIndex": idx,
+                                "gridData": {"x": x, "y": self.y, "w": w, "h": h, "i": idx}})
             x += w
         self.y += h
 
@@ -436,7 +479,8 @@ class Dashboard:
             "description": self.description,
             "panelsJSON": json.dumps(self.panels),
             "optionsJSON": json.dumps({"useMargins": True, "syncColors": False, "syncCursor": True,
-                                       "syncTooltips": False, "hidePanelTitles": False}),
+                                       "syncTooltips": False, "hidePanelTitles": False,
+                                       "hidePanelBorders": True, "autoApplyFilters": True}),
             "timeRestore": True, "timeFrom": self.time_from, "timeTo": "now",
             "refreshInterval": {"pause": True, "value": 60000},
             "version": 1,
@@ -447,7 +491,7 @@ class Dashboard:
             panels = {}
             for order, (dv, field, label) in enumerate(self.controls):
                 cid = uid(self.id, "control", field)
-                panels[cid] = {"type": "optionsListControl", "order": order, "grow": True, "width": "medium",
+                panels[cid] = {"type": "optionsListControl", "order": order, "grow": False, "width": "small",
                                "explicitInput": {"id": cid, "fieldName": field, "title": label,
                                                  "selectedOptions": [], "searchTechnique": "prefix",
                                                  "sort": {"by": "_key", "direction": "asc"}}}
@@ -458,23 +502,37 @@ class Dashboard:
                                                         "ignoreTimerange": False, "ignoreValidations": False}),
                 "panelsJSON": json.dumps(panels),
             }
-        return {"id": self.id, "type": "dashboard", "attributes": attrs, "references": refs,
-                **MIGRATION, "typeMigrationVersion": "8.9.0"}
+        return [*self.objects, {"id": self.id, "type": "dashboard", "attributes": attrs, "references": refs,
+                                **MIGRATION, "typeMigrationVersion": "10.3.0"}]
 
 
-# --------------------------------------------------------------------------- shared panels
+# --------------------------------------------------------------------------- ES|QL
 
-NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mindset"]
+Q = {
+    "days": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date) | KEEP program.*, date_s, meet_s, days_to_meet',
+    "total": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true AND e1rm_confidence != "low" | STATS best = MAX(est_e1rm) BY lift_family | STATS total = SUM(best), lifts = COUNT(*)',
+    "streak": 'FROM workout-sessions | EVAL in7 = CASE(date >= NOW() - 7 days, 1, 0), in28 = CASE(date >= NOW() - 28 days, 1, 0) | STATS n7 = SUM(in7), n28 = SUM(in28), streak = MAX(streak_day)',
+    "latest": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP date_s, program.block, program.day, time_of_day, totals.*, avg_working_rpe, wrap_up',
+    "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
+    "bodyweight": 'FROM workout-sessions | WHERE metrics.bodyweight_lb IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.bodyweight_lb | KEEP v',
+    "sleep": 'FROM workout-sessions | WHERE metrics.sleep_hrs IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.sleep_hrs | KEEP v',
+    "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
+    "days_list": 'FROM workout-sessions | SORT date ASC | LIMIT 200 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP program.week, program.day, date_s, time_of_day, location.name, totals.tonnage_lb, avg_working_rpe, duration_min',
+    "session_header": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEEE, MMM d, yyyy", date) | KEEP program.*, date_s, start_time, time_of_day, location.name, location.travel, prev_session_id, next_session_id',
+    "session_tiles": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP duration_min, streak_day, avg_working_rpe, totals.*, days_to_meet',
+    "session_tonnage": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP totals.tonnage_lb',
+    "conditions": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP environment.*, time_of_day',
+    "performance": 'FROM workout-sets | SORT seq ASC | LIMIT 500 | EVAL gear_s = MV_CONCAT(gear, " / ") | KEEP set_number, exercise.name, exercise.category, set_type, load_type, weight_lb, reps, rep_unit, distance_ft, rpe, gear_s, notes',
+    "notes": 'FROM workout-notes | SORT order ASC | LIMIT 200 | EVAL tags_s = MV_CONCAT(tags, "|") | KEEP order, phase, exercise.name, text, tags_s',
+    "wrap": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL watch_s = MV_CONCAT(watch_items, "|") | KEEP wrap_up, gear_notes, watch_s',
+    "lift_header": 'FROM workout-sets | WHERE set_type == "working" | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last = MAX(date) BY exercise.name | SORT n DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last)',
+    "history_cards": 'FROM workout-sessions | STATS ton = SUM(totals.tonnage_lb), avg = AVG(totals.tonnage_lb), n = COUNT(*), sets = SUM(totals.working_sets), rpe = AVG(avg_working_rpe)',
+    "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
+    "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
+    "recent_notes": 'FROM workout-notes | SORT @timestamp DESC, order ASC | LIMIT 12 | EVAL date_s = DATE_FORMAT("MMM d", date), tags_s = MV_CONCAT(tags, "|") | KEEP date_s, phase, exercise.name, text, tags_s',
+}
 
-
-def nav_strip(current: str):
-    """Mono nav row: every dashboard by name, the current one in bold. Relative links survive a base path."""
-    parts = []
-    for key in NAV_ORDER:
-        label = key.upper()
-        parts.append(f"**{label}**" if key == current else f"[{label}](dashboards#/view/{DASH[key]})")
-    return markdown(f"ironstack-nav-{current}", "IRONSTACK", " &nbsp;·&nbsp; ".join(parts))
-
+# --------------------------------------------------------------------------- shared Lens panels
 
 SESSION_URL = (
     "{{kibanaUrl}}/app/dashboards#/view/" + DASH["session"] +
@@ -522,99 +580,54 @@ def notes_table(id_, title, size=20):
     return table(id_, title, "notes", columns, sort="sid", direction="desc", page=50)
 
 
-def watch_items(id_, title="WATCH ITEMS"):
-    columns = {
-        "sid": terms("session_id", "SESSION", size=20, direction="desc"),
-        "item": terms("watch_items", "WATCH", size=20),
-    }
-    return table(id_, title, "sessions", columns, sort="sid", direction="desc")
-
-
 # --------------------------------------------------------------------------- build
 
 def build() -> list[dict]:
     objs: list[dict] = [data_view(k) for k in DV]
-    S, T, N, M = "sessions", "sets", "notes", "meets"
+    S, T, N, M, D, W = "sessions", "sets", "notes", "meets", "daily", "weekly"
     L = lambda name: f"ironstack-lens-{name}"  # noqa: E731
 
     # ---------------------------------------------------------------- Overview
-    d = Dashboard("overview", "Ironstack. Overview", "The block at a glance. Every tile opens its detail.")
-    d.nav()
-    days = metric_vis(L("ov-days"), "DAYS TO MEET", S,
-                      {"m": last("days_to_meet", "DAYS TO MEET", "number", sort="timestamp", fmt=FMT_INT),
-                       "s": last("program.week", "WEEK", "number", sort="timestamp", fmt=FMT_INT),
-                       "b": terms("program.block", "BLOCK", size=1, direction="desc")},
-                      "m", secondary="s", breakdown="b", max_cols=1, subtitle="as of the last session")
-    d.row((days, 12, [("program", "Program")]), (block_timeline(L("ov-timeline")), 36, [("session", "Session")]), h=8)
-
-    lifts = metric_vis(L("ov-lifts"), "BEST e1RM. THIS BLOCK", T,
+    d = Dashboard("overview", "Ironstack. Overview", "The block at a glance. Every chart opens its detail.",
+                  "Training at a glance.")
+    d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
+          (block_timeline(L("ov-timeline")), 32, [("session", "Session")]), h=10)
+    lifts = metric_vis(L("ov-lifts"), "BEST e1RM. THIS BLOCK. CLICK A LIFT", T,
                        {"m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT),
                         "b": terms("exercise.name", "LIFT", size=3, by_col="m", direction="desc")},
                        "m", breakdown="b", max_cols=3,
                        trend=("date", lambda: metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)),
-                       query='exercise.category: "main" and set_type: "working"')
+                       query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"')
+    d.row((lifts, 48, [("lift", "Lift")]), h=9)
     total_cols = {"x": date_hist("date", "WEEK", "1w"), "lift": terms("exercise.name", "LIFT", size=3),
                   "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)}
     total = xy(L("ov-total"), "TOTAL VS MEET MAX", "bar_stacked", T, total_cols, "x", ["m"], split="lift",
                palette="gray", ref=(MEET_MAX_LB, "MEET MAX"),
-               query='exercise.category: "main" and set_type: "working"')
-    d.row((lifts, 24, [("lift", "Lift")]), (total, 24, []), h=9)
-
-    streak = metric_vis(L("ov-streak"), "STREAK", S,
-                        {"m": last("streak_day", "DAY", "number", sort="timestamp", fmt=FMT_INT),
-                         "b": terms("program.block", "BLOCK", size=1, direction="desc")},
-                        "m", breakdown="b", max_cols=1)
-    recent = metric_vis(L("ov-recent"), "LAST 28 DAYS", S,
-                        {"m": count("SESSIONS", filt='date >= "now-28d"', fmt=FMT_INT),
-                         "s": count("LAST 7", filt='date >= "now-7d"', fmt=FMT_INT),
-                         "b": terms("program.block", "BLOCK", size=1, direction="desc")},
-                        "m", secondary="s", breakdown="b", max_cols=1)
-    latest_cols = {
-        "sid": terms("session_id", "SESSION", size=1, by_col="ts", direction="desc"),
-        "ts": metric("max", "timestamp", "TS"),
-        "day": last("program.day", "DAY", "number"),
-        "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
-        "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
-        "wrap": last("wrap_up.keyword", "WRAP UP"),
-    }
-    latest = table(L("ov-latest"), "LATEST SESSION", S, latest_cols, hidden=("ts",))
+               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"')
+    d.row((custom("ov-total", tpl.total_card(MEET_MAX_LB), Q["total"]), 16, []), (total, 32, []), h=9)
+    readiness = metric_vis(L("ov-readiness"), "READINESS. LATEST WEEK", W,
+                           {"m": last("acwr", "ACWR", "number", sort="@timestamp", fmt=FMT_1),
+                            "s": last("monotony", "MONOTONY", "number", sort="@timestamp", fmt=FMT_1)},
+                           "m", secondary="s", max_cols=1)
+    dots = xy(L("ov-dots"), "DOTS TRAJECTORY. COMP LIFTS", "line", W,
+              {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "dots", "DOTS", fmt=FMT_1)},
+              "x", ["m"], colors={"m": BLOOD}, legend=False, ref=(MEET_BEST_DOTS, "BEST MEET"))
+    d.row((readiness, 16, []), (dots, 32, []), h=9)
     d.row((calendar(L("ov-calendar")), 20, [("history", "History")]),
-          (streak, 8, [("history", "History")]), (recent, 8, [("history", "History")]),
-          (latest, 12, [("session", "Session")]), h=9)
-
+          (custom("ov-streak", tpl.STREAK_CARD, Q["streak"]), 12, []),
+          (custom("ov-latest", tpl.LATEST_CARD, Q["latest"]), 16, []), h=9)
     rpe_cols = {"x": terms("rpe", "RPE", size=20, dtype="number"), "c": count("WORKING SETS")}
     rpe_hist = xy(L("ov-rpe"), "WORKING SET RPE", "bar", T, rpe_cols, "x", ["c"], colors={"c": CHALK_DIM},
                   query='set_type: "working"', legend=False)
-    d.row((watch_items(L("ov-watch")), 24, [("session", "Session")]), (rpe_hist, 24, []), h=8)
-
-    bw = metric_vis(L("ov-bw"), "BODYWEIGHT", S,
-                    {"m": last("metrics.bodyweight_lb", "LB", "number", sort="timestamp", fmt=FMT_1)}, "m",
-                    max_cols=1, trend=("timestamp", lambda: last("metrics.bodyweight_lb", "LB", "number", sort="timestamp")))
-    sleep = metric_vis(L("ov-sleep"), "SLEEP", S,
-                       {"m": last("metrics.sleep_hrs", "HRS", "number", sort="timestamp", fmt=FMT_1)}, "m",
-                       max_cols=1, trend=("timestamp", lambda: last("metrics.sleep_hrs", "HRS", "number", sort="timestamp")))
-    d.row((bw, 24, []), (sleep, 24, []), h=6)
-    objs += [days, lifts, total, streak, recent, latest, rpe_hist, bw, sleep, d.build()]
-    objs += [o for o in (block_timeline(L("ov-timeline")), calendar(L("ov-calendar")), watch_items(L("ov-watch")))]
+    d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 24, []), (rpe_hist, 24, []), h=8)
+    d.row((custom("ov-bw", tpl.metric_card("Bodyweight", "lb"), Q["bodyweight"]), 24, []),
+          (custom("ov-sleep", tpl.metric_card("Sleep", "hrs"), Q["sleep"]), 24, []), h=6)
+    objs += d.build()
 
     # ---------------------------------------------------------------- Program
     d = Dashboard("program", "Ironstack. Program", "Block, week, day. Pick a week, open a day.",
-                  controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
-    d.nav()
-    header_cols = {
-        "block": last("program.block", "BLOCK", sort="timestamp"),
-        "phase": last("program.phase", "PHASE", sort="timestamp"),
-        "week": last("program.week", "WEEK", "number", sort="timestamp"),
-        "day": last("program.day", "DAY", "number", sort="timestamp"),
-        "of": last("program.total_days", "OF", "number", sort="timestamp"),
-        "done": count("SESSIONS DONE", fmt=FMT_INT),
-        "meet": last("program.meet_date", "MEET", "date", sort="timestamp"),
-    }
-    header = table(L("pr-header"), "WHERE YOU ARE", S, header_cols)
-    pdays = metric_vis(L("pr-days"), "DAYS TO MEET", S,
-                       {"m": last("days_to_meet", "DAYS", "number", sort="timestamp", fmt=FMT_INT)}, "m",
-                       max_cols=1, color=BLOOD, subtitle="as of the last session")
-    d.row((header, 36, []), (pdays, 12, []), h=6)
+                  "Block. Week. Day.", controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
+    d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=6)
     d.row((block_timeline(L("pr-timeline")), 48, [("session", "Session")]), h=8)
     weeks_cols = {
         "week": terms("program.week", "WEEK", size=60, dtype="number"),
@@ -622,116 +635,65 @@ def build() -> list[dict]:
         "ton": metric("sum", "totals.tonnage_lb", "TONNAGE", fmt=FMT_INT),
         "rpe": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1),
     }
-    weeks = table(L("pr-weeks"), "WEEKS", S, weeks_cols, sort="week")
+    weeks = table(L("pr-weeks"), "WEEKS. CLICK ONE TO FILTER", S, weeks_cols, sort="week")
+    d.row((custom("pr-days", tpl.DAYS_LIST, Q["days_list"]), 28, []), (weeks, 20, []), h=10)
     days_cols = {
         "sid": terms("session_id", "SESSION", size=100),
         "day": last("program.day", "DAY", "number"),
         "date": last("date", "DATE", "date"),
-        "tod": last("time_of_day", "WHEN"),
-        "loc": last("location.name", "WHERE"),
-        "dur": last("duration_min", "MIN", "number", fmt=FMT_INT),
         "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
         "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
     }
-    pdays_t = table(L("pr-days-table"), "DAYS", S, days_cols, sort="sid")
-    d.row((weeks, 20, []), (pdays_t, 28, [("session", "Session")]), h=10)
-    objs += [header, pdays, block_timeline(L("pr-timeline")), weeks, pdays_t, d.build()]
+    d.row((table(L("pr-days-table"), "OPEN A DAY. CLICK THE SESSION", S, days_cols, sort="sid"), 48, [("session", "Session")]), h=8)
+    loading_cols = {
+        "week": terms("iso_week", "WEEK", size=60, direction="desc"),
+        "lift": last("inol_hardest_lift", "HARDEST LIFT", sort="@timestamp"),
+        "inol": last("inol_hardest", "INOL", "number", sort="@timestamp", fmt=FMT_1),
+        "band": last("inol_hardest_band", "BAND", sort="@timestamp"),
+        "acwr": last("acwr", "ACWR", "number", sort="@timestamp", fmt=FMT_1),
+        "load": last("acwr_band", "LOAD", sort="@timestamp"),
+        "ton": last("tonnage_lb", "TONNAGE", "number", sort="@timestamp", fmt=FMT_INT),
+    }
+    d.row((table(L("pr-loading"), "WEEKLY LOADING. INOL IS PER LIFT, NOT PER WEEK", W, loading_cols,
+                 sort="week", direction="desc", page=12), 48, []), h=10)
+    objs += d.build()
 
     # ---------------------------------------------------------------- Session
-    d = Dashboard("session", "Ironstack. Session", "One session. Arrives filtered to a session_id.")
-    d.nav()
-    title_cols = {
-        "block": terms("program.block", "BLOCK", size=1),
-        "phase": last("program.phase", "PHASE", sort="timestamp"),
-        "week": terms("program.week", "WEEK", size=1, dtype="number"),
-        "day": last("program.day", "DAY", "number", sort="timestamp"),
-        "of": last("program.total_days", "OF", "number", sort="timestamp"),
-        "date": last("date", "DATE", "date", sort="timestamp"),
-        "start": last("start_time", "START", sort="timestamp"),
-        "loc": last("location.name", "WHERE", sort="timestamp"),
-    }
-    stitle = table(L("se-title"), "SESSION. CLICK BLOCK OR WEEK FOR THE PROGRAM", S, title_cols)
-    nav_cols = {"prev": terms("prev_session_id", "PREV", size=1),
-                "next": terms("next_session_id", "NEXT", size=1)}
+    d = Dashboard("session", "Ironstack. Session", "One session. Arrives filtered to a session_id.", "One session.")
+    nav_cols = {"prev": terms("prev_session_id", "PREV", size=1), "next": terms("next_session_id", "NEXT", size=1)}
     nav = table(L("se-nav"), "PREV / NEXT. CLICK TO OPEN", S, nav_cols)
-    d.row((stitle, 36, [("program", "Program")]), (nav, 12, [("url", SESSION_URL, "Open session")]), h=5)
-
-    def tile(name, title, col, color=None, fmt=FMT_INT):
-        return metric_vis(L(name), title, S, {"m": last(col, title, "number", sort="timestamp", fmt=fmt)}, "m",
-                          max_cols=1, color=color)
-    d.row((tile("se-dur", "MINUTES", "duration_min"), 12, []),
-          (tile("se-rpe", "AVG WORKING RPE", "avg_working_rpe", fmt=FMT_1), 12, []),
-          (tile("se-ton", "TONNAGE", "totals.tonnage_lb", color=BLOOD), 12, []),
-          (tile("se-sets", "SETS", "totals.sets"), 12, []), h=6)
-    d.row((tile("se-wsets", "WORKING SETS", "totals.working_sets"), 12, []),
-          (tile("se-reps", "REPS", "totals.reps"), 12, []),
-          (tile("se-ex", "EXERCISES", "totals.exercises"), 12, []),
-          (tile("se-streak", "STREAK DAY", "streak_day"), 12, []), h=5)
-    cond_cols = {
-        "temp": last("environment.temp_f", "TEMP F", "number", sort="timestamp"),
-        "hum": last("environment.humidity_pct", "HUMIDITY", "number", sort="timestamp"),
-        "cond": last("environment.conditions", "SKY", sort="timestamp"),
-        "wind": last("environment.wind", "WIND", sort="timestamp"),
-        "tod": last("time_of_day", "WHEN", sort="timestamp"),
-        "travel": last("location.travel", "TRAVEL", "boolean", sort="timestamp"),
-    }
-    cond = table(L("se-cond"), "CONDITIONS", S, cond_cols)
+    d.row((custom("se-header", tpl.SESSION_HEADER, Q["session_header"]), 36, []),
+          (nav, 12, [("url", SESSION_URL, "Open session")]), h=7)
+    d.row((custom("se-tonnage", tpl.TONNAGE_HERO, Q["session_tonnage"]), 12, []),
+          (custom("se-tiles", tpl.SESSION_TILES, Q["session_tiles"]), 36, []), h=6)
     smap = session_map("ironstack-map-session")
-    d.row((smap, 24, []), (cond, 24, []), h=8)
+    d.row((smap, 24, []), (custom("se-cond", tpl.CONDITIONS_CARD, Q["conditions"]), 24, []), h=8)
+    d.row((custom("se-perf", tpl.PERFORMANCE_CARD, Q["performance"]), 48, []), h=16)
     sets_cols = {
-        "seq": terms("seq", "#", size=200, dtype="number"),
-        "ex": terms("exercise.name", "EXERCISE", size=50),
-        "type": last("set_type", "TYPE"),
-        "w": last("weight_lb", "LB", "number", fmt=FMT_INT),
-        "reps": last("reps", "REPS", "number"),
-        "unit": last("rep_unit", "UNIT"),
-        "dist": last("distance_ft", "FT", "number"),
-        "rpe": last("rpe", "RPE", "number", fmt=FMT_1),
-        "e1rm": last("est_e1rm", "e1RM", "number", fmt=FMT_INT),
-        "gear": last("gear", "GEAR", arrays=True),
-        "notes": last("notes.keyword", "NOTES"),
+        "ex": terms("exercise.name", "LIFT. CLICK FOR HISTORY", size=50),
+        "n": count("SETS", fmt=FMT_INT),
+        "w": metric("max", "weight_lb", "TOP LB", fmt=FMT_INT),
+        "e1": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT),
+        "vol": metric("sum", "volume_lb", "VOLUME", fmt=FMT_INT),
     }
-    sets_t = table(L("se-sets"), "SETS. CLICK A LIFT FOR ITS HISTORY", T, sets_cols, sort="seq", page=50)
-    d.row((sets_t, 48, [("lift", "Lift")]), h=14)
+    sets_t = table(L("se-sets"), "BY EXERCISE", T, sets_cols)
     rpe_line = xy(L("se-rpe-line"), "RPE BY SET", "line", T,
                   {"x": terms("seq", "#", size=200, dtype="number"), "ex": terms("exercise.name", "EXERCISE", size=20),
                    "m": metric("max", "rpe", "RPE", fmt=FMT_1)}, "x", ["m"], split="ex", palette="gray")
-    vol_cols = {"x": terms("exercise.name", "EXERCISE", size=20, by_col="m", direction="desc"),
-                "m": metric("sum", "volume_lb", "VOLUME", fmt=FMT_INT)}
-    vol = xy(L("se-vol"), "VOLUME BY EXERCISE", "bar_horizontal", T, vol_cols, "x", ["m"], colors={"m": CHALK_DIM},
-             legend=False)
-    d.row((rpe_line, 24, []), (vol, 24, [("lift", "Lift")]), h=8)
-    wrap_cols = {"wrap": last("wrap_up.keyword", "WRAP UP", sort="timestamp"),
-                 "gear": last("gear_notes.keyword", "GEAR", sort="timestamp"),
-                 "watch": last("watch_items", "WATCH", sort="timestamp", arrays=True)}
-    wrap = table(L("se-wrap"), "WRAP UP. GEAR. WATCH", S, wrap_cols)
-    d.row((notes_table(L("se-notes"), "NOTES. IN ORDER", size=5), 32, []), (wrap, 16, []), h=10)
-    objs += [stitle, nav, cond, smap, sets_t, rpe_line, vol, wrap, notes_table(L("se-notes"), "NOTES. IN ORDER", size=5)]
-    objs += [tile("se-dur", "MINUTES", "duration_min"), tile("se-rpe", "AVG WORKING RPE", "avg_working_rpe", fmt=FMT_1),
-             tile("se-ton", "TONNAGE", "totals.tonnage_lb", color=BLOOD), tile("se-sets", "SETS", "totals.sets"),
-             tile("se-wsets", "WORKING SETS", "totals.working_sets"), tile("se-reps", "REPS", "totals.reps"),
-             tile("se-ex", "EXERCISES", "totals.exercises"), tile("se-streak", "STREAK DAY", "streak_day"), d.build()]
+    d.row((sets_t, 20, [("lift", "Lift")]), (rpe_line, 28, []), h=9)
+    d.row((custom("se-notes", tpl.NOTES_CARD, Q["notes"]), 32, []),
+          (custom("se-wrap", tpl.WRAP_CARD, Q["wrap"]), 16, []), h=11)
+    objs += d.build()
 
     # ---------------------------------------------------------------- Lift
     d = Dashboard("lift", "Ironstack. Lift", "One exercise over time. Arrives filtered to exercise.name.",
-                  controls=[(T, "program.block", "BLOCK")], time_from="now-2y")
-    d.nav()
-    lh_cols = {
-        "lift": terms("exercise.name", "LIFT", size=1, by_col="n", direction="desc"),
-        "e1": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT),
-        "top": metric("max", "weight_lb", "BEST TOP SET", fmt=FMT_INT),
-        "lastd": metric("max", "date", "LAST PERFORMED"),
-        "n": count("WORKING SETS", fmt=FMT_INT),
-        "sess": unique("session_id", "SESSIONS"),
-    }
-    lh_cols["lastd"]["dataType"] = "date"
-    lhead = table(L("li-header"), "LIFT", T, lh_cols, query='set_type: "working"')
-    d.row((lhead, 48, []), h=5)
+                  "One lift. Every set.", controls=[(T, "program.block", "BLOCK")], time_from="now-2y")
+    d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=6)
     e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
     e1 = xy(L("li-e1rm"), "e1RM OVER TIME", "line", T, e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
-            query='set_type: "working"')
+            query='set_type: "working" and not e1rm_confidence: "low"')
     top_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "weight_lb", "TOP SET", fmt=FMT_INT),
-                "r": metric("max", "reps", "REPS"), "p": metric("max", "rpe", "RPE", fmt=FMT_1)}
+                "p": metric("max", "rpe", "RPE", fmt=FMT_1)}
     top = xy(L("li-top"), "TOP SET OVER TIME", "line", T, top_cols, "x", ["m", "p"], colors={"m": CHALK, "p": CHALK_FAINT},
              right_axis=("p",), query='set_type: "working"')
     d.row((e1, 24, [("session", "Session")]), (top, 24, [("session", "Session")]), h=9)
@@ -742,6 +704,14 @@ def build() -> list[dict]:
                  "v": count("SETS")}
     load = heatmap(L("li-load"), "RPE VS LOAD", T, load_cols, "x", "y", "v", query='set_type: "working"', top=CHALK)
     d.row((lvol, 24, [("session", "Session")]), (load, 24, []), h=9)
+    inol = xy(L("li-inol"), "INOL PER SESSION", "bar", T,
+              {"x": terms("session_id", "SESSION", size=300), "m": metric("sum", "inol", "INOL", fmt=FMT_1)},
+              "x", ["m"], colors={"m": CHALK_DIM}, legend=False, query='set_type: "working"')
+    zdist = xy(L("li-zones"), "REPS BY INTENSITY ZONE", "bar", T,
+               {"x": terms("prilepin_zone", "ZONE", size=4),
+                "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
+               "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
+    d.row((inol, 24, [("session", "Session")]), (zdist, 24, []), h=9)
     all_cols = {
         "sid": terms("session_id", "SESSION", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
@@ -753,20 +723,15 @@ def build() -> list[dict]:
         "gear": last("gear", "GEAR", arrays=True),
         "notes": last("notes.keyword", "NOTES"),
     }
-    all_sets = table(L("li-sets"), "ALL SETS", T, all_cols, sort="sid", direction="desc", page=50)
-    d.row((all_sets, 48, [("session", "Session")]), h=12)
+    d.row((table(L("li-sets"), "ALL SETS. CLICK A SESSION", T, all_cols, sort="sid", direction="desc", page=50), 48,
+           [("session", "Session")]), h=12)
     d.row((notes_table(L("li-notes"), "NOTES ABOUT THIS LIFT"), 48, [("session", "Session")]), h=8)
-    objs += [lhead, e1, top, lvol, load, all_sets, notes_table(L("li-notes"), "NOTES ABOUT THIS LIFT"), d.build()]
+    objs += d.build()
 
     # ---------------------------------------------------------------- History
     d = Dashboard("history", "Ironstack. History", "Sessions over any range. The time picker is the range toggle.",
-                  controls=[(S, "program.block", "BLOCK"), (S, "program.phase", "PHASE")])
-    d.nav()
-    h_ton = metric_vis(L("hi-ton"), "TONNAGE", S, {"m": metric("sum", "totals.tonnage_lb", "LB", fmt=FMT_INT)}, "m", max_cols=1)
-    h_avg = metric_vis(L("hi-avg"), "PER SESSION", S, {"m": metric("average", "totals.tonnage_lb", "LB", fmt=FMT_INT)}, "m", max_cols=1)
-    h_n = metric_vis(L("hi-n"), "SESSIONS", S, {"m": count("SESSIONS", fmt=FMT_INT)}, "m", max_cols=1)
-    h_rpe = metric_vis(L("hi-rpe"), "AVG WORKING RPE", S, {"m": metric("average", "avg_working_rpe", "RPE", fmt=FMT_1)}, "m", max_cols=1)
-    d.row((h_ton, 12, []), (h_avg, 12, []), (h_n, 12, []), (h_rpe, 12, []), h=6)
+                  "Every session.", controls=[(S, "program.block", "BLOCK"), (S, "program.phase", "PHASE")])
+    d.row((custom("hi-cards", tpl.FOUR_CARDS, Q["history_cards"]), 48, []), h=6)
     d.row((block_timeline(L("hi-timeline"), "TONNAGE PER SESSION"), 48, [("session", "Session")]), h=9)
     tod_cols = {"x": terms("time_of_day", "WHEN", size=4), "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT),
                 "r": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1)}
@@ -779,40 +744,34 @@ def build() -> list[dict]:
     env = xy(L("hi-env"), "TEMPERATURE VS EFFORT", "bar", S, env_cols, "x", ["t", "r"],
              colors={"t": CHALK_DIM, "r": CHALK_FAINT}, right_axis=("r",))
     d.row((env, 48, []), h=8)
+    acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. 7 DAY OVER 28 DAY", "line", W,
+              {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
+              "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))
+    mono = xy(L("hi-mono"), "TRAINING MONOTONY", "line", W,
+              {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "monotony", "MONOTONY", fmt=FMT_1)},
+              "x", ["m"], colors={"m": CHALK_DIM}, legend=False)
+    d.row((acwr, 24, []), (mono, 24, []), h=9)
+    zones = heatmap(L("hi-zones"), "WHERE THE REPS LIVE. MAIN LIFTS BY INTENSITY ZONE", T,
+                    {"x": date_hist("date", "MONTH", "1M"),
+                     "y": terms("prilepin_zone", "ZONE", size=4),
+                     "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
+                    "x", "y", "v", query='set_type: "working" and exercise.category: "main"')
+    d.row((zones, 48, []), h=9)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
-    objs += [h_ton, h_avg, h_n, h_rpe, block_timeline(L("hi-timeline"), "TONNAGE PER SESSION"), tod,
-             calendar(L("hi-calendar")), env, sessions_table(L("hi-sessions")), d.build()]
+    objs += d.build()
 
     # ---------------------------------------------------------------- Meets
-    d = Dashboard("meets", "Ironstack. Meets", "Competition record. Click a meet to see its attempts.", time_from="now-10y")
-    d.nav()
-    m_n = metric_vis(L("me-n"), "MEETS", M, {"m": unique("meet_id", "MEETS")}, "m", max_cols=1)
-    m_total = metric_vis(L("me-total"), "BEST TOTAL", M,
-                         {"m": metric("max", "total_lb", "LB", fmt=FMT_1), "s": metric("max", "total_kg", "KG", fmt=FMT_1)},
-                         "m", secondary="s", max_cols=1, color=BLOOD)
-    m_dots = metric_vis(L("me-dots"), "BEST DOTS", M, {"m": metric("max", "dots", "DOTS", fmt=FMT_1)}, "m", max_cols=1)
-    m_made = metric_vis(L("me-made"), "ATTEMPTS MADE", M,
-                        {"m": count("MADE", filt="made: true", fmt=FMT_INT), "s": count("OF", fmt=FMT_INT)},
-                        "m", secondary="s", max_cols=1)
-    d.row((m_n, 12, []), (m_total, 12, []), (m_dots, 12, []), (m_made, 12, []), h=6)
+    d = Dashboard("meets", "Ironstack. Meets", "Competition record. Click a best lift for its training history.",
+                  "Competition record.", time_from="now-10y")
+    d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     best = metric_vis(L("me-best"), "BEST LIFTS. CLICK FOR TRAINING HISTORY", M,
                       {"m": metric("max", "weight_lb", "LB", fmt=FMT_1), "s": metric("max", "weight_kg", "KG", fmt=FMT_1),
                        "b": terms("exercise.name", "LIFT", size=3)},
                       "m", secondary="s", breakdown="b", max_cols=3, query="made: true")
     d.row((best, 48, [("lift", "Lift")]), h=7)
-    meets_cols = {
-        "mid": terms("meet_id", "MEET", size=50, direction="desc"),
-        "name": last("name", "NAME"),
-        "kg": last("total_kg", "TOTAL KG", "number", fmt=FMT_1),
-        "lb": last("total_lb", "TOTAL LB", "number", fmt=FMT_1),
-        "dots": last("dots", "DOTS", "number", fmt=FMT_1),
-        "bw": last("bodyweight_lb", "BW LB", "number", fmt=FMT_1),
-        "made": last("attempts_made", "MADE", "number"),
-    }
-    meets_t = table(L("me-table"), "MEETS. CLICK ONE TO FILTER", M, meets_cols, sort="mid", direction="desc")
+    d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
     tot_cols = {"x": terms("meet_id", "MEET", size=50), "m": metric("max", "total_lb", "TOTAL LB", fmt=FMT_1)}
     tot = xy(L("me-totals"), "TOTAL OVER MEETS", "line", M, tot_cols, "x", ["m"], colors={"m": CHALK}, legend=False)
-    d.row((meets_t, 24, []), (tot, 24, []), h=8)
     att_cols = {
         "mid": terms("meet_id", "MEET", size=50, direction="desc"),
         "lift": terms("lift", "LIFT", size=3),
@@ -821,31 +780,27 @@ def build() -> list[dict]:
         "lb": last("weight_lb", "LB", "number", fmt=FMT_1),
         "made": last("made", "MADE", "boolean"),
     }
-    att = table(L("me-attempts"), "ATTEMPTS", M, att_cols, sort="mid", direction="desc", page=50)
-    d.row((att, 48, []), h=10)
-    objs += [m_n, m_total, m_dots, m_made, best, meets_t, tot, att, d.build()]
+    d.row((tot, 24, []), (table(L("me-attempts"), "ATTEMPTS", M, att_cols, sort="mid", direction="desc", page=50), 24, []), h=10)
+    objs += d.build()
 
     # ---------------------------------------------------------------- Mindset
-    d = Dashboard("mindset", "Ironstack. Mindset", "Every note. Search above; semantic where ELSER is on.")
-    d.nav()
-    np_cols = {"x": terms("session_id", "SESSION", size=300), "c": count("NOTES")}
-    nps = xy(L("mi-per-session"), "NOTES PER SESSION", "line", N, np_cols, "x", ["c"], colors={"c": BLOOD}, legend=False)
+    d = Dashboard("mindset", "Ironstack. Mindset", "Every note. Search above; semantic where ELSER is on.",
+                  "Every note.")
+    nps = xy(L("mi-per-session"), "NOTES PER SESSION", "line", N,
+             {"x": terms("session_id", "SESSION", size=300), "c": count("NOTES")}, "x", ["c"], colors={"c": BLOOD}, legend=False)
     d.row((nps, 48, [("session", "Session")]), h=8)
     tag_cols = {"x": terms("tags", "TAG", size=25, by_col="c", direction="desc"), "c": count("NOTES")}
-    tags = xy(L("mi-tags"), "TAGS", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
+    tags = xy(L("mi-tags"), "TAGS. CLICK TO FILTER", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
     tt_cols = {"x": terms("session_id", "SESSION", size=300), "tag": terms("tags", "TAG", size=6, by_col="c", direction="desc"),
                "c": count("NOTES")}
     tag_trend = xy(L("mi-tag-trend"), "TAGS OVER TIME", "bar_stacked", N, tt_cols, "x", ["c"], split="tag", palette="gray")
     d.row((tags, 20, []), (tag_trend, 28, []), h=9)
-    ph_cols = {"x": terms("phase", "PHASE", size=4), "c": count("NOTES")}
-    phase = xy(L("mi-phase"), "BY PHASE", "bar", N, ph_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
-    d.row((phase, 16, []), (notes_table(L("mi-notes"), "RECENT NOTES"), 32, [("session", "Session")]), h=10)
-    d.row((watch_items(L("mi-watch")), 48, [("session", "Session")]), h=8)
-    objs += [nps, tags, tag_trend, phase, notes_table(L("mi-notes"), "RECENT NOTES"), watch_items(L("mi-watch")), d.build()]
+    d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 28, []),
+          (notes_table(L("mi-notes"), "OPEN A SESSION. CLICK THE SESSION CELL"), 20, [("session", "Session")]), h=12)
+    d.row((custom("mi-watch", tpl.WATCH_CARD, Q["watch"]), 48, []), h=8)
+    objs += d.build()
 
-    objs += [nav_strip(k) for k in NAV_ORDER]
-
-    # de-duplicate by (type, id): shared builders are called twice for the same id
+    # de-duplicate by (type, id): shared builders are called for more than one dashboard
     seen, out = set(), []
     for o in objs:
         key = (o["type"], o["id"])
