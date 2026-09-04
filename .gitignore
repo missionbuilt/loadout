@@ -23,3 +23,7 @@ Thumbs.db
 .idea/
 __pycache__/
 *.pyc
+
+# Restore point written by ironstack/kibana/prune.py before it deletes anything.
+# Local safety net, not a build artifact.
+ironstack/kibana/pruned-backup*.ndjson
