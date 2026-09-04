@@ -47,6 +47,13 @@ python ingest/setup_indices.py --recreate workout-sessions
 python ingest/index_workouts.py
 ```
 
+To check that Elasticsearch matches this repo — mappings, counts, and the documents
+themselves — run:
+
+```bash
+python ingest/verify_index.py
+```
+
 Pass file paths to either indexer to index a subset. `--validate` checks files against the schema without touching Elasticsearch.
 
 ## Log a workout
@@ -97,6 +104,7 @@ schema/mappings/                Elasticsearch mappings for the four indices
 ingest/setup_indices.py         creates/updates indices (semantic layer auto-detected)
 ingest/index_workouts.py        validates + bulk-indexes logs (deterministic _ids, safe re-runs)
 ingest/index_meets.py           validates + bulk-indexes meet records (same guarantees)
+ingest/verify_index.py          checks Elasticsearch against this repo (mappings, counts, documents)
 ingest/log.py                   shorthand -> JSON + markdown + commit (the one command)
 ingest/weather.py               fills environment from the coordinates and hour trained
 ingest/shorthand.py             the .iron format, both directions
