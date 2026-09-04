@@ -165,7 +165,13 @@ def phase_columns(op, field, fmt=FMT_INT):
 # --------------------------------------------------------------------------- layers
 
 def layer(columns: dict, order: list[str] | None = None, link_to: str | None = None):
-    L = {"columns": columns, "columnOrder": order or list(columns), "incompleteColumns": {}, "sampling": 1}
+    if order is None:
+        # Buckets before metrics, stable within each group. Lens resolves accessors
+        # against this order; a metric listed first breaks the panel outright.
+        names = list(columns)
+        order = ([n for n in names if columns[n].get("isBucketed")] +
+                 [n for n in names if not columns[n].get("isBucketed")])
+    L = {"columns": columns, "columnOrder": order, "incompleteColumns": {}, "sampling": 1}
     if link_to:
         L["linkToLayers"] = [link_to]
     return L
@@ -441,7 +447,7 @@ class Dashboard:
         self.y = 0
         self.objects: list[dict] = []  # saved objects this dashboard owns (Lens etc.)
         # chrome: brand bar + nav
-        self.row((custom(f"brand-{key}", brand_bar(key.upper(), tagline)), 48, []), h=4)
+        self.row((custom(f"brand-{key}", brand_bar(key.upper(), tagline)), 48, []), h=6)
         self.row((links(key), 48, []), h=2)
 
     def row(self, *items, h=8):
@@ -522,7 +528,7 @@ Q = {
     "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
     "bodyweight": 'FROM workout-sessions | WHERE metrics.bodyweight_lb IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.bodyweight_lb | KEEP v',
     "sleep": 'FROM workout-sessions | WHERE metrics.sleep_hrs IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.sleep_hrs | KEEP v',
-    "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
+    "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last_day = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last_day DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last_day), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
     "days_list": 'FROM workout-sessions | SORT date ASC | LIMIT 200 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP program.week, program.day, date_s, time_of_day, location.name, totals.tonnage_lb, avg_working_rpe, duration_min',
     "session_header": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEEE, MMM d, yyyy", date) | KEEP program.*, date_s, start_time, time_of_day, location.name, location.travel, prev_session_id, next_session_id',
     "session_tiles": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP duration_min, streak_day, avg_working_rpe, totals.*, days_to_meet',
@@ -600,9 +606,13 @@ def build() -> list[dict]:
           (block_timeline(L("ov-timeline")), 32, [("session", "Session")]), h=10)
     lifts = metric_vis(L("ov-lifts"), "BEST e1RM. THIS BLOCK. CLICK A LIFT", T,
                        {"m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT),
-                        "b": terms("exercise.name", "LIFT", size=3, by_col="m", direction="desc")},
+                        # By family, not by name: "Comp Deadlift" and "Competition Deadlift"
+                        # are the same lift and were showing up as two separate tiles.
+                        "b": terms("lift_family", "LIFT", size=3, by_col="m", direction="desc")},
                        "m", breakdown="b", max_cols=3,
-                       trend=("date", lambda: metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)),
+                       # No trendline. Lens rejects a broken-out metric trendline here
+                       # ("Provided column name or index is invalid"), and a working panel
+                       # beats a sparkline. e1RM OVER TIME on Lift carries the trend.
                        query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"')
     d.row((lifts, 48, [("lift", "Lift")]), h=9)
     total_cols = {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
@@ -666,10 +676,12 @@ def build() -> list[dict]:
 
     # ---------------------------------------------------------------- Session
     d = Dashboard("session", "Ironstack. Session", "One session. Arrives filtered to a session_id.", "One session.")
-    nav_cols = {"prev": terms("prev_session_id", "PREV", size=1), "next": terms("next_session_id", "NEXT", size=1)}
-    nav = table(L("se-nav"), "PREV / NEXT. CLICK TO OPEN", S, nav_cols)
+    # A Lens table of nothing but buckets renders no rows; the hidden count gives it one.
+    nav_cols = {"prev": terms("prev_session_id", "PREV", size=1), "next": terms("next_session_id", "NEXT", size=1),
+                "c": count("SESSIONS", fmt=FMT_INT)}
+    nav = table(L("se-nav"), "PREV / NEXT. CLICK TO OPEN", S, nav_cols, hidden=("c",))
     d.row((custom("se-header", tpl.SESSION_HEADER, Q["session_header"]), 36, []),
-          (nav, 12, [("url", SESSION_URL, "Open session")]), h=7)
+          (nav, 12, [("url", SESSION_URL, "Open session")]), h=6)
     d.row((custom("se-tonnage", tpl.TONNAGE_HERO, Q["session_tonnage"]), 12, []),
           (custom("se-tiles", tpl.SESSION_TILES, Q["session_tiles"]), 36, []), h=6)
     smap = session_map("ironstack-map-session")
@@ -698,10 +710,14 @@ def build() -> list[dict]:
     e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
     e1 = xy(L("li-e1rm"), "e1RM OVER TIME", "line", T, e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
             query='set_type: "working" and not e1rm_confidence: "low"')
-    top_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "weight_lb", "TOP SET", fmt=FMT_INT),
-                "p": metric("max", "rpe", "RPE", fmt=FMT_1)}
-    top = xy(L("li-top"), "TOP SET OVER TIME", "line", T, top_cols, "x", ["m", "p"], colors={"m": CHALK, "p": CHALK_FAINT},
-             right_axis=("p",), query='set_type: "working"')
+    # One measure per chart. Weight and RPE on two axes made the crossing points an
+    # artifact of the scale ranges rather than anything in the data.
+    top = xy(L("li-top"), "TOP SET OVER TIME", "line", T,
+             {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "weight_lb", "TOP SET", fmt=FMT_INT)},
+             "x", ["m"], colors={"m": CHALK}, legend=False, query='set_type: "working"')
+    top_rpe = xy(L("li-top-rpe"), "RPE ON THE TOP SET", "line", T,
+                 {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "rpe", "RPE", fmt=FMT_1)},
+                 "x", ["m"], colors={"m": CHALK_FAINT}, legend=False, query='set_type: "working"')
     d.row((e1, 24, [("session", "Session")]), (top, 24, [("session", "Session")]), h=9)
     pcols, pcolors = phase_columns("sum", "volume_lb")
     lvol = xy(L("li-vol"), "VOLUME PER SESSION", "bar_stacked", T, {"x": terms("session_id", "SESSION", size=300), **pcols},
@@ -709,15 +725,16 @@ def build() -> list[dict]:
     load_cols = {"x": terms("weight_lb", "LB", size=40, dtype="number"), "y": terms("rpe", "RPE", size=20, dtype="number"),
                  "v": count("SETS")}
     load = heatmap(L("li-load"), "RPE VS LOAD", T, load_cols, "x", "y", "v", query='set_type: "working"', top=CHALK)
-    d.row((lvol, 24, [("session", "Session")]), (load, 24, []), h=9)
-    inol = xy(L("li-inol"), "INOL PER SESSION", "bar", T,
-              {"x": terms("session_id", "SESSION", size=300), "m": metric("sum", "inol", "INOL", fmt=FMT_1)},
-              "x", ["m"], colors={"m": CHALK_DIM}, legend=False, query='set_type: "working"')
+    d.row((top_rpe, 24, [("session", "Session")]), (load, 24, []), h=9)
     zdist = xy(L("li-zones"), "REPS BY INTENSITY ZONE", "bar", T,
                {"x": terms("prilepin_zone", "ZONE", size=4),
                 "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
                "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
-    d.row((inol, 24, [("session", "Session")]), (zdist, 24, []), h=9)
+    d.row((lvol, 24, [("session", "Session")]), (zdist, 24, []), h=9)
+    inol = xy(L("li-inol"), "INOL PER SESSION", "bar", T,
+              {"x": terms("session_id", "SESSION", size=300), "m": metric("sum", "inol", "INOL", fmt=FMT_1)},
+              "x", ["m"], colors={"m": CHALK_DIM}, legend=False, query='set_type: "working"')
+    d.row((inol, 48, [("session", "Session")]), h=8)
     all_cols = {
         "sid": terms("session_id", "SESSION", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
@@ -739,17 +756,25 @@ def build() -> list[dict]:
                   "Every session.", controls=[(S, "program.block", "BLOCK"), (S, "program.phase", "PHASE")])
     d.row((custom("hi-cards", tpl.FOUR_CARDS, Q["history_cards"]), 48, []), h=6)
     d.row((block_timeline(L("hi-timeline"), "TONNAGE PER SESSION"), 48, [("session", "Session")]), h=9)
-    tod_cols = {"x": terms("time_of_day", "WHEN", size=4), "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT),
-                "r": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1)}
-    tod = xy(L("hi-tod"), "TIME OF DAY", "bar", S, tod_cols, "x", ["t", "r"], colors={"t": CHALK_DIM, "r": CHALK_FAINT},
-             right_axis=("r",))
+    tod = xy(L("hi-tod"), "TONNAGE BY TIME OF DAY", "bar", S,
+             {"x": terms("time_of_day", "WHEN", size=4),
+              "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT)},
+             "x", ["t"], colors={"t": CHALK_DIM}, legend=False)
+    tod_rpe = xy(L("hi-tod-rpe"), "EFFORT BY TIME OF DAY", "bar", S,
+                 {"x": terms("time_of_day", "WHEN", size=4),
+                  "r": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1)},
+                 "x", ["r"], colors={"r": CHALK_FAINT}, legend=False)
     d.row((calendar(L("hi-calendar")), 24, [("session", "Session")]), (tod, 24, []), h=9)
-    env_cols = {"x": terms("environment.temp_f", "TEMP F", size=40, dtype="number"),
-                "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT),
-                "r": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1)}
-    env = xy(L("hi-env"), "TEMPERATURE VS EFFORT", "bar", S, env_cols, "x", ["t", "r"],
-             colors={"t": CHALK_DIM, "r": CHALK_FAINT}, right_axis=("r",))
-    d.row((env, 48, []), h=8)
+    # The honest version of "does heat cost me": RPE against temperature with relative
+    # intensity held inside one band, so the comparison is like for like. Environment is
+    # denormalised onto set documents for exactly this. Only 2026 sessions carry weather.
+    env = xy(L("hi-env"), "EFFORT VS TEMPERATURE. MAIN LIFTS AT 70 TO 89% OF e1RM", "bar", T,
+             {"x": terms("environment.temp_f", "TEMP F", size=40, dtype="number"),
+              "r": metric("average", "rpe", "AVG RPE", fmt=FMT_1),
+              "n": count("SETS", fmt=FMT_INT)},
+             "x", ["r"], colors={"r": CHALK}, legend=False,
+             query='set_type: "working" and exercise.category: "main" and intensity_pct >= 70 and intensity_pct < 90')
+    d.row((tod_rpe, 24, []), (env, 24, []), h=8)
     acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. 7 DAY OVER 28 DAY", "line", W,
               {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
               "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))

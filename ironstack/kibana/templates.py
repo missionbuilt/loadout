@@ -60,7 +60,8 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .mono{font-family:$MONO}
 .prose{font-family:$SERIF;font-size:13px;line-height:1.55;color:$DIM}
 .rule{border-top:1px solid $RULE}
-.stack{display:flex;flex-direction:column;justify-content:space-between;height:100%}
+.stack{display:flex;flex-direction:column;justify-content:flex-start;gap:10px;height:100%}
+.stack.spread{justify-content:space-between;gap:0}
 .row{display:flex;gap:0;height:100%}
 .card{flex:1;min-width:0;padding:0 18px;border-left:1px solid $RULE;display:flex;flex-direction:column;justify-content:space-between}
 .card:first-child{padding-left:0;border-left:0}
@@ -119,11 +120,11 @@ def brand_bar(section: str, tagline: str) -> str:
     return tok(f"""<style>
 *{{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}}
 html,body{{height:100%}}
-body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px 8px;overflow:hidden;display:flex;flex-direction:column;justify-content:center;-webkit-font-smoothing:antialiased}}
-.eyebrow{{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:$BLOOD;margin-bottom:6px}}
+body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:12px 18px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start;gap:8px;-webkit-font-smoothing:antialiased}}
+.eyebrow{{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:$BLOOD}}
 .bar{{display:flex;align-items:baseline;justify-content:space-between;gap:16px}}
 .left{{display:flex;align-items:baseline;gap:10px}}
-.word{{font-size:26px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1}}
+.word{{font-size:22px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.1}}
 .sq{{display:inline-block;width:11px;height:11px;background:$BLOOD;transform:translateY(-1px)}}
 .vr{{width:1px;height:22px;background:$RULE;transform:translateY(4px);margin:0 6px}}
 .section{{font-family:$MONO;font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$DIM}}
@@ -154,7 +155,7 @@ def sparkline(rows_expr: str, field: str, width=160, height=36, color=CHALK) -> 
 # --------------------------------------------------------------------------- Overview cards
 
 DAYS_TO_MEET_CARD = page(tok("""
-<div class="stack">
+<div class="stack spread">
 {% if rows.size == 0 %}<div class="eyebrow">Days to meet</div>""" + empty("No sessions yet") + """{% else %}""" + DAYS_TO_MEET + """
 <div><div class="eyebrow">Days to meet</div>
 <div class="hero" style="margin-top:8px">{{ days }}</div></div>
@@ -227,14 +228,14 @@ SESSION_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Session</div>""" + empty("Open a session from any dashboard") + """{% else %}
 <div class="hdr"><span class="eyebrow">Session</span><span class="eyebrow dim">{{ rows[0]['program.name'].value }}</span></div>
 <div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.block'].value }}<span class="dot"></span>week {{ rows[0]['program.week'].value }}<span class="dot"></span>day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}</span></div>
-<div class="sub" style="margin-top:10px"><span class="v">{{ rows[0]['date_s'].value }}</span>{% if rows[0]['start_time'].value %} &middot; {{ rows[0]['start_time'].value }}{% endif %} &middot; {{ rows[0]['time_of_day'].value }} &middot; {{ rows[0]['location.name'].value }}{% if rows[0]['location.travel'].value %} <span class="chip blood">travel</span>{% endif %}<br>
+<div class="sub" style="margin-top:10px"><span class="v">{{ rows[0]['date_s'].value }}</span>{% if rows[0]['start_time'].value %} &middot; {{ rows[0]['start_time'].value }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value }}{% endif %}{% if rows[0]['location.name'].value %} &middot; {{ rows[0]['location.name'].value }}{% endif %}{% if rows[0]['location.travel'].value %} <span class="chip blood">travel</span>{% endif %}<br>
 <span class="faint">prev</span> {{ rows[0]['prev_session_id'].value | default: "none" }} &nbsp; <span class="faint">next</span> {{ rows[0]['next_session_id'].value | default: "none" }} &nbsp; <span class="faint">open them from the panel on the right</span></div>
 {% endif %}"""))
 
 SESSION_TILES = page(tok("""
 <div class="row">
 {% if rows.size == 0 %}<div class="card">""" + empty() + """</div>{% else %}
-<div class="card"><div class="top"><div class="eyebrow">Length</div><div class="value">{{ rows[0]['duration_min'].value | default: "?" }}<small>min</small></div></div><div class="sub">{{ rows[0]['streak_day'].value }} day streak</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Length</div>{% if rows[0]['duration_min'].value %}<div class="value">{{ rows[0]['duration_min'].value | round }}<small>min</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{{ rows[0]['streak_day'].value }} day streak</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Avg working RPE</div><div class="value">{{ rows[0]['avg_working_rpe'].value }}</div></div><div class="sub">{{ rows[0]['totals.working_sets'].value }} working sets</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Sets</div><div class="value">{{ rows[0]['totals.sets'].value }}</div></div><div class="sub">{{ rows[0]['totals.reps'].value }} reps</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Exercises</div><div class="value">{{ rows[0]['totals.exercises'].value }}</div></div><div class="sub">{{ rows[0]['days_to_meet'].value }} days to meet</div></div>
@@ -253,9 +254,9 @@ CONDITIONS_CARD = page(tok("""
 <div class="eyebrow">Conditions</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty() + """</div>{% else %}
 <div class="grid3" style="margin-top:10px">
-<div><div class="eyebrow">Temp</div><div class="value">{{ rows[0]['environment.temp_f'].value | default: "?" }}<small>F</small></div></div>
-<div><div class="eyebrow">Humidity</div><div class="value">{{ rows[0]['environment.humidity_pct'].value | default: "?" }}<small>%</small></div></div>
-<div><div class="eyebrow">Sky</div><div class="value">{{ rows[0]['environment.conditions'].value | default: "?" }}</div></div>
+<div><div class="eyebrow">Temp</div>{% if rows[0]['environment.temp_f'].value %}<div class="value">{{ rows[0]['environment.temp_f'].value | round }}<small>F</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
+<div><div class="eyebrow">Humidity</div>{% if rows[0]['environment.humidity_pct'].value %}<div class="value">{{ rows[0]['environment.humidity_pct'].value | round }}<small>%</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
+<div><div class="eyebrow">Sky</div>{% if rows[0]['environment.conditions'].value %}<div class="value">{{ rows[0]['environment.conditions'].value }}</div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
 </div>
 <div class="sub" style="margin-top:10px">{{ rows[0]['environment.wind'].value }}{% if rows[0]['environment.setting'].value %} &middot; {{ rows[0]['environment.setting'].value }}{% endif %}</div>
 {% endif %}"""))

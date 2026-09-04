@@ -177,6 +177,9 @@ def explode(log: dict, links: dict[str, dict] | None = None,
             "travel": (session.get("location") or {}).get("travel", False),
         },
         "program": program,
+        # Denormalised onto every set and note so effort can be compared against the
+        # conditions it happened in without a join back to the session.
+        "environment": session.get("environment"),
     }
     docs: list[tuple[str, str, dict]] = []
     set_docs: list[dict] = []

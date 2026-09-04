@@ -214,6 +214,25 @@
       },
       "lift_slug": {
         "type": "keyword"
+      },
+      "environment": {
+        "properties": {
+          "temp_f": {
+            "type": "float"
+          },
+          "humidity_pct": {
+            "type": "float"
+          },
+          "conditions": {
+            "type": "keyword"
+          },
+          "wind": {
+            "type": "keyword"
+          },
+          "setting": {
+            "type": "keyword"
+          }
+        }
       }
     }
   }
