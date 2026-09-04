@@ -228,7 +228,7 @@ def set_fields(exercise: dict, s: dict, session_id: str,
     return fields
 
 
-ZONE_FIELD = {"<70": "lt70", "70-79": "z70_79", "80-89": "z80_89", "90+": "z90plus"}
+ZONE_FIELD = {"0-69": "lt70", "70-79": "z70_79", "80-89": "z80_89", "90+": "z90plus"}
 
 
 def session_fields(set_docs: list[dict], session: dict, totals: dict,

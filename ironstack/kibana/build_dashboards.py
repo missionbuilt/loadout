@@ -16,6 +16,7 @@ Stdlib only. No network.
 
 from __future__ import annotations
 
+import copy
 import json
 import sys
 import uuid
@@ -86,6 +87,7 @@ FMT_1 = {"id": "number", "params": {"decimals": 1}}
 def _col(label, op, dtype, scale, field=None, bucketed=False, params=None, **extra):
     col = {
         "label": label,
+        "customLabel": True,   # without this Lens shows its own "Sum of totals.tonnage_lb"
         "dataType": dtype,
         "operationType": op,
         "isBucketed": bucketed,
@@ -264,7 +266,11 @@ def metric_vis(id_, title, dv, columns, primary, secondary=None, breakdown=None,
         tcols = {"t-date": date_hist(time_field, "DATE"), "t-metric": make_metric()}
         order = ["t-date", "t-metric"]
         if breakdown:
-            tcols["t-breakdown"] = columns[breakdown]
+            t_breakdown = copy.deepcopy(columns[breakdown])
+            order_by = t_breakdown.get("params", {}).get("orderBy") or {}
+            if order_by.get("type") == "column":
+                order_by["columnId"] = "t-metric"
+            tcols["t-breakdown"] = t_breakdown
             order = ["t-breakdown", "t-date", "t-metric"]
             vis["trendlineBreakdownByAccessor"] = "t-breakdown"
         layers["trend"] = (dv, layer(tcols, order, link_to="l"))
@@ -288,10 +294,10 @@ def table(id_, title, dv, columns, sort=None, direction="asc", hidden=(), query=
 def heat_palette(top=BLOOD):
     stops = [RULE, STEEL, top]
     return {"type": "palette", "name": "custom", "params": {
-        "name": "custom", "continuity": "above", "reverse": False, "rangeType": "number",
-        "rangeMin": 0, "rangeMax": None, "steps": 3,
-        "colorStops": [{"color": c, "stop": i} for i, c in enumerate(stops)],
-        "stops": [{"color": c, "stop": i + 1} for i, c in enumerate(stops)],
+        "name": "custom", "continuity": "above", "reverse": False, "rangeType": "percent",
+        "rangeMin": 0, "rangeMax": 100, "steps": 3,
+        "colorStops": [{"color": c, "stop": s} for c, s in zip(stops, (0, 40, 75))],
+        "stops": [{"color": c, "stop": s} for c, s in zip(stops, (40, 75, 100))],
     }}
 
 
@@ -510,7 +516,7 @@ class Dashboard:
 
 Q = {
     "days": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date) | KEEP program.*, date_s, meet_s, days_to_meet',
-    "total": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true AND e1rm_confidence != "low" | STATS best = MAX(est_e1rm) BY lift_family | STATS total = SUM(best), lifts = COUNT(*)',
+    "total": 'FROM workout-weekly | WHERE projected_total_lb IS NOT NULL | SORT @timestamp DESC | LIMIT 1 | EVAL total = projected_total_lb, lifts = 3 | KEEP total, lifts',
     "streak": 'FROM workout-sessions | EVAL in7 = CASE(date >= NOW() - 7 days, 1, 0), in28 = CASE(date >= NOW() - 28 days, 1, 0) | STATS n7 = SUM(in7), n28 = SUM(in28), streak = MAX(streak_day)',
     "latest": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP date_s, program.block, program.day, time_of_day, totals.*, avg_working_rpe, wrap_up',
     "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
@@ -525,7 +531,7 @@ Q = {
     "performance": 'FROM workout-sets | SORT seq ASC | LIMIT 500 | EVAL gear_s = MV_CONCAT(gear, " / ") | KEEP set_number, exercise.name, exercise.category, set_type, load_type, weight_lb, reps, rep_unit, distance_ft, rpe, gear_s, notes',
     "notes": 'FROM workout-notes | SORT order ASC | LIMIT 200 | EVAL tags_s = MV_CONCAT(tags, "|") | KEEP order, phase, exercise.name, text, tags_s',
     "wrap": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL watch_s = MV_CONCAT(watch_items, "|") | KEEP wrap_up, gear_notes, watch_s',
-    "lift_header": 'FROM workout-sets | WHERE set_type == "working" | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last = MAX(date) BY exercise.name | SORT n DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last)',
+    "lift_header": 'FROM workout-sets | WHERE set_type == "working" | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date) BY exercise.name | SORT n DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
     "history_cards": 'FROM workout-sessions | STATS ton = SUM(totals.tonnage_lb), avg = AVG(totals.tonnage_lb), n = COUNT(*), sets = SUM(totals.working_sets), rpe = AVG(avg_working_rpe)',
     "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
     "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
@@ -599,7 +605,7 @@ def build() -> list[dict]:
                        trend=("date", lambda: metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)),
                        query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"')
     d.row((lifts, 48, [("lift", "Lift")]), h=9)
-    total_cols = {"x": date_hist("date", "WEEK", "1w"), "lift": terms("exercise.name", "LIFT", size=3),
+    total_cols = {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
                   "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)}
     total = xy(L("ov-total"), "TOTAL VS MEET MAX", "bar_stacked", T, total_cols, "x", ["m"], split="lift",
                palette="gray", ref=(MEET_MAX_LB, "MEET MAX"),

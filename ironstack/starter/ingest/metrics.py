@@ -178,19 +178,19 @@ def inol_week_band(value: float | None) -> str | None:
 # Prilepin's chart: reps per set, and total reps, that Soviet weightlifting data
 # found productive in each intensity zone.
 PRILEPIN = {
-    "<70":   {"reps_per_set": (3, 6), "total": (18, 30), "optimal": 24},
+    "0-69":  {"reps_per_set": (3, 6), "total": (18, 30), "optimal": 24},
     "70-79": {"reps_per_set": (3, 6), "total": (12, 24), "optimal": 18},
     "80-89": {"reps_per_set": (2, 4), "total": (10, 20), "optimal": 15},
     "90+":   {"reps_per_set": (1, 2), "total": (4, 10),  "optimal": 7},
 }
-PRILEPIN_ZONES = ("<70", "70-79", "80-89", "90+")
+PRILEPIN_ZONES = ("0-69", "70-79", "80-89", "90+")
 
 
 def prilepin_zone(pct: float | None) -> str | None:
     if pct is None:
         return None
     if pct < 70:
-        return "<70"
+        return "0-69"
     if pct < 80:
         return "70-79"
     if pct < 90:

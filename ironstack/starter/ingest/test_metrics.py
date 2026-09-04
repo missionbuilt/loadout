@@ -81,7 +81,7 @@ check("weekly 3.5 is brutal", m.inol_week_band(3.5), "brutal")
 check("weekly 4.5 is above the ceiling", m.inol_week_band(4.5), "excessive")
 
 print("\nPrilepin")
-check("69.9% is the light zone", m.prilepin_zone(69.9), "<70")
+check("69.9% is the light zone", m.prilepin_zone(69.9), "0-69")
 check("70.0% crosses into 70-79", m.prilepin_zone(70.0), "70-79")
 check("79.9% is still 70-79", m.prilepin_zone(79.9), "70-79")
 check("80.0% crosses into 80-89", m.prilepin_zone(80.0), "80-89")

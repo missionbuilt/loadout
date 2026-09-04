@@ -299,7 +299,7 @@ DAYS_LIST = page(tok("""
 <div class="eyebrow">Days</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No sessions in this selection") + """</div>{% else %}
 <div class="list" style="margin-top:8px">
-{% for r in rows %}<div class="item"><span class="when">wk {{ r['program.week'].value }} &middot; day {{ r['program.day'].value }}</span><span class="txt">{{ r['date_s'].value }} <span class="faint">&middot; {{ r['time_of_day'].value }} &middot; {{ r['location.name'].value }}</span></span><span class="num">{{ r['totals.tonnage_lb'].value | round }} lb &middot; RPE {{ r['avg_working_rpe'].value }}{% if r['duration_min'].value %} &middot; {{ r['duration_min'].value | round }} min{% endif %}</span></div>{% endfor %}
+{% for r in rows %}<div class="item"><span class="when">wk {{ r['program.week'].value }} &middot; day {{ r['program.day'].value }}</span><span class="txt">{{ r['date_s'].value }} <span class="faint">&middot; {{ r['time_of_day'].value }} &middot; {{ r['location.name'].value }}</span></span><span class="num">{{ r['totals.tonnage_lb'].value | round }} lb &middot; RPE {{ r['avg_working_rpe'].value | round: 1 }}{% if r['duration_min'].value %} &middot; {{ r['duration_min'].value | round }} min{% endif %}</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 FOUR_CARDS = page(tok("""
