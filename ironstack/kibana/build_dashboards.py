@@ -604,7 +604,7 @@ def build() -> list[dict]:
                   "Training at a glance.")
     d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
           (block_timeline(L("ov-timeline")), 32, [("session", "Session")]), h=10)
-    lifts = metric_vis(L("ov-lifts"), "BEST e1RM. THIS BLOCK. CLICK A LIFT", T,
+    lifts = metric_vis(L("ov-lifts"), "BEST e1RM IN THE SELECTED RANGE. CLICK A LIFT", T,
                        {"m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT),
                         # By family, not by name: "Comp Deadlift" and "Competition Deadlift"
                         # are the same lift and were showing up as two separate tiles.

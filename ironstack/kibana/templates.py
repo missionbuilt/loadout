@@ -168,7 +168,7 @@ TOTAL_CARD = page(tok("""
 {% if rows.size == 0 or rows[0]['total'].value == nil %}<div class="eyebrow">Total</div>""" + empty() + """{% else %}
 <div><div class="eyebrow">Projected total</div>
 <div class="hero" style="margin-top:8px">{{ rows[0]['total'].value | round }}<span class="value" style="font-size:16px;color:$DIM;margin-left:6px">lb</span></div></div>
-<div><div class="sub">{{ rows[0]['lifts'].value }} lifts &middot; best e1RM each<br><span class="faint">meet max $MEET_MAX lb</span></div>
+<div><div class="sub">competition lifts &middot; best of the last 90 days<br><span class="faint">meet max $MEET_MAX lb</span></div>
 {% assign pct = rows[0]['total'].value | times: 100 | divided_by: $MEET_MAX_NUM %}{% if pct > 100 %}{% assign pct = 100 %}{% endif %}
 <div class="bar"><i style="width:{{ pct }}%"></i></div>
 <div class="sub" style="margin-top:4px">{{ pct | round }}% of meet max</div></div>
