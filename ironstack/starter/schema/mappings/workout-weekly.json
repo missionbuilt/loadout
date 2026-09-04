@@ -1,0 +1,127 @@
+{
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "iso_week": {
+        "type": "keyword"
+      },
+      "tonnage_lb": {
+        "type": "float"
+      },
+      "working_sets": {
+        "type": "integer"
+      },
+      "reps": {
+        "type": "integer"
+      },
+      "inol_total": {
+        "type": "float"
+      },
+      "avg_working_rpe": {
+        "type": "float"
+      },
+      "bodyweight_lb": {
+        "type": "float"
+      },
+      "prilepin_reps": {
+        "properties": {
+          "lt70": {
+            "type": "integer"
+          },
+          "z70_79": {
+            "type": "integer"
+          },
+          "z80_89": {
+            "type": "integer"
+          },
+          "z90plus": {
+            "type": "integer"
+          }
+        }
+      },
+      "best_e1rm": {
+        "properties": {
+          "lift_slug": {
+            "type": "keyword"
+          },
+          "value": {
+            "type": "float"
+          }
+        }
+      },
+      "sets_by_muscle": {
+        "properties": {
+          "muscle": {
+            "type": "keyword"
+          },
+          "sets": {
+            "type": "integer"
+          }
+        }
+      },
+      "sessions": {
+        "type": "integer"
+      },
+      "week_start": {
+        "type": "keyword"
+      },
+      "week_end": {
+        "type": "keyword"
+      },
+      "training_days": {
+        "type": "integer"
+      },
+      "inol_by_lift": {
+        "properties": {
+          "exercise": {
+            "type": "keyword"
+          },
+          "inol": {
+            "type": "float"
+          },
+          "band": {
+            "type": "keyword"
+          }
+        }
+      },
+      "load_7d": {
+        "type": "float"
+      },
+      "load_28d": {
+        "type": "float"
+      },
+      "acwr": {
+        "type": "float"
+      },
+      "acwr_band": {
+        "type": "keyword"
+      },
+      "monotony": {
+        "type": "float"
+      },
+      "strain": {
+        "type": "float"
+      },
+      "projected_total_lb": {
+        "type": "float"
+      },
+      "dots": {
+        "type": "float"
+      },
+      "inol_hardest_lift": {
+        "type": "keyword"
+      },
+      "inol_hardest": {
+        "type": "float"
+      },
+      "inol_hardest_band": {
+        "type": "keyword"
+      },
+      "bodyweight_source": {
+        "type": "keyword"
+      }
+    }
+  }
+}

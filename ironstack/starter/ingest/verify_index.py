@@ -36,6 +36,13 @@ EXPECTED = {
         "watch_items": "text",
         "wrap_up": "text",
         "gear_notes": "text",
+        "inol_total": "float",
+        "inol_by_lift.inol": "float",
+        "prilepin_reps.z80_89": "integer",
+        "fatigue_index": "float",
+        "density_lb_per_min": "float",
+        "load_au": "float",
+        "load_estimated": "boolean",
     },
     "workout-sets": {
         "exercise.equipment_ids": "keyword",
@@ -47,6 +54,38 @@ EXPECTED = {
         "scheme": "keyword",
         "cardio.distance_mi": "float",
         "notes": "text",
+        "est_e1rm": "float",
+        "e1rm_method": "keyword",
+        "e1rm_confidence": "keyword",
+        "intensity_pct": "float",
+        "intensity_ref": "keyword",
+        "pct_meet_max": "float",
+        "inol": "float",
+        "prilepin_zone": "keyword",
+        "lift_slug": "keyword",
+        "pattern": "keyword",
+        "muscles_primary": "keyword",
+        "muscles_secondary": "keyword",
+        "lift_family": "keyword",
+        "is_competition_lift": "boolean",
+        "is_unilateral": "boolean",
+        "work_ftlb": "float",
+        "tut_sec": "float",
+    },
+    "workout-daily": {
+        "tonnage_lb": "float",
+        "best_e1rm.value": "float",
+        "sets_by_muscle.muscle": "keyword",
+    },
+    "workout-weekly": {
+        "acwr": "float",
+        "acwr_band": "keyword",
+        "monotony": "float",
+        "strain": "float",
+        "dots": "float",
+        "projected_total_lb": "float",
+        "inol_hardest_band": "keyword",
+        "bodyweight_source": "keyword",
     },
     "workout-notes": {"text": "text", "phase": "keyword"},
     "workout-meets": {"notes": "text"},
@@ -80,10 +119,16 @@ def local_documents() -> dict:
     """Every document this repo would produce, keyed by index then _id."""
     logs = [json.loads(p.read_text()) for p in sorted((REPO_ROOT / "workouts").glob("*/*.json"))]
     links = ix.session_links(ix.catalog_sessions([]))
+    reference = ix.derive.build_reference(ix.catalog_logs([]))
     docs: dict = {}
+    every: list = []
     for log in logs:
-        for index, _id, doc in ix.explode(log, links):
+        exploded = ix.explode(log, links, reference)
+        every.extend(exploded)
+        for index, _id, doc in exploded:
             docs.setdefault(index, {})[_id] = ix.strip_nones(doc)
+    for index, _id, doc in ix.derive.rollup_docs(every):
+        docs.setdefault(index, {})[_id] = ix.strip_nones(doc)
     for path in sorted((REPO_ROOT / "meets").glob("*.json")):
         for index, _id, doc in im.explode(json.loads(path.read_text())):
             docs.setdefault(index, {})[_id] = ix.strip_nones(doc)

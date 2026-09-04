@@ -1,0 +1,2138 @@
+{
+  "1\" Conv Deficit Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "1-Arm Cable Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "1-Arm Lat Pull Downs": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "1-Arm Tricep Pushdown": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "3 Count Pause Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": false,
+    "unilateral": false
+  },
+  "3\" Conv Block Pull": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "3\" Sumo Block Pull": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Ab Crunch (Machine)": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Ab Wheel": {
+    "pattern": "core-anti-extension",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Alternating DB Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Alternating Hammer Curl": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Arm Curl - Selectorized": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Back Raise": {
+    "pattern": "back-extension",
+    "muscles_primary": [
+      "lower-back",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Band Pullover Dead Bugs": {
+    "pattern": "core-anti-extension",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Banded Backward Walk": {
+    "pattern": "mobility",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Hip Thrust": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Russian Twists": {
+    "pattern": "core-rotation",
+    "muscles_primary": [
+      "obliques"
+    ],
+    "muscles_secondary": [
+      "abs"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Shrugs": {
+    "pattern": "shrug",
+    "muscles_primary": [
+      "traps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Skullcrushers": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Bent Knee Calf Raises": {
+    "pattern": "calf",
+    "muscles_primary": [
+      "calves"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Bentover Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": false
+  },
+  "Box Jumps": {
+    "pattern": "plyometric",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Box Pushups": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Bradford Presses": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable Ab Crunch": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable Cross Overs": {
+    "pattern": "chest-fly",
+    "muscles_primary": [
+      "chest"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable Fly": {
+    "pattern": "chest-fly",
+    "muscles_primary": [
+      "chest"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable Lateral Raise": {
+    "pattern": "shoulder-isolation",
+    "muscles_primary": [
+      "side-delt"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable curls": {
+    "alias_of": "Cable Curls"
+  },
+  "Cable hip thrust": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cable lateral raise": {
+    "alias_of": "Cable Lateral Raise"
+  },
+  "Cable machine ab crunch": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Calf Press (Machine)": {
+    "pattern": "calf",
+    "muscles_primary": [
+      "calves"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Calf Raises": {
+    "pattern": "calf",
+    "muscles_primary": [
+      "calves"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cambered Bar Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": false,
+    "unilateral": false
+  },
+  "Chest Supported Dumbbell Row": {
+    "alias_of": "Chest Supported Rows"
+  },
+  "Chest Supported Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": false
+  },
+  "Chin-ups": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": "chin",
+    "competition": false,
+    "unilateral": false
+  },
+  "Chinup Grip Pulldowns": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Cimerian N 101 Guided Row": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Clapping pushup": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Closegrip Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "cgbp",
+    "competition": false,
+    "unilateral": false
+  },
+  "Closegrip Pushup": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Comp Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": true,
+    "unilateral": false
+  },
+  "Comp Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": "deadlift",
+    "competition": true,
+    "unilateral": false
+  },
+  "Comp Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": true,
+    "unilateral": false
+  },
+  "Competition Deadlift": {
+    "alias_of": "Comp Deadlift"
+  },
+  "Competition Squat": {
+    "alias_of": "Comp Squat"
+  },
+  "Concentration Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Conventional Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": "deadlift",
+    "competition": false,
+    "unilateral": false
+  },
+  "Couch Stretch": {
+    "pattern": "mobility",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Alternating Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "DB Arnold Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Bench w/ Deep Stretch": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Cuban Press": {
+    "pattern": "shoulder-isolation",
+    "muscles_primary": [
+      "side-delt"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Decline Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Floor Press": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Fly": {
+    "pattern": "chest-fly",
+    "muscles_primary": [
+      "chest"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Incline Bench": {
+    "pattern": "incline-press",
+    "muscles_primary": [
+      "chest",
+      "front-delt"
+    ],
+    "muscles_secondary": [
+      "triceps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Lateral Raise": {
+    "pattern": "shoulder-isolation",
+    "muscles_primary": [
+      "side-delt"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Military Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": "ohp",
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Pull Overs": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB RDL": {
+    "alias_of": "DB RDLs"
+  },
+  "DB RDLs": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "DB Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": true
+  },
+  "DB Shrugs": {
+    "pattern": "shrug",
+    "muscles_primary": [
+      "traps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Deadbug": {
+    "pattern": "core-anti-extension",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Decline Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Decline Push-ups": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Deficit DB RDL": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Dips": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "dip",
+    "competition": false,
+    "unilateral": false
+  },
+  "Double Overhand 1\" Conv Deficit Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Drag Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "EZ Bar Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Echo Bike": {
+    "pattern": "conditioning",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Elbows Out DB Extensions": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "External rotator off the knee": {
+    "pattern": "shoulder-isolation",
+    "muscles_primary": [
+      "side-delt"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Extra Wide Bench Press": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": false,
+    "unilateral": false
+  },
+  "Face Pulls": {
+    "pattern": "rear-delt",
+    "muscles_primary": [
+      "rear-delt"
+    ],
+    "muscles_secondary": [
+      "mid-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Farmers Walk": {
+    "pattern": "carry",
+    "muscles_primary": [
+      "grip",
+      "traps",
+      "core"
+    ],
+    "muscles_secondary": [
+      "quads",
+      "glutes"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Feet Up Bench": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": false,
+    "unilateral": false
+  },
+  "Front Foot Elevated Split Squat": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Front Plank": {
+    "pattern": "core-anti-extension",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Front Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "front-squat",
+    "competition": false,
+    "unilateral": false
+  },
+  "GHD Sit-up": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "GHR": {
+    "pattern": "knee-flexion",
+    "muscles_primary": [
+      "hamstrings"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Glute Bridge": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Glute Kick Back Machine": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Goblet Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Good Mornings": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hack Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Halting Conventional Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hammer Curl": {
+    "alias_of": "Hammer Curls"
+  },
+  "Hammer Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hammer Strength MTS Bicep Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hammer strength tricep extension machine": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hamstring Curls": {
+    "pattern": "knee-flexion",
+    "muscles_primary": [
+      "hamstrings"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hand Switch Pushups": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hanging Leg Raises": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "High Bar Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": false,
+    "unilateral": false
+  },
+  "Hip Abduction (Machine)": {
+    "pattern": "hip-abduction",
+    "muscles_primary": [
+      "glute-medius"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hip Abductor/Adductor": {
+    "pattern": "hip-abduction",
+    "muscles_primary": [
+      "glute-medius"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hip Adduction (Machine)": {
+    "pattern": "hip-adduction",
+    "muscles_primary": [
+      "adductors"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hip Thrust": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Hip Thrust Machine (Bells)": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Incline Bench": {
+    "pattern": "incline-press",
+    "muscles_primary": [
+      "chest",
+      "front-delt"
+    ],
+    "muscles_secondary": [
+      "triceps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Incline DB Fly": {
+    "pattern": "chest-fly",
+    "muscles_primary": [
+      "chest"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Inverted Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Iso Hold Hammer Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Iso Push-up": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Landmine Reverse Lunge": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Landmine Rotation": {
+    "pattern": "core-rotation",
+    "muscles_primary": [
+      "obliques"
+    ],
+    "muscles_secondary": [
+      "abs"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Lat Pulldown": {
+    "alias_of": "Lat Pulldowns"
+  },
+  "Lat Pulldowns": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": "pulldown",
+    "competition": false,
+    "unilateral": false
+  },
+  "Lateral Lunges": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Leg Extensions": {
+    "pattern": "knee-extension",
+    "muscles_primary": [
+      "quads"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Leg Press/Hack Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Leg curl (plate loaded)": {
+    "pattern": "knee-flexion",
+    "muscles_primary": [
+      "hamstrings"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Leg extension (plate loaded)": {
+    "pattern": "knee-extension",
+    "muscles_primary": [
+      "quads"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Log Press from Rack": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Lower back - technogym": {
+    "pattern": "back-extension",
+    "muscles_primary": [
+      "lower-back",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Lunges": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "MB Russian Twists": {
+    "pattern": "core-rotation",
+    "muscles_primary": [
+      "obliques"
+    ],
+    "muscles_secondary": [
+      "abs"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Chest Press": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Fly": {
+    "pattern": "chest-fly",
+    "muscles_primary": [
+      "chest"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Glute": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Military Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Press (incline)": {
+    "pattern": "incline-press",
+    "muscles_primary": [
+      "chest",
+      "front-delt"
+    ],
+    "muscles_secondary": [
+      "triceps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Machine Shoulder Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Multi flight": {
+    "pattern": "conditioning",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Neutral Grip Pulldowns": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Nordic Curl (Regression)": {
+    "pattern": "knee-flexion",
+    "muscles_primary": [
+      "hamstrings"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Overhead Tricep Extenstion - Selectorized": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Pause High Bar Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": false,
+    "unilateral": false
+  },
+  "Pendlay Row": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": false
+  },
+  "Pendulum Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Plank": {
+    "pattern": "core-anti-extension",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Plate Front Raises with Twist": {
+    "pattern": "shoulder-isolation",
+    "muscles_primary": [
+      "side-delt"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Preacher Curls": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Prime Arm Curl": {
+    "pattern": "elbow-flexion",
+    "muscles_primary": [
+      "biceps"
+    ],
+    "muscles_secondary": [
+      "forearms"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Pull Throughs": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Pullups": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
+    ],
+    "lift_family": "chin",
+    "competition": false,
+    "unilateral": false
+  },
+  "Push-up": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Pushups w/ Deep Stretch": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "RDL w/ Band Around Hips": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "RDLs": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Reverse Hyper": {
+    "pattern": "back-extension",
+    "muscles_primary": [
+      "lower-back",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Ruck": {
+    "pattern": "carry",
+    "muscles_primary": [
+      "grip",
+      "traps",
+      "core"
+    ],
+    "muscles_secondary": [
+      "quads",
+      "glutes"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "SL Glute Bridge": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "SL Hip Thrust": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "SSB Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": false,
+    "unilateral": false
+  },
+  "Sandbag Carry": {
+    "pattern": "carry",
+    "muscles_primary": [
+      "grip",
+      "traps",
+      "core"
+    ],
+    "muscles_secondary": [
+      "quads",
+      "glutes"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Seated Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": false
+  },
+  "Shrugs": {
+    "pattern": "shrug",
+    "muscles_primary": [
+      "traps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Side Plank": {
+    "pattern": "core-lateral",
+    "muscles_primary": [
+      "obliques"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Single Leg Calf Raises": {
+    "pattern": "calf",
+    "muscles_primary": [
+      "calves"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Single Leg Reverse Hyper": {
+    "pattern": "back-extension",
+    "muscles_primary": [
+      "lower-back",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Single leg seated calf press": {
+    "pattern": "calf",
+    "muscles_primary": [
+      "calves"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Single-leg Glute Bridge": {
+    "pattern": "hip-extension",
+    "muscles_primary": [
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Skullcrusher": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Skullcrushers (Standing)": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Split Squat (Glute Emphasis)": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Split Squat (Quad Emphasis)": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Standing Lunge": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Step Ups": {
+    "pattern": "lunge",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "hamstrings"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Strict Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest"
+    ],
+    "lift_family": "ohp",
+    "competition": false,
+    "unilateral": false
+  },
+  "Sumo Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": "deadlift",
+    "competition": false,
+    "unilateral": false
+  },
+  "Tempo DB Press (5:0:5)": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Tempo Squat (5:0:0)": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": false,
+    "unilateral": false
+  },
+  "Tempo Wide Grip Bench (5:0:0)": {
+    "pattern": "horizontal-press",
+    "muscles_primary": [
+      "chest",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "front-delt"
+    ],
+    "lift_family": "bench",
+    "competition": false,
+    "unilateral": false
+  },
+  "Trap Bar Deadlift": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "hamstrings",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "traps"
+    ],
+    "lift_family": "deadlift",
+    "competition": false,
+    "unilateral": false
+  },
+  "Tricep Kick Back": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": true
+  },
+  "Tricep Pushdown": {
+    "pattern": "elbow-extension",
+    "muscles_primary": [
+      "triceps"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Unknown exercise": {
+    "pattern": "unknown",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Weighted Situps": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Yates Rows": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "mid-back",
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "rear-delt"
+    ],
+    "lift_family": "row",
+    "competition": false,
+    "unilateral": false
+  },
+  "Yoke Walk": {
+    "pattern": "carry",
+    "muscles_primary": [
+      "grip",
+      "traps",
+      "core"
+    ],
+    "muscles_secondary": [
+      "quads",
+      "glutes"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  }
+}

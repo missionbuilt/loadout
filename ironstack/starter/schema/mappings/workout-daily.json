@@ -1,0 +1,84 @@
+{
+  "mappings": {
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "date": {
+        "type": "keyword"
+      },
+      "weekday": {
+        "type": "keyword"
+      },
+      "iso_week": {
+        "type": "keyword"
+      },
+      "sessions": {
+        "type": "integer"
+      },
+      "tonnage_lb": {
+        "type": "float"
+      },
+      "working_sets": {
+        "type": "integer"
+      },
+      "reps": {
+        "type": "integer"
+      },
+      "duration_min": {
+        "type": "float"
+      },
+      "inol_total": {
+        "type": "float"
+      },
+      "load_au": {
+        "type": "float"
+      },
+      "avg_working_rpe": {
+        "type": "float"
+      },
+      "bodyweight_lb": {
+        "type": "float"
+      },
+      "sleep_hrs": {
+        "type": "float"
+      },
+      "prilepin_reps": {
+        "properties": {
+          "lt70": {
+            "type": "integer"
+          },
+          "z70_79": {
+            "type": "integer"
+          },
+          "z80_89": {
+            "type": "integer"
+          },
+          "z90plus": {
+            "type": "integer"
+          }
+        }
+      },
+      "best_e1rm": {
+        "properties": {
+          "lift_slug": {
+            "type": "keyword"
+          },
+          "value": {
+            "type": "float"
+          }
+        }
+      },
+      "sets_by_muscle": {
+        "properties": {
+          "muscle": {
+            "type": "keyword"
+          },
+          "sets": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

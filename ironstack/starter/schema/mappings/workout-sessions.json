@@ -161,6 +161,53 @@
             "ignore_above": 256
           }
         }
+      },
+      "source": {
+        "type": "keyword"
+      },
+      "inol_total": {
+        "type": "float"
+      },
+      "inol_by_lift": {
+        "properties": {
+          "exercise": {
+            "type": "keyword"
+          },
+          "inol": {
+            "type": "float"
+          },
+          "band": {
+            "type": "keyword"
+          }
+        }
+      },
+      "prilepin_reps": {
+        "properties": {
+          "lt70": {
+            "type": "integer"
+          },
+          "z70_79": {
+            "type": "integer"
+          },
+          "z80_89": {
+            "type": "integer"
+          },
+          "z90plus": {
+            "type": "integer"
+          }
+        }
+      },
+      "fatigue_index": {
+        "type": "float"
+      },
+      "density_lb_per_min": {
+        "type": "float"
+      },
+      "load_au": {
+        "type": "float"
+      },
+      "load_estimated": {
+        "type": "boolean"
       }
     }
   }

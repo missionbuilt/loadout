@@ -166,6 +166,54 @@
             "type": "float"
           }
         }
+      },
+      "pattern": {
+        "type": "keyword"
+      },
+      "muscles_primary": {
+        "type": "keyword"
+      },
+      "muscles_secondary": {
+        "type": "keyword"
+      },
+      "lift_family": {
+        "type": "keyword"
+      },
+      "is_competition_lift": {
+        "type": "boolean"
+      },
+      "is_unilateral": {
+        "type": "boolean"
+      },
+      "work_ftlb": {
+        "type": "float"
+      },
+      "tut_sec": {
+        "type": "float"
+      },
+      "e1rm_method": {
+        "type": "keyword"
+      },
+      "e1rm_confidence": {
+        "type": "keyword"
+      },
+      "intensity_pct": {
+        "type": "float"
+      },
+      "intensity_ref": {
+        "type": "keyword"
+      },
+      "pct_meet_max": {
+        "type": "float"
+      },
+      "inol": {
+        "type": "float"
+      },
+      "prilepin_zone": {
+        "type": "keyword"
+      },
+      "lift_slug": {
+        "type": "keyword"
       }
     }
   }

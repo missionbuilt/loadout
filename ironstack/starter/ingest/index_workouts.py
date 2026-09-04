@@ -30,6 +30,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+import derive
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "workout.schema.json"
 WORKOUTS_DIR = REPO_ROOT / "workouts"
@@ -47,14 +49,10 @@ def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def est_e1rm(weight: float, reps: float, rpe: float | None) -> float | None:
-    """Estimated 1RM via Epley, extended with RPE (reps in reserve count as reps)."""
-    if not weight or not reps or rpe is None:
-        return None
-    effective_reps = reps + (10 - rpe)
-    if effective_reps <= 1:
-        return round(weight, 1)
-    return round(weight * (1 + effective_reps / 30.0), 1)
+# est_e1rm moved to metrics.e1rm(), which uses Tuchscherer's RPE table rather than
+# Epley with reps-in-reserve folded into the rep count, reports which model it used,
+# and carries a confidence tier. derive.set_fields() writes it onto every working set
+# — not only the main lifts, as the old version did.
 
 
 def load_schema() -> Draft202012Validator:
@@ -118,6 +116,26 @@ def catalog_sessions(extra_paths: list[Path]) -> list[tuple[str, str]]:
     return sorted(((d, sid) for sid, d in seen.items()), key=lambda pair: (pair[0], pair[1]))
 
 
+def catalog_logs(extra_paths: list[Path]) -> list[tuple[str, str, dict]]:
+    """(date, session_id, log) for every session the repo knows about.
+
+    The analytics reference (best e1RM per lift as of each date) has to see the
+    whole history, not just the files named on the command line.
+    """
+    seen: dict[str, tuple[str, dict]] = {}
+    paths = list(WORKOUTS_DIR.rglob("*.json")) if WORKOUTS_DIR.exists() else []
+    paths += extra_paths
+    for path in paths:
+        try:
+            log = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        session = log.get("session") or {}
+        if "date" in session:
+            seen[session_key(session)] = (session["date"], log)
+    return [(day, sid, log) for sid, (day, log) in seen.items()]
+
+
 def session_links(ordered: list[tuple[str, str]]) -> dict[str, dict]:
     """prev/next ids and streak_day (consecutive calendar days trained) per session."""
     links: dict[str, dict] = {}
@@ -142,7 +160,8 @@ def session_links(ordered: list[tuple[str, str]]) -> dict[str, dict]:
 # --------------------------------------------------------------------------- explode
 
 
-def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, str, dict]]:
+def explode(log: dict, links: dict[str, dict] | None = None,
+            reference: derive.Reference | None = None) -> list[tuple[str, str, dict]]:
     """Turn one workout log into (index, _id, document) tuples."""
     session = log["session"]
     session_id = session_key(session)
@@ -160,6 +179,7 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
         "program": program,
     }
     docs: list[tuple[str, str, dict]] = []
+    set_docs: list[dict] = []
 
     tonnage = 0.0
     total_sets = working_sets = total_reps = 0
@@ -217,13 +237,12 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
                 "load_type": s.get("load_type", "external"),
                 "rpe": rpe,
                 "volume_lb": volume,
-                "est_e1rm": est_e1rm(weight, reps, rpe)
-                if exercise["category"] == "main" and set_type == "working" and rep_unit == "reps"
-                else None,
                 "gear": s.get("gear", exercise.get("gear", [])),
                 "notes": s.get("notes"),
                 "tags": s.get("tags", []),
             }
+            doc.update(derive.set_fields(exercise, s, session_id, slug, reference))
+            set_docs.append(doc)
             docs.append(("workout-sets", f"{session_id}-{slug}-{set_type}-{set_number}", doc))
 
     for order, note in enumerate(log.get("notes", []), start=1):
@@ -266,6 +285,7 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
 
     session_doc = {
         **context,
+        "source": session.get("source"),
         "start_time": session.get("start_time"),
         "timestamp": timestamp_for(session),
         "duration_min": session.get("duration_min"),
@@ -285,6 +305,8 @@ def explode(log: dict, links: dict[str, dict] | None = None) -> list[tuple[str, 
         "watch_items": session.get("watch_items", []),
         **((links or {}).get(session_id) or {}),
     }
+    session_doc.update(derive.session_fields(set_docs, session, session_doc["totals"],
+                                             session_doc["avg_working_rpe"]))
     session_doc["digest"] = session_digest(log, session_doc["totals"],
                                            session_doc["avg_working_rpe"], top_sets)
     geo = (session.get("location") or {}).get("geo")
@@ -331,6 +353,8 @@ def session_digest(log: dict, totals: dict, avg_rpe, top_sets: list) -> str:
         parts.append(f"{remaining} days to the meet")
 
     lines = [". ".join(parts) + "."]
+    if session.get("source"):
+        lines.append(f"Imported from {session['source']}; no notes were captured at the time.")
     if top_sets:
         lines.append("Top sets: " + "; ".join(top_sets) + ".")
     names = [e["name"] for e in log["exercises"] if e["category"] != "prep"]
@@ -415,7 +439,9 @@ def main() -> None:
         return
 
     validator = load_schema()
-    links = session_links(catalog_sessions([p for p in paths if WORKOUTS_DIR not in p.resolve().parents]))
+    outside = [p for p in paths if WORKOUTS_DIR not in p.resolve().parents]
+    links = session_links(catalog_sessions(outside))
+    reference = derive.build_reference(catalog_logs(outside))
     all_docs: list[tuple[str, str, dict]] = []
     failed = False
     for path in paths:
@@ -427,12 +453,25 @@ def main() -> None:
             for error in errors[:10]:
                 print(f"  {error.json_path}: {error.message}")
             continue
-        docs = explode(log, links)
+        docs = explode(log, links, reference)
         all_docs.extend(docs)
         print(f"ok {path} -> {len(docs)} document(s)")
 
     if failed:
         sys.exit("error: fix the invalid log(s) above")
+
+    # Daily and weekly rollups describe the whole history, not the files named on
+    # the command line, so they are always built from every log in the repo. The
+    # ids are deterministic, so re-emitting every week on every run is an upsert.
+    every = all_docs
+    if len(paths) != len(catalog_logs([])):
+        every = []
+        for _day, _sid, log in catalog_logs([]):
+            every.extend(explode(log, links, reference))
+    rollups = derive.rollup_docs(every)
+    all_docs.extend(rollups)
+    print(f"rollups -> {len(rollups)} document(s)")
+
     if validate_only:
         print("validation passed")
         return
