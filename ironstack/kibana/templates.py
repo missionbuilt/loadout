@@ -760,7 +760,7 @@ your best <b>{{ peak | round }}</b> lb, {{ peak_s }}.</div>
 SIGNAL_LIFT = signal(
     "Where is this lift",
     _LIFT_BODY,
-    "Confident e1RM estimates on working sets, for the lift selected above and this "
+    "Confident e1RM estimates on working sets, for the lift you arrived on and this "
     "page's range. One session's estimate swings with how hard that day was, so this "
     "compares your best of five sessions, never one session to the next.",
     "Below &#9656; every working set",

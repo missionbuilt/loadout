@@ -458,22 +458,56 @@ class Dashboard:
         self.row(*nav, h=2)
 
     def row(self, *items, h=8):
-        """items: (saved object | Inline, width, drilldowns); drilldowns are (target key, name) or ('url', template, name)."""
+        """items: (saved object | Inline, width, drilldowns); drilldowns are
+        (target key, name[, carry_time]) or ('url', template, name)."""
         x = 0
         for obj, w, drills in items:
             inline = isinstance(obj, Inline)
             idx = uid(self.id, obj.key if inline else obj["id"])
-            drilldowns = []
+            # Drilldowns are `enhancements.dynamicActions.events`, which is the shape
+            # Kibana actually reads. They were written as `embeddableConfig.drilldowns`
+            # with a schema of this repo's own invention until Sept 5: embeddableConfig is
+            # a free-form blob, so Kibana stored all ten of them and ignored every one.
+            # The symptom was that a Lens legend offered only Filter for / Filter out and
+            # never the drilldown, which made "click a lift anywhere to land here" a
+            # promise the app did not keep. Verify in the browser, never in the build.
+            events = []
             for d in drills:
                 if d[0] == "url":
-                    drilldowns.append({"type": "url_drilldown", "label": d[2], "trigger": "on_click_value",
-                                       "open_in_new_tab": False, "encode_url": True, "url": d[1]})
+                    event_id = uid(idx, "drilldown", d[2])
+                    events.append({
+                        "eventId": event_id,
+                        "triggers": ["VALUE_CLICK_TRIGGER"],
+                        "action": {"factoryId": "URL_DRILLDOWN", "name": d[2],
+                                   "config": {"url": {"template": d[1]},
+                                              "openInNewTab": False, "encodeUrl": True}},
+                    })
                 else:
-                    target, name = d
-                    ref_name = f"dashboard_drilldown_{DASH[target]}"
-                    drilldowns.append({"type": "dashboard_drilldown", "label": name, "trigger": "on_apply_filter",
-                                       "open_in_new_tab": False, "use_time_range": True, "use_filters": True,
-                                       "dashboardRefName": ref_name})
+                    # (target, name) or (target, name, carry_time). carry_time governs
+                    # whether the SOURCE dashboard's range travels. Session carries it —
+                    # clicking an old session needs a window wide enough to hold it.
+                    #
+                    # It does NOT control the landing range when the click was on a date
+                    # histogram. Verified in the browser: with carry_time False, clicking a
+                    # week on ov-total-chart still lands Lift on Jul 7 - Jul 14, because the
+                    # filter payload carries the clicked bucket's own range and that wins.
+                    # So Lift is reached showing one week, reads "1 session, 4 working sets",
+                    # and its verdict — which needs five sessions — cannot rule. The fix is
+                    # a URL drilldown that builds a Lift URL with the lift and no range, so
+                    # timeRestore gives Lift its 2y default. Not built; see ironstack-state.
+                    target, name = d[0], d[1]
+                    carry_time = d[2] if len(d) > 2 else True
+                    event_id = uid(idx, "drilldown", target, name)
+                    events.append({
+                        "eventId": event_id,
+                        "triggers": ["FILTER_TRIGGER"],
+                        "action": {"factoryId": "DASHBOARD_TO_DASHBOARD_DRILLDOWN", "name": name,
+                                   "config": {"useCurrentFilters": True, "useCurrentDateRange": carry_time,
+                                              "openInNewTab": False}},
+                    })
+                    # Kibana extracts the target dashboard into a reference under this
+                    # exact name; the panelIndex prefix is the panel-level convention.
+                    ref_name = f"drilldown:DASHBOARD_TO_DASHBOARD_DRILLDOWN:{event_id}:dashboardId"
                     self.refs.append({"name": f"{idx}:{ref_name}", "type": "dashboard", "id": DASH[target]})
             if inline:
                 config = dict(obj.config)
@@ -485,8 +519,8 @@ class Dashboard:
                 ptype = self.PANEL_TYPE[obj["type"]]
                 self.refs.append({"name": f"{idx}:savedObjectRef", "type": obj["type"], "id": obj["id"]})
                 self.objects.append(obj)
-            if drilldowns:
-                config["drilldowns"] = drilldowns
+            if events:
+                config["enhancements"] = {"dynamicActions": {"events": events}}
             self.panels.append({"type": ptype, "embeddableConfig": config, "panelIndex": idx,
                                 "gridData": {"x": x, "y": self.y, "w": w, "h": h, "i": idx}})
             x += w
@@ -700,11 +734,11 @@ def build() -> list[dict]:
           # trained, so the edge reads as a line and not a picket fence.
           (xy(L("ov-total-chart"), f"PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM AGAINST YOUR MEET BEST, {MEET_MAX_LB:g} LB",
               "area_stacked", T,
-              {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
+              {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=3),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
-           28, [("lift", "Lift")]), h=11)
+           28, [("lift", "Lift", False)]), h=11)
     # Streak, Latest session, Bodyweight and Sleep were cut from this page. Every one is
     # something a phone logging app shows better and shows at the gym, so here they only
     # told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also had one
@@ -773,24 +807,28 @@ def build() -> list[dict]:
     objs += d.build()
 
     # ---------------------------------------------------------------- Lift
-    d = Dashboard("lift", "Ironstack. Lift", "One exercise over time. Arrives filtered to exercise.name.",
-                  "One exercise over time. Pick a lift above, or click a lift anywhere to land here.",
-                  # A FAMILY control on lift_family was built here and removed. It worked
-                  # as a picker — squat narrowed LIFT to comp-squat 204, high-bar 84, ssb 49,
-                  # tempo 25, pause 15: comp lift first, five options instead of 158. But
-                  # ov-total-chart drills into this page split on lift_family, so the control
-                  # and the drilldown filter the same field. That is the Session bug — the
-                  # drilldown replaces the app filter array, the control's filter sits outside
-                  # it, the two AND, and the page empties. Reproduced in the browser: both
-                  # controls flagged invalid, header reading OPEN A LIFT FROM ANY DASHBOARD.
-                  # Sorting LIFT by count does not put the competition lifts on top either
-                  # (single-leg-calf-raises 300, unknown-exercise 261, comp-bench 208): count
-                  # is the wrong proxy. The fix is the lift_name display field in the Phase 1
-                  # reindex, not another control. The values here are still slugs, which is
-                  # why the header reads COMPETITION DEADLIFT for one lift and COMP BENCH for
-                  # another.
-                  controls=[(T, "lift_slug", "LIFT", ["comp-deadlift"], {"sort": {"by": "_count", "direction": "desc"}}),
-                            (T, "program.block", "BLOCK")], time_from="now-2y")
+    d = Dashboard("lift", "Ironstack. Lift", "One exercise over time. Arrives filtered on lift_slug.",
+                  "One exercise over time. Click a lift anywhere to land here.",
+                  # No control on lift_slug. Lift is a drilldown destination, and a control
+                  # and a drilldown filtering the same field empty the page: the drilldown
+                  # replaces the app filter array, the control's filter sits outside it, and
+                  # the two AND. That is the Session bug, reproduced here on Sept 5 the hour
+                  # the drilldowns started working — arriving from Overview with the control
+                  # still holding comp-deadlift gave a filter pill, an invalid-selection
+                  # warning and an empty page. Lift takes its identity from whatever brought
+                  # the lifter here, and nothing else.
+                  #
+                  # A FAMILY control on lift_family was tried first and removed for the same
+                  # reason. Sorting a lift picker by count does not put the competition lifts
+                  # on top either (single-leg-calf-raises 300, unknown-exercise 261,
+                  # comp-bench 208): count is the wrong proxy. If a picker comes back, it
+                  # needs the lift_name display field from the Phase 1 reindex AND a page
+                  # that is not a drilldown target.
+                  #
+                  # BLOCK stays: it filters program.block, so ANDing it with an incoming
+                  # lift_slug filter asks a real question (this lift, in that block) and an
+                  # empty answer to it is true rather than broken.
+                  controls=[(T, "program.block", "BLOCK")], time_from="now-2y")
     d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=6)
     e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
     e1 = xy(L("li-e1rm"), "e1RM OVER TIME", "line", T, e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
