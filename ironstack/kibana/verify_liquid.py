@@ -143,7 +143,6 @@ def section_all_templates() -> None:
             continue  # an unfilled placeholder; covered via its factory below
         candidates.append((name, value))
     candidates.append(("total_card()", tpl.total_card(909.4)))
-    candidates.append(("metric_card()", tpl.metric_card("Bodyweight", "lb")))
 
     seen = 0
     for name, value in candidates:
@@ -462,7 +461,33 @@ def section_lift() -> None:
     lacks("lift: no direction without a prior five", out, "sessions before")
 
 
+ORPHAN_EXEMPT = {"BASE_CSS", "SIGNAL_CSS", "TOKENS", "DAYS_TO_MEET"}
+
+
+def section_orphans() -> None:
+    """Every template in templates.py must be reachable from a dashboard.
+
+    build_dashboards.py --check catches saved objects that nothing references. This is
+    the same check one layer up: a card nothing builds is invisible, untestable in
+    practice, and quietly rots. DAYS_LIST sat dead for a day before this existed.
+    """
+    build = (__import__("pathlib").Path(__file__).resolve().parent / "build_dashboards.py").read_text()
+    for name in dir(tpl):
+        if name.startswith("_") or name in ORPHAN_EXEMPT:
+            continue
+        value = getattr(tpl, name)
+        if not isinstance(value, str) or ("{%" not in value and "{{" not in value):
+            continue
+        if not value.lstrip().startswith("<style") and "<div" not in value:
+            continue
+        base = name.rstrip("_")
+        referenced = f"tpl.{name}" in build or f"{base.lower()}(" in build
+        check(f"{name}: reachable from a dashboard", referenced,
+              "defined in templates.py and built by nothing")
+
+
 def main() -> None:
+    section_orphans()
     section_lift()
     section_unit_spacing()
     section_float_leaks()

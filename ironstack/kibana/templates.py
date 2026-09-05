@@ -201,48 +201,11 @@ def rpe_class(expr: str) -> str:
 DAYS_TO_MEET = """{% if rows[0]['program.meet_date'].value %}{% assign now_s = "now" | date: "%s" | plus: 0 %}{% assign meet_s = rows[0]['program.meet_date'].value | date: "%s" | plus: 0 %}{% assign days = meet_s | minus: now_s | divided_by: 86400.0 | ceil %}{% endif %}"""
 
 
-def sparkline(rows_expr: str, field: str, width=160, height=36, color=CHALK) -> str:
-    """Polyline over rows, scaled to the values' own min and max.
-
-    It used to scale by `.pct`, the value's share of the column max. That field is not
-    populated for every ES|QL column, and a nil pct produced empty coordinates — which
-    is why Bodyweight and Sleep rendered as a bare number above an empty panel. The
-    range is computed here instead, so the line depends on nothing but the values.
-    """
-    h, mid = height - 4, height // 2
-    return (
-        "{%- assign _mx = 0 -%}{%- assign _mn = 0 -%}{%- assign _seen = false -%}"
-        "{%- for r in " + rows_expr + " -%}"
-        "{%- assign _v = r['" + field + "'].value -%}"
-        "{%- if _v -%}"
-        "{%- unless _seen -%}{%- assign _mx = _v -%}{%- assign _mn = _v -%}"
-        "{%- assign _seen = true -%}{%- endunless -%}"
-        "{%- if _v > _mx -%}{%- assign _mx = _v -%}{%- endif -%}"
-        "{%- if _v < _mn -%}{%- assign _mn = _v -%}{%- endif -%}"
-        "{%- endif -%}{%- endfor -%}"
-        "{%- assign _rng = _mx | minus: _mn -%}"
-        '<svg width="' + str(width) + '" height="' + str(height) + '" viewBox="0 0 '
-        + str(width) + " " + str(height) + '" preserveAspectRatio="none">'
-        '<polyline fill="none" stroke="' + color + '" stroke-width="1.5" points="'
-        "{%- assign _n = " + rows_expr + ".size | minus: 1 -%}"
-        "{%- if _n < 1 -%}{%- assign _n = 1 -%}{%- endif -%}"
-        "{%- for r in " + rows_expr + " -%}{%- assign _v = r['" + field + "'].value -%}"
-        "{%- if _v -%}"
-        "{{ forloop.index0 | times: " + str(width) + " | divided_by: _n }},"
-        # A flat series has no range to scale against; pin it to the middle rather
-        # than dividing by zero, which is a render error that blanks the panel.
-        "{%- if _rng > 0 -%}"
-        "{{ _mx | minus: _v | times: " + str(h) + " | divided_by: _rng | plus: 2 | round: 1 }}"
-        "{%- else -%}" + str(mid) + "{%- endif -%} "
-        "{%- endif -%}{%- endfor -%}"
-        '"/></svg>'
-    )
-
 
 # --------------------------------------------------------------------------- Overview cards
 
 DAYS_TO_MEET_CARD = page(tok("""
-<div class="stack spread">
+<div class="stack">
 {% if rows.size == 0 %}<div class="eyebrow">Days to meet</div>""" + empty("No sessions yet") + """{% else %}""" + DAYS_TO_MEET + """
 <div><div class="eyebrow">Days to meet</div>
 {% if days %}<div class="hero" style="margin-top:8px">{{ days }}</div>{% else %}<div class="empty" style="margin-top:10px">No meet on the calendar</div>{% endif %}</div>
@@ -264,25 +227,7 @@ TOTAL_CARD = page(tok("""
 <div class="rule" style="margin-top:12px;padding-top:8px"><span class="sub">{% if total >= $MEET_MAX_NUM %}<span class="v">{{ pct }}%</span> of your meet best, $MEET_MAX lb{% else %}<span class="v">{{ pct }}%</span> of your meet best &middot; <span class="v">""" + num("togo") + """&nbsp;lb</span> to go{% endif %}</span></div>
 {% endif %}"""))
 
-STREAK_CARD = page(tok("""
-<div class="stack">
-{% if rows.size == 0 %}<div class="eyebrow">Streak</div>""" + empty("No sessions yet") + """{% else %}
-<div><div class="eyebrow">Best streak</div>
-<div class="hero" style="margin-top:8px">{{ rows[0]['streak'].value }}<span class="value" style="font-size:16px;color:$DIM;margin-left:6px">day{% if rows[0]['streak'].value != 1 %}s{% endif %}</span></div></div>
-<div class="sub">{{ rows[0]['n7'].value }} in 7 days<br>{{ rows[0]['n28'].value }} in 28 days</div>
-{% endif %}
-</div>"""))
 
-LATEST_CARD = page(tok("""
-<div class="stack">
-{% if rows.size == 0 %}<div class="eyebrow">Latest session</div>""" + empty("No sessions yet") + """{% else %}
-<div><div class="eyebrow">Latest session</div>
-<div class="value" style="margin-top:8px">{{ rows[0]['date_s'].value }}</div>
-<div class="sub">{{ rows[0]['program.block'].value }}{% if rows[0]['program.day'].value %} &middot; day {{ rows[0]['program.day'].value }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value }}{% endif %}</div></div>
-<div class="sub"><span class="v">""" + num("rows[0]['totals.tonnage_lb'].value") + """</span> lb &middot; <span class="v">{{ rows[0]['avg_working_rpe'].value | round: 1 }}</span> avg RPE &middot; <span class="v">{{ rows[0]['totals.working_sets'].value }}</span> working sets</div>
-<div class="prose" style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical">{{ rows[0]['wrap_up'].value }}</div>
-{% endif %}
-</div>"""))
 
 WATCH_CARD = page(tok("""
 <div class="eyebrow">Watch items</div>
@@ -290,20 +235,6 @@ WATCH_CARD = page(tok("""
 <div class="list" style="margin-top:8px">
 {% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value }}</span><span class="txt">{{ r['item'].value }}</span></div>{% endfor %}
 </div>{% endif %}"""))
-
-METRIC_CARD = page(tok("""
-<div class="stack">
-<div><div class="eyebrow">$TITLE</div>
-{% if rows.size == 0 or rows.last['v'].value == nil %}<div style="margin-top:10px">""" + empty() + """</div>{% else %}
-<div class="hero" style="margin-top:8px">{{ rows.last['v'].value | round: 1 }}<span class="value" style="font-size:16px;color:$DIM;margin-left:6px">$UNIT</span></div>
-<div class="sub" style="margin-top:5px">{% if rows.size > 1 %}{{ rows.size }} readings{% if rows.last['date_s'].value %} &middot; latest {{ rows.last['date_s'].value }}{% endif %}{% else %}{% if rows.last['date_s'].value %}{{ rows.last['date_s'].value }} &middot; {% endif %}<span class="faint">one reading, nothing to trend yet</span>{% endif %}</div>
-{% endif %}</div>
-{% if rows.size > 1 %}""" + sparkline("rows", "v", 220, 30, DIM) + """{% endif %}
-</div>"""))
-
-
-def metric_card(title: str, unit: str) -> str:
-    return METRIC_CARD.replace("$TITLE", title).replace("$UNIT", unit)
 
 
 # --------------------------------------------------------------------------- header cards (Program, Session, Lift)
@@ -413,12 +344,6 @@ LIFT_HEADER = page(tok("""
 
 # --------------------------------------------------------------------------- Program days, History cards, Meets, Mindset
 
-DAYS_LIST = page(tok("""
-<div class="eyebrow">Days</div>
-{% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No sessions in this selection") + """</div>{% else %}
-<div class="list" style="margin-top:8px">
-{% for r in rows %}<div class="item"><span class="when">{% if r['program.week'].value %}wk {{ r['program.week'].value }}{% if r['program.day'].value %} &middot; d{{ r['program.day'].value }}{% endif %}{% else %}{{ r['date_s'].value }}{% endif %}</span><span class="txt">{% if r['program.week'].value %}{{ r['date_s'].value }} {% endif %}<span class="faint">{{ r['time_of_day'].value }}{% if r['location.name'].value %} &middot; {{ r['location.name'].value }}{% endif %}</span></span><span class="num">""" + num("r['totals.tonnage_lb'].value") + """&nbsp;lb &middot; RPE {{ r['avg_working_rpe'].value | round: 1 }}{% if r['duration_min'].value %} &middot; {{ r['duration_min'].value | round }} min{% endif %}</span></div>{% endfor %}
-</div>{% endif %}"""))
 
 FOUR_CARDS = page(tok("""
 <div class="row">

@@ -121,9 +121,6 @@ def metric(op, field, label, filt=None, fmt=None):
     return c
 
 
-def unique(field, label):
-    return _col(label, "unique_count", "number", "ratio", field, params={"emptyAsNull": True})
-
 
 def last(field, label, dtype="string", sort="date", fmt=None, arrays=False):
     scale = "ratio" if dtype == "number" else "ordinal"
@@ -274,61 +271,30 @@ def table(id_, title, dv, columns, sort=None, direction="asc", hidden=(), query=
     return lens(id_, title, "lnsDatatable", vis, {"l": (dv, layer(columns))}, query=query)
 
 
-def zone_palette():
-    """Four stops for the Prilepin zones: dark to chalk, then oxblood for 90+.
+ZONES = [  # the Prilepin bands, light to heavy
+    ("lt70", "0-69", "0-69", "#3a362f"),
+    ("z70", "70-79", "70-79", "#7d7870"),
+    ("z80", "80-89", "80-89", "#cfc7b6"),
+    ("z90", "90+", "90+", BLOOD),
+]
 
-    `palette="gray"` gave four shades of the same blue-grey; 90+ was invisible. This is
-    the proof panel behind the Overview intensity card, so the heavy share has to be the
-    thing the eye lands on.
+
+def zone_columns(op="sum", field="reps", fmt=FMT_INT):
+    """One filtered metric column per intensity zone, coloured through yConfig.
+
+    Not a palette. A Lens "custom" palette is a value-gradient construct — it is what
+    heat_palette builds — and an XY chart splitting a series by term does not accept
+    one: it rendered the panel completely blank. This is the phase_columns pattern,
+    which has been colouring the block timeline correctly all along.
     """
-    stops = ["#3a362f", "#7d7870", "#cfc7b6", BLOOD]
-    return {"type": "palette", "name": "custom", "params": {
-        "name": "custom", "continuity": "all", "reverse": False, "rangeType": "number",
-        "rangeMin": 0, "rangeMax": len(stops), "steps": len(stops),
-        "colorStops": [{"color": c, "stop": i} for i, c in enumerate(stops)],
-        "stops": [{"color": c, "stop": i + 1} for i, c in enumerate(stops)],
-    }}
+    cols, colors = {}, {}
+    for key, zone, label, color in ZONES:
+        cid = f"zone-{key}"
+        cols[cid] = metric(op, field, label, filt=f'prilepin_zone: "{zone}"', fmt=fmt)
+        colors[cid] = color
+    return cols, colors
 
 
-def heat_palette(top=BLOOD):
-    stops = [RULE, STEEL, top]
-    return {"type": "palette", "name": "custom", "params": {
-        "name": "custom", "continuity": "above", "reverse": False, "rangeType": "percent",
-        "rangeMin": 0, "rangeMax": 100, "steps": 3,
-        "colorStops": [{"color": c, "stop": s} for c, s in zip(stops, (0, 40, 75))],
-        "stops": [{"color": c, "stop": s} for c, s in zip(stops, (40, 75, 100))],
-    }}
-
-
-def heatmap(id_, title, dv, columns, x, y, value, query="", top=BLOOD):
-    vis = {
-        "layerId": "l", "layerType": "data", "shape": "heatmap",
-        "xAccessor": x, "yAccessor": y, "valueAccessor": value,
-        "legend": {"isVisible": False, "position": "right", "type": "heatmap_legend"},
-        "gridConfig": {"type": "heatmap_grid", "isCellLabelVisible": False, "isYAxisLabelVisible": True,
-                       "isXAxisLabelVisible": True, "isYAxisTitleVisible": False, "isXAxisTitleVisible": False},
-        "palette": heat_palette(top),
-    }
-    return lens(id_, title, "lnsHeatmap", vis, {"l": (dv, layer(columns))}, query=query)
-
-
-def markdown(id_, title, text):
-    return {
-        "id": id_,
-        "type": "visualization",
-        "attributes": {
-            "title": title,
-            "description": "",
-            "version": 1,
-            "uiStateJSON": "{}",
-            "visState": json.dumps({"title": title, "type": "markdown", "aggs": [],
-                                    "params": {"fontSize": 12, "openLinksInNewTab": False, "markdown": text}}),
-            "kibanaSavedObjectMeta": {"searchSourceJSON": json.dumps({"query": {"query": "", "language": "kuery"}, "filter": []})},
-        },
-        "references": [],
-        **MIGRATION,
-        "typeMigrationVersion": "8.5.0",
-    }
 
 
 def data_view(key):
@@ -553,13 +519,8 @@ Q = {
     "meet_bests": ('FROM workout-meets | WHERE made == true '
                    '| STATS lb = MAX(weight_lb), kg = MAX(weight_kg) BY lift '
                    '| SORT lb DESC | LIMIT 3'),
-    "streak": 'FROM workout-sessions | EVAL in7 = CASE(date >= NOW() - 7 days, 1, 0), in28 = CASE(date >= NOW() - 28 days, 1, 0) | STATS n7 = SUM(in7), n28 = SUM(in28), streak = MAX(streak_day)',
-    "latest": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP date_s, program.block, program.day, time_of_day, totals.*, avg_working_rpe, wrap_up',
     "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
-    "bodyweight": 'FROM workout-sessions | WHERE metrics.bodyweight_lb IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.bodyweight_lb, date_s = DATE_FORMAT("MMM d, yyyy", date) | KEEP v, date_s',
-    "sleep": 'FROM workout-sessions | WHERE metrics.sleep_hrs IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.sleep_hrs, date_s = DATE_FORMAT("MMM d, yyyy", date) | KEEP v, date_s',
     "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last_day = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last_day DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last_day), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
-    "days_list": 'FROM workout-sessions | SORT date DESC | LIMIT 60 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP program.week, program.day, date_s, time_of_day, location.name, totals.tonnage_lb, avg_working_rpe, duration_min',
     "session_header": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEEE, MMM d, yyyy", date) | KEEP program.*, date_s, start_time, time_of_day, location.name, location.travel, prev_session_id, next_session_id',
     "session_tiles": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP duration_min, streak_day, avg_working_rpe, totals.*, days_to_meet',
     "top_set": ('FROM workout-sets '
@@ -643,15 +604,19 @@ def sessions_table(id_, title="SESSIONS"):
 def notes_table(id_, title, size=20):
     """A session index, not a second telling of the notes beside it.
 
-    Dropped `#` and `EXERCISE`. `#` was the note's internal sort key, so watch items
-    rendered as "1,001" — a sort key formatted with a thousands separator as though it
-    were an ordinal. `EXERCISE` is null on every pre, wrap-up and watch note, which was
-    most of the column. Both sat next to RECENT NOTES, which already shows all of this
-    in prose; this panel exists only because a custom content panel cannot navigate.
+    Dropped `#`, `EXERCISE` and `PHASE`. `#` was the note's internal sort key, so watch
+    items rendered as "1,001" — a sort key with a thousands separator, read as an
+    ordinal. `EXERCISE` is null on every pre, wrap-up and watch note. `PHASE` was worse
+    than either: `last(phase)` picks one of a session's notes, so a day with a pre, a
+    wrap-up and a watch note reported a single phase as though that were the note.
+
+    What is left is a session and how many notes it holds — true for every row. This
+    panel exists only because a custom content panel cannot navigate; RECENT NOTES
+    beside it already shows the content in prose.
     """
     columns = {
         "sid": terms("session_id", "SESSION", size=size, direction="desc"),
-        "phase": last("phase", "PHASE"),
+        "n": count("NOTES", fmt=FMT_INT),
     }
     return table(id_, title, "notes", columns, sort="sid", direction="desc", page=50)
 
@@ -671,8 +636,14 @@ def build() -> list[dict]:
     # charts — windowed() filters rows but not the axis, so the weekly e1RM histogram
     # drew one year of bars against nine years of empty axis. 2y satisfies every card
     # (13 weeks, 90 days, 365 days, 104 weeks of precedent) and still plots cleanly.
-    d = Dashboard("overview", "Ironstack. Overview", "The block at a glance. Every chart opens its detail.",
-                  "Start here. Every card and chart opens the detail behind it.",
+    d = Dashboard("overview", "Ironstack. Overview",
+                  "Heavy means heavy for you now. Intensity is measured against your best in the last 90 days.",
+                  # The most defensible idea in the system, said out loud instead of in
+                  # 10px grey at the bottom of one card. Every logging app compares a set
+                  # to an all-time PR, which tells a lifter coming back from a layoff
+                  # that everything is light. This one compares to current form.
+                  "Heavy means heavy for you now. Intensity is measured against your best "
+                  "in the last 90 days, not an all-time max.",
                   time_from="now-2y")
     # The Signal row leads. Mike's framing: the analysis has to be the first thing on
     # the page or the app reads as a log with charts bolted on. Everything below this
@@ -687,15 +658,19 @@ def build() -> list[dict]:
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("lift", "Lift")]), h=11)
+    # Streak, Latest session, Bodyweight and Sleep were cut here. Every one of them is
+    # something a phone logging app shows better and shows at the gym, so on this page
+    # they only told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also
+    # had exactly one reading between them in seven years of logs.
+    #
+    # What is left is what no logging app can say: three verdicts, the projected total
+    # against the platform best, the meet countdown, the lifter's own watch items, and a
+    # door into any session.
     d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
-          (custom("ov-streak", tpl.STREAK_CARD, Q["streak"]), 12, []),
-          (custom("ov-latest", tpl.LATEST_CARD, Q["latest"]), 20, []), h=9)
+          (custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 32, []), h=11)
     # The block timeline stays as the door into a session. It is ~400 bars and is not
     # readable as a chart, which is why it is no longer above the fold.
     d.row((block_timeline(L("ov-timeline"), query=windowed("")), 48, [("session", "Session")]), h=10)
-    d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 48, []), h=9)
-    d.row((custom("ov-bw", tpl.metric_card("Bodyweight", "lb"), Q["bodyweight"]), 24, []),
-          (custom("ov-sleep", tpl.metric_card("Sleep", "hrs"), Q["sleep"]), 24, []), h=5)
     objs += d.build()
 
     # ---------------------------------------------------------------- Program
@@ -802,11 +777,10 @@ def build() -> list[dict]:
               {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
               "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))
     d.row((acwr, 48, []), h=8)
-    zone_cols = {"x": date_hist("date", "MONTH", "1M"),
-                 "z": terms("prilepin_zone", "ZONE", size=4),
-                 "v": metric("sum", "reps", "REPS", fmt=FMT_INT)}
+    zcols, zcolors = zone_columns()
+    zone_cols = {"x": date_hist("date", "MONTH", "1M"), **zcols}
     zones = xy(L("hi-zones"), "SHARE OF REPS BY INTENSITY ZONE. MAIN LIFTS", "bar_percentage_stacked", T,
-               zone_cols, "x", ["v"], split="z", palette=zone_palette(),
+               zone_cols, "x", list(zcols), colors=zcolors,
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
@@ -885,6 +859,9 @@ def main() -> None:
     for o in objs:
         kinds[o["type"]] = kinds.get(o["type"], 0) + 1
     print(f"wrote {OUT.name}: " + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items())))
+    if not COACH_URL:
+        print("  note: IRONSTACK_COACH_URL is unset, so ASK THE COACH was not built. "
+              "Importing this file removes the link from all seven dashboards.")
 
 
 if __name__ == "__main__":
