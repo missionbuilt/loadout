@@ -25,16 +25,31 @@ import requests
 NDJSON = Path(__file__).resolve().parent / "dashboards.ndjson"
 
 
-def env(name: str) -> str:
+def env_url(name: str) -> str:
+    """A URL: trailing slash is noise, and stripping it makes f-strings safe."""
     value = os.environ.get(name, "").strip().rstrip("/")
     if not value:
         sys.exit(f"error: {name} is not set")
     return value
 
 
+def env_secret(name: str) -> str:
+    """A key: strip whitespace and nothing else.
+
+    "/" is in the base64 alphabet an Elastic API key is drawn from, so the
+    rstrip("/") that is right for a URL silently truncated a key that happened to
+    end in one - and the cluster answered 401 with nothing pointing at the cause.
+    Same helper pair as ingest/envconf.py, for the same reason.
+    """
+    value = os.environ.get(name, "").strip()
+    if not value:
+        sys.exit(f"error: {name} is not set")
+    return value
+
+
 def main() -> None:
-    kibana = env("KIBANA_URL")
-    api_key = env("ES_API_KEY")
+    kibana = env_url("KIBANA_URL")
+    api_key = env_secret("ES_API_KEY")
     if not NDJSON.exists():
         sys.exit(f"error: {NDJSON} not found. Run kibana/build_dashboards.py first.")
 

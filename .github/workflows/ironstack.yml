@@ -19,10 +19,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Only jsonschema. ingest/requirements.txt also pins requests, but nothing in
-      # this workflow talks to a cluster, so nothing here imports it.
+      # The template's own requirements, plus python-liquid. Nothing here talks to a
+      # cluster, so it is tempting to install a subset - and a subset is exactly how
+      # this workflow failed its first run: it installed jsonschema alone, and
+      # verify_liquid.py exited on a missing python-liquid in six seconds. Install what
+      # the code imports, not what the job looks like it needs.
       - name: Install dependencies
-        run: pip install jsonschema
+        run: |
+          pip install -r ironstack/starter/ingest/requirements.txt
+          pip install python-liquid
 
       # The Liquid in the dashboard cards is rendered by Kibana, not by us, so a
       # broken filter chain is invisible until a panel is on screen.
