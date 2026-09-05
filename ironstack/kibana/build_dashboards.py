@@ -553,7 +553,10 @@ Q = {
                       '| KEEP iso_week, heavy, tot'),
     # 200 rows covers the whole 178-week history, which the precedent lookup needs:
     # the last time he was in this band can be years back.
-    "sig_load": ('FROM workout-weekly | WHERE acwr IS NOT NULL | SORT @timestamp DESC | LIMIT 200 '
+    # No `WHERE acwr IS NOT NULL`: rows[0] must be the LATEST week so the card speaks
+    # about now. Filtering nulls out meant the most recent week carrying an acwr was
+    # presented as current, which for a week without one is a stale verdict.
+    "sig_load": ('FROM workout-weekly | SORT @timestamp DESC | LIMIT 200 '
                  '| EVAL month_s = DATE_FORMAT("MMM yyyy", @timestamp) '
                  '| KEEP iso_week, month_s, acwr, acwr_band, monotony'),
     # lift_slug comes from the page control; it is kept in the result so the card can

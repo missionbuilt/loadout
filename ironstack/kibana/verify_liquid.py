@@ -197,7 +197,8 @@ def section_intensity() -> None:
     balanced("intensity (no main work)", out)
 
     out = render(t, rows_of(week(5, 57), week(0, 30), week(1, 40)))
-    has("intensity: thin history says so", out, "Not enough weeks on record")
+    has("intensity: thin history says so", out, "needs 4 earlier weeks")
+    has("intensity: thin history counts what it has", out, "You have <b>2</b>")
     lacks("intensity: thin history does not rank", out, "Heavier than 2")
 
     out = render(t, rows_of(*REAL_WEEKS))
@@ -243,7 +244,8 @@ def section_load() -> None:
     balanced("load (no rows)", out)
 
     out = render(t, rows_of(wk(None, None, "Sep 2026")))
-    has("load: no acwr", out, "Not enough history yet.")
+    has("load: no acwr", out, "needs 28 days of load")
+    has("load: no acwr counts weeks", out, "<b>1</b> week logged")
     balanced("load (no acwr)", out)
 
     # The real recent weeks. W35 is also "rising", so the precedent lookup has to
@@ -306,7 +308,8 @@ def section_drift() -> None:
 
     # Groups trained fewer than six times a year have no meaningful cadence.
     out = render(t, rows_of(group("grip", 200, 5), group("core", 180, 3)))
-    has("drift: nothing rankable", out, "Not enough repeat work yet")
+    has("drift: nothing rankable", out, "needs 6 sessions in a year")
+    has("drift: nothing rankable counts groups", out, "None of your <b>2</b>")
     balanced("drift (unrankable)", out)
 
     # Everything inside its window. This is a real answer, not an empty state.
@@ -414,7 +417,8 @@ def section_lift() -> None:
     balanced("lift (no rows)", out)
 
     out = render(t, rows_of(*lift_rows([340.0, 300.0, 320.0])))
-    has("lift: thin history", out, "Only 3 sessions with a confident")
+    has("lift: thin history", out, "needs 5 sessions carrying a confident")
+    has("lift: thin history counts what it has", out, "You have <b>3</b>")
     lacks("lift: thin history does not rank", out, "under your best")
     balanced("lift (thin)", out)
 
@@ -486,7 +490,45 @@ def section_orphans() -> None:
               "defined in templates.py and built by nothing")
 
 
+def section_cold_start() -> None:
+    """Week one through week twelve — the state that decides whether anyone stays.
+
+    Every card must say what is accumulating and what unlocks it. "Not enough data" is
+    the answer that loses a user who would have kept logging if they knew the payoff
+    was six weeks out.
+    """
+    # A brand-new lifter: one week logged, nothing else.
+    out = render(tpl.SIGNAL_INTENSITY, rows_of(week(2, 30)))
+    has("cold intensity: still reports the count", out, "2 rep")
+    has("cold intensity: names the threshold", out, "4 earlier weeks")
+    has("cold intensity: counts what it has", out, "You have <b>0</b>")
+    lacks("cold intensity: does not rank", out, "Heavier than")
+    balanced("cold intensity", out)
+
+    out = render(tpl.SIGNAL_LOAD, rows_of({"iso_week": "2026-W01", "month_s": "Jan 2026",
+                                           "acwr": None, "acwr_band": None, "monotony": None}))
+    has("cold load: names the threshold", out, "28 days of load")
+    has("cold load: singular week", out, "<b>1</b> week logged")
+    lacks("cold load: no verdict", out, "Ramping.")
+    balanced("cold load", out)
+
+    now = datetime.now(timezone.utc)
+    thin = [{"muscles_primary": m, "sessions": 2,
+             "last_d": (now - timedelta(days=5, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+            for m in ("chest", "quads", "lats")]
+    out = render(tpl.SIGNAL_DRIFT, rows_of(*thin))
+    has("cold drift: names the threshold", out, "6 sessions in a year")
+    has("cold drift: counts groups seen", out, "None of your <b>3</b>")
+    balanced("cold drift", out)
+
+    out = render(tpl.SIGNAL_LIFT, rows_of(*lift_rows([300.0, 290.0])))
+    has("cold lift: names the threshold", out, "needs 5 sessions")
+    has("cold lift: counts what it has", out, "You have <b>2</b>")
+    balanced("cold lift", out)
+
+
 def main() -> None:
+    section_cold_start()
     section_orphans()
     section_lift()
     section_unit_spacing()

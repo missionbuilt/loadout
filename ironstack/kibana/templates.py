@@ -481,7 +481,8 @@ _INTENSITY_BODY = """
 {%- if prior < 4 -%}
 <div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
 <div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
-<div class="none">Not enough weeks on record to rank this one yet.</div>
+<div class="none">Ranking a week against your own history needs 4 earlier weeks
+carrying main-lift work. You have <b>{{ prior }}</b>.</div>
 {%- else -%}
 {%- assign share = beat | times: 100 | divided_by: prior -%}
 {%- assign band = "b-light" -%}
@@ -528,7 +529,8 @@ _LOAD_BODY = """
 {%- else -%}
 {%- assign acwr = rows[0]['acwr'].value -%}
 {%- unless acwr -%}
-<div class="none">Not enough history yet.<br>Acute:chronic needs 28 days of load.</div>
+<div class="none">Ramping needs 28 days of load behind it before the ratio means
+anything. You have <b>{{ rows.size }}</b> week{% unless rows.size == 1 %}s{% endunless %} logged.</div>
 {%- else -%}
 {%- assign band = rows[0]['acwr_band'].value -%}
 {%- assign cls = "b-normal" -%}{%- assign word = "Holding steady." -%}
@@ -588,10 +590,11 @@ _DRIFT_BODY = """
 <div class="none">No working sets in the last year.</div>
 {%- else -%}
 {%- assign now_s = "now" | date: "%s" | plus: 0 -%}
-{%- assign flagged = 0 -%}{%- assign ranked = 0 -%}
+{%- assign flagged = 0 -%}{%- assign ranked = 0 -%}{%- assign groups = 0 -%}
 {%- assign f_name = "" -%}{%- assign f_gap = 0 -%}{%- assign f_cad = 0 -%}
 {%- for r in rows -%}
   {%- assign n = r['sessions'].value | plus: 0 -%}
+  {%- if n > 0 -%}{%- assign groups = groups | plus: 1 -%}{%- endif -%}
   {%- if n >= 6 -%}
     {%- assign ranked = ranked | plus: 1 -%}
     {%- assign last_s = r['last_d'].value | date: "%s" | plus: 0 -%}
@@ -608,7 +611,8 @@ _DRIFT_BODY = """
   {%- endif -%}
 {%- endfor -%}
 {%- if ranked == 0 -%}
-<div class="none">Not enough repeat work yet to say what normal looks like.</div>
+<div class="none">A muscle group needs 6 sessions in a year before its normal gap
+means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
 {%- elsif flagged == 0 -%}
 <div class="verdict b-normal">Nothing is drifting.</div>
 <div class="ev">All <b>{{ ranked }}</b> muscle groups trained inside their normal window.</div>
@@ -689,8 +693,8 @@ most recent session used, the way the header above does. {%- endcomment -%}
   {%- endif -%}
 {%- endfor -%}
 {%- if n < 5 -%}
-<div class="none">Only {{ n }} session{% unless n == 1 %}s{% endunless %} with a confident
-estimate in this range. Not enough to place this lift yet.</div>
+<div class="none">Placing a lift needs 5 sessions carrying a confident estimate.
+You have <b>{{ n }}</b> in this range.</div>
 {%- else -%}
 {%- assign gap = peak | minus: recent | times: 100 | divided_by: peak | round -%}
 {%- assign cls = "b-light" -%}
