@@ -198,7 +198,7 @@ def rpe_class(expr: str) -> str:
 
 
 # A Liquid snippet that leaves `days` = whole days from now to the meet date in rows[0]['program.meet_date'].
-DAYS_TO_MEET = """{% assign now_s = "now" | date: "%s" | plus: 0 %}{% assign meet_s = rows[0]['program.meet_date'].value | date: "%s" | plus: 0 %}{% assign days = meet_s | minus: now_s | divided_by: 86400.0 | ceil %}"""
+DAYS_TO_MEET = """{% if rows[0]['program.meet_date'].value %}{% assign now_s = "now" | date: "%s" | plus: 0 %}{% assign meet_s = rows[0]['program.meet_date'].value | date: "%s" | plus: 0 %}{% assign days = meet_s | minus: now_s | divided_by: 86400.0 | ceil %}{% endif %}"""
 
 
 def sparkline(rows_expr: str, field: str, width=160, height=36, color=CHALK) -> str:
@@ -219,7 +219,7 @@ DAYS_TO_MEET_CARD = page(tok("""
 <div class="stack spread">
 {% if rows.size == 0 %}<div class="eyebrow">Days to meet</div>""" + empty("No sessions yet") + """{% else %}""" + DAYS_TO_MEET + """
 <div><div class="eyebrow">Days to meet</div>
-<div class="hero" style="margin-top:8px">{{ days }}</div></div>
+{% if days %}<div class="hero" style="margin-top:8px">{{ days }}</div>{% else %}<div class="empty" style="margin-top:10px">No meet on the calendar</div>{% endif %}</div>
 <div class="sub">{{ rows[0]['meet_s'].value }}<br>{{ rows[0]['program.phase'].value }} &middot; week {{ rows[0]['program.week'].value }} &middot; day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}<br><span class="faint">last trained {{ rows[0]['date_s'].value }}</span></div>
 {% endif %}
 </div>"""))
@@ -227,12 +227,12 @@ DAYS_TO_MEET_CARD = page(tok("""
 TOTAL_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Projected total</div>""" + empty() + """{% else %}
 {%- assign total = 0 -%}{%- for r in rows -%}{%- assign _v = r['e1'].value | round -%}{%- assign total = total | plus: _v -%}{%- endfor -%}
-{%- assign best = rows[0]['e1'].value -%}
+{%- assign best = rows[0]['e1'].value | plus: 0 -%}
 <div class="eyebrow">Projected total</div>
 <div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></div>
 <div class="sub" style="margin-top:3px">best of the last 90 days</div>
 <div style="margin-top:12px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{{ r['e1'].value | times: 100 | divided_by: best | round }}%"></i></span></div>{% endfor %}
+{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endfor %}
 </div>
 {%- assign pct = total | times: 100 | divided_by: $MEET_MAX_NUM | round -%}{%- assign togo = $MEET_MAX_NUM | minus: total | round -%}
 <div class="rule" style="margin-top:12px;padding-top:8px"><span class="sub">{% if total >= $MEET_MAX_NUM %}<span class="v">{{ pct }}%</span> of your meet best, $MEET_MAX lb{% else %}<span class="v">{{ pct }}%</span> of your meet best &middot; <span class="v">""" + num("togo") + """&nbsp;lb</span> to go{% endif %}</span></div>
@@ -252,8 +252,8 @@ LATEST_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Latest session</div>""" + empty("No sessions yet") + """{% else %}
 <div><div class="eyebrow">Latest session</div>
 <div class="value" style="margin-top:8px">{{ rows[0]['date_s'].value }}</div>
-<div class="sub">{{ rows[0]['program.block'].value }} &middot; day {{ rows[0]['program.day'].value }} &middot; {{ rows[0]['time_of_day'].value }}</div></div>
-<div class="sub"><span class="v">""" + num("rows[0]['totals.tonnage_lb'].value") + """</span> lb &middot; <span class="v">{{ rows[0]['avg_working_rpe'].value }}</span> avg RPE &middot; <span class="v">{{ rows[0]['totals.working_sets'].value }}</span> working sets</div>
+<div class="sub">{{ rows[0]['program.block'].value }}{% if rows[0]['program.day'].value %} &middot; day {{ rows[0]['program.day'].value }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value }}{% endif %}</div></div>
+<div class="sub"><span class="v">""" + num("rows[0]['totals.tonnage_lb'].value") + """</span> lb &middot; <span class="v">{{ rows[0]['avg_working_rpe'].value | round: 1 }}</span> avg RPE &middot; <span class="v">{{ rows[0]['totals.working_sets'].value }}</span> working sets</div>
 <div class="prose" style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical">{{ rows[0]['wrap_up'].value }}</div>
 {% endif %}
 </div>"""))
@@ -284,7 +284,7 @@ PROGRAM_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Program</div>""" + empty("No sessions in this block") + """{% else %}""" + DAYS_TO_MEET + """
 <div class="hdr"><span class="eyebrow">Program</span></div>
 <div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.name'].value }}</span><span class="meta"><b>{{ rows[0]['program.block'].value }}</b> block &middot; <b>{{ rows[0]['program.phase'].value }}</b> phase &middot; week <b>{{ rows[0]['program.week'].value }}</b> &middot; day <b>{{ rows[0]['program.day'].value }}</b> of <b>{{ rows[0]['program.total_days'].value }}</b></span></div>
-<div class="sub" style="margin-top:10px">Meet {{ rows[0]['meet_s'].value }} &middot; <span class="v">{{ days }}</span> days out &middot; {{ rows[0]['n'].value }} sessions logged in this block &middot; last trained {{ rows[0]['date_s'].value }}</div>
+<div class="sub" style="margin-top:10px">{% if days %}Meet {{ rows[0]['meet_s'].value }} &middot; <span class="v">{{ days }}</span> days out &middot; {% endif %}{{ rows[0]['n'].value }} sessions logged in this block &middot; last trained {{ rows[0]['date_s'].value }}</div>
 {% endif %}"""))
 
 SESSION_HEADER = page(tok("""
@@ -300,7 +300,7 @@ SESSION_TILES = page(tok("""
 {% if rows.size == 0 %}<div class="card">""" + empty() + """</div>{% else %}
 <div class="card"><div class="top"><div class="eyebrow">Tonnage</div><div class="value">""" + num("rows[0]['totals.tonnage_lb'].value") + """<small>lb</small></div></div><div class="sub">moved this session</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Length</div>{% if rows[0]['duration_min'].value %}<div class="value">{{ rows[0]['duration_min'].value | round }}<small>min</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{{ rows[0]['streak_day'].value }} day streak</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Avg working RPE</div><div class="value">{{ rows[0]['avg_working_rpe'].value }}</div></div><div class="sub">{{ rows[0]['totals.working_sets'].value }} working sets</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Avg working RPE</div><div class="value">{{ rows[0]['avg_working_rpe'].value | round: 1 }}</div></div><div class="sub">{{ rows[0]['totals.working_sets'].value }} working sets</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Sets</div><div class="value">{{ rows[0]['totals.sets'].value }}</div></div><div class="sub">{{ rows[0]['totals.reps'].value }} reps &middot; {{ rows[0]['totals.exercises'].value }} lifts</div></div>
 {% endif %}
 </div>"""))
@@ -319,7 +319,7 @@ TOP_SET_HERO = page(tok("""
 <div style="margin-top:7px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
 <span class="hero">""" + num("rows[0]['weight_lb'].value") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></span>
 <span class="hero" style="font-size:26px;color:$DIM">&times;&nbsp;{{ rows[0]['reps'].value | round }}</span>
-{% if rows[0]['rpe'].value %}<span class="set" style="padding:0"><span class="rpe {{ rc }}" style="font-size:21px">@&nbsp;{{ rows[0]['rpe'].value }}</span></span>{% endif %}
+{% if rows[0]['rpe'].value %}<span class="set" style="padding:0"><span class="rpe {{ rc }}" style="font-size:21px">@&nbsp;{{ rows[0]['rpe'].value | round: 1 }}</span></span>{% endif %}
 </div>
 <div class="value" style="font-size:17px;margin-top:7px;white-space:normal">{{ rows[0]['exercise.name'].value }}</div>
 <div class="rule" style="margin-top:10px;padding-top:8px">
@@ -348,7 +348,7 @@ PERFORMANCE_CARD = page(tok("""
 {%- assign has_prep = false -%}{%- for r in rows -%}{%- if r['session_id'].value == sid and r['exercise.category'].value == "prep" -%}{%- assign has_prep = true -%}{%- endif -%}{%- endfor -%}
 <div class="cols" style="margin-top:8px">
 {% assign cur = "" %}{% for r in rows %}{% if r['session_id'].value == sid and r['exercise.category'].value != "prep" %}{% if r['exercise.name'].value != cur %}{% unless cur == "" %}</div>{% endunless %}{% assign cur = r['exercise.name'].value %}<div class="ex"><div class="name">{{ cur }}<span class="cat">{{ r['exercise.category'].value }}</span></div>{% endif %}
-<div class="set {{ r['set_type'].value }}">""" + rpe_class("r['rpe'].value") + """<span class="n">{{ r['set_number'].value }}</span><span class="w">{% if r['load_type'].value == "bodyweight" %}BW{% elsif r['weight_lb'].value == 0 or r['weight_lb'].value == nil %}<span class="faint">&mdash;</span>{% else %}""" + num("r['weight_lb'].value") + """{% endif %}</span><span class="x">&times;</span><span class="r">{{ r['reps'].value | round }}{% if r['rep_unit'].value == "walks" %} walks{% if r['distance_ft'].value %} &middot; {{ r['distance_ft'].value | round }} ft{% endif %}{% elsif r['rep_unit'].value == "seconds" %} s{% endif %}</span>{% if r['rpe'].value %}<span class="rpe {{ rc }}">@ {{ r['rpe'].value }}</span>{% endif %}{% if r['gear_s'].value %}<span class="chip">{{ r['gear_s'].value }}</span>{% endif %}<span class="note">{{ r['notes'].value }}</span></div>
+<div class="set {{ r['set_type'].value }}">""" + rpe_class("r['rpe'].value") + """<span class="n">{{ r['set_number'].value }}</span><span class="w">{% if r['load_type'].value == "bodyweight" %}BW{% elsif r['weight_lb'].value == 0 or r['weight_lb'].value == nil %}<span class="faint">&mdash;</span>{% else %}""" + num("r['weight_lb'].value") + """{% endif %}</span><span class="x">&times;</span><span class="r">{{ r['reps'].value | round }}{% if r['rep_unit'].value == "walks" %} walks{% if r['distance_ft'].value %} &middot; {{ r['distance_ft'].value | round }} ft{% endif %}{% elsif r['rep_unit'].value == "seconds" %} s{% endif %}</span>{% if r['rpe'].value %}<span class="rpe {{ rc }}">@ {{ r['rpe'].value | round: 1 }}</span>{% endif %}{% if r['gear_s'].value %}<span class="chip">{{ r['gear_s'].value }}</span>{% endif %}<span class="note">{{ r['notes'].value }}</span></div>
 {% endif %}{% endfor %}{% unless cur == "" %}</div>{% endunless %}
 </div>
 {% if has_prep %}<div class="rule" style="margin-top:10px;padding-top:8px">
@@ -389,7 +389,7 @@ DAYS_LIST = page(tok("""
 <div class="eyebrow">Days</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No sessions in this selection") + """</div>{% else %}
 <div class="list" style="margin-top:8px">
-{% for r in rows %}<div class="item"><span class="when">{% if r['program.week'].value %}wk {{ r['program.week'].value }}{% if r['program.day'].value %} &middot; d{{ r['program.day'].value }}{% endif %}{% else %}{{ r['date_s'].value }}{% endif %}</span><span class="txt">{% if r['program.week'].value %}{{ r['date_s'].value }} {% endif %}<span class="faint">{{ r['time_of_day'].value }}{% if r['location.name'].value %} &middot; {{ r['location.name'].value }}{% endif %}</span></span><span class="num">""" + num("r['totals.tonnage_lb'].value") + """ lb &middot; RPE {{ r['avg_working_rpe'].value | round: 1 }}{% if r['duration_min'].value %} &middot; {{ r['duration_min'].value | round }} min{% endif %}</span></div>{% endfor %}
+{% for r in rows %}<div class="item"><span class="when">{% if r['program.week'].value %}wk {{ r['program.week'].value }}{% if r['program.day'].value %} &middot; d{{ r['program.day'].value }}{% endif %}{% else %}{{ r['date_s'].value }}{% endif %}</span><span class="txt">{% if r['program.week'].value %}{{ r['date_s'].value }} {% endif %}<span class="faint">{{ r['time_of_day'].value }}{% if r['location.name'].value %} &middot; {{ r['location.name'].value }}{% endif %}</span></span><span class="num">""" + num("r['totals.tonnage_lb'].value") + """&nbsp;lb &middot; RPE {{ r['avg_working_rpe'].value | round: 1 }}{% if r['duration_min'].value %} &middot; {{ r['duration_min'].value | round }} min{% endif %}</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 FOUR_CARDS = page(tok("""
@@ -406,18 +406,18 @@ MEET_CARDS = page(tok("""
 <div class="row">
 {% if rows.size == 0 %}<div class="card">""" + empty("No meets logged") + """</div>{% else %}
 <div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">competitions logged</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Best total</div><div class="value" style="color:$BLOOD">{{ rows[0]['total_kg'].value | round: 1 }}<small>kg</small></div></div><div class="sub">""" + num("rows[0]['total_lb'].value", 1) + """ lb</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Best total</div><div class="value" style="color:$BLOOD">{{ rows[0]['total_kg'].value | round: 1 }}<small>kg</small></div></div><div class="sub">""" + num("rows[0]['total_lb'].value", 1) + """&nbsp;lb</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Best DOTS</div><div class="value">{{ rows[0]['dots'].value | round: 2 }}</div></div><div class="sub">all meets</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Attempts made</div><div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div></div><div class="sub">{{ rows[0]['made'].value | times: 100 | divided_by: rows[0]['attempts'].value | round }}% success</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Attempts made</div><div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div></div><div class="sub">{%- assign att = rows[0]['attempts'].value | plus: 0 -%}{% if att > 0 %}{{ rows[0]['made'].value | times: 100 | divided_by: att | round }}% success{% else %}no attempts logged{% endif %}</div></div>
 {% endif %}
 </div>"""))
 
 MEET_BESTS = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Best lifts</div>""" + empty("No meets logged") + """{% else %}
-{%- assign best = rows[0]['lb'].value -%}
+{%- assign best = rows[0]['lb'].value | plus: 0 -%}
 <div class="eyebrow">Best lifts on the platform</div>
 <div style="margin-top:10px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['lb'].value", 1) + """<small style="font-size:11px;color:$FAINT;margin-left:4px">lb</small></span><span class="lbar"><i style="width:{{ r['lb'].value | times: 100 | divided_by: best | round }}%"></i></span><span class="lkg">{{ r['kg'].value | round: 1 }} kg</span></div>{% endfor %}
+{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['lb'].value", 1) + """<small style="font-size:11px;color:$FAINT;margin-left:4px">lb</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{{ r['kg'].value | round: 1 }} kg</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 MEET_LIST = page(tok("""
@@ -441,3 +441,261 @@ RECENT_NOTES = page(tok("""
 
 def total_card(meet_max: float) -> str:
     return TOTAL_CARD.replace("$MEET_MAX_NUM", str(meet_max)).replace("$MEET_MAX", f"{meet_max:g}")
+
+
+# --------------------------------------------------------------------------- Signal cards
+#
+# Verdict cards for the Overview Signal row. A card states a finding in a sentence,
+# with the number as supporting evidence and its provenance stated out loud. The
+# analytics were cut from the dashboards in the Sept 4 lifter audit not for being
+# wrong but for being shipped as measurements; this is the same data in the form
+# that carries a judgment.
+#
+# Every card renders "not enough data yet" as a first-class state. No zeros standing
+# in for absence.
+
+SIGNAL_CSS = tok("""<style>
+/* Plain block flow, no height:100% and no margin-top:auto. The panel iframe is not
+   always the height Kibana implies, and anything that pushes to the bottom opened a
+   ~100px hole between a number and its caption on the Session cards. */
+.sig{display:block}
+.sig .q{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$FAINT;line-height:1.45}
+.sig .verdict{font-size:20px;font-weight:600;line-height:1.25;letter-spacing:-.005em;margin-top:9px;color:$CHALK}
+.sig .verdict.b-light{color:$DIM;font-weight:500}
+.sig .verdict.b-normal{color:$CHALK;font-weight:600}
+.sig .verdict.b-heavy{color:$CHALK;font-weight:700}
+.sig .verdict.b-max{color:$BLOOD;font-weight:700}
+.sig .ev{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.02em;line-height:1.6;margin-top:9px;font-variant-numeric:tabular-nums}
+.sig .ev b{color:$CHALK;font-weight:600}
+/* The baseline tick is what makes the bar an argument instead of a decoration. */
+.sig .gauge{height:3px;background:$RULE;position:relative;margin:10px 0 6px}
+.sig .gauge i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
+.sig .gauge u{position:absolute;top:-4px;bottom:-4px;width:1px;background:$STEEL;display:block}
+.sig .base{font-family:$MONO;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:$FAINT}
+.sig .also{font-family:$MONO;font-size:11px;color:$DIM;letter-spacing:.02em;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
+.sig .prov{font-family:$MONO;font-size:10px;line-height:1.6;color:$FAINT;letter-spacing:.02em;margin-top:12px;padding-top:9px;border-top:1px solid $RULE}
+.sig .see{font-family:$MONO;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-top:8px}
+.sig .none{font-family:$MONO;font-size:12px;color:$FAINT;letter-spacing:.03em;margin-top:10px;line-height:1.55}
+</style>""")
+
+
+def signal(question: str, body: str, prov: str, see: str = "") -> str:
+    """One verdict card: question, verdict, evidence, provenance, drilldown hint.
+
+    The provenance line is not optional. It is what makes the number defensible
+    instead of decorative, and it is the honest place to say what a metric cannot
+    see. `see` is a text pointer, not a link: custom content panels render in a
+    sandboxed iframe with no scripts and no <a href>, so the Links panel is the
+    only real door on the page.
+    """
+    tail = f'<div class="see">{see}</div>' if see else ""
+    return (BASE_CSS + SIGNAL_CSS + '<div class="sig">'
+            + f'<div class="q">{question}</div>'
+            + body
+            + f'<div class="prov">{prov}</div>'
+            + tail + "</div>")
+
+
+# --- 1. intensity ----------------------------------------------------------
+#
+# Counts, not share. Measured over Mike's 178 weeks the share of main-lift reps at
+# 80%+ has a median of 1.9% and a p25 of 0.0 — half his weeks carry essentially no
+# heavy main-lift work — while a week with four main-lift reps, all heavy, scores
+# 100%. Banding that share would have printed "unusually heavy" off a denominator
+# of four. The rep count cannot blow up, and ranking it against his own recent
+# weeks is the judgment the card exists to deliver.
+
+_INTENSITY_BODY = """
+{%- if rows.size == 0 -%}
+<div class="none">No weekly rollup yet.</div>
+{%- else -%}
+{%- assign hv = rows[0]['heavy'].value | plus: 0 -%}
+{%- assign tot = rows[0]['tot'].value | plus: 0 -%}
+{%- if tot == 0 -%}
+<div class="none">No main-lift reps logged this week.<br>Nothing to weigh yet.</div>
+{%- else -%}
+{%- assign prior = 0 -%}{%- assign beat = 0 -%}{%- assign sum = 0 -%}{%- assign maxh = hv -%}
+{%- for r in rows offset: 1 -%}
+  {%- assign rt = r['tot'].value | plus: 0 -%}
+  {%- if rt > 0 -%}
+    {%- assign rh = r['heavy'].value | plus: 0 -%}
+    {%- assign prior = prior | plus: 1 -%}
+    {%- assign sum = sum | plus: rh -%}
+    {%- if rh < hv -%}{%- assign beat = beat | plus: 1 -%}{%- endif -%}
+    {%- if rh > maxh -%}{%- assign maxh = rh -%}{%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if prior < 4 -%}
+<div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
+<div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
+<div class="none">Not enough weeks on record to rank this one yet.</div>
+{%- else -%}
+{%- assign share = beat | times: 100 | divided_by: prior -%}
+{%- assign band = "b-light" -%}
+{%- if share >= 85 -%}{%- assign band = "b-max" -%}
+{%- elsif share >= 60 -%}{%- assign band = "b-heavy" -%}
+{%- elsif share >= 25 -%}{%- assign band = "b-normal" -%}{%- endif -%}
+<div class="verdict {{ band }}">
+{%- if beat == prior -%}Heavier than any of your last {{ prior }} weeks.
+{%- elsif beat == 0 -%}Lighter than every one of your last {{ prior }} weeks.
+{%- else -%}Heavier than {{ beat }} of your last {{ prior }} weeks.{%- endif -%}
+</div>
+{%- assign avg = sum | times: 1.0 | divided_by: prior -%}
+<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more.</div>
+{%- if maxh > 0 -%}
+{%- assign w = hv | times: 100 | divided_by: maxh -%}
+{%- assign bx = avg | times: 100 | divided_by: maxh | round -%}
+<div class="gauge"><i style="width:{{ w }}%"></i><u style="left:{{ bx }}%"></u></div>
+{%- endif -%}
+<div class="base">your {{ prior }}-week average: {{ avg | round: 1 }}</div>
+{%- endif -%}
+{%- endif -%}
+{%- endif -%}
+"""
+
+SIGNAL_INTENSITY = signal(
+    "How heavy was this week",
+    _INTENSITY_BODY,
+    "Main lifts only. A rep counts as heavy against your best in the trailing 90 days, "
+    "so this is heavy relative to current form, not to an all-time max.",
+    "See History &#9656; where the reps live",
+)
+
+
+# --- 2. load trend ---------------------------------------------------------
+#
+# ACWR is already load_7d/7 over load_28d/28, so "x% above your 4-week average" is
+# (acwr - 1) x 100 and cannot disagree with the band beside it. The precedent lookup
+# is what turns a flag into a judgment, and it has to skip the contiguous run of the
+# current band or it reports last week.
+
+_LOAD_BODY = """
+{%- if rows.size == 0 -%}
+<div class="none">No weekly rollup yet.</div>
+{%- else -%}
+{%- assign acwr = rows[0]['acwr'].value -%}
+{%- unless acwr -%}
+<div class="none">Not enough history yet.<br>Acute:chronic needs 28 days of load.</div>
+{%- else -%}
+{%- assign band = rows[0]['acwr_band'].value -%}
+{%- assign cls = "b-normal" -%}{%- assign word = "Holding steady." -%}
+{%- if band == "spike" -%}{%- assign cls = "b-max" -%}{%- assign word = "Sharp jump in load." -%}
+{%- elsif band == "rising" -%}{%- assign cls = "b-heavy" -%}{%- assign word = "Ramping." -%}
+{%- elsif band == "undertrained" -%}{%- assign cls = "b-light" -%}{%- assign word = "Backing off." -%}{%- endif -%}
+<div class="verdict {{ cls }}">{{ word }}</div>
+{%- assign pct = acwr | minus: 1 | times: 100 | round -%}
+<div class="ev">7-day load
+{%- if pct >= 0 %} <b>{{ pct }}%</b> above{% else %}{%- assign under = 0 | minus: pct %} <b>{{ under }}%</b> below{% endif %}
+your 4-week average.
+{%- assign mono = rows[0]['monotony'].value -%}
+{%- if mono %}<br>Monotony {{ mono | round: 2 }}.{% endif %}</div>
+{%- comment -%} Skip the run of weeks already in this band, then take the two most
+recent distinct months that were. {%- endcomment -%}
+{%- assign run = true -%}{%- assign found = 0 -%}{%- assign prev_m = "" -%}{%- assign months = "" -%}
+{%- for r in rows offset: 1 -%}
+  {%- assign b = r['acwr_band'].value -%}
+  {%- if run and b != band -%}{%- assign run = false -%}{%- endif -%}
+  {%- unless run -%}
+    {%- if b == band and found < 2 -%}
+      {%- assign m = r['month_s'].value -%}
+      {%- if m != prev_m -%}
+        {%- if months == "" -%}{%- assign months = m -%}
+        {%- else -%}{%- assign months = months | append: ", " | append: m -%}{%- endif -%}
+        {%- assign prev_m = m -%}{%- assign found = found | plus: 1 -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endunless -%}
+{%- endfor -%}
+<div class="also">
+{%- if found == 0 -%}No earlier week on record in this band.
+{%- elsif found == 1 -%}Last time you were here: <b>{{ months }}</b>.
+{%- else -%}The last two times you were here: <b>{{ months }}</b>.{%- endif -%}
+</div>
+{%- endunless -%}
+{%- endif -%}
+"""
+
+SIGNAL_LOAD = signal(
+    "Am I ramping",
+    _LOAD_BODY,
+    "Acute:chronic is a flag, not a prediction. Load is tonnage, so this reads back to "
+    "Jan 2023. Monotony counts rest days as zero, which is the point of it.",
+    "See History &#9656; acute vs chronic",
+)
+
+
+# --- 3. drift --------------------------------------------------------------
+#
+# Muscle groups, not the competition lifts. Squat, bench and deadlift are trained on a
+# 10-day cadence or tighter and never drift, so a lift row would always read "fine".
+# The neglect is in the accessories: calves at 17 days against a 6-day cadence.
+
+_DRIFT_BODY = """
+{%- if rows.size == 0 -%}
+<div class="none">No working sets in the last year.</div>
+{%- else -%}
+{%- assign now_s = "now" | date: "%s" | plus: 0 -%}
+{%- assign flagged = 0 -%}{%- assign ranked = 0 -%}
+{%- assign f_name = "" -%}{%- assign f_gap = 0 -%}{%- assign f_cad = 0 -%}
+{%- for r in rows -%}
+  {%- assign n = r['sessions'].value | plus: 0 -%}
+  {%- if n >= 6 -%}
+    {%- assign ranked = ranked | plus: 1 -%}
+    {%- assign last_s = r['last_d'].value | date: "%s" | plus: 0 -%}
+    {%- assign gap = now_s | minus: last_s | divided_by: 86400 | floor -%}
+    {%- assign cad = 365.0 | divided_by: n -%}
+    {%- assign lim = cad | times: 2 -%}
+    {%- if gap > lim -%}
+      {%- assign flagged = flagged | plus: 1 -%}
+      {%- if f_name == "" -%}
+        {%- assign f_name = r['muscles_primary'].value | replace: "-", " " | capitalize -%}
+        {%- assign f_gap = gap -%}{%- assign f_cad = cad -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if ranked == 0 -%}
+<div class="none">Not enough repeat work yet to say what normal looks like.</div>
+{%- elsif flagged == 0 -%}
+<div class="verdict b-normal">Nothing is drifting.</div>
+<div class="ev">All <b>{{ ranked }}</b> muscle groups trained inside their normal window.</div>
+{%- else -%}
+{%- assign ratio = f_gap | times: 10 | divided_by: f_cad | round -%}
+{%- assign cls = "b-heavy" -%}{%- if ratio >= 30 -%}{%- assign cls = "b-max" -%}{%- endif -%}
+<div class="verdict {{ cls }}">{{ f_name }}: {{ f_gap }} days.</div>
+<div class="ev">Normally every <b>{{ f_cad | round }}</b> days.</div>
+{%- assign scale = f_cad | times: 3 -%}
+{%- assign w = f_gap | times: 100 | divided_by: scale | round -%}
+{%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
+<div class="gauge"><i style="width:{{ w }}%"></i><u style="left:33%"></u></div>
+<div class="base">tick marks your normal gap</div>
+{%- if flagged > 1 -%}
+<div class="also">
+{%- assign shown = 0 -%}
+{%- for r in rows -%}
+  {%- assign n = r['sessions'].value | plus: 0 -%}
+  {%- if n >= 6 and shown < 2 -%}
+    {%- assign last_s = r['last_d'].value | date: "%s" | plus: 0 -%}
+    {%- assign gap = now_s | minus: last_s | divided_by: 86400 | floor -%}
+    {%- assign cad = 365.0 | divided_by: n -%}
+    {%- assign lim = cad | times: 2 -%}
+    {%- assign nm = r['muscles_primary'].value | replace: "-", " " | capitalize -%}
+    {%- if gap > lim and nm != f_name -%}
+      {%- assign shown = shown | plus: 1 -%}
+      {{ nm }} {{ gap }}d &middot; every {{ cad | round }}<br>
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+</div>
+{%- endif -%}
+{%- endif -%}
+{%- endif -%}
+"""
+
+SIGNAL_DRIFT = signal(
+    "What am I neglecting",
+    _DRIFT_BODY,
+    "Working sets, last 365 days. Normal is that group's average gap over the year; a "
+    "group is flagged past twice it. Groups trained fewer than 6 times are not ranked.",
+    "See Session &#9656; every set",
+)

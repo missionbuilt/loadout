@@ -493,6 +493,28 @@ Q = {
     "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
     "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
     "recent_notes": 'FROM workout-notes | SORT @timestamp DESC, order ASC | LIMIT 12 | EVAL date_s = DATE_FORMAT("MMM d", date), tags_s = MV_CONCAT(tags, "|") | KEEP date_s, phase, exercise.name, text, tags_s',
+    # Signal cards. NOTE: `first` and `last` are reserved words in ES|QL — an alias
+    # named either fails with "no viable alternative at input". That is what broke
+    # lift_header on Sept 4, misdiagnosed then as the CASE shifting the parse.
+    #
+    # COALESCE on every Prilepin bucket: a null bucket would null the whole sum and
+    # silently drop the week out of the ranking.
+    "sig_intensity": ('FROM workout-weekly | SORT @timestamp DESC | LIMIT 13 '
+                      '| EVAL heavy = COALESCE(prilepin_reps.z80_89, 0) + COALESCE(prilepin_reps.z90plus, 0), '
+                      'tot = COALESCE(prilepin_reps.lt70, 0) + COALESCE(prilepin_reps.z70_79, 0) '
+                      '+ COALESCE(prilepin_reps.z80_89, 0) + COALESCE(prilepin_reps.z90plus, 0) '
+                      '| KEEP iso_week, heavy, tot'),
+    # 200 rows covers the whole 178-week history, which the precedent lookup needs:
+    # the last time he was in this band can be years back.
+    "sig_load": ('FROM workout-weekly | WHERE acwr IS NOT NULL | SORT @timestamp DESC | LIMIT 200 '
+                 '| EVAL month_s = DATE_FORMAT("MMM yyyy", @timestamp) '
+                 '| KEEP iso_week, month_s, acwr, acwr_band, monotony'),
+    "sig_drift": ('FROM workout-sets '
+                  '| WHERE set_type == "working" AND @timestamp >= NOW() - 365 days '
+                  'AND muscles_primary IS NOT NULL '
+                  '| MV_EXPAND muscles_primary '
+                  '| STATS last_d = MAX(date), sessions = COUNT_DISTINCT(session_id) BY muscles_primary '
+                  '| SORT last_d ASC | LIMIT 40'),
 }
 
 # --------------------------------------------------------------------------- shared Lens panels
@@ -542,8 +564,12 @@ def build() -> list[dict]:
     # ---------------------------------------------------------------- Overview
     d = Dashboard("overview", "Ironstack. Overview", "The block at a glance. Every chart opens its detail.",
                   "Start here. Every card and chart opens the detail behind it.")
-    d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
-          (block_timeline(L("ov-timeline")), 32, [("session", "Session")]), h=10)
+    # The Signal row leads. Mike's framing: the analysis has to be the first thing on
+    # the page or the app reads as a log with charts bolted on. Everything below this
+    # row is the log, in descending order of how often it answers a question.
+    d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
+          (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
+          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=10)
     d.row((custom("ov-total", tpl.total_card(MEET_MAX_LB), Q["total"]), 20, []),
           (xy(L("ov-total-chart"), "BEST e1RM PER WEEK. COMPETITION LIFTS", "bar_stacked", T,
               {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
@@ -551,8 +577,12 @@ def build() -> list[dict]:
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("lift", "Lift")]), h=11)
-    d.row((custom("ov-streak", tpl.STREAK_CARD, Q["streak"]), 12, []),
-          (custom("ov-latest", tpl.LATEST_CARD, Q["latest"]), 36, []), h=9)
+    d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
+          (custom("ov-streak", tpl.STREAK_CARD, Q["streak"]), 12, []),
+          (custom("ov-latest", tpl.LATEST_CARD, Q["latest"]), 20, []), h=9)
+    # The block timeline stays as the door into a session. It is ~400 bars and is not
+    # readable as a chart, which is why it is no longer above the fold.
+    d.row((block_timeline(L("ov-timeline")), 48, [("session", "Session")]), h=10)
     d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 48, []), h=9)
     d.row((custom("ov-bw", tpl.metric_card("Bodyweight", "lb"), Q["bodyweight"]), 24, []),
           (custom("ov-sleep", tpl.metric_card("Sleep", "hrs"), Q["sleep"]), 24, []), h=5)
@@ -699,12 +729,44 @@ def build() -> list[dict]:
     return out
 
 
+def check(objs: list[dict]) -> int:
+    """Duplicate ids and dangling references, the two ways this file breaks silently.
+
+    A duplicate id means one object quietly overwrites another on import; a dangling
+    reference means a panel imports fine and then renders an error where a chart
+    should be. Both were checked by hand after the Sept 4 build; now they are checked
+    by the build.
+    """
+    ids, dupes = set(), []
+    for o in objs:
+        if o["id"] in ids:
+            dupes.append(f'{o["type"]} {o["id"]}')
+        ids.add(o["id"])
+
+    dangling = []
+    for o in objs:
+        for r in o.get("references", []):
+            if r["id"] not in ids:
+                dangling.append(f'{o["type"]} {o["id"]} -> {r["type"]} {r["id"]} ({r["name"]})')
+
+    for label, items in (("duplicate id", dupes), ("dangling reference", dangling)):
+        for item in items:
+            print(f"  {label}: {item}")
+    bad = len(dupes) + len(dangling)
+    print(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, {len(dangling)} dangling references")
+    return bad
+
+
 def main() -> None:
     objs = build()
+    if "--check" in sys.argv:
+        sys.exit(1 if check(objs) else 0)
     ndjson = "\n".join(json.dumps(o, ensure_ascii=False) for o in objs) + "\n"
     if "--stdout" in sys.argv:
         sys.stdout.write(ndjson)
         return
+    if check(objs):
+        sys.exit("refusing to write a broken dashboards.ndjson")
     OUT.write_text(ndjson)
     kinds = {}
     for o in objs:
