@@ -953,3 +953,289 @@ SIGNAL_TAPER = signal(
     "tonnage moves with exercise selection as much as with effort.",
     "See Program &#9656; the weeks behind this",
 )
+
+
+# --- 6. program: this week's loading, in words ------------------------------
+#
+# The defect this fixes, named in the Sept 5 switcher review: "Weekly loading is the
+# only differentiated content on the page, and it is a table of unlabelled decimals.
+# INOL 1.2 means nothing to someone who has not read Prilepin."
+#
+# So the band and its sentence both come off the row. They are written once, in
+# metrics.INOL_WEEK_BANDS, next to the thresholds that produce them - restating them
+# here would let the words drift from the numbers they describe.
+
+def _program_body() -> str:
+    raw = """
+{%- if rows.size == 0 -%}
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash;
+this card ignores the time picker, but not the filter bar.</div>
+{%- else -%}
+{%- assign w = rows[0] -%}
+{%- assign inol = w['inol_hardest'].value | plus: 0 -%}
+{%- assign band = w['inol_hardest_band'].value -%}
+{%- if band == nil or inol == 0 -%}
+<div class="none">No main-lift work with a measurable intensity this week, so there is
+no loading index to band. INOL needs a working set on a lift with history behind it.</div>
+{%- else -%}
+{%- assign cls = "b-light" -%}
+{%- if band == "loading" -%}{%- assign cls = "b-normal" -%}{%- endif -%}
+{%- if band == "brutal" -%}{%- assign cls = "b-heavy" -%}{%- endif -%}
+{%- if band == "excessive" -%}{%- assign cls = "b-max" -%}{%- endif -%}
+{%- comment -%} Rank against the lifter's own recent weeks, so the band is not the only
+thing the card knows. Twelve weeks is the window the intensity card already uses.
+{%- endcomment -%}
+{%- assign harder = 0 -%}{%- assign seen = 0 -%}
+{%- for r in rows offset: 1 limit: 12 -%}
+  {%- assign v = r['inol_hardest'].value | plus: 0 -%}
+  {%- if v > 0 -%}
+    {%- assign seen = seen | plus: 1 -%}
+    {%- if v > inol -%}{%- assign harder = harder | plus: 1 -%}{%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+<div class="verdict {{ cls }}">{{ band | capitalize }}.</div>
+<div class="ev"><b>{{ w['inol_hardest_lift'].value }}</b> is the hardest lift of the week
+at INOL __INOL__ &mdash; {{ w['inol_hardest_gloss'].value }}.
+{%- if seen > 0 %} Harder than <b>{{ seen | minus: harder }}</b> of your last {{ seen }} weeks.{% endif -%}
+</div>
+{%- assign acwr = w['acwr'].value | plus: 0 -%}
+{%- if acwr > 0 -%}
+<div class="also">load {{ w['acwr_band'].value }} at __ACWR__ &middot; {{ w['acwr_gloss'].value }}</div>
+{%- endif -%}
+<div class="base">week ending {{ w['week_end'].value }}{% if w['block'].value %}, {{ w['block'].value }} block{% endif %}</div>
+{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+{%- endif -%}
+"""
+    return (raw
+            .replace("__INOL__", "{{ inol | round: 2 }}")
+            .replace("__ACWR__", "{{ acwr | round: 2 }}"))
+
+
+_PROGRAM_BODY = _program_body()
+
+
+SIGNAL_PROGRAM = signal(
+    "How hard is this week loading",
+    _PROGRAM_BODY,
+    "INOL is reps divided by (100 minus intensity), summed per lift across the week; the "
+    "hardest single lift is the one worth banding, because Hristov's bands are per "
+    "exercise and a total across five lifts is not comparable to them. Easy is under 2, "
+    "loading to 3, brutal to 4, excessive above. Main lifts only, from the whole log "
+    "rather than from what this page is showing.",
+    "See the weekly loading table below",
+)
+
+
+# --- 7. block intensity (History page) --------------------------------------
+#
+# `program.block` is a block TYPE and not an instance - "strength" spans 2023 to 2026
+# across nine separate runs - so the comparison is against previous runs with the SAME
+# name. Against a hypertrophy block a strength block wins on heavy work by construction,
+# and a verdict that is true by definition is not a verdict.
+#
+# The rate is ranked, not the share: the current block carries 67 main-lift reps and a
+# share off that denominator moves 1.5 points on one set. The share is still shown, with
+# its denominator visible, which is the same bargain the intensity card struck on weeks.
+
+def _block_body() -> str:
+    raw = """
+{%- if rows.size == 0 -%}
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash;
+this card ignores the time picker, but not the filter bar.</div>
+{%- else -%}
+{%- assign cur = nil -%}
+{%- for r in rows -%}
+  {%- if r['block_role'].value == "current" -%}{%- assign cur = r -%}{%- endif -%}
+{%- endfor -%}
+{%- if cur == nil -%}
+<div class="none">No block in progress. Every session carries a program block; this card
+starts once one of them is the most recent.</div>
+{%- else -%}
+{%- assign name = cur['block'].value -%}
+{%- assign peers = cur['peers'].value | plus: 0 -%}
+{%- assign mine = cur['heavy_per_session'].value | plus: 0 -%}
+{%- assign theirs = cur['peer_heavy_per_session'].value | plus: 0 -%}
+{%- if peers == 0 or theirs == 0 -%}
+<div class="verdict b-light">Your first {{ name }} block.</div>
+<div class="ev"><b>__MINE__</b> heavy reps a session across <b>{{ cur['sessions'].value }}</b>
+sessions &mdash; <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b>
+main-lift reps at 80% or more. There is nothing of the same kind to rank it against yet.</div>
+{%- else -%}
+{%- assign pct = mine | times: 100 | divided_by: theirs | round -%}
+{%- assign cls = "b-heavy" -%}
+{%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
+{%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
+<div class="verdict {{ cls }}">{{ pct }}% of the heavy work in a usual {{ name }} block.</div>
+<div class="ev"><b>__MINE__</b> heavy reps a session this block,
+against a median of <b>__THEIRS__</b> across your {{ peers }} earlier {{ name }} blocks.
+That is <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b> main-lift reps
+at 80% or more, against __PSHARE__% then.</div>
+{%- assign w = pct | times: 100 | divided_by: 150 -%}
+{%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
+<div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
+<div class="base">tick marks your usual {{ name }} block</div>
+{%- endif -%}
+<div class="base">this block began {{ cur['first_trained'].value }}{% if peers > 0 %}, the comparison reaches back to {{ cur['peer_from'].value }}{% endif %}</div>
+{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+{%- endif -%}
+"""
+    return (raw
+            .replace("__MINE__", "{{ mine | round: 2 }}")
+            .replace("__THEIRS__", "{{ theirs | round: 2 }}")
+            .replace("__PSHARE__", "{{ cur['peer_share_pct'].value | round: 1 }}"))
+
+
+_BLOCK_BODY = _block_body()
+
+
+SIGNAL_BLOCK = signal(
+    "How heavy is this block",
+    _BLOCK_BODY,
+    "Heavy is 80% or more of your best estimate in the trailing 90 days, main lifts only. "
+    "A block is a run of consecutive sessions sharing a program block, and the comparison "
+    "is against earlier runs of the same kind only &mdash; a strength block and a "
+    "hypertrophy block are not meant to load alike. Reps per session rather than share, "
+    "because a share off a small denominator swings on one set. Runs under 4 sessions are "
+    "not ranked.",
+    "See the zone chart below for the shape of it",
+)
+
+
+# --- 8. projection calibration (Meets page) ---------------------------------
+#
+# The projected total is the best card below the fold on Overview and it has never been
+# checked against what actually happened. Twice now the lifter has walked onto a platform
+# carrying one of these numbers, and both times the platform total came in under it. That
+# gap is the most useful thing the meet record can say about the number on the other page.
+
+def _projection_body() -> str:
+    raw = """
+{%- if rows.size == 0 -%}
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash;
+this card ignores the time picker, but not the filter bar.</div>
+{%- else -%}
+{%- assign now = nil -%}
+{%- for r in rows -%}
+  {%- if r['cycle_role'].value == "current" -%}{%- assign now = r -%}{%- endif -%}
+{%- endfor -%}
+{%- if now == nil -%}
+<div class="none">No projected total yet. It needs a recent estimate on all three
+competition lifts.</div>
+{%- else -%}
+{%- assign peers = now['peers'].value | plus: 0 -%}
+{%- assign ratio = now['peer_pct'].value | plus: 0 -%}
+{%- if peers == 0 or ratio == 0 -%}
+<div class="verdict b-light">__NOW__&nbsp;lb projected.</div>
+<div class="ev">No meet on record has a projection behind it yet, so there is nothing to
+say about what this number has been worth on the platform.</div>
+{%- else -%}
+<div class="verdict b-normal">{{ ratio | round }}% of projection, both times.</div>
+<div class="ev">
+{%- for r in rows -%}
+  {%- if r['cycle_role'].value == "past" -%}
+{{ r['cycle_label'].value }} projected <b>{{ r['projected_total_lb'].value | round }}</b> and you totalled <b>{{ r['meet_total_lb'].value | round }}</b>.&#32;
+  {%- endif -%}
+{%- endfor -%}
+It reads <b>__NOW__</b>&nbsp;lb today, which puts a realistic platform total near
+<b>__EXPECTED__</b>&nbsp;lb.</div>
+<div class="base">a projection is a training estimate;
+the platform is singles at a commanded pace</div>
+{%- endif -%}
+{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+{%- endif -%}
+"""
+    return (raw
+            .replace("__NOW__", "{{ now['projected_total_lb'].value | round }}")
+            .replace("__EXPECTED__", "{{ now['expected_lb'].value | round }}"))
+
+
+_PROJECTION_BODY = _projection_body()
+
+
+SIGNAL_PROJECTION = signal(
+    "What is this projection worth",
+    _PROJECTION_BODY,
+    "The projected total is the sum of your best estimate on each competition lift inside "
+    "a 90-day window, taken from competition lifts only. For each meet on record it is the "
+    "projection as it stood in the last week before that meet &mdash; what you would have "
+    "been told walking in, not a number computed afterwards. Two meets is a ratio, not a "
+    "rule.",
+    "See Overview &#9656; projected total",
+)
+
+
+# --- 9. tags over time (Mindset page) ---------------------------------------
+#
+# The review asked for "you have written 'grip' five times in two weeks". The log will not
+# support that sentence yet: notes begin 2026-09-01 and there are 31 of them across four
+# days, so the top tag by count is whatever was written this week. Ranking that would be
+# the confident-empty verdict the whole signals index exists to prevent.
+#
+# So the card carries the corpus span on every row and refuses to rank until the span is
+# wide enough, reporting what it has in the meantime. Nothing needs rebuilding when the
+# notes accumulate - the card turns itself on.
+
+MIN_TAG_SPAN_DAYS = 21
+
+
+def _tag_body() -> str:
+    raw = """
+{%- if rows.size == 0 -%}
+<div class="none">No tagged notes yet. Tags are written in the log beside a note; once
+there are a few weeks of them this card starts reading them back.</div>
+{%- else -%}
+{%- assign span = rows[0]['notes_span_days'].value | plus: 0 -%}
+{%- assign total = rows[0]['notes_total'].value | plus: 0 -%}
+{%- assign win = rows[0]['window_days'].value | plus: 0 -%}
+{%- if span < __MIN_SPAN__ -%}
+<div class="verdict b-light">Too new to read a pattern.</div>
+<div class="ev">Your notes begin <b>{{ rows[0]['notes_from'].value }}</b> &mdash;
+<b>{{ total }}</b> of them across <b>{{ span }}</b> days. A tag needs about
+{{ __MIN_SPAN__ }} days behind it before "more than usual" means anything.</div>
+<div class="also">
+{%- for r in rows limit: 3 -%}
+{{ r['tag'].value }} {{ r['total'].value }}{% unless forloop.last %} &middot; {% endunless %}
+{%- endfor -%}
+</div>
+{%- else -%}
+{%- assign t = rows[0] -%}
+{%- assign n = t['recent'].value | plus: 0 -%}
+{%- if n == 0 -%}
+<div class="verdict b-light">Nothing written in the last {{ win }} days.</div>
+<div class="ev">The log has <b>{{ total }}</b> tagged notes, most recently
+{{ t['last_trained'].value }}.</div>
+{%- else -%}
+{%- assign before = t['prior'].value | plus: 0 -%}
+<div class="verdict b-normal">
+You have written &ldquo;{{ t['tag'].value }}&rdquo; {{ n }} time{% if n != 1 %}s{% endif %} in {{ win }} days.</div>
+<div class="ev">
+{%- if before > 0 -%}Against <b>{{ before }}</b> in the {{ win }} days before that.
+{%- else -%}Nothing tagged that way in the {{ win }} days before that.{%- endif -%}
+{%- if rows.size > 1 %} Next: {{ rows[1]['tag'].value }} ({{ rows[1]['recent'].value }}).{% endif -%}
+</div>
+{%- endif -%}
+{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+{%- endif -%}
+"""
+    return raw.replace("__MIN_SPAN__", str(MIN_TAG_SPAN_DAYS))
+
+
+_TAG_BODY = _tag_body()
+
+
+SIGNAL_TAGS = signal(
+    "What do I keep writing down",
+    _TAG_BODY,
+    "Tags on your own notes, counted over the whole log rather than what this page is "
+    "showing. A count is not a diagnosis: it says what you wrote often, not what mattered "
+    "most. The question this page cannot answer &mdash; what a note actually said &mdash; "
+    "goes to the coach.",
+    "Ask the coach to read the notes themselves",
+)

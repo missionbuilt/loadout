@@ -653,6 +653,30 @@ Q = {
     # SORT cycle DESC so the newest meets win the LIMIT rather than the oldest, and
     # weeks_out DESC so a cycle's rows arrive furthest-out first - the card reads the
     # last closed row it sees as the most recent week and depends on that order.
+    "sig_program": ('FROM ironstack-signals | WHERE signal == "load" '
+                    '| SORT week_end DESC | LIMIT 60 '
+                    '| KEEP week_end, block, inol_hardest, inol_hardest_lift, '
+                    'inol_hardest_band, inol_hardest_gloss, acwr, acwr_band, acwr_gloss, '
+                    'computed_through'),
+    # Every block run, oldest last. LIMIT 200 rather than a tighter one on purpose: the
+    # peer median is computed at index time, but the card still has to FIND the current
+    # block among these rows, and a limit that drops it turns the card off silently.
+    "sig_block": ('FROM ironstack-signals | WHERE signal == "block" '
+                  '| SORT ordinal ASC | LIMIT 200 '
+                  '| KEEP block, ordinal, block_role, first_trained, sessions, heavy, '
+                  'main_reps, heavy_per_session, share_pct, peers, peer_heavy_per_session, '
+                  'peer_share_pct, peer_from, computed_through'),
+    "sig_projection": ('FROM ironstack-signals | WHERE signal == "projection" '
+                       '| SORT cycle ASC | LIMIT 40 '
+                       '| KEEP cycle, cycle_label, cycle_role, projected_total_lb, '
+                       'meet_total_lb, platformed_pct, peers, peer_pct, expected_lb, '
+                       'computed_through'),
+    # recent DESC puts the tag the card leads with in row 0; the corpus span it checks
+    # first is denormalised onto every row, so row 0 answers both questions.
+    "sig_tags": ('FROM ironstack-signals | WHERE signal == "tag" '
+                 '| SORT recent DESC, total DESC | LIMIT 25 '
+                 '| KEEP tag, total, recent, prior, last_trained, window_days, '
+                 'notes_total, notes_from, notes_span_days, computed_through'),
     "sig_taper": ('FROM ironstack-signals | WHERE signal == "taper" '
                   '| SORT cycle DESC, weeks_out DESC | LIMIT 80 '
                   '| KEEP cycle, cycle_label, cycle_role, week_state, weeks_out, '
@@ -799,6 +823,8 @@ def build() -> list[dict]:
                   "sessions from before it carry no week or day and do not appear above.",
                   controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
     d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=6)
+    # INOL and ACWR in words, above the table of decimals they explain.
+    d.row((custom("pr-sig", tpl.SIGNAL_PROGRAM, Q["sig_program"]), 48, []), h=10)
 
     weeks_cols = {
         "week": terms("program.week", "WEEK", size=60, dtype="number"),
@@ -906,25 +932,27 @@ def build() -> list[dict]:
     # ---------------------------------------------------------------- History
     d = Dashboard("history", "Ironstack. History", "Sessions over any range. The time picker is the range toggle.",
                   "Every session in the range. The time picker is the range.", controls=[(S, "program.block", "BLOCK"), (S, "program.phase", "PHASE")])
-    d.row((custom("hi-cards", tpl.FOUR_CARDS, Q["history_cards"]), 48, []), h=6)
-    d.row((block_timeline(L("hi-timeline"), "TONNAGE PER SESSION"), 48, [("session", "Session")]), h=9)
-    tod = xy(L("hi-tod"), "TONNAGE BY TIME OF DAY", "bar", S,
-             {"x": terms("time_of_day", "WHEN", size=4),
-              "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT)},
-             "x", ["t"], colors={"t": CHALK_DIM}, legend=False)
-    d.row((tod, 48, []), h=8)
+    # The verdict first, then the chart that shows its shape, then the log. Before this
+    # the page opened on four tiles a phone already shows and the zone chart - the only
+    # picture in the app of the trailing-90-day idea - was the third scroll.
+    d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=10)
     # The 4.0 in Aug 2025 is a layoff artefact (open item: suppress in derive.py). Until
     # then the title says how to read it, so the spike is not the scariest thing on the page.
     acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. ABOVE 1.5 IS A SPIKE; A SPIKE RIGHT AFTER A LAYOFF IS EXPECTED", "line", W,
               {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
               "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))
-    d.row((acwr, 48, []), h=8)
     zcols, zcolors = zone_columns()
     zone_cols = {"x": date_hist("date", "MONTH", "1M"), **zcols}
     zones = xy(L("hi-zones"), "SHARE OF REPS BY INTENSITY ZONE. MAIN LIFTS", "bar_percentage_stacked", T,
                zone_cols, "x", list(zcols), colors=zcolors,
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
+    d.row((custom("hi-cards", tpl.FOUR_CARDS, Q["history_cards"]), 48, []), h=6)
+    # One timeline, not two. This and the Overview panel were the same chart under two
+    # titles; naming it for what it is stops the page reading as a second copy.
+    d.row((block_timeline(L("hi-timeline"), "EVERY SESSION IN THE RANGE. CLICK ONE TO OPEN IT"),
+           48, [("session", "Session")]), h=9)
+    d.row((acwr, 48, []), h=8)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
     objs += d.build()
 
@@ -933,7 +961,8 @@ def build() -> list[dict]:
                   "The platform record. Click a best lift to see how it was trained.", time_from="now-10y")
     # The verdict goes above the record. The record is what the lifter already knows;
     # how this cycle compares to it is the thing only the log can say.
-    d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 48, []), h=10)
+    d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 24, []),
+          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=10)
     d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
@@ -949,6 +978,7 @@ def build() -> list[dict]:
     tags = xy(L("mi-tags"), "TAGS. CLICK TO FILTER", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
     # TAGS OVER TIME was three stacked bars under a twelve-entry legend that filled the
     # panel. The bar chart says the same thing and can be clicked.
+    d.row((custom("mi-sig", tpl.SIGNAL_TAGS, Q["sig_tags"]), 48, []), h=9)
     d.row((tags, 48, []), h=9)
     d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 32, []),
           (notes_table(L("mi-notes"), "THE SESSIONS BEHIND THESE NOTES"), 16, [("session", "Session")]), h=12)

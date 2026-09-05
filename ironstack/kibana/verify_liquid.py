@@ -416,6 +416,9 @@ FLOAT_COLUMNS = {
     "weight_kg", "total_kg", "total_lb", "dots", "bodyweight_kg", "bodyweight_lb",
     "acwr", "monotony", "strain", "load_7d", "load_28d", "projected_total_lb",
     "inol_hardest", "tonnage_lb", "cum_tonnage_lb", "top_pct",
+    "heavy_per_session", "peer_heavy_per_session", "share_pct", "peer_share_pct",
+    "tonnage_per_session", "peer_tonnage_per_session", "platformed_pct",
+    "peer_pct", "expected_lb",
     # ES|QL aliases
     "e1", "lb", "kg", "avg", "ton", "top", "v", "cad",
 }
@@ -808,6 +811,203 @@ def section_taper() -> None:
     lacks("taper no rpe: no dangling label", out, "at RPE .")
 
 
+# --- program, block, projection, tags ---------------------------------------
+#
+# Every number below is off the repo on 2026-09-05, so a change in the arithmetic shows
+# up here as a wrong sentence rather than as a passing test about invented data.
+
+def load_row(inol=0.7472, lift="Comp Bench", band="easy",
+             gloss="recovery, or a week after a hard one", acwr=1.37,
+             acwr_band="rising", acwr_gloss="loading faster than the 28-day base",
+             week_end="2026-09-06", block="strength"):
+    return {"week_end": week_end, "block": block, "inol_hardest": inol,
+            "inol_hardest_lift": lift, "inol_hardest_band": band,
+            "inol_hardest_gloss": gloss, "acwr": acwr, "acwr_band": acwr_band,
+            "acwr_gloss": acwr_gloss, "computed_through": "2026-09-05"}
+
+
+def block_row(ordinal, block="strength", role="past", sessions=20, heavy=17,
+              main_reps=83, hps=0.85, share=20.5, peers=None, peer_hps=None,
+              peer_share=None, peer_from=None, first="2026-02-09"):
+    return {"block": block, "ordinal": ordinal, "block_role": role,
+            "first_trained": first, "sessions": sessions, "heavy": heavy,
+            "main_reps": main_reps, "heavy_per_session": hps, "share_pct": share,
+            "peers": peers, "peer_heavy_per_session": peer_hps,
+            "peer_share_pct": peer_share, "peer_from": peer_from,
+            "computed_through": "2026-09-05"}
+
+
+# The live shape: the current strength block, eight earlier strength blocks behind it.
+BLOCK_LIVE = [
+    block_row(0, role="current", sessions=6, heavy=5, main_reps=67, hps=0.83, share=7.5,
+              peers=8, peer_hps=1.75, peer_share=12.05, peer_from="2023-05-29",
+              first="2026-08-24"),
+    block_row(1, block="hypertrophy", sessions=56, heavy=48, main_reps=1461, hps=0.86),
+    block_row(4, sessions=20, heavy=17, main_reps=83, hps=0.85),
+]
+
+PROJ_PAST = [
+    {"cycle": "2024-04-06", "cycle_label": "Apr 2024", "cycle_role": "past",
+     "projected_total_lb": 885.4, "meet_total_lb": 854.3, "platformed_pct": 96.5,
+     "computed_through": "2026-09-05"},
+    {"cycle": "2024-11-16", "cycle_label": "Nov 2024", "cycle_role": "past",
+     "projected_total_lb": 929.1, "meet_total_lb": 909.4, "platformed_pct": 97.9,
+     "computed_through": "2026-09-05"},
+]
+PROJ_NOW = {"cycle": "now", "cycle_label": "now", "cycle_role": "current",
+            "projected_total_lb": 871.9, "peers": 2, "peer_pct": 97.2,
+            "expected_lb": 847.5, "computed_through": "2026-09-05"}
+
+
+def tag_row(tag, total, recent, prior=0, span=4, notes=31, frm="2026-09-01"):
+    return {"tag": tag, "total": total, "recent": recent, "prior": prior,
+            "last_trained": "2026-09-04", "window_days": 28, "notes_total": notes,
+            "notes_from": frm, "notes_span_days": span, "computed_through": "2026-09-05"}
+
+
+def section_program() -> None:
+    T = tpl.SIGNAL_PROGRAM
+
+    out = render(T, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
+                            load_row(inol=0.99, week_end="2026-08-23")))
+    balanced("program", out)
+    has("program: the band is the verdict", out, "Easy.")
+    has("program: names the lift", out, "<b>Comp Bench</b>")
+    has("program: the number", out, "INOL 0.75")
+    has("program: the band in words", out, "recovery, or a week after a hard one")
+    has("program: ranks against recent weeks", out, "of your last 2 weeks")
+    has("program: acwr in words", out, "loading faster than the 28-day base")
+    has("program: acwr banded", out, "load rising at 1.37")
+    has("program: names the block", out, "strength block")
+    band("program: easy is the quiet band", out, "b-light")
+
+    for inol, bandname, cls in ((2.4, "loading", "b-normal"),
+                                (3.4, "brutal", "b-heavy"),
+                                (4.6, "excessive", "b-max")):
+        out = render(T, rows_of(load_row(inol=inol, band=bandname, gloss="x")))
+        has(f"program {bandname}", out, f"{bandname.capitalize()}.")
+        band(f"program {bandname} class", out, cls)
+
+    # A week with no main-lift intensity has no INOL, and nil comparisons blank a panel.
+    out = render(T, rows_of(load_row(inol=None, band=None, gloss=None)))
+    balanced("program no inol", out)
+    has("program no inol: says why", out, "no loading index to band")
+    lacks("program no inol: no empty band", out, "<div class=\"verdict")
+
+    out = render(T, rows_of(load_row(acwr=None, acwr_band=None, acwr_gloss=None)))
+    balanced("program no acwr", out)
+    lacks("program no acwr: no dangling load line", out, "load  at")
+
+    out = render(T, [])
+    has("program empty", out, "No signal rows came back")
+
+
+def section_block() -> None:
+    T = tpl.SIGNAL_BLOCK
+
+    out = render(T, rows_of(*BLOCK_LIVE))
+    balanced("block", out)
+    # 0.83 / 1.75 = 47.4%
+    has("block: the ratio is the verdict", out, "47% of the heavy work in a usual strength block")
+    has("block: its own rate", out, "<b>0.83</b> heavy reps a session")
+    has("block: the peer median", out, "median of <b>1.75</b>")
+    has("block: how many peers", out, "your 8 earlier strength blocks")
+    has("block: the denominator is visible", out, "<b>5</b> of <b>67</b> main-lift reps")
+    has("block: how far back the comparison reaches", out, "reaches back to 2023-05-29")
+    has("block: gauge", out, 'class="gauge"')
+    band("block: under 70 is the loudest band", out, "b-max")
+    # A hypertrophy block sits in the rows and must not be blended into the comparison.
+    # The provenance names it deliberately, so scope this to the verdict line.
+    verdict = out.split('class="verdict')[1].split("</div>")[0]
+    check("block: the verdict names only this block type",
+          "hypertrophy" not in verdict, verdict[:80])
+    has("block: peer count is same-kind only", out, "your 8 earlier strength blocks")
+
+    out = render(T, rows_of(block_row(0, role="current", peers=0, sessions=6,
+                                      heavy=5, main_reps=67, hps=0.83)))
+    balanced("block first", out)
+    has("block first: says so", out, "Your first strength block")
+    lacks("block first: no ratio", out, "% of the heavy work")
+
+    # Rows exist but none is current - a state the index should never produce, and the
+    # card still has to render rather than go blank.
+    out = render(T, rows_of(block_row(1), block_row(2)))
+    balanced("block no current", out)
+    has("block no current: says so", out, "No block in progress")
+
+    for hps, want, cls in ((1.70, 97, "b-normal"), (2.30, 131, "b-max"), (2.10, 120, "b-heavy")):
+        rows = [dict(BLOCK_LIVE[0], heavy_per_session=hps)]
+        out = render(T, rows_of(*rows))
+        has(f"block band {want}%", out, f"{want}% of the heavy work")
+        band(f"block band {want}% class", out, cls)
+
+    out = render(T, [])
+    has("block empty", out, "No signal rows came back")
+
+
+def section_projection() -> None:
+    T = tpl.SIGNAL_PROJECTION
+
+    out = render(T, rows_of(*(PROJ_PAST + [PROJ_NOW])))
+    balanced("projection", out)
+    has("projection: the ratio is the verdict", out, "97% of projection, both times")
+    has("projection: Nov numbers", out, "Nov 2024 projected <b>929</b>")
+    has("projection: Nov total", out, "you totalled <b>909</b>")
+    has("projection: Apr numbers", out, "Apr 2024 projected <b>885</b>")
+    has("projection: today's reading", out, "<b>872</b>")
+    has("projection: what it implies", out, "platform total near")
+    has("projection: the caveat is on the card", out, "singles at a commanded pace")
+
+    out = render(T, rows_of(dict(PROJ_NOW, peers=0, peer_pct=None, expected_lb=None)))
+    balanced("projection no peers", out)
+    has("projection no peers: still names the number", out, "872")
+    has("projection no peers: says why it cannot rank", out, "nothing to")
+    lacks("projection no peers: no ratio", out, "% of projection")
+
+    out = render(T, rows_of(*PROJ_PAST))
+    balanced("projection no current", out)
+    has("projection no current: says so", out, "No projected total yet")
+
+    out = render(T, [])
+    has("projection empty", out, "No signal rows came back")
+
+
+def section_tags() -> None:
+    T = tpl.SIGNAL_TAGS
+
+    # The live state: 31 notes across four days. Ranking here would be the confident
+    # empty verdict, so the card must refuse and say what it has.
+    live = [tag_row("watch", 12, 12), tag_row("motivation", 4, 4),
+            tag_row("experiment", 3, 3), tag_row("grip", 2, 2)]
+    out = render(T, rows_of(*live))
+    balanced("tags too new", out)
+    has("tags too new: refuses", out, "Too new to read a pattern")
+    has("tags too new: names the start", out, "<b>2026-09-01</b>")
+    has("tags too new: the corpus", out, "<b>31</b> of them across <b>4</b> days")
+    has("tags too new: still shows what it has", out, "watch 12")
+    lacks("tags too new: no claim about a trend", out, "You have written")
+
+    # Once the notes are wide enough the same card ranks, with no rebuild.
+    wide = [tag_row("grip", 9, 5, prior=1, span=60, notes=210),
+            tag_row("fatigue", 6, 3, prior=3, span=60, notes=210)]
+    out = render(T, rows_of(*wide))
+    balanced("tags ranked", out)
+    has("tags ranked: the sentence", out, "You have written &ldquo;grip&rdquo; 5 times in 28 days")
+    has("tags ranked: the comparison", out, "Against <b>1</b> in the 28 days before")
+    has("tags ranked: the runner-up", out, "Next: fatigue (3)")
+
+    out = render(T, rows_of(tag_row("grip", 9, 1, prior=0, span=60, notes=210)))
+    has("tags ranked: singular", out, "1 time in 28 days")
+
+    out = render(T, rows_of(tag_row("grip", 9, 0, prior=0, span=60, notes=210)))
+    balanced("tags quiet", out)
+    has("tags quiet: says so", out, "Nothing written in the last 28 days")
+
+    out = render(T, [])
+    balanced("tags empty", out)
+    has("tags empty: names the cause", out, "No tagged notes yet")
+
+
 def main() -> None:
     section_cold_start()
     section_total_card()
@@ -824,6 +1024,10 @@ def main() -> None:
     section_load()
     section_drift()
     section_taper()
+    section_program()
+    section_block()
+    section_projection()
+    section_tags()
 
     total = PASSED + len(FAILED)
     if FAILED:
