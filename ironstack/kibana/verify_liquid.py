@@ -415,7 +415,7 @@ FLOAT_COLUMNS = {
     "intensity_pct", "inol", "work_ftlb", "tut_sec", "distance_ft",
     "weight_kg", "total_kg", "total_lb", "dots", "bodyweight_kg", "bodyweight_lb",
     "acwr", "monotony", "strain", "load_7d", "load_28d", "projected_total_lb",
-    "inol_hardest", "tonnage_lb",
+    "inol_hardest", "tonnage_lb", "cum_tonnage_lb", "top_pct",
     # ES|QL aliases
     "e1", "lb", "kg", "avg", "ton", "top", "v", "cad",
 }
@@ -666,6 +666,148 @@ def section_cold_start() -> None:
     balanced("cold lift", out)
 
 
+# --- taper -----------------------------------------------------------------
+#
+# The real rows off the repo, Sept 5 2026: a run-in one week old with that week
+# still open, and two finished cycles behind it. The live state on the day the
+# card shipped is the first case, so it is the one tested hardest.
+
+def taper_row(cycle, label, role, wo, state="closed", days=3, ton=0.0, rpe=6.5,
+              heavy=0, k=0, cum=0.0, cum_heavy=0, made=None, tot=None):
+    return {
+        "cycle": cycle, "cycle_label": label, "cycle_role": role,
+        "week_state": state, "weeks_out": wo, "training_days": days,
+        "tonnage_lb": ton, "avg_working_rpe": rpe,
+        "attempts_made": made, "attempts_total": tot,
+        "cum_weeks": k, "cum_tonnage_lb": cum, "cum_heavy": cum_heavy,
+        "computed_through": "2026-09-05",
+    }
+
+
+# Nov 2024 went nine for nine; Apr 2024 went six for nine. Weeks 8 and 7 out, in the
+# order the ES|QL delivers them: cycle descending, weeks_out descending.
+NOV = [taper_row("2024-11-16", "Nov 2024", "past", 8, ton=75340.0, rpe=6.44,
+                 k=1, cum=75340.0, cum_heavy=0, made=9, tot=9),
+       taper_row("2024-11-16", "Nov 2024", "past", 7, ton=92962.0, rpe=6.62,
+                 k=2, cum=168302.0, cum_heavy=12, made=9, tot=9)]
+APR = [taper_row("2024-04-06", "Apr 2024", "past", 8, ton=34140.0, rpe=6.6,
+                 k=1, cum=34140.0, cum_heavy=3, made=6, tot=9),
+       taper_row("2024-04-06", "Apr 2024", "past", 7, ton=47266.0, rpe=6.95,
+                 k=2, cum=81406.0, cum_heavy=8, made=6, tot=9)]
+
+
+def section_taper() -> None:
+    T = tpl.SIGNAL_TAPER
+
+    # --- the live case: week 8 open, nothing closed yet
+    live = [taper_row("2026-10-24", "Oct 2026", "current", 8, state="in-progress",
+                      days=4, ton=53915.0, rpe=6.94, k=0, cum=0.0)] + NOV + APR
+    out = render(T, rows_of(*live))
+    balanced("taper open week", out)
+    has("taper open: names the week", out, "Week 8 of the run-in, still open")
+    has("taper open: days so far", out, "<b>4</b>&nbsp;training days in")
+    has("taper open: tonnage so far", out, "53,915")
+    has("taper open: its own RPE", out, "6.9")
+    has("taper open: the yardstick's finished week", out, "75,340")
+    has("taper open: names the yardstick", out, "Nov 2024 closed the same week")
+    has("taper open: declines to rank", out, "nothing is ranked until the week closes")
+    # The whole point of the branch: no percentage, no gauge, no verdict class.
+    lacks("taper open: no ratio", out, "% of Nov 2024")
+    lacks("taper open: no gauge", out, 'class="gauge"')
+    unbanded("taper open", out, "b-max")
+    # Apr 2024 is on record but is not the yardstick, and must not be quoted as one.
+    lacks("taper open: does not quote the worse meet", out, "Apr 2024 closed")
+
+    # --- two closed weeks: the ratio branch, against the real numbers
+    run = [taper_row("2026-10-24", "Oct 2026", "current", 8, ton=53915.0, rpe=6.94,
+                     k=1, cum=53915.0, cum_heavy=5),
+           taper_row("2026-10-24", "Oct 2026", "current", 7, ton=62000.0, rpe=6.8,
+                     k=2, cum=115915.0, cum_heavy=9)]
+    out = render(T, rows_of(*(run + NOV + APR)))
+    balanced("taper ratio", out)
+    # 115,915 / 168,302 = 68.9% -> 69
+    has("taper ratio: the percentage is the verdict", out, "69% of Nov 2024's volume")
+    has("taper ratio: closed-week count", out, "<b>2</b> closed weeks of the run-in")
+    has("taper ratio: names the last week counted, not where the lifter stands",
+        out, "Through week <b>7</b> out")
+    has("taper ratio: its own tonnage", out, "115,915")
+    has("taper ratio: the yardstick's", out, "168,302")
+    has("taper ratio: the yardstick's attempt record", out, "9 for 9")
+    has("taper ratio: heavy reps both ways", out, "you 9 &middot; Nov 2024 12")
+    has("taper ratio: gauge", out, 'class="gauge"')
+    has("taper ratio: tick is the yardstick", out, "tick marks Nov 2024's pace")
+    band("taper ratio: under 70 is the loudest band", out, "b-max")
+
+    # --- on pace reads as normal, ahead reads as loud, and neither throws
+    for cum, want_pct, want_cls in ((160000.0, 95, "b-normal"),
+                                    (185000.0, 110, "b-normal"),
+                                    (230000.0, 137, "b-max"),
+                                    (200000.0, 119, "b-heavy")):
+        rows = [taper_row("2026-10-24", "Oct 2026", "current", 7, ton=cum, rpe=6.8,
+                          k=2, cum=cum, cum_heavy=9)]
+        out = render(T, rows_of(*(rows + NOV + APR)))
+        has(f"taper band {want_pct}%", out, f"{want_pct}% of Nov 2024's volume")
+        band(f"taper band {want_pct}% class", out, want_cls)
+
+    # --- the yardstick is the attempt record, not recency
+    # Give the older meet the better record and it has to become the yardstick.
+    flipped = []
+    for r in NOV:
+        r = dict(r); r["attempts_made"] = 5
+        flipped.append(r)
+    for r in APR:
+        r = dict(r); r["attempts_made"] = 9
+        flipped.append(r)
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                         ton=40000.0, k=2, cum=81406.0, cum_heavy=9)]
+                              + flipped)))
+    has("taper yardstick follows the record", out, "100% of Apr 2024's volume")
+
+    # --- spans that do not match are refused rather than compared
+    # The current cycle has two closed weeks; the yardstick's row at that distance
+    # only has one behind it, so the totals cover different ground.
+    short = [dict(NOV[1], cum_weeks=1, cum_tonnage_lb=92962.0), NOV[0]]
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                         ton=62000.0, k=2, cum=115915.0)] + short)))
+    balanced("taper mismatched span", out)
+    has("taper mismatched span: says so", out, "no matching stretch at that distance")
+    has("taper mismatched span: still names the window", out, "Through week <b>7</b> out")
+    lacks("taper mismatched span: no ratio", out, "% of Nov 2024's volume")
+
+    # --- no meet on the calendar
+    out = render(T, rows_of(*(NOV + APR)))
+    balanced("taper no meet", out)
+    has("taper no meet: names the fix", out, "Set <b>meet_date</b>")
+    lacks("taper no meet: no verdict", out, 'class="verdict"')
+
+    # --- a first meet, with nothing on record to measure against
+    out = render(T, rows_of(taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                      ton=62000.0, k=2, cum=115915.0)))
+    balanced("taper first meet", out)
+    has("taper first meet: says so", out, "starts with your second meet")
+    lacks("taper first meet: no ratio", out, "% of")
+
+    # --- the cold-start empty state, worded like the other signal cards
+    out = render(T, [])
+    has("taper empty: not indexed yet", out, "No signal rows came back")
+    has("taper empty: names the filter bar", out, "not the filter bar")
+
+    # --- a zero-tonnage yardstick must not divide by zero and blank the panel
+    zero = [dict(r, cum_tonnage_lb=0.0, tonnage_lb=0.0) for r in NOV]
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                         ton=62000.0, k=2, cum=115915.0)] + zero)))
+    balanced("taper zero yardstick", out)
+    lacks("taper zero yardstick: no ratio", out, "% of Nov 2024's volume")
+
+    # --- an RPE-less week renders without printing a bare "at RPE"
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 8,
+                                         state="in-progress", days=1, ton=9000.0,
+                                         rpe=None, k=0, cum=0.0)] + NOV + APR)))
+    balanced("taper no rpe", out)
+    has("taper no rpe: singular day", out, "<b>1</b>&nbsp;training day in")
+    lacks("taper no rpe: no dangling label", out, "at RPE .")
+
+
 def main() -> None:
     section_cold_start()
     section_total_card()
@@ -681,6 +823,7 @@ def main() -> None:
     section_intensity()
     section_load()
     section_drift()
+    section_taper()
 
     total = PASSED + len(FAILED)
     if FAILED:

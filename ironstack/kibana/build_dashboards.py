@@ -650,6 +650,14 @@ Q = {
     "sig_drift": ('FROM ironstack-signals | WHERE signal == "drift" '
                   '| SORT last_trained ASC | LIMIT 40 '
                   '| KEEP muscle, sessions, last_trained, cadence_days, computed_through'),
+    # SORT cycle DESC so the newest meets win the LIMIT rather than the oldest, and
+    # weeks_out DESC so a cycle's rows arrive furthest-out first - the card reads the
+    # last closed row it sees as the most recent week and depends on that order.
+    "sig_taper": ('FROM ironstack-signals | WHERE signal == "taper" '
+                  '| SORT cycle DESC, weeks_out DESC | LIMIT 80 '
+                  '| KEEP cycle, cycle_label, cycle_role, week_state, weeks_out, '
+                  'attempts_made, attempts_total, training_days, tonnage_lb, '
+                  'avg_working_rpe, cum_weeks, cum_tonnage_lb, cum_heavy, computed_through'),
     "sig_lift": ('FROM workout-sets '
                  '| WHERE set_type == "working" AND e1rm_confidence != "low" '
                  'AND est_e1rm IS NOT NULL '
@@ -923,6 +931,9 @@ def build() -> list[dict]:
     # ---------------------------------------------------------------- Meets
     d = Dashboard("meets", "Ironstack. Meets", "Competition record. Click a best lift for its training history.",
                   "The platform record. Click a best lift to see how it was trained.", time_from="now-10y")
+    # The verdict goes above the record. The record is what the lifter already knows;
+    # how this cycle compares to it is the thing only the log can say.
+    d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 48, []), h=10)
     d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
@@ -1008,6 +1019,21 @@ def check(objs: list[dict]) -> int:
 
 
 def main() -> None:
+    # Before the build, not after it. A note printed under a successful "wrote
+    # dashboards.ndjson" is a note nobody reads, and the file it is describing has
+    # already replaced the good one: seven dashboards silently lose ASK THE COACH and
+    # the next import takes the link away. Caught on Sept 5 while adding the taper
+    # card - the one-panel change came out as a fourteen-line diff.
+    if not COACH_URL and "--no-coach" not in sys.argv:
+        sys.exit(
+            "error: IRONSTACK_COACH_URL is unset, so ASK THE COACH cannot be built and\n"
+            "       importing the result would remove the link from all seven "
+            "dashboards.\n"
+            "       Run `source ~/Projects/ironstack-log/.env` first, or pass "
+            "--no-coach\n"
+            "       if dropping the link is what you meant.\n"
+            "       Nothing was written."
+        )
     objs = build()
     if "--check" in sys.argv:
         sys.exit(1 if check(objs) else 0)
@@ -1022,9 +1048,6 @@ def main() -> None:
     for o in objs:
         kinds[o["type"]] = kinds.get(o["type"], 0) + 1
     print(f"wrote {OUT.name}: " + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items())))
-    if not COACH_URL:
-        print("  note: IRONSTACK_COACH_URL is unset, so ASK THE COACH was not built. "
-              "Importing this file removes the link from all seven dashboards.")
 
 
 if __name__ == "__main__":

@@ -780,3 +780,176 @@ SIGNAL_LIFT = signal(
     "compares your best of five sessions, never one session to the next.",
     "Below &#9656; every working set",
 )
+
+
+# --- 5. taper (Meets page) --------------------------------------------------
+#
+# The one comparison the phone cannot make: this cycle's run-in laid over the same
+# weeks before every meet already on the record.
+#
+# Volume, not intensity, carries the verdict. Both meets on record are one data
+# point each, but the volume gap between them is large and one-directional - the
+# nine-for-nine cycle moved 38% more weight at a LOWER average RPE - while their
+# peak relative intensities are close enough to be noise. So the card ranks the
+# thing that separates them and says out loud, in the provenance, that two meets
+# is a comparison rather than a rule.
+#
+# Alignment is by ISO week, because workout-weekly is what every other weekly
+# number in this app is built from and a second definition of "a week" here would
+# drift from it. The Sept 4 analysis counted back in seven-day blocks from the meet
+# date instead; the per-week figures differ, the eight-week totals are identical
+# (552,178 lb for Nov 2024 either way), and that is the whole of the difference.
+
+def _taper_body() -> str:
+    raw = """
+{%- if rows.size == 0 -%}
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash;
+this card ignores the time picker, but not the filter bar.</div>
+{%- else -%}
+{%- comment -%} The cycle being trained for, and how far into its run-in it is. Rows
+arrive weeks_out descending inside a cycle, so the last closed week seen is the most
+recent one; the week in progress always has the smallest weeks_out and is read on its
+own, never folded into a total. {%- endcomment -%}
+{%- assign cur = "" -%}{%- assign cur_label = "" -%}
+{%- assign cur_n = 0 -%}{%- assign cur_k = 0 -%}
+{%- assign cur_ton = 0 -%}{%- assign cur_heavy = 0 -%}
+{%- assign open_n = 0 -%}{%- assign open_ton = 0 -%}{%- assign open_days = 0 -%}{%- assign open_rpe = 0 -%}
+{%- for r in rows -%}
+  {%- if r['cycle_role'].value == "current" -%}
+    {%- assign cur = r['cycle'].value -%}
+    {%- assign cur_label = r['cycle_label'].value -%}
+    {%- if r['week_state'].value == "in-progress" -%}
+      {%- assign open_n = r['weeks_out'].value | plus: 0 -%}
+      {%- assign open_ton = r['tonnage_lb'].value | plus: 0 -%}
+      {%- assign open_days = r['training_days'].value | plus: 0 -%}
+      {%- assign open_rpe = r['avg_working_rpe'].value | plus: 0 -%}
+    {%- else -%}
+      {%- assign cur_n = r['weeks_out'].value | plus: 0 -%}
+      {%- assign cur_k = r['cum_weeks'].value | plus: 0 -%}
+      {%- assign cur_ton = r['cum_tonnage_lb'].value | plus: 0 -%}
+      {%- assign cur_heavy = r['cum_heavy'].value | plus: 0 -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if cur == "" -%}
+<div class="none">No meet on the calendar. Set <b>meet_date</b> in the program block and
+this card starts measuring the run-in to it.</div>
+{%- else -%}
+{%- comment -%} The yardstick: the meet on record with the best attempt count, most
+recent on a tie. Two passes rather than promote-and-demote, which Liquid cannot express
+without more carried state than one card should own. {%- endcomment -%}
+{%- assign best = 0 -%}
+{%- for r in rows -%}
+  {%- if r['cycle_role'].value == "past" -%}
+    {%- assign tot = r['attempts_total'].value | plus: 0 -%}
+    {%- if tot > 0 -%}
+      {%- assign sc = r['attempts_made'].value | times: 100 | divided_by: tot -%}
+      {%- if sc > best -%}{%- assign best = sc -%}{%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- assign ref = "" -%}{%- assign ref_label = "" -%}
+{%- assign ref_made = 0 -%}{%- assign ref_tot = 0 -%}
+{%- for r in rows -%}
+  {%- if ref == "" and r['cycle_role'].value == "past" -%}
+    {%- assign tot = r['attempts_total'].value | plus: 0 -%}
+    {%- if tot > 0 -%}
+      {%- assign sc = r['attempts_made'].value | times: 100 | divided_by: tot -%}
+      {%- if sc == best -%}
+        {%- assign ref = r['cycle'].value -%}
+        {%- assign ref_label = r['cycle_label'].value -%}
+        {%- assign ref_made = r['attempts_made'].value | plus: 0 -%}
+        {%- assign ref_tot = tot -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- comment -%} Its matching stretch. weeks_out aligns by distance to the meet; cum_weeks
+has to match as well, because a cycle whose run-in predates the log carries fewer closed
+weeks at the same distance, and its total would read low for that reason alone rather
+than because the lifter did less. {%- endcomment -%}
+{%- assign ref_ton = 0 -%}{%- assign ref_heavy = 0 -%}
+{%- assign ref_week = 0 -%}{%- assign ref_wk_days = 0 -%}{%- assign ref_wk_rpe = 0 -%}
+{%- for r in rows -%}
+  {%- if r['cycle'].value == ref -%}
+    {%- assign wo = r['weeks_out'].value | plus: 0 -%}
+    {%- assign ck = r['cum_weeks'].value | plus: 0 -%}
+    {%- if cur_k > 0 and wo == cur_n and ck == cur_k -%}
+      {%- assign ref_ton = r['cum_tonnage_lb'].value | plus: 0 -%}
+      {%- assign ref_heavy = r['cum_heavy'].value | plus: 0 -%}
+    {%- endif -%}
+    {%- if cur_k == 0 and wo == open_n -%}
+      {%- assign ref_week = r['tonnage_lb'].value | plus: 0 -%}
+      {%- assign ref_wk_days = r['training_days'].value | plus: 0 -%}
+      {%- assign ref_wk_rpe = r['avg_working_rpe'].value | plus: 0 -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if cur_k == 0 -%}
+{%- comment -%} The run-in has opened but no week of it has closed. Ruling here would
+compare a Wednesday against a finished week and print a collapse in volume that is only
+a calendar artefact. {%- endcomment -%}
+<div class="verdict b-light">Week {{ open_n }} of the run-in, still open.</div>
+<div class="ev"><b>__OPEN_DAYS__</b>&nbsp;training day{% if open_days != 1 %}s{% endif %} in,
+<b>__OPEN_TON__</b>&nbsp;lb{%- if open_rpe > 0 %} at RPE __OPEN_RPE__{% endif -%}.
+{%- if ref_week > 0 %} {{ ref_label }} closed the same week on <b>__REF_WEEK__</b>&nbsp;lb
+across {{ ref_wk_days }} day{% if ref_wk_days != 1 %}s{% endif %}{% if ref_wk_rpe > 0 %} at RPE __REF_WK_RPE__{% endif %}.{% endif -%}
+</div>
+<div class="base">nothing is ranked until the week closes</div>
+{%- elsif ref_ton > 0 -%}
+{%- assign pct = cur_ton | times: 100 | divided_by: ref_ton | round -%}
+{%- assign cls = "b-heavy" -%}
+{%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
+{%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
+<div class="verdict {{ cls }}">{{ pct }}% of {{ ref_label }}'s volume.</div>
+<div class="ev">Through week <b>{{ cur_n }}</b> out,
+<b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} of the run-in:
+<b>__CUR_TON__</b>&nbsp;lb.
+{{ ref_label }}, {{ ref_made }} for {{ ref_tot }},
+had moved <b>__REF_TON__</b>&nbsp;lb by the same point.</div>
+{%- comment -%} The bar runs to 150% of the yardstick so being ahead of it is visible
+rather than pinned at full width, and the tick sits where the yardstick is. {%- endcomment -%}
+{%- assign w = pct | times: 100 | divided_by: 150 -%}
+{%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
+<div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
+<div class="base">tick marks {{ ref_label }}'s pace</div>
+{%- if cur_heavy > 0 or ref_heavy > 0 -%}
+<div class="also">reps at 80%+ &middot; you {{ cur_heavy }} &middot; {{ ref_label }} {{ ref_heavy }}</div>
+{%- endif -%}
+{%- elsif ref == "" -%}
+<div class="none">No meet on record yet to measure the run-in to {{ cur_label }} against.
+The comparison starts with your second meet.</div>
+{%- else -%}
+<div class="none">Through week <b>{{ cur_n }}</b> out you have <b>{{ cur_k }}</b> closed
+week{% if cur_k != 1 %}s{% endif %} logged, and
+{{ ref_label }} has no matching stretch at that distance &mdash;
+the log does not reach far enough back before it.</div>
+{%- endif -%}
+{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+{%- endif -%}
+"""
+    return (raw
+            .replace("__OPEN_DAYS__", "{{ open_days }}")
+            .replace("__OPEN_TON__", num("open_ton"))
+            .replace("__OPEN_RPE__", "{{ open_rpe | round: 1 }}")
+            .replace("__REF_WEEK__", num("ref_week"))
+            .replace("__REF_WK_RPE__", "{{ ref_wk_rpe | round: 1 }}")
+            .replace("__CUR_TON__", num("cur_ton"))
+            .replace("__REF_TON__", num("ref_ton")))
+
+
+_TAPER_BODY = _taper_body()
+
+
+SIGNAL_TAPER = signal(
+    "Am I running this in like the last one",
+    _TAPER_BODY,
+    "Weekly tonnage from the whole log, aligned by ISO week to each meet date and frozen "
+    "when the log was indexed. The week in progress is excluded, and a past cycle counts "
+    "only where it has the same number of closed weeks behind it. The yardstick is the "
+    "meet with the best attempt record. Two meets is a comparison, not a rule &mdash; "
+    "tonnage moves with exercise selection as much as with effort.",
+    "See Program &#9656; the weeks behind this",
+)
