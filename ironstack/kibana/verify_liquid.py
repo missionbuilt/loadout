@@ -270,7 +270,7 @@ def section_load() -> None:
     out = render(t, rows_of(wk(1.81, "spike", "Sep 2026"), wk(0.9, "steady", "Aug 2026")))
     has("load: spike verdict", out, "Sharp jump in load.")
     band("load: spike band", out, "b-max")
-    has("load: no precedent", out, "No earlier week on record in this band.")
+    has("load: no precedent", out, "No earlier week in this range in this band.")
 
     out = render(t, rows_of(wk(0.76, "undertrained", "Sep 2026"),
                             wk(0.9, "steady", "Aug 2026"),

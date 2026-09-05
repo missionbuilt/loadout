@@ -202,13 +202,39 @@ DAYS_TO_MEET = """{% if rows[0]['program.meet_date'].value %}{% assign now_s = "
 
 
 def sparkline(rows_expr: str, field: str, width=160, height=36, color=CHALK) -> str:
-    """Polyline over rows using the value's `.pct` (share of column max) for y."""
+    """Polyline over rows, scaled to the values' own min and max.
+
+    It used to scale by `.pct`, the value's share of the column max. That field is not
+    populated for every ES|QL column, and a nil pct produced empty coordinates — which
+    is why Bodyweight and Sleep rendered as a bare number above an empty panel. The
+    range is computed here instead, so the line depends on nothing but the values.
+    """
+    h, mid = height - 4, height // 2
     return (
-        f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" preserveAspectRatio="none">'
-        f'<polyline fill="none" stroke="{color}" stroke-width="1.5" points="'
-        f"{{% assign n = {rows_expr}.size | minus: 1 %}}{{% if n < 1 %}}{{% assign n = 1 %}}{{% endif %}}"
-        f"{{% for r in {rows_expr} %}}{{{{ forloop.index0 | times: {width} | divided_by: n }}}},"
-        f"{{{{ 100 | minus: r['{field}'].pct | times: {height - 4} | divided_by: 100 | plus: 2 }}}} {{% endfor %}}"
+        "{%- assign _mx = 0 -%}{%- assign _mn = 0 -%}{%- assign _seen = false -%}"
+        "{%- for r in " + rows_expr + " -%}"
+        "{%- assign _v = r['" + field + "'].value -%}"
+        "{%- if _v -%}"
+        "{%- unless _seen -%}{%- assign _mx = _v -%}{%- assign _mn = _v -%}"
+        "{%- assign _seen = true -%}{%- endunless -%}"
+        "{%- if _v > _mx -%}{%- assign _mx = _v -%}{%- endif -%}"
+        "{%- if _v < _mn -%}{%- assign _mn = _v -%}{%- endif -%}"
+        "{%- endif -%}{%- endfor -%}"
+        "{%- assign _rng = _mx | minus: _mn -%}"
+        '<svg width="' + str(width) + '" height="' + str(height) + '" viewBox="0 0 '
+        + str(width) + " " + str(height) + '" preserveAspectRatio="none">'
+        '<polyline fill="none" stroke="' + color + '" stroke-width="1.5" points="'
+        "{%- assign _n = " + rows_expr + ".size | minus: 1 -%}"
+        "{%- if _n < 1 -%}{%- assign _n = 1 -%}{%- endif -%}"
+        "{%- for r in " + rows_expr + " -%}{%- assign _v = r['" + field + "'].value -%}"
+        "{%- if _v -%}"
+        "{{ forloop.index0 | times: " + str(width) + " | divided_by: _n }},"
+        # A flat series has no range to scale against; pin it to the middle rather
+        # than dividing by zero, which is a render error that blanks the panel.
+        "{%- if _rng > 0 -%}"
+        "{{ _mx | minus: _v | times: " + str(h) + " | divided_by: _rng | plus: 2 | round: 1 }}"
+        "{%- else -%}" + str(mid) + "{%- endif -%} "
+        "{%- endif -%}{%- endfor -%}"
         '"/></svg>'
     )
 
@@ -268,8 +294,10 @@ WATCH_CARD = page(tok("""
 METRIC_CARD = page(tok("""
 <div class="stack">
 <div><div class="eyebrow">$TITLE</div>
-{% if rows.size == 0 or rows[0]['v'].value == nil %}<div style="margin-top:10px">""" + empty() + """</div>{% else %}
-<div class="hero" style="margin-top:8px">{{ rows[0]['v'].value | round: 1 }}<span class="value" style="font-size:16px;color:$DIM;margin-left:6px">$UNIT</span></div>{% endif %}</div>
+{% if rows.size == 0 or rows.last['v'].value == nil %}<div style="margin-top:10px">""" + empty() + """</div>{% else %}
+<div class="hero" style="margin-top:8px">{{ rows.last['v'].value | round: 1 }}<span class="value" style="font-size:16px;color:$DIM;margin-left:6px">$UNIT</span></div>
+<div class="sub" style="margin-top:5px">{% if rows.size > 1 %}{{ rows.size }} readings{% if rows.last['date_s'].value %} &middot; latest {{ rows.last['date_s'].value }}{% endif %}{% else %}{% if rows.last['date_s'].value %}{{ rows.last['date_s'].value }} &middot; {% endif %}<span class="faint">one reading, nothing to trend yet</span>{% endif %}</div>
+{% endif %}</div>
 {% if rows.size > 1 %}""" + sparkline("rows", "v", 220, 30, DIM) + """{% endif %}
 </div>"""))
 
@@ -336,7 +364,7 @@ CONDITIONS_CARD = page(tok("""
 <div class="grid3" style="margin-top:10px">
 <div><div class="eyebrow">Temp</div>{% if rows[0]['environment.temp_f'].value %}<div class="value">{{ rows[0]['environment.temp_f'].value | round }}<small>F</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
 <div><div class="eyebrow">Humidity</div>{% if rows[0]['environment.humidity_pct'].value %}<div class="value">{{ rows[0]['environment.humidity_pct'].value | round }}<small>%</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
-<div><div class="eyebrow">Sky</div>{% if rows[0]['environment.conditions'].value %}<div class="value">{{ rows[0]['environment.conditions'].value }}</div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
+<div><div class="eyebrow">Sky</div>{% if rows[0]['environment.conditions'].value %}<div class="sub" style="margin-top:7px;color:$CHALK;font-size:13px;line-height:1.45">{{ rows[0]['environment.conditions'].value }}</div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
 </div>
 <div class="sub" style="margin-top:10px">{% if rows[0]['environment.wind'].value %}{{ rows[0]['environment.wind'].value }}{% if rows[0]['environment.setting'].value %} &middot; {% endif %}{% endif %}{{ rows[0]['environment.setting'].value }}</div>
 {% endif %}"""))
@@ -607,7 +635,7 @@ recent distinct months that were. {%- endcomment -%}
   {%- endunless -%}
 {%- endfor -%}
 <div class="also">
-{%- if found == 0 -%}No earlier week on record in this band.
+{%- if found == 0 -%}No earlier week in this range in this band.
 {%- elsif found == 1 -%}Last time you were here: <b>{{ months }}</b>.
 {%- else -%}The last two times you were here: <b>{{ months }}</b>.{%- endif -%}
 </div>

@@ -38,10 +38,12 @@ RULE = "#2a2622"
 PANEL = "#1f1c19"
 BLOOD = "#a8211a"  # one accent per dashboard, never two unrelated things
 
-PHASES = [  # order is the training arc
-    ("hypertrophy", "Hypertrophy", "#5a564f"),
-    ("strength", "Strength", "#a8a094"),
-    ("peaking", "Peaking", "#7a7873"),
+PHASES = [  # order is the training arc, and the tones are a luminance ramp along it
+    # The previous three (#5a564f / #a8a094 / #7a7873) were all mid-greys: the legend
+    # promised a split you could not see on the bars.
+    ("hypertrophy", "Hypertrophy", "#4a463f"),
+    ("strength", "Strength", "#8f8a80"),
+    ("peaking", "Peaking", "#e4ddce"),
 ]
 
 MEET_MAX_LB = 909.4    # last meet total; the oxblood reference line on Overview
@@ -222,7 +224,7 @@ XY_BASE = {
 
 
 def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, ref=None,
-       query="", legend=True, right_axis=(), palette=None):
+       query="", legend=True, right_axis=(), palette=None, y_bounds=None):
     """One data layer (optionally a reference-line layer). colors: accessor -> hex."""
     data_layer = {
         "layerId": "l", "layerType": "data", "seriesType": series, "position": "top",
@@ -233,7 +235,10 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         ],
     }
     if palette:
-        data_layer["palette"] = {"type": "palette", "name": palette}
+        data_layer["palette"] = palette if isinstance(palette, dict) else {"type": "palette", "name": palette}
+    if y_bounds:
+        lower, upper = y_bounds
+        vis_extent = {"mode": "custom", "lowerBound": lower, "upperBound": upper}
     if split:
         data_layer["splitAccessor"] = split
     layers = {"l": (dv, layer(columns))}
@@ -250,19 +255,38 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         })
     vis = {**XY_BASE, "preferredSeriesType": series, "layers": vis_layers}
     vis["legend"] = {**XY_BASE["legend"], "isVisible": legend}
+    if y_bounds:
+        vis["yLeftExtent"] = vis_extent
     return lens(id_, title, "lnsXY", vis, layers, query=query)
 
 
-def table(id_, title, dv, columns, sort=None, direction="asc", hidden=(), query="", page=20):
+def table(id_, title, dv, columns, sort=None, direction="asc", hidden=(), query="", page=20,
+          row_height="single"):
     vis = {
         "layerId": "l", "layerType": "data",
         "columns": [{"columnId": c, "alignment": "left", **({"hidden": True} if c in hidden else {})} for c in columns],
-        "rowHeight": "single", "headerRowHeight": "single",
+        "rowHeight": row_height, "headerRowHeight": "single",
         "paging": {"size": page, "enabled": True},
     }
     if sort:
         vis["sorting"] = {"columnId": sort, "direction": direction}
     return lens(id_, title, "lnsDatatable", vis, {"l": (dv, layer(columns))}, query=query)
+
+
+def zone_palette():
+    """Four stops for the Prilepin zones: dark to chalk, then oxblood for 90+.
+
+    `palette="gray"` gave four shades of the same blue-grey; 90+ was invisible. This is
+    the proof panel behind the Overview intensity card, so the heavy share has to be the
+    thing the eye lands on.
+    """
+    stops = ["#3a362f", "#7d7870", "#cfc7b6", BLOOD]
+    return {"type": "palette", "name": "custom", "params": {
+        "name": "custom", "continuity": "all", "reverse": False, "rangeType": "number",
+        "rangeMin": 0, "rangeMax": len(stops), "steps": len(stops),
+        "colorStops": [{"color": c, "stop": i} for i, c in enumerate(stops)],
+        "stops": [{"color": c, "stop": i + 1} for i, c in enumerate(stops)],
+    }}
 
 
 def heat_palette(top=BLOOD):
@@ -335,9 +359,33 @@ class Inline:
 
 
 def custom(key: str, template: str, esql: str | None = None) -> Inline:
-    """Custom content panel. Liquid only runs when a query is attached."""
+    """Custom content panel. Liquid only runs when a query is attached.
+
+    There is no way to scope one of these to its own time range. A `timeRange` in
+    embeddableConfig is accepted, stored, survives import — and ignored; and this
+    Kibana offers no "Customize time range" action for custom content OR for Lens.
+    The dashboard picker reaches every panel, full stop.
+
+    That matters because every card here defines its own window inside the ES|QL
+    ("last 13 weeks", "trailing 90 days", "the latest session") and the picker is
+    ANDed on top: at a 7-day range every Signal card fell back to its not-enough-data
+    state while its provenance line still claimed 365 days. The fix is the dashboard
+    default (see Overview's time_from) plus `windowed()` on the panels that must NOT
+    see all of it.
+    """
     return Inline(key, "custom_content", {"esql_query": [esql] if esql else [], "template": template,
                                           "hidePanelTitles": True})
+
+
+def windowed(query: str, since: str = "now-1y") -> str:
+    """Scope one panel to its own window, independently of the dashboard picker.
+
+    A KQL date range inside the panel's own query is the only per-panel window this
+    Kibana honours. Used to keep a chart readable on a dashboard whose picker has to
+    be wide so the ES|QL cards can see their history.
+    """
+    clause = f'@timestamp >= "{since}"'
+    return f"{query} and {clause}" if query else clause
 
 
 NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mindset"]
@@ -354,7 +402,13 @@ def links(current: str, group: str = "all", keys: list[str] | None = None) -> In
     for key in (keys or NAV_ORDER):
         link_id = uid("nav", current, key)
         items.append({"type": "dashboardLink", "label": key.upper() if key != current else f"[ {key.upper()} ]",
-                      "options": {"open_in_new_tab": False, "use_time_range": True, "use_filters": True},
+                      # use_time_range stays False on purpose. Every dashboard sets its
+                      # own deliberate default (Overview 1y, Lift 2y, Meets 10y) and
+                      # timeRestore cannot win against a link that carries one; visiting
+                      # Meets used to leave every other page on a 10-year window.
+                      # Drilldowns keep it True — clicking an old session has to carry a
+                      # range wide enough to contain it.
+                      "options": {"open_in_new_tab": False, "use_time_range": False, "use_filters": True},
                       "destinationRefName": f"link_{link_id}_dashboard"})
         refs.append({"name": f"link_{link_id}_dashboard", "type": "dashboard", "id": DASH[key]})
     return Inline(f"nav-{current}-{group}", "links", {"title": "", "layout": "horizontal", "links": items,
@@ -472,8 +526,8 @@ Q = {
     "streak": 'FROM workout-sessions | EVAL in7 = CASE(date >= NOW() - 7 days, 1, 0), in28 = CASE(date >= NOW() - 28 days, 1, 0) | STATS n7 = SUM(in7), n28 = SUM(in28), streak = MAX(streak_day)',
     "latest": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP date_s, program.block, program.day, time_of_day, totals.*, avg_working_rpe, wrap_up',
     "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
-    "bodyweight": 'FROM workout-sessions | WHERE metrics.bodyweight_lb IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.bodyweight_lb | KEEP v',
-    "sleep": 'FROM workout-sessions | WHERE metrics.sleep_hrs IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.sleep_hrs | KEEP v',
+    "bodyweight": 'FROM workout-sessions | WHERE metrics.bodyweight_lb IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.bodyweight_lb, date_s = DATE_FORMAT("MMM d, yyyy", date) | KEEP v, date_s',
+    "sleep": 'FROM workout-sessions | WHERE metrics.sleep_hrs IS NOT NULL | SORT @timestamp ASC | LIMIT 90 | EVAL v = metrics.sleep_hrs, date_s = DATE_FORMAT("MMM d, yyyy", date) | KEEP v, date_s',
     "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last_day = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last_day DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last_day), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
     "days_list": 'FROM workout-sessions | SORT date DESC | LIMIT 60 | EVAL date_s = DATE_FORMAT("EEE MMM d", date) | KEEP program.week, program.day, date_s, time_of_day, location.name, totals.tonnage_lb, avg_working_rpe, duration_min',
     "session_header": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEEE, MMM d, yyyy", date) | KEEP program.*, date_s, start_time, time_of_day, location.name, location.travel, prev_session_id, next_session_id',
@@ -486,7 +540,9 @@ Q = {
                 '| KEEP session_id, date_s, lift_slug, exercise.name, weight_lb, reps, rpe'),
     "conditions": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP environment.*, time_of_day',
     "performance": 'FROM workout-sets | SORT @timestamp DESC, seq ASC | LIMIT 500 | EVAL gear_s = MV_CONCAT(gear, " / ") | KEEP session_id, set_number, exercise.name, exercise.category, set_type, load_type, weight_lb, reps, rep_unit, distance_ft, rpe, gear_s, notes',
-    "notes": 'FROM workout-notes | SORT @timestamp DESC, order ASC | LIMIT 200 | EVAL tags_s = MV_CONCAT(tags, "|") | KEEP session_id, order, phase, exercise.name, text, tags_s',
+    # WHERE phase != "watch": WRAP_CARD renders watch items in its own block, so
+    # including them here printed the same sentence twice on the Session page.
+    "notes": 'FROM workout-notes | WHERE phase != "watch" | SORT @timestamp DESC, order ASC | LIMIT 200 | EVAL tags_s = MV_CONCAT(tags, "|") | KEEP session_id, order, phase, exercise.name, text, tags_s',
     "wrap": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL watch_s = MV_CONCAT(watch_items, "|") | KEEP wrap_up, gear_notes, watch_s',
     "lift_header": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date), name = MAX(exercise.name) BY lift_slug | SORT last_day DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
     "history_cards": 'FROM workout-sessions | STATS ton = SUM(totals.tonnage_lb), avg = AVG(totals.tonnage_lb), n = COUNT(*), sets = SUM(totals.working_sets), rpe = AVG(avg_working_rpe)',
@@ -527,10 +583,11 @@ SESSION_URL = (
 )
 
 
-def block_timeline(id_, title="BLOCK TIMELINE"):
+def block_timeline(id_, title="BLOCK TIMELINE", query=""):
     cols, colors = phase_columns("sum", "totals.tonnage_lb")
     columns = {"x": terms("session_id", "SESSION", size=300), **cols}
-    return xy(id_, title, "bar_stacked", "sessions", columns, "x", list(cols), colors=colors)
+    return xy(id_, title, "bar_stacked", "sessions", columns, "x", list(cols), colors=colors,
+              query=query)
 
 
 def sessions_table(id_, title="SESSIONS"):
@@ -545,11 +602,17 @@ def sessions_table(id_, title="SESSIONS"):
 
 
 def notes_table(id_, title, size=20):
+    """A session index, not a second telling of the notes beside it.
+
+    Dropped `#` and `EXERCISE`. `#` was the note's internal sort key, so watch items
+    rendered as "1,001" — a sort key formatted with a thousands separator as though it
+    were an ordinal. `EXERCISE` is null on every pre, wrap-up and watch note, which was
+    most of the column. Both sat next to RECENT NOTES, which already shows all of this
+    in prose; this panel exists only because a custom content panel cannot navigate.
+    """
     columns = {
         "sid": terms("session_id", "SESSION", size=size, direction="desc"),
-        "order": terms("order", "#", size=50, dtype="number"),
         "phase": last("phase", "PHASE"),
-        "ex": last("exercise.name", "EXERCISE"),
     }
     return table(id_, title, "notes", columns, sort="sid", direction="desc", page=50)
 
@@ -562,8 +625,16 @@ def build() -> list[dict]:
     L = lambda name: f"ironstack-lens-{name}"  # noqa: E731
 
     # ---------------------------------------------------------------- Overview
+    # time_from is 2y on purpose, and it is a compromise. Every ES|QL card here carries
+    # its own window and the picker is ANDed on top of it, so a narrow default silently
+    # guts them: at the old 1y default the load card's "no earlier week in this band"
+    # really meant "none in the last year". A 10y default fixes the cards and wrecks the
+    # charts — windowed() filters rows but not the axis, so the weekly e1RM histogram
+    # drew one year of bars against nine years of empty axis. 2y satisfies every card
+    # (13 weeks, 90 days, 365 days, 104 weeks of precedent) and still plots cleanly.
     d = Dashboard("overview", "Ironstack. Overview", "The block at a glance. Every chart opens its detail.",
-                  "Start here. Every card and chart opens the detail behind it.")
+                  "Start here. Every card and chart opens the detail behind it.",
+                  time_from="now-2y")
     # The Signal row leads. Mike's framing: the analysis has to be the first thing on
     # the page or the app reads as a log with charts bolted on. Everything below this
     # row is the log, in descending order of how often it answers a question.
@@ -582,7 +653,7 @@ def build() -> list[dict]:
           (custom("ov-latest", tpl.LATEST_CARD, Q["latest"]), 20, []), h=9)
     # The block timeline stays as the door into a session. It is ~400 bars and is not
     # readable as a chart, which is why it is no longer above the fold.
-    d.row((block_timeline(L("ov-timeline")), 48, [("session", "Session")]), h=10)
+    d.row((block_timeline(L("ov-timeline"), query=windowed("")), 48, [("session", "Session")]), h=10)
     d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 48, []), h=9)
     d.row((custom("ov-bw", tpl.metric_card("Bodyweight", "lb"), Q["bodyweight"]), 24, []),
           (custom("ov-sleep", tpl.metric_card("Sleep", "hrs"), Q["sleep"]), 24, []), h=5)
@@ -672,7 +743,7 @@ def build() -> list[dict]:
         "notes": last("notes.keyword", "NOTES"),
     }
     d.row((table(L("li-sets"), "WORKING SETS. CLICK A SESSION", T, all_cols, sort="sid", direction="desc",
-                 page=50, query='set_type: "working"'), 48, [("session", "Session")]), h=12)
+                 page=50, query='set_type: "working"', row_height="auto"), 48, [("session", "Session")]), h=12)
     objs += d.build()
 
     # ---------------------------------------------------------------- History
@@ -693,7 +764,7 @@ def build() -> list[dict]:
                  "z": terms("prilepin_zone", "ZONE", size=4),
                  "v": metric("sum", "reps", "REPS", fmt=FMT_INT)}
     zones = xy(L("hi-zones"), "SHARE OF REPS BY INTENSITY ZONE. MAIN LIFTS", "bar_percentage_stacked", T,
-               zone_cols, "x", ["v"], split="z", palette="gray",
+               zone_cols, "x", ["v"], split="z", palette=zone_palette(),
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
