@@ -649,6 +649,23 @@ SESSION_URL = (
 )
 
 
+# points.1, not event.value. On a date histogram the first point is the x dimension, so
+# {{event.value}} resolved to the clicked week as an epoch — the first build of this URL
+# filtered lift_slug to 1751860800000 and found nothing. SESSION_URL gets away with
+# {{event.value}} because its x axis IS session_id. Here x is the week and the split is
+# the lift, so the lift is the second point.
+#
+# No _g at all, deliberately. A dashboard drilldown from a date histogram sets the
+# target's range to the clicked bucket — verified: clicking a week landed Lift on seven
+# days, where a verdict that needs five sessions cannot rule. A URL that names no range
+# lets Lift's own timeRestore give it the 2y default it was built for.
+LIFT_URL = (
+    "{{kibanaUrl}}/app/dashboards#/view/" + DASH["lift"] +
+    "?_a=(filters:!((meta:(alias:!n,disabled:!f,key:lift_slug,negate:!f,params:(query:'{{event.points.1.value}}'),type:phrase),"
+    "query:(match_phrase:(lift_slug:'{{event.points.1.value}}')))))"
+)
+
+
 def block_timeline(id_, title="BLOCK TIMELINE", query=""):
     cols, colors = phase_columns("sum", "totals.tonnage_lb")
     columns = {"x": terms("session_id", "SESSION", size=300), **cols}
@@ -738,7 +755,7 @@ def build() -> list[dict]:
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
-           28, [("lift", "Lift", False)]), h=11)
+           28, [("url", LIFT_URL, "Lift")]), h=11)
     # Streak, Latest session, Bodyweight and Sleep were cut from this page. Every one is
     # something a phone logging app shows better and shows at the gym, so here they only
     # told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also had one
@@ -917,7 +934,8 @@ def build() -> list[dict]:
 
 
 def check(objs: list[dict]) -> int:
-    """Duplicate ids and dangling references, the two ways this file breaks silently.
+    """Duplicate ids, dangling references and wiring shape — the ways this file breaks
+    silently.
 
     A duplicate id means one object quietly overwrites another on import; a dangling
     reference means a panel imports fine and then renders an error where a chart
@@ -936,11 +954,36 @@ def check(objs: list[dict]) -> int:
             if r["id"] not in ids:
                 dangling.append(f'{o["type"]} {o["id"]} -> {r["type"]} {r["id"]} ({r["name"]})')
 
+    # Two bugs shipped for weeks because they were invisible to every check: ten
+    # drilldowns written under a key Kibana does not read, and nav links carrying the
+    # filters of the page you left. Neither is a duplicate id or a dangling reference,
+    # and neither shows up in a Liquid render. They are shape, so shape is checked.
+    shape = []
+    for o in objs:
+        if o["type"] != "dashboard":
+            continue
+        for p in json.loads(o["attributes"]["panelsJSON"]):
+            cfg = p.get("embeddableConfig", {})
+            if "drilldowns" in cfg:
+                shape.append(f'{o["id"]}: embeddableConfig.drilldowns is the dead key; '
+                             f'Kibana reads enhancements.dynamicActions.events')
+            for ev in cfg.get("enhancements", {}).get("dynamicActions", {}).get("events", []):
+                if not ev.get("triggers") or not ev.get("action", {}).get("factoryId"):
+                    shape.append(f'{o["id"]}: drilldown event missing triggers or factoryId')
+            for link in cfg.get("links", []):
+                opts = link.get("options", {})
+                if opts.get("use_filters") or opts.get("use_time_range"):
+                    shape.append(f'{o["id"]}: nav link "{link.get("label")}" carries '
+                                 f'filters or the time range; each page is entered on its own terms')
+    for item in shape:
+        print(f"  shape: {item}")
+
     for label, items in (("duplicate id", dupes), ("dangling reference", dangling)):
         for item in items:
             print(f"  {label}: {item}")
-    bad = len(dupes) + len(dangling)
-    print(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, {len(dangling)} dangling references")
+    bad = len(dupes) + len(dangling) + len(shape)
+    print(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, "
+          f"{len(dangling)} dangling references, {len(shape)} shape problems")
     return bad
 
 
