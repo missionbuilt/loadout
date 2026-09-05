@@ -483,7 +483,7 @@ class Dashboard:
                                               "openInNewTab": False, "encodeUrl": True}},
                     })
                 else:
-                    # (target, name) or (target, name, carry_time). carry_time governs
+                    # (target, name[, carry_time[, carry_filters]]). carry_time governs
                     # whether the SOURCE dashboard's range travels. Session carries it —
                     # clicking an old session needs a window wide enough to hold it.
                     #
@@ -497,12 +497,25 @@ class Dashboard:
                     # timeRestore gives Lift its 2y default. Not built; see ironstack-state.
                     target, name = d[0], d[1]
                     carry_time = d[2] if len(d) > 2 else True
+                    # carry_filters defaults False. Every dashboard drilldown here lands on
+                    # Session, which promises one session start to finish — carrying the
+                    # source page's filters breaks that promise silently. Verified: clicking
+                    # a point on Lift's TOP SET chart while filtered to comp-bench landed
+                    # Session with BOTH lift_slug: comp-bench and session_id: 2025-03-21, so
+                    # the page showed only the bench sets, the header fell back to its cold
+                    # start, and PREV/NEXT read "No results found". The trigger's own filter
+                    # is applied regardless; this flag governs only the source's.
+                    carry_filters = d[3] if len(d) > 3 else False
                     event_id = uid(idx, "drilldown", target, name)
                     events.append({
                         "eventId": event_id,
+                        # FILTER_TRIGGER only. Adding VALUE_CLICK_TRIGGER was tried against
+                        # the datatable problem below and changed nothing, so it is not in
+                        # the build.
                         "triggers": ["FILTER_TRIGGER"],
                         "action": {"factoryId": "DASHBOARD_TO_DASHBOARD_DRILLDOWN", "name": name,
-                                   "config": {"useCurrentFilters": True, "useCurrentDateRange": carry_time,
+                                   "config": {"useCurrentFilters": carry_filters,
+                                              "useCurrentDateRange": carry_time,
                                               "openInNewTab": False}},
                     })
                     # Kibana extracts the target dashboard into a reference under this
@@ -789,7 +802,7 @@ def build() -> list[dict]:
         "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
         "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("pr-days-table"), "OPEN A DAY. CLICK THE SESSION", S, days_cols, sort="sid",
+    d.row((table(L("pr-days-table"), "THE DAYS IN THIS BLOCK", S, days_cols, sort="sid",
                  direction="desc"), 48, [("session", "Session")]), h=8)
     loading_cols = {
         "week": terms("iso_week", "WEEK", size=60, direction="desc"),
@@ -871,7 +884,7 @@ def build() -> list[dict]:
         "reps": last("reps", "REPS", "number"),
         "rpe": last("rpe", "RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("li-sets"), "WORKING SETS. CLICK A SESSION", T, all_cols, sort="sid", direction="desc",
+    d.row((table(L("li-sets"), "EVERY WORKING SET", T, all_cols, sort="sid", direction="desc",
                  page=50, query='set_type: "working"', row_height="auto"), 48, [("session", "Session")]), h=12)
     objs += d.build()
 
@@ -920,7 +933,7 @@ def build() -> list[dict]:
     # panel. The bar chart says the same thing and can be clicked.
     d.row((tags, 48, []), h=9)
     d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 32, []),
-          (notes_table(L("mi-notes"), "OPEN THE SESSION BEHIND A NOTE"), 16, [("session", "Session")]), h=12)
+          (notes_table(L("mi-notes"), "THE SESSIONS BEHIND THESE NOTES"), 16, [("session", "Session")]), h=12)
     objs += d.build()
 
     # de-duplicate by (type, id): shared builders are called for more than one dashboard
