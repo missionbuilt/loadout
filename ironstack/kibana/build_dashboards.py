@@ -123,6 +123,20 @@ def metric(op, field, label, filt=None, fmt=None):
 
 
 def last(field, label, dtype="string", sort="date", fmt=None, arrays=False):
+    """Last value by `sort`.
+
+    An absent value renders as the literal string "(null)" in a Lens datatable and there
+    is no way to change that. Two were tried and both are dead ends worth recording:
+
+      * `emptyAsNull: False` is accepted, stored, and changes nothing on screen.
+      * A runtime field emitting "" instead of nothing fails the panel outright —
+        last_value compiles to a top_metrics aggregation, which needs doc values, and a
+        runtime field has none: "top_metrics can only collect bytes that have segment
+        ordinals".
+
+    So a text column whose value is usually absent does not belong in a table. Drop it
+    and show the value where it is actually present.
+    """
     scale = "ratio" if dtype == "number" else "ordinal"
     c = _col(label, "last_value", dtype, scale, field, params={"sortField": sort, "showArrayValues": arrays})
     if fmt:
@@ -762,8 +776,6 @@ def build() -> list[dict]:
         "w": last("weight_lb", "LB", "number", fmt=FMT_INT),
         "reps": last("reps", "REPS", "number"),
         "rpe": last("rpe", "RPE", "number", fmt=FMT_1),
-        "e1rm": last("est_e1rm", "e1RM", "number", fmt=FMT_INT),
-        "notes": last("notes.keyword", "NOTES"),
     }
     d.row((table(L("li-sets"), "WORKING SETS. CLICK A SESSION", T, all_cols, sort="sid", direction="desc",
                  page=50, query='set_type: "working"', row_height="auto"), 48, [("session", "Session")]), h=12)
