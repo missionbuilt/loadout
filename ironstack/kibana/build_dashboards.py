@@ -236,8 +236,17 @@ XY_BASE = {
 
 
 def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, ref=None,
-       query="", legend=True, right_axis=(), palette=None, y_bounds=None):
-    """One data layer (optionally a reference-line layer). colors: accessor -> hex."""
+       query="", legend=True, right_axis=(), palette=None, y_bounds=None, ref_metric=None,
+       ref_text=True):
+    """One data layer (optionally a reference-line layer). colors: accessor -> hex.
+
+    `ref` is a fixed number: the meet best, an ACWR of 1.0 - a line that means the same
+    thing whatever is filtered. `ref_metric` is (op, field, label) and computes the line
+    from the same rows the chart is drawn from, which is the only way to mark a value
+    that changes with the filter. Lift needs the second kind: the verdict names this
+    lift's best, and a static line would be right for one lift and wrong for the rest.
+    The whole lens carries one query, so the line respects the panel filter and the
+    dashboard filters alike."""
     data_layer = {
         "layerId": "l", "layerType": "data", "seriesType": series, "position": "top",
         "showGridlines": False, "xAccessor": x, "accessors": accessors,
@@ -255,14 +264,18 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         data_layer["splitAccessor"] = split
     layers = {"l": (dv, layer(columns))}
     vis_layers = [data_layer]
-    if ref:
-        value, label = ref
-        layers["ref"] = (dv, layer({"ref": static(value, label)}))
+    if ref or ref_metric:
+        if ref_metric:
+            ref_op, ref_field, label = ref_metric
+            layers["ref"] = (dv, layer({"ref": metric(ref_op, ref_field, label, fmt=FMT_INT)}))
+        else:
+            value, label = ref
+            layers["ref"] = (dv, layer({"ref": static(value, label)}))
         vis_layers.append({
             "layerId": "ref", "layerType": "referenceLine", "accessors": ["ref"],
             "yConfig": [{
                 "forAccessor": "ref", "axisMode": "left", "color": BLOOD, "lineStyle": "dashed",
-                "lineWidth": 2, "iconPosition": "auto", "textVisibility": True, "fill": "none",
+                "lineWidth": 2, "iconPosition": "auto", "textVisibility": ref_text, "fill": "none",
             }],
         })
     vis = {**XY_BASE, "preferredSeriesType": series, "layers": vis_layers}
@@ -615,7 +628,6 @@ Q = {
     # claimed to be the same kind of page. Aliases already resolve onto one canonical,
     # so the name now matches the slug rather than the keystrokes.
     "lift_header": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date), name = MAX(lift_name) BY lift_slug | SORT last_day DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
-    "history_cards": 'FROM workout-sessions | STATS ton = SUM(totals.tonnage_lb), avg = AVG(totals.tonnage_lb), n = COUNT(*), sets = SUM(totals.working_sets), rpe = AVG(avg_working_rpe)',
     "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
     "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
     "recent_notes": 'FROM workout-notes | SORT @timestamp DESC, order ASC | LIMIT 12 | EVAL date_s = DATE_FORMAT("MMM d", date), tags_s = MV_CONCAT(tags, "|") | KEEP date_s, phase, exercise.name, text, tags_s',
@@ -806,6 +818,7 @@ def build() -> list[dict]:
               {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=3),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
+              ref_text=False,
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("url", LIFT_URL, "Lift")]), h=11)
     # Streak, Latest session, Bodyweight and Sleep were cut from this page. Every one is
@@ -822,19 +835,19 @@ def build() -> list[dict]:
                   "The block, week by week. Program tracking is newer than the log, so "
                   "sessions from before it carry no week or day and do not appear above.",
                   controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
-    d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=6)
+    d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=4)
     # INOL and ACWR in words, above the table of decimals they explain.
     d.row((custom("pr-sig", tpl.SIGNAL_PROGRAM, Q["sig_program"]), 48, []), h=10)
 
-    weeks_cols = {
-        "week": terms("program.week", "WEEK", size=60, dtype="number"),
-        "n": count("SESSIONS", fmt=FMT_INT),
-        "ton": metric("sum", "totals.tonnage_lb", "TONNAGE", fmt=FMT_INT),
-        "rpe": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1),
-    }
-    weeks = table(L("pr-weeks"), "WEEKS IN THE TRACKED PROGRAM. CLICK ONE TO FILTER", S,
-                  weeks_cols, sort="week", direction="desc")
-    d.row((weeks, 48, []), h=6)
+    # One table, not two. WEEKS IN THE TRACKED PROGRAM held a single row above a panel of
+    # empty space - program.week is populated on 4 sessions out of 643 - and the only
+    # thing it did that this table cannot is filter by week, which the WEEK control above
+    # already does.
+    #
+    # Carrying the week over as a column here was tried and reverted: last_value renders
+    # an absent value as the literal "(null)" and there is no way to change that (see
+    # last()), so a WEEK column would print "(null)" on 639 rows. A near-empty table
+    # replaced by a near-empty column is not a cut.
     days_cols = {
         "sid": terms("session_id", "SESSION", size=100, direction="desc"),
         # No DATE column: session_id is the date, and a date field renders in the
@@ -843,8 +856,8 @@ def build() -> list[dict]:
         "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
         "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("pr-days-table"), "THE DAYS IN THIS BLOCK", S, days_cols, sort="sid",
-                 direction="desc"), 48, [("session", "Session")]), h=8)
+    d.row((table(L("pr-days-table"), "EVERY DAY IN THE RANGE. CLICK ONE TO OPEN IT", S, days_cols,
+                 sort="sid", direction="desc", page=25), 48, [("session", "Session")]), h=10)
     loading_cols = {
         "week": terms("iso_week", "WEEK", size=60, direction="desc"),
         "lift": last("inol_hardest_lift", "HARDEST LIFT", sort="@timestamp"),
@@ -900,24 +913,26 @@ def build() -> list[dict]:
                   # lift_slug filter asks a real question (this lift, in that block) and an
                   # empty answer to it is true rather than broken.
                   controls=[(T, "program.block", "BLOCK")], time_from="now-2y")
-    d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=6)
+    d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=4)
     e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
-    e1 = xy(L("li-e1rm"), "e1RM OVER TIME", "line", T, e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
+    # The dashed line is this lift's best in whatever the page is showing, computed from
+    # the same rows as the series. The verdict beside it says "your best 420" and before
+    # this the chart had no 420 on it, so the two did not point at each other.
+    e1 = xy(L("li-e1rm"), "e1RM OVER TIME. THE LINE IS YOUR BEST IN THIS RANGE", "line", T,
+            e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
+            ref_metric=("max", "est_e1rm", "YOUR BEST"),
             query='set_type: "working" and not e1rm_confidence: "low"')
-    # One measure per chart. Weight and RPE on two axes made the crossing points an
-    # artifact of the scale ranges rather than anything in the data.
-    top = xy(L("li-top"), "TOP SET OVER TIME", "line", T,
-             {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "weight_lb", "TOP SET", fmt=FMT_INT)},
-             "x", ["m"], colors={"m": CHALK}, legend=False, query='set_type: "working"')
-    zdist = xy(L("li-zones"), "WHERE THE REPS LAND. INTENSITY ZONE", "bar", T,
+    # TOP SET OVER TIME is gone. It plotted max(weight_lb) per session against a chart
+    # plotting max(est_e1rm) per session - the same sawtooth, one lift's heaviest day
+    # either way - and two charts saying one thing is how a page starts reading as a log.
+    zdist = xy(L("li-zones"), "WHERE THE REPS LAND, AGAINST YOUR BEST IN THE LAST 90 DAYS", "bar", T,
                {"x": terms("prilepin_zone", "ZONE", size=4),
                 "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
                "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
-    # The verdict leads, and the charts it is drawn from sit beside it. Both charts are
-    # honest and neither answers "is this going up" on its own: they are sawtooths.
+    # Verdict, the chart it is drawn from, then the distribution behind both, then the log.
     d.row((custom("li-signal", tpl.SIGNAL_LIFT, Q["sig_lift"]), 18, []),
           (e1, 30, [("session", "Session")]), h=10)
-    d.row((top, 24, [("session", "Session")]), (zdist, 24, []), h=8)
+    d.row((zdist, 48, []), h=8)
     all_cols = {
         "sid": terms("session_id", "SESSION", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
@@ -947,7 +962,9 @@ def build() -> list[dict]:
                zone_cols, "x", list(zcols), colors=zcolors,
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
-    d.row((custom("hi-cards", tpl.FOUR_CARDS, Q["history_cards"]), 48, []), h=6)
+    # The four tiles - tonnage in range, per session, sessions, avg RPE - are the four
+    # Hevy shows on its home screen. Every one is still on the page, in the sessions
+    # table and the timeline, for anyone who wants the number rather than the reading.
     # One timeline, not two. This and the Overview panel were the same chart under two
     # titles; naming it for what it is stops the page reading as a second copy.
     d.row((block_timeline(L("hi-timeline"), "EVERY SESSION IN THE RANGE. CLICK ONE TO OPEN IT"),

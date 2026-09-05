@@ -339,27 +339,31 @@ WRAP_CARD = page(tok("""
 {% if rows[0]['gear_notes'].value %}<div class="eyebrow" style="margin-top:14px">Gear</div><div class="prose" style="margin-top:4px;font-size:12px">{{ rows[0]['gear_notes'].value }}</div>{% endif %}
 {% endif %}"""))
 
+# The lift name and its numbers on one line. Until Phase 3 this was the name plus three
+# hero tiles - best e1RM, best top set, avg RPE - which is the set of numbers a phone
+# already shows, drawn at the same weight as the verdict underneath. Worse, BEST E1RM
+# said 420 while the verdict beside it said "your best 420" and the chart's reference
+# line sat at 420: the same number three times, twice as decoration.
+#
+# The numbers stay, at body size, on the sub-line. Nothing is lost and the verdict leads.
+
 LIFT_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Lift</div>""" + empty("Open a lift from any dashboard") + """{% else %}
 <div class="row">
-<div class="card" style="flex:1.6"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value }}</div></div><div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value }}</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Best e1RM</div><div class="value">""" + num("rows[0]['e1'].value") + """<small>lb</small></div></div><div class="sub">estimated, working sets</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Best top set</div><div class="value">""" + num("rows[0]['top'].value") + """<small>lb</small></div></div><div class="sub">heaviest working set</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Avg RPE</div><div class="value">{{ rows[0]['rpe'].value | round: 1 }}</div></div><div class="sub">across working sets</div></div>
+<div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value }}</div></div>
+<div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value }}</div>
+<div class="sub">best e1RM """ + num("rows[0]['e1'].value") + """&nbsp;lb &middot; best top set """ + num("rows[0]['top'].value") + """&nbsp;lb &middot; avg RPE {{ rows[0]['rpe'].value | round: 1 }}</div></div>
 </div>{% endif %}"""))
 
-# --------------------------------------------------------------------------- Program days, History cards, Meets, Mindset
+
+# --------------------------------------------------------------------------- Program days, Meets, Mindset
 
 
-FOUR_CARDS = page(tok("""
-<div class="row">
-{% if rows.size == 0 %}<div class="card">""" + empty("No sessions in range") + """</div>{% else %}
-<div class="card"><div class="top"><div class="eyebrow">Tonnage</div><div class="value">""" + num("rows[0]['ton'].value") + """<small>lb</small></div></div><div class="sub">in range</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Per session</div><div class="value">""" + num("rows[0]['avg'].value") + """<small>lb</small></div></div><div class="sub">average</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Sessions</div><div class="value">{{ rows[0]['n'].value }}</div></div><div class="sub">{{ rows[0]['sets'].value }} working sets</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Avg working RPE</div><div class="value">{{ rows[0]['rpe'].value | round: 1 }}</div></div><div class="sub">across sessions</div></div>
-{% endif %}
-</div>"""))
+# FOUR_CARDS lived here: tonnage in range, per session, sessions, avg working RPE, drawn
+# on History. Cut 2026-09-05 with Phase 3 - those are the four tiles a Hevy home screen
+# already shows, and every one of them is still on the page in the sessions table and the
+# timeline. Deleted rather than left unbuilt: verify_liquid fails a template that no
+# dashboard draws, which is how this one was found the minute the panel went away.
 
 MEET_CARDS = page(tok("""
 <div class="row">
@@ -1003,7 +1007,7 @@ at INOL __INOL__ &mdash; {{ w['inol_hardest_gloss'].value }}.
 {%- if acwr > 0 -%}
 <div class="also">load {{ w['acwr_band'].value }} at __ACWR__ &middot; {{ w['acwr_gloss'].value }}</div>
 {%- endif -%}
-<div class="base">week of {{ w['week_end'].value }}, last trained{% if w['block'].value %} &middot; {{ w['block'].value }} block{% endif %}</div>
+<div class="base">last trained {{ w['week_end'].value }}{% if w['block'].value %} &middot; {{ w['block'].value }} block{% endif %}</div>
 {%- endif -%}
 <div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
 {%- endif -%}

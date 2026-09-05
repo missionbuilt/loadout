@@ -881,8 +881,9 @@ def section_program() -> None:
     has("program: names the block", out, "strength block")
     # week_end is the last day trained, not the week's end - the copy must not promise
     # the calendar week. See derive.rollup_docs.
-    has("program: labels the week honestly", out, "week of 2026-09-06, last trained")
+    has("program: labels the week honestly", out, "last trained 2026-09-06")
     lacks("program: does not claim a calendar week end", out, "week ending")
+    lacks("program: does not imply the week starts then", out, "week of 2026")
     band("program: easy is the quiet band", out, "b-light")
 
     for inol, bandname, cls in ((2.4, "loading", "b-normal"),
