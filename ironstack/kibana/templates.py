@@ -1003,7 +1003,7 @@ at INOL __INOL__ &mdash; {{ w['inol_hardest_gloss'].value }}.
 {%- if acwr > 0 -%}
 <div class="also">load {{ w['acwr_band'].value }} at __ACWR__ &middot; {{ w['acwr_gloss'].value }}</div>
 {%- endif -%}
-<div class="base">week ending {{ w['week_end'].value }}{% if w['block'].value %}, {{ w['block'].value }} block{% endif %}</div>
+<div class="base">week of {{ w['week_end'].value }}, last trained{% if w['block'].value %} &middot; {{ w['block'].value }} block{% endif %}</div>
 {%- endif -%}
 <div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
 {%- endif -%}
