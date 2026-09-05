@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -396,6 +397,31 @@ NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mind
 NAV_GROUPS = [("all", NAV_ORDER, 48)]
 
 
+# The Ironstack Coach is an Agent Builder agent and lives outside the dashboards. It is
+# also the only surface the semantic layer has: five semantic_text fields are indexed and
+# nothing in Kibana's own UI can reach them — a custom content panel is a sandboxed
+# iframe with no scripts and no input, and the KQL bar is lexical. So the honest answer
+# is a door, not a search box, and a Links panel is the only panel type that can be one.
+#
+# The URL is deployment-specific, like ES_ENDPOINT, so it comes from the environment
+# rather than the repo: a starter user's Kibana is not this one. Unset, the panel is
+# simply not built and the nav takes the full width.
+COACH_URL = os.environ.get("IRONSTACK_COACH_URL", "").strip()
+
+
+def coach_link(current: str) -> Inline:
+    return Inline(f"coach-{current}", "links", {
+        "title": "", "layout": "horizontal", "hidePanelTitles": True,
+        "links": [{
+            "type": "externalLink",
+            "label": "ASK THE COACH",
+            "destination": COACH_URL,
+            "order": 0,
+            "options": {"open_in_new_tab": True, "encode_url": False},
+        }],
+    })
+
+
 def links(current: str, group: str = "all", keys: list[str] | None = None) -> Inline:
     """Kibana Links panel: the app nav. Carries filters and time so context survives a hop."""
     items, refs = [], []
@@ -437,7 +463,11 @@ class Dashboard:
         # chrome: brand bar + nav
         self.row((custom(f"brand-{key}", brand_bar(key.upper(), tagline),
                          "FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP date"), 48, []), h=4)
-        self.row(*[(links(key, name, members), width, []) for name, members, width in NAV_GROUPS], h=2)
+        nav_w = 40 if COACH_URL else 48
+        nav = [(links(key, name, members), nav_w, []) for name, members, _ in NAV_GROUPS]
+        if COACH_URL:
+            nav.append((coach_link(key), 8, []))
+        self.row(*nav, h=2)
 
     def row(self, *items, h=8):
         """items: (saved object | Inline, width, drilldowns); drilldowns are (target key, name) or ('url', template, name)."""
