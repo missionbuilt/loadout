@@ -695,7 +695,9 @@ def build() -> list[dict]:
 
     # ---------------------------------------------------------------- Program
     d = Dashboard("program", "Ironstack. Program", "Block, week, day. Pick a week, open a day.",
-                  "The block, week by week. Click a day to open that session.", controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
+                  "The block, week by week. Program tracking is newer than the log, so "
+                  "sessions from before it carry no week or day and do not appear above.",
+                  controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
     d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=6)
 
     weeks_cols = {
@@ -704,7 +706,8 @@ def build() -> list[dict]:
         "ton": metric("sum", "totals.tonnage_lb", "TONNAGE", fmt=FMT_INT),
         "rpe": metric("average", "avg_working_rpe", "AVG RPE", fmt=FMT_1),
     }
-    weeks = table(L("pr-weeks"), "WEEKS. CLICK ONE TO FILTER", S, weeks_cols, sort="week", direction="desc")
+    weeks = table(L("pr-weeks"), "WEEKS IN THE TRACKED PROGRAM. CLICK ONE TO FILTER", S,
+                  weeks_cols, sort="week", direction="desc")
     d.row((weeks, 48, []), h=6)
     days_cols = {
         "sid": terms("session_id", "SESSION", size=100, direction="desc"),
@@ -729,8 +732,9 @@ def build() -> list[dict]:
     objs += d.build()
 
     # ---------------------------------------------------------------- Session
-    d = Dashboard("session", "Ironstack. Session", "One session. Arrives filtered to a session_id.", "One session, start to finish. Pick one above, or click any session elsewhere to land here.",
-                  controls=[(S, "session_id", "SESSION")])
+    d = Dashboard("session", "Ironstack. Session", "One session. Arrives filtered to a session_id.",
+                  "One session, start to finish. Click any session anywhere to land here, "
+                  "or use PREV and NEXT to walk. With no session chosen this is the latest one.")
     # A Lens table of nothing but buckets renders no rows; the hidden count gives it one.
     nav_cols = {"sid": terms("session_id", "SESSION", size=1, direction="desc"),
                 "prev": last("prev_session_id", "PREV", sort="timestamp"),
