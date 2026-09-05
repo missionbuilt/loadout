@@ -135,9 +135,7 @@ def section_all_templates() -> None:
         if name.startswith("__"):
             continue
         value = getattr(tpl, name)
-        if not isinstance(value, str) or ("{%" not in value and "{{" not in value):
-            continue
-        if not value.lstrip().startswith("<style") and "<div" not in value:
+        if not isinstance(value, str) or "<div" not in value:
             continue
         if "$" in value:
             continue  # an unfilled placeholder; covered via its factory below
@@ -560,9 +558,7 @@ def section_orphans() -> None:
         if name.startswith("_") or name in ORPHAN_EXEMPT:
             continue
         value = getattr(tpl, name)
-        if not isinstance(value, str) or ("{%" not in value and "{{" not in value):
-            continue
-        if not value.lstrip().startswith("<style") and "<div" not in value:
+        if not isinstance(value, str) or "<div" not in value:
             continue
         base = name.rstrip("_")
         referenced = f"tpl.{name}" in build or f"{base.lower()}(" in build

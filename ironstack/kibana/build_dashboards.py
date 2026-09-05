@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import copy
 import json
+from urllib.parse import quote
 import os
 import sys
 import uuid
@@ -396,19 +397,44 @@ NAV_GROUPS = [("all", NAV_ORDER, 48)]
 # iframe with no scripts and no input, and the KQL bar is lexical. So the honest answer
 # is a door, not a search box, and a Links panel is the only panel type that can be one.
 #
+# Phase 4 asked for that door to be a filled oxblood button in the brand bar. It cannot
+# be: probe_links.py proved on 2026-09-05 that Kibana strips <a> out of a custom content
+# panel entirely, class and all. A Links panel is styled by Kibana and offers no colour.
+# So the button was made louder the only ways available - four units tall instead of two,
+# on the brand row instead of sharing the nav row, and alone on that side of the page -
+# and the Signal row got a line telling the reader it is there.
+#
 # The URL is deployment-specific, like ES_ENDPOINT, so it comes from the environment
 # rather than the repo: a starter user's Kibana is not this one. Unset, the panel is
 # simply not built and the nav takes the full width.
 COACH_URL = os.environ.get("IRONSTACK_COACH_URL", "").strip()
 
 
+# A question the page can hand the coach, per dashboard. The coach is the only surface
+# that can read the semantic fields, so the pages whose real question is a reading rather
+# than a number get theirs pre-filled. `encode_url: False` is why the value is quoted here
+# rather than left to Kibana.
+COACH_ASK = {
+    "lift": "How has this lift been trending, and what should I do about it?",
+    "mindset": "Read my training notes and tell me what keeps coming up.",
+    "meets": "I am eight weeks out. What should I be watching?",
+}
+
+
 def coach_link(current: str) -> Inline:
+    ask = COACH_ASK.get(current)
+    destination = COACH_URL
+    if ask:
+        # Unverified until probe_links.py is run: whether Agent Builder reads ?q=. An
+        # unknown query parameter is ignored by every app I have seen, so the downside is
+        # a link that works without the prefill rather than a broken one.
+        destination += ("&" if "?" in COACH_URL else "?") + "q=" + quote(ask)
     return Inline(f"coach-{current}", "links", {
         "title": "", "layout": "horizontal", "hidePanelTitles": True,
         "links": [{
             "type": "externalLink",
             "label": "ASK THE COACH",
-            "destination": COACH_URL,
+            "destination": destination,
             "order": 0,
             "options": {"open_in_new_tab": True, "encode_url": False},
         }],
@@ -462,12 +488,13 @@ class Dashboard:
         self.y = 0
         self.objects: list[dict] = []  # saved objects this dashboard owns (Lens etc.)
         # chrome: brand bar + nav
-        self.row((custom(f"brand-{key}", brand_bar(key.upper(), tagline),
-                         "FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP date"), 48, []), h=4)
-        nav_w = 40 if COACH_URL else 48
-        nav = [(links(key, name, members), nav_w, []) for name, members, _ in NAV_GROUPS]
+        brand = [(custom(f"brand-{key}", brand_bar(key.upper(), tagline),
+                         "FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP date"),
+                  38 if COACH_URL else 48, [])]
         if COACH_URL:
-            nav.append((coach_link(key), 8, []))
+            brand.append((coach_link(key), 10, []))
+        self.row(*brand, h=4)
+        nav = [(links(key, name, members), 48, []) for name, members, _ in NAV_GROUPS]
         self.row(*nav, h=2)
 
     def row(self, *items, h=8):
@@ -798,6 +825,10 @@ def build() -> list[dict]:
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
           (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=10)
+    # Directly under the verdicts, and only here: repeated on all seven pages it would be
+    # furniture. Built only when there is a coach to point at.
+    if COACH_URL:
+        d.row((custom("ov-ask", tpl.COACH_PROMPT), 48, []), h=2)
     # Watch items sit directly under the verdicts, on purpose. The drift card says
     # calves; these say grip, deadlift, lower back. Both are true — one measures volume
     # gaps, the other records what the lifter actually felt — and a lifter trusts the

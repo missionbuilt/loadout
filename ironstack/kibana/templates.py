@@ -149,10 +149,28 @@ body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px;overflo
 .sq{{display:inline-block;width:11px;height:11px;background:$BLOOD;transform:translateY(-1px)}}
 .vr{{width:1px;height:22px;background:$RULE;transform:translateY(4px);margin:0 6px}}
 .section{{font-family:$MONO;font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$DIM}}
-.tagline{{font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:$DIM;text-align:right;max-width:52%;line-height:1.55}}
+.tagline{{font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:$DIM;text-align:right;max-width:60%;line-height:1.55}}
 </style>
 <div class="eyebrow">&#9646;&#9646;&#9646;&nbsp;&nbsp;A Mission Built training system&nbsp;&nbsp;&#9646;&#9646;&#9646;</div>
 <div class="bar"><div class="left"><span class="word">Iron</span><span class="sq"></span><span class="word">Stack</span><span class="vr"></span><span class="section">{section}</span></div><div class="tagline">{tagline}</div></div>""")
+
+
+
+# A verdict card is an argument, and an argument the reader cannot answer is a lecture.
+# This is the line that says the argument is answerable. It sits directly under the
+# Signal row and points at the button, because a custom content panel cannot be a link
+# itself - it renders in a sandboxed iframe with no scripts and no <a href>.
+#
+# It is deliberately not a fourth verdict: no eyebrow, no hero, one line, dim.
+
+COACH_PROMPT = page(tok("""<style>
+.ask{font-family:$MONO;font-size:12px;letter-spacing:.04em;color:$DIM;line-height:1.6}
+.ask b{color:$CHALK;font-weight:600}
+.ask .where{color:$STEEL;text-transform:uppercase;font-size:10px;letter-spacing:.14em}
+</style>
+<div class="ask">Disagree with a verdict, or want the reasoning behind one?
+<b>Ask the coach.</b> It is the only thing here that has read your notes.
+&nbsp;&nbsp;<span class="where">&#9652;&nbsp;top right</span></div>"""))
 
 
 # --------------------------------------------------------------------------- Liquid helpers
@@ -453,6 +471,14 @@ def signal(question: str, body: str, prov: str, see: str = "") -> str:
     see. `see` is a text pointer, not a link: custom content panels render in a
     sandboxed iframe with no scripts and no <a href>, so the Links panel is the
     only real door on the page.
+
+    Re-verified 2026-09-05 with kibana/probe_links.py, before Phase 4 built anything
+    on top of it. Four buttons in one panel, identical CSS: <a target="_top">,
+    <a target="_blank">, <a> with no target, and a <span> as the control. The span
+    rendered as the styled button; all three anchors came out as bare text having
+    lost even their class, and clicking them did nothing. Kibana strips the element,
+    not just its behaviour. So a coach button drawn inside a card is not possible,
+    and neither is our own nav - which is what would have made embed mode stick.
     """
     tail = f'<div class="see">{see}</div>' if see else ""
     return (BASE_CSS + SIGNAL_CSS + '<div class="sig">'
