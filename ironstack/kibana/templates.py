@@ -225,7 +225,7 @@ window it actually got. {%- endcomment -%}
 {%- assign span_d = 90 -%}{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
 <div class="eyebrow">Projected total</div>
 <div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></div>
-<div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days{% endif %}</div>
+<div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days of main-lift work. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days of main-lift work{% endif %}</div>
 <div style="margin-top:12px">
 {% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endfor %}
 </div>

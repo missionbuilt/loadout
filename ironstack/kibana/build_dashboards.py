@@ -403,7 +403,8 @@ def coach_link(current: str) -> Inline:
 
 
 def links(current: str, group: str = "all", keys: list[str] | None = None) -> Inline:
-    """Kibana Links panel: the app nav. Carries filters and time so context survives a hop."""
+    """Kibana Links panel: the app nav. Carries neither filters nor time — each page is
+    entered on its own terms."""
     items, refs = [], []
     for key in (keys or NAV_ORDER):
         link_id = uid("nav", current, key)
@@ -414,7 +415,14 @@ def links(current: str, group: str = "all", keys: list[str] | None = None) -> In
                       # Meets used to leave every other page on a 10-year window.
                       # Drilldowns keep it True — clicking an old session has to carry a
                       # range wide enough to contain it.
-                      "options": {"open_in_new_tab": False, "use_time_range": False, "use_filters": True},
+                      # use_filters is False for the same reason use_time_range is.
+                      # Verified in the browser: with comp-bench selected in Lift's control,
+                      # clicking OVERVIEW pinned lift_slug: comp-bench into Overview's filter
+                      # bar and the drift card ruled "Nothing is drifting. All 2 muscle groups
+                      # trained inside their normal window." A leaked scope and a confident
+                      # verdict — the same failure as the time picker. Drilldowns still carry
+                      # filters: carrying one is the whole point of a drilldown.
+                      "options": {"open_in_new_tab": False, "use_time_range": False, "use_filters": False},
                       "destinationRefName": f"link_{link_id}_dashboard"})
         refs.append({"name": f"link_{link_id}_dashboard", "type": "dashboard", "id": DASH[key]})
     return Inline(f"nav-{current}-{group}", "links", {"title": "", "layout": "horizontal", "links": items,
@@ -767,11 +775,20 @@ def build() -> list[dict]:
     # ---------------------------------------------------------------- Lift
     d = Dashboard("lift", "Ironstack. Lift", "One exercise over time. Arrives filtered to exercise.name.",
                   "One exercise over time. Pick a lift above, or click a lift anywhere to land here.",
-                  # Sorted by set count so the competition lifts lead the list instead of
-                  # "1-arm-cable-rows". The values are still slugs: there is no display-name
-                  # field on a set yet (exercise.name is the raw logged spelling, which is
-                  # why the header reads COMPETITION DEADLIFT for one lift and COMP BENCH
-                  # for another). That is an indexer change, not a dashboard one.
+                  # A FAMILY control on lift_family was built here and removed. It worked
+                  # as a picker — squat narrowed LIFT to comp-squat 204, high-bar 84, ssb 49,
+                  # tempo 25, pause 15: comp lift first, five options instead of 158. But
+                  # ov-total-chart drills into this page split on lift_family, so the control
+                  # and the drilldown filter the same field. That is the Session bug — the
+                  # drilldown replaces the app filter array, the control's filter sits outside
+                  # it, the two AND, and the page empties. Reproduced in the browser: both
+                  # controls flagged invalid, header reading OPEN A LIFT FROM ANY DASHBOARD.
+                  # Sorting LIFT by count does not put the competition lifts on top either
+                  # (single-leg-calf-raises 300, unknown-exercise 261, comp-bench 208): count
+                  # is the wrong proxy. The fix is the lift_name display field in the Phase 1
+                  # reindex, not another control. The values here are still slugs, which is
+                  # why the header reads COMPETITION DEADLIFT for one lift and COMP BENCH for
+                  # another.
                   controls=[(T, "lift_slug", "LIFT", ["comp-deadlift"], {"sort": {"by": "_count", "direction": "desc"}}),
                             (T, "program.block", "BLOCK")], time_from="now-2y")
     d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=6)
