@@ -72,7 +72,7 @@ Name the bar, the rack, the machine — `config/equipment.json` holds the gym on
 log references it by id:
 
 ```
-# Competition Deadlift | main | @titan-platform @texas-db
+# Competition Deadlift | main | @ohio-power
 275x4 @7 +@lever-belt, @chalk
 ```
 
@@ -171,7 +171,7 @@ Re-run `python ingest/setup_indices.py` after pulling mapping changes, then
 
 ```bash
 python ingest/test_shorthand.py    # round-trips every log in the repo through the format
-python ingest/weather.py 40.35 -80.05 2026-09-04 18 America/New_York   # the weather lookup alone
+python ingest/weather.py 39.8 -89.65 2026-09-04 18 America/Chicago   # the weather lookup alone
 python ingest/shorthand.py --encode workouts/2026/2026-09-03.json   # JSON -> shorthand
 python ingest/render_md.py workouts/2026/2026-09-03.json --write    # regenerate one markdown log
 ```

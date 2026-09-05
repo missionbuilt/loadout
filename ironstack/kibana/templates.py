@@ -12,6 +12,55 @@ No em-dashes in UI strings.
 
 from __future__ import annotations
 
+import os
+import re
+
+# --------------------------------------------------------------------------- units
+#
+# The data model is imperial: weight_lb, tonnage_lb, distance_ft, environment.temp_f.
+# That is not a display choice, it is what the indexer writes, so there is no
+# IRONSTACK_UNITS switch here: relabelling "lb" as "kg" without converting the numbers
+# would turn a 909 lb total into a 909 kg one, which is the loudest possible lie a
+# training log can tell. What this block buys is that the labels live in ONE place
+# instead of being littered as string literals across a dozen cards, so the day a
+# conversion layer does exist there is exactly one row to change per unit.
+
+UNITS = {
+    "weight": "lb",    # weight_lb, tonnage_lb, cum_tonnage_lb, est_e1rm, total_lb
+    "distance": "ft",  # distance_ft
+    "temp": "F",       # environment.temp_f
+    "mass_alt": "kg",  # workout-meets carries kg natively; not a conversion of the above
+}
+
+# --------------------------------------------------------------------------- timezone
+#
+# ES|QL DATE_FORMAT and Liquid's `"now" | date` both work in UTC, so a days-to-meet
+# figure flipped at UTC midnight and every human-readable date on the pages was a UTC
+# date. IRONSTACK_TZ is a build-time fixed offset ("UTC", "-07:00", "+0530"). It has to
+# be a fixed offset rather than an IANA zone because ES|QL's DATE_FORMAT takes no
+# timezone argument (see build_dashboards.dfmt): the only lever either engine offers is
+# shifting the instant before it is formatted, and a shift is a number.
+
+TZ = os.environ.get("IRONSTACK_TZ", "UTC").strip() or "UTC"
+
+
+def tz_offset_seconds(tz: str) -> int:
+    """Seconds to add to a UTC instant to land on the configured wall clock."""
+    if tz.upper() in ("UTC", "Z", "GMT", ""):
+        return 0
+    m = re.fullmatch(r"(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?", tz.strip())
+    if not m:
+        raise ValueError(
+            f"IRONSTACK_TZ must be UTC or a fixed offset like -07:00, got {tz!r}. "
+            "ES|QL's DATE_FORMAT has no timezone parameter, so a named zone cannot "
+            "be honoured at build time."
+        )
+    sign = -1 if m.group(1) == "-" else 1
+    return sign * (int(m.group(2)) * 3600 + int(m.group(3) or 0) * 60)
+
+
+TZ_OFFSET_SEC = tz_offset_seconds(TZ)
+
 # --------------------------------------------------------------------------- tokens
 
 BG = "#171513"
@@ -33,6 +82,10 @@ TOKENS = {
     "$BG": BG, "$PANEL": PANEL, "$RULE": RULE, "$CHALK": CHALK, "$DIM": DIM, "$FAINT": FAINT,
     "$STEEL": STEEL, "$BLOOD": BLOOD, "$BLOOD_DIM": BLOOD_DIM, "$ARMY": ARMY,
     "$DISPLAY": DISPLAY, "$MONO": MONO, "$SERIF": SERIF,
+    # units and the build-time clock offset, so neither is a literal in a card
+    "$U_WEIGHT": UNITS["weight"], "$U_DISTANCE": UNITS["distance"],
+    "$U_TEMP": UNITS["temp"], "$U_MASS_ALT": UNITS["mass_alt"],
+    "$TZ_OFF": str(TZ_OFFSET_SEC),
 }
 
 
@@ -216,7 +269,7 @@ def rpe_class(expr: str) -> str:
 
 
 # A Liquid snippet that leaves `days` = whole days from now to the meet date in rows[0]['program.meet_date'].
-DAYS_TO_MEET = """{% if rows[0]['program.meet_date'].value %}{% assign now_s = "now" | date: "%s" | plus: 0 %}{% assign meet_s = rows[0]['program.meet_date'].value | date: "%s" | plus: 0 %}{% assign days = meet_s | minus: now_s | divided_by: 86400.0 | ceil %}{% endif %}"""
+DAYS_TO_MEET = """{% if rows[0]['program.meet_date'].value %}{% assign now_s = "now" | date: "%s" | plus: $TZ_OFF %}{% assign meet_s = rows[0]['program.meet_date'].value | date: "%s" | plus: 0 %}{% assign days = meet_s | minus: now_s | divided_by: 86400.0 | ceil %}{% endif %}"""
 
 
 
@@ -227,28 +280,49 @@ DAYS_TO_MEET_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Days to meet</div>""" + empty("No sessions yet") + """{% else %}""" + DAYS_TO_MEET + """
 <div><div class="eyebrow">Days to meet</div>
 {% if days %}<div class="hero" style="margin-top:8px">{{ days }}</div>{% else %}<div class="empty" style="margin-top:10px">No meet on the calendar</div>{% endif %}</div>
-<div class="sub">{{ rows[0]['meet_s'].value }}<br>{{ rows[0]['program.phase'].value }} &middot; week {{ rows[0]['program.week'].value }} &middot; day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}<br><span class="faint">last trained {{ rows[0]['date_s'].value }}</span></div>
+<div class="sub">{{ rows[0]['meet_s'].value | escape }}<br>{{ rows[0]['program.phase'].value | escape }} &middot; week {{ rows[0]['program.week'].value }} &middot; day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}<br><span class="faint">last trained {{ rows[0]['date_s'].value | escape }}</span></div>
 {% endif %}
 </div>"""))
 
 TOTAL_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Projected total</div>""" + empty() + """{% else %}
-{%- assign total = 0 -%}{%- for r in rows -%}{%- assign _v = r['e1'].value | round -%}{%- assign total = total | plus: _v -%}{%- endfor -%}
-{%- assign best = rows[0]['e1'].value | plus: 0 -%}
+{%- comment -%} One panel, two indices. The lift rows come from workout-sets and carry a
+lift family; one further row comes from workout-meets, carries no family, and holds
+MAX(total_lb) - the reader's own meet best. Until 2026-09-05 that number was a build-time
+constant carrying the author's last meet total, so a stranger's Overview asserted his
+record as theirs. A custom-content panel's query can read data, so it reads it.
+{%- endcomment -%}
+{%- assign total = 0 -%}{%- assign best = 0 -%}{%- assign lifts = 0 -%}{%- assign meet_max = 0 -%}
 {%- comment -%} The query asks for 90 days and the picker is ANDed on top. At "Last 30
 days" the number was 843 under a label still promising 90; the label now reports the
 window it actually got. {%- endcomment -%}
-{%- assign now_s = "now" | date: "%s" | plus: 0 -%}{%- assign oldest_s = 0 -%}
-{%- for r in rows -%}{%- if r['first_d'].value -%}{%- assign fs = r['first_d'].value | date: "%s" | plus: 0 -%}{%- if oldest_s == 0 or fs < oldest_s -%}{%- assign oldest_s = fs -%}{%- endif -%}{%- endif -%}{%- endfor -%}
+{%- assign now_s = "now" | date: "%s" | plus: $TZ_OFF -%}{%- assign oldest_s = 0 -%}
+{%- for r in rows -%}
+{%- if r['meet_lb'].value -%}{%- assign _m = r['meet_lb'].value | plus: 0 -%}{%- if _m > meet_max -%}{%- assign meet_max = _m -%}{%- endif -%}{%- endif -%}
+{%- if r['fam'].value -%}
+{%- assign lifts = lifts | plus: 1 -%}
+{%- assign _v = r['e1'].value | round -%}{%- assign total = total | plus: _v -%}
+{%- if _v > best -%}{%- assign best = _v -%}{%- endif -%}
+{%- if r['first_d'].value -%}{%- assign fs = r['first_d'].value | date: "%s" | plus: 0 -%}{%- if oldest_s == 0 or fs < oldest_s -%}{%- assign oldest_s = fs -%}{%- endif -%}{%- endif -%}
+{%- endif -%}
+{%- endfor -%}
 {%- assign span_d = 90 -%}{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
+{% if lifts == 0 %}<div class="eyebrow">Projected total</div>""" + empty("No main-lift work in this window") + """{% else %}
 <div class="eyebrow">Projected total</div>
-<div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></div>
+<div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">$U_WEIGHT</span></div>
 <div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days of main-lift work. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days of main-lift work{% endif %}</div>
 <div style="margin-top:12px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endfor %}
+{% for r in rows %}{% if r['fam'].value %}<div class="liftrow"><span class="lname">{{ r['fam'].value | escape }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endif %}{% endfor %}
 </div>
-{%- assign pct = total | times: 100 | divided_by: $MEET_MAX_NUM | round -%}{%- assign togo = $MEET_MAX_NUM | minus: total | round -%}
-<div class="rule" style="margin-top:12px;padding-top:8px"><span class="sub">{% if total >= $MEET_MAX_NUM %}<span class="v">{{ pct }}%</span> of your meet best, $MEET_MAX lb{% else %}<span class="v">{{ pct }}%</span> of your meet best &middot; <span class="v">""" + num("togo") + """&nbsp;lb</span> to go{% endif %}</span></div>
+<div class="rule" style="margin-top:12px;padding-top:8px"><span class="sub">
+{%- if meet_max > 0 -%}
+{%- assign pct = total | times: 100 | divided_by: meet_max | round -%}{%- assign togo = meet_max | minus: total | round -%}
+{% if total >= meet_max %}<span class="v">{{ pct }}%</span> of your meet best,&nbsp;""" + num("meet_max", 1) + """&nbsp;$U_WEIGHT{% else %}<span class="v">{{ pct }}%</span> of your meet best,&nbsp;""" + num("meet_max", 1) + """&nbsp;$U_WEIGHT &middot; <span class="v">""" + num("togo") + """&nbsp;$U_WEIGHT</span> to go{% endif %}
+{%- else -%}
+No meet on the record yet, so there is nothing to hold this against. Log one and this line starts keeping score.
+{%- endif -%}
+</span></div>
+{% endif %}
 {% endif %}"""))
 
 
@@ -257,7 +331,7 @@ WATCH_CARD = page(tok("""
 <div class="eyebrow">In your own words</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("Nothing flagged yet") + """</div>{% else %}
 <div class="list" style="margin-top:8px">
-{% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value }}</span><span class="txt">{{ r['item'].value }}</span></div>{% endfor %}
+{% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value | escape }}</span><span class="txt">{{ r['item'].value | escape }}</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 
@@ -266,22 +340,22 @@ WATCH_CARD = page(tok("""
 PROGRAM_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Program</div>""" + empty("No sessions in this block") + """{% else %}""" + DAYS_TO_MEET + """
 <div class="hdr"><span class="eyebrow">Program</span></div>
-<div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.name'].value }}</span><span class="meta"><b>{{ rows[0]['program.block'].value }}</b> block &middot; <b>{{ rows[0]['program.phase'].value }}</b> phase &middot; week <b>{{ rows[0]['program.week'].value }}</b> &middot; day <b>{{ rows[0]['program.day'].value }}</b> of <b>{{ rows[0]['program.total_days'].value }}</b></span></div>
-<div class="sub" style="margin-top:10px">{% if days %}Meet {{ rows[0]['meet_s'].value }} &middot; <span class="v">{{ days }}</span> days out &middot; {% endif %}{{ rows[0]['n'].value }} sessions logged in this block &middot; last trained {{ rows[0]['date_s'].value }}</div>
+<div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.name'].value | escape }}</span><span class="meta"><b>{{ rows[0]['program.block'].value | escape }}</b> block &middot; <b>{{ rows[0]['program.phase'].value | escape }}</b> phase &middot; week <b>{{ rows[0]['program.week'].value }}</b> &middot; day <b>{{ rows[0]['program.day'].value }}</b> of <b>{{ rows[0]['program.total_days'].value }}</b></span></div>
+<div class="sub" style="margin-top:10px">{% if days %}Meet {{ rows[0]['meet_s'].value | escape }} &middot; <span class="v">{{ days }}</span> days out &middot; {% endif %}{{ rows[0]['n'].value }} sessions logged in this block &middot; last trained {{ rows[0]['date_s'].value | escape }}</div>
 {% endif %}"""))
 
 SESSION_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Session</div>""" + empty("Open a session from any dashboard") + """{% else %}
-<div class="hdr"><span class="eyebrow">Session</span><span class="eyebrow dim">{{ rows[0]['program.name'].value }}</span></div>
-<div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.block'].value }}<span class="dot"></span>week {{ rows[0]['program.week'].value }}<span class="dot"></span>day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}</span></div>
-<div class="sub" style="margin-top:10px"><span class="v">{{ rows[0]['date_s'].value }}</span>{% if rows[0]['start_time'].value %} &middot; {{ rows[0]['start_time'].value }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value }}{% endif %}{% if rows[0]['location.name'].value %} &middot; {{ rows[0]['location.name'].value }}{% endif %}{% if rows[0]['location.travel'].value %} <span class="chip blood">travel</span>{% endif %}<br>
-<span class="faint">prev</span> {{ rows[0]['prev_session_id'].value | default: "none" }} &nbsp; <span class="faint">next</span> {{ rows[0]['next_session_id'].value | default: "none" }} &nbsp; <span class="faint">open them from the panel on the right</span></div>
+<div class="hdr"><span class="eyebrow">Session</span><span class="eyebrow dim">{{ rows[0]['program.name'].value | escape }}</span></div>
+<div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.block'].value | escape }}<span class="dot"></span>week {{ rows[0]['program.week'].value }}<span class="dot"></span>day {{ rows[0]['program.day'].value }} of {{ rows[0]['program.total_days'].value }}</span></div>
+<div class="sub" style="margin-top:10px"><span class="v">{{ rows[0]['date_s'].value | escape }}</span>{% if rows[0]['start_time'].value %} &middot; {{ rows[0]['start_time'].value | escape }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value | escape }}{% endif %}{% if rows[0]['location.name'].value %} &middot; {{ rows[0]['location.name'].value | escape }}{% endif %}{% if rows[0]['location.travel'].value %} <span class="chip blood">travel</span>{% endif %}<br>
+<span class="faint">prev</span> {{ rows[0]['prev_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">next</span> {{ rows[0]['next_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">open them from the panel on the right</span></div>
 {% endif %}"""))
 
 SESSION_TILES = page(tok("""
 <div class="row">
 {% if rows.size == 0 %}<div class="card">""" + empty() + """</div>{% else %}
-<div class="card"><div class="top"><div class="eyebrow">Tonnage</div><div class="value">""" + num("rows[0]['totals.tonnage_lb'].value") + """<small>lb</small></div></div><div class="sub">moved this session</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Tonnage</div><div class="value">""" + num("rows[0]['totals.tonnage_lb'].value") + """<small>$U_WEIGHT</small></div></div><div class="sub">moved this session</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Length</div>{% if rows[0]['duration_min'].value %}<div class="value">{{ rows[0]['duration_min'].value | round }}<small>min</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{{ rows[0]['streak_day'].value }} day streak</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Avg working RPE</div><div class="value">{{ rows[0]['avg_working_rpe'].value | round: 1 }}</div></div><div class="sub">{{ rows[0]['totals.working_sets'].value }} working sets</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Sets</div><div class="value">{{ rows[0]['totals.sets'].value }}</div></div><div class="sub">{{ rows[0]['totals.reps'].value }} reps &middot; {{ rows[0]['totals.exercises'].value }} lifts</div></div>
@@ -300,16 +374,16 @@ TOP_SET_HERO = page(tok("""
 """ + rpe_class("rows[0]['rpe'].value") + """
 <div class="eyebrow">Top set</div>
 <div style="margin-top:7px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-<span class="hero">""" + num("rows[0]['weight_lb'].value") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></span>
+<span class="hero">""" + num("rows[0]['weight_lb'].value") + """<span style="font-size:20px;color:$DIM;margin-left:6px">$U_WEIGHT</span></span>
 <span class="hero" style="font-size:26px;color:$DIM">&times;&nbsp;{{ rows[0]['reps'].value | round }}</span>
 {% if rows[0]['rpe'].value %}<span class="set" style="padding:0"><span class="rpe {{ rc }}" style="font-size:21px">@&nbsp;{{ rows[0]['rpe'].value | round: 1 }}</span></span>{% endif %}
 </div>
-<div class="value" style="font-size:17px;margin-top:7px;white-space:normal">{{ rows[0]['exercise.name'].value }}</div>
+<div class="value" style="font-size:17px;margin-top:7px;white-space:normal">{{ rows[0]['exercise.name'].value | escape }}</div>
 <div class="rule" style="margin-top:10px;padding-top:8px">
 {% if pw != "" %}{%- assign delta = rows[0]['weight_lb'].value | minus: pw -%}
-<span class="sub"><span class="faint">last {{ pr | round }}-rep set</span>&nbsp; <span class="v">""" + num("pw") + """&nbsp;&times;&nbsp;{{ pr | round }}</span>{% if prpe %} <span class="faint">@&nbsp;{{ prpe }}</span>{% endif %} <span class="faint">&middot; {{ pd }}</span></span>
-{% if delta > 0 %}<span class="chip blood">+{{ delta | round }} lb</span>{% elsif delta < 0 %}<span class="chip">{{ delta | round }} lb</span>{% else %}<span class="chip">same weight</span>{% endif %}
-{% elsif aw != "" %}<span class="sub"><span class="faint">last time</span>&nbsp; <span class="v">""" + num("aw") + """&nbsp;&times;&nbsp;{{ ar | round }}</span>{% if arpe %} <span class="faint">@&nbsp;{{ arpe }}</span>{% endif %} <span class="faint">&middot; {{ ad }}</span> <span class="faint">&mdash; different reps, not compared</span></span>
+<span class="sub"><span class="faint">last {{ pr | round }}-rep set</span>&nbsp; <span class="v">""" + num("pw") + """&nbsp;&times;&nbsp;{{ pr | round }}</span>{% if prpe %} <span class="faint">@&nbsp;{{ prpe }}</span>{% endif %} <span class="faint">&middot; {{ pd | escape }}</span></span>
+{% if delta > 0 %}<span class="chip blood">+{{ delta | round }} $U_WEIGHT</span>{% elsif delta < 0 %}<span class="chip">{{ delta | round }} $U_WEIGHT</span>{% else %}<span class="chip">same weight</span>{% endif %}
+{% elsif aw != "" %}<span class="sub"><span class="faint">last time</span>&nbsp; <span class="v">""" + num("aw") + """&nbsp;&times;&nbsp;{{ ar | round }}</span>{% if arpe %} <span class="faint">@&nbsp;{{ arpe }}</span>{% endif %} <span class="faint">&middot; {{ ad | escape }}</span> <span class="faint">&mdash; different reps, not compared</span></span>
 {% else %}<span class="sub faint">first time on record for this lift</span>{% endif %}</div>
 {% endif %}"""))
 
@@ -317,11 +391,11 @@ CONDITIONS_CARD = page(tok("""
 <div class="eyebrow">Conditions</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty() + """</div>{% else %}
 <div class="grid3" style="margin-top:10px">
-<div><div class="eyebrow">Temp</div>{% if rows[0]['environment.temp_f'].value %}<div class="value">{{ rows[0]['environment.temp_f'].value | round }}<small>F</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
+<div><div class="eyebrow">Temp</div>{% if rows[0]['environment.temp_f'].value %}<div class="value">{{ rows[0]['environment.temp_f'].value | round }}<small>$U_TEMP</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
 <div><div class="eyebrow">Humidity</div>{% if rows[0]['environment.humidity_pct'].value %}<div class="value">{{ rows[0]['environment.humidity_pct'].value | round }}<small>%</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
-<div><div class="eyebrow">Sky</div>{% if rows[0]['environment.conditions'].value %}<div class="sub" style="margin-top:7px;color:$CHALK;font-size:13px;line-height:1.45">{{ rows[0]['environment.conditions'].value }}</div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
+<div><div class="eyebrow">Sky</div>{% if rows[0]['environment.conditions'].value %}<div class="sub" style="margin-top:7px;color:$CHALK;font-size:13px;line-height:1.45">{{ rows[0]['environment.conditions'].value | escape }}</div>{% else %}<div class="empty">Not logged</div>{% endif %}</div>
 </div>
-<div class="sub" style="margin-top:10px">{% if rows[0]['environment.wind'].value %}{{ rows[0]['environment.wind'].value }}{% if rows[0]['environment.setting'].value %} &middot; {% endif %}{% endif %}{{ rows[0]['environment.setting'].value }}</div>
+<div class="sub" style="margin-top:10px">{% if rows[0]['environment.wind'].value %}{{ rows[0]['environment.wind'].value | escape }}{% if rows[0]['environment.setting'].value %} &middot; {% endif %}{% endif %}{{ rows[0]['environment.setting'].value | escape }}</div>
 {% endif %}"""))
 
 PERFORMANCE_CARD = page(tok("""
@@ -330,13 +404,13 @@ PERFORMANCE_CARD = page(tok("""
 {%- assign sid = rows[0]['session_id'].value -%}
 {%- assign has_prep = false -%}{%- for r in rows -%}{%- if r['session_id'].value == sid and r['exercise.category'].value == "prep" -%}{%- assign has_prep = true -%}{%- endif -%}{%- endfor -%}
 <div class="cols" style="margin-top:8px">
-{% assign cur = "" %}{% for r in rows %}{% if r['session_id'].value == sid and r['exercise.category'].value != "prep" %}{% if r['exercise.name'].value != cur %}{% unless cur == "" %}</div>{% endunless %}{% assign cur = r['exercise.name'].value %}<div class="ex"><div class="name">{{ cur }}<span class="cat">{{ r['exercise.category'].value }}</span></div>{% endif %}
-<div class="set {{ r['set_type'].value }}">""" + rpe_class("r['rpe'].value") + """<span class="n">{{ r['set_number'].value }}</span><span class="w">{% if r['load_type'].value == "bodyweight" %}BW{% elsif r['weight_lb'].value == 0 or r['weight_lb'].value == nil %}<span class="faint">&mdash;</span>{% else %}""" + num("r['weight_lb'].value") + """{% endif %}</span><span class="x">&times;</span><span class="r">{{ r['reps'].value | round }}{% if r['rep_unit'].value == "walks" %} walks{% if r['distance_ft'].value %} &middot; {{ r['distance_ft'].value | round }} ft{% endif %}{% elsif r['rep_unit'].value == "seconds" %} s{% endif %}</span>{% if r['rpe'].value %}<span class="rpe {{ rc }}">@ {{ r['rpe'].value | round: 1 }}</span>{% endif %}{% if r['gear_s'].value %}<span class="chip">{{ r['gear_s'].value }}</span>{% endif %}<span class="note">{{ r['notes'].value }}</span></div>
+{% assign cur = "" %}{% for r in rows %}{% if r['session_id'].value == sid and r['exercise.category'].value != "prep" %}{% if r['exercise.name'].value != cur %}{% unless cur == "" %}</div>{% endunless %}{% assign cur = r['exercise.name'].value %}<div class="ex"><div class="name">{{ cur | escape }}<span class="cat">{{ r['exercise.category'].value | escape }}</span></div>{% endif %}
+<div class="set {{ r['set_type'].value | escape }}">""" + rpe_class("r['rpe'].value") + """<span class="n">{{ r['set_number'].value }}</span><span class="w">{% if r['load_type'].value == "bodyweight" %}BW{% elsif r['weight_lb'].value == 0 or r['weight_lb'].value == nil %}<span class="faint">&mdash;</span>{% else %}""" + num("r['weight_lb'].value") + """{% endif %}</span><span class="x">&times;</span><span class="r">{{ r['reps'].value | round }}{% if r['rep_unit'].value == "walks" %} walks{% if r['distance_ft'].value %} &middot; {{ r['distance_ft'].value | round }} $U_DISTANCE{% endif %}{% elsif r['rep_unit'].value == "seconds" %} s{% endif %}</span>{% if r['rpe'].value %}<span class="rpe {{ rc }}">@ {{ r['rpe'].value | round: 1 }}</span>{% endif %}{% if r['gear_s'].value %}<span class="chip">{{ r['gear_s'].value | escape }}</span>{% endif %}<span class="note">{{ r['notes'].value | escape }}</span></div>
 {% endif %}{% endfor %}{% unless cur == "" %}</div>{% endunless %}
 </div>
 {% if has_prep %}<div class="rule" style="margin-top:10px;padding-top:8px">
 <div class="eyebrow">Warm-up</div>
-<div class="warm">{%- assign pcur = "" -%}{%- assign firstp = true -%}{% for r in rows %}{% if r['session_id'].value == sid and r['exercise.category'].value == "prep" %}{% if r['exercise.name'].value != pcur %}{%- assign pcur = r['exercise.name'].value -%}{% unless firstp %}<span class="sep">&middot;</span>{% endunless %}{%- assign firstp = false -%}<span class="nm">{{ pcur }}</span>{% endif %}<span class="qty">{% if r['load_type'].value == "bodyweight" %}BW{% else %}""" + num("r['weight_lb'].value") + """{% endif %}&times;{{ r['reps'].value | round }}{% if r['rep_unit'].value == "seconds" %}s{% endif %}</span>{% endif %}{% endfor %}</div>
+<div class="warm">{%- assign pcur = "" -%}{%- assign firstp = true -%}{% for r in rows %}{% if r['session_id'].value == sid and r['exercise.category'].value == "prep" %}{% if r['exercise.name'].value != pcur %}{%- assign pcur = r['exercise.name'].value -%}{% unless firstp %}<span class="sep">&middot;</span>{% endunless %}{%- assign firstp = false -%}<span class="nm">{{ pcur | escape }}</span>{% endif %}<span class="qty">{% if r['load_type'].value == "bodyweight" %}BW{% else %}""" + num("r['weight_lb'].value") + """{% endif %}&times;{{ r['reps'].value | round }}{% if r['rep_unit'].value == "seconds" %}s{% endif %}</span>{% endif %}{% endfor %}</div>
 </div>{% endif %}
 {% endif %}"""))
 
@@ -345,16 +419,16 @@ NOTES_CARD = page(tok("""
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No notes") + """</div>{% else %}
 {% assign sid = rows[0]['session_id'].value %}
 <div class="list" style="margin-top:8px">
-{% for r in rows %}{% if r['session_id'].value == sid %}<div class="item"><span class="when">{{ r['phase'].value }}</span><span class="txt"><span class="prose" style="color:$CHALK">{{ r['text'].value }}</span>{% if r['exercise.name'].value %} <span class="faint">{{ r['exercise.name'].value }}</span>{% endif %}{% if r['tags_s'].value %}<br>{% assign tags = r['tags_s'].value | split: "|" %}{% for t in tags %}<span class="chip">{{ t }}</span>{% endfor %}{% endif %}</span></div>{% endif %}{% endfor %}
+{% for r in rows %}{% if r['session_id'].value == sid %}<div class="item"><span class="when">{{ r['phase'].value | escape }}</span><span class="txt"><span class="prose" style="color:$CHALK">{{ r['text'].value | escape }}</span>{% if r['exercise.name'].value %} <span class="faint">{{ r['exercise.name'].value | escape }}</span>{% endif %}{% if r['tags_s'].value %}<br>{% assign tags = r['tags_s'].value | split: "|" %}{% for t in tags %}<span class="chip">{{ t | escape }}</span>{% endfor %}{% endif %}</span></div>{% endif %}{% endfor %}
 </div>{% endif %}"""))
 
 
 WRAP_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Wrap up</div><div style="margin-top:10px">""" + empty() + """</div>{% else %}
 <div class="eyebrow">Wrap up</div>
-<div class="prose" style="margin-top:8px">{{ rows[0]['wrap_up'].value | default: "Not written" }}</div>
-{% if rows[0]['watch_s'].value %}<div class="eyebrow" style="margin-top:14px">Watch</div><div class="list" style="margin-top:4px">{% assign items = rows[0]['watch_s'].value | split: "|" %}{% for w in items %}<div class="item"><span class="txt" style="font-size:11px">{{ w }}</span></div>{% endfor %}</div>{% endif %}
-{% if rows[0]['gear_notes'].value %}<div class="eyebrow" style="margin-top:14px">Gear</div><div class="prose" style="margin-top:4px;font-size:12px">{{ rows[0]['gear_notes'].value }}</div>{% endif %}
+<div class="prose" style="margin-top:8px">{{ rows[0]['wrap_up'].value | default: "Not written" | escape }}</div>
+{% if rows[0]['watch_s'].value %}<div class="eyebrow" style="margin-top:14px">Watch</div><div class="list" style="margin-top:4px">{% assign items = rows[0]['watch_s'].value | split: "|" %}{% for w in items %}<div class="item"><span class="txt" style="font-size:11px">{{ w | escape }}</span></div>{% endfor %}</div>{% endif %}
+{% if rows[0]['gear_notes'].value %}<div class="eyebrow" style="margin-top:14px">Gear</div><div class="prose" style="margin-top:4px;font-size:12px">{{ rows[0]['gear_notes'].value | escape }}</div>{% endif %}
 {% endif %}"""))
 
 # The lift name and its numbers on one line. Until Phase 3 this was the name plus three
@@ -368,9 +442,9 @@ WRAP_CARD = page(tok("""
 LIFT_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Lift</div>""" + empty("Open a lift from any dashboard") + """{% else %}
 <div class="row">
-<div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value }}</div></div>
-<div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value }}</div>
-<div class="sub">best e1RM&nbsp;""" + num("rows[0]['e1'].value") + """&nbsp;lb &middot; best top set&nbsp;""" + num("rows[0]['top'].value") + """&nbsp;lb &middot; avg RPE {{ rows[0]['rpe'].value | round: 1 }}</div></div>
+<div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value | escape }}</div></div>
+<div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value | escape }}</div>
+<div class="sub">best e1RM&nbsp;""" + num("rows[0]['e1'].value") + """&nbsp;$U_WEIGHT &middot; best top set&nbsp;""" + num("rows[0]['top'].value") + """&nbsp;$U_WEIGHT &middot; avg RPE {{ rows[0]['rpe'].value | round: 1 }}</div></div>
 </div>{% endif %}"""))
 
 
@@ -390,7 +464,7 @@ MEET_CARDS = page(tok("""
 record: at two years this read "1 competitions logged, 100% success" against a real
 2 and 83%. The tiles now say what they count. {%- endcomment -%}
 <div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">in the page's range</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Best total</div><div class="value" style="color:$BLOOD">{{ rows[0]['total_kg'].value | round: 1 }}<small>kg</small></div></div><div class="sub">""" + num("rows[0]['total_lb'].value", 1) + """&nbsp;lb</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Best total</div><div class="value" style="color:$BLOOD">{{ rows[0]['total_kg'].value | round: 1 }}<small>$U_MASS_ALT</small></div></div><div class="sub">""" + num("rows[0]['total_lb'].value", 1) + """&nbsp;$U_WEIGHT</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Best DOTS</div><div class="value">{{ rows[0]['dots'].value | round: 2 }}</div></div><div class="sub">across those meets</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Attempts made</div><div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div></div><div class="sub">{%- assign att = rows[0]['attempts'].value | plus: 0 -%}{% if att > 0 %}{{ rows[0]['made'].value | times: 100 | divided_by: att | round }}% made in range{% else %}no attempts logged{% endif %}</div></div>
 {% endif %}
@@ -401,7 +475,7 @@ MEET_BESTS = page(tok("""
 {%- assign best = rows[0]['lb'].value | plus: 0 -%}
 <div class="eyebrow">Best lifts on the platform</div>
 <div style="margin-top:10px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['lb'].value", 1) + """<small style="font-size:11px;color:$FAINT;margin-left:4px">lb</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{{ r['kg'].value | round: 1 }} kg</span></div>{% endfor %}
+{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value | escape }}</span><span class="lval">""" + num("r['lb'].value", 1) + """<small style="font-size:11px;color:$FAINT;margin-left:4px">$U_WEIGHT</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{{ r['kg'].value | round: 1 }} $U_MASS_ALT</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 MEET_LIST = page(tok("""
@@ -409,9 +483,9 @@ MEET_LIST = page(tok("""
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No meets logged") + """</div>{% else %}
 <div class="row" style="margin-top:10px;height:auto;gap:0">
 {% assign cur = "" %}{% for r in rows %}{% if r['meet_id'].value != cur %}{% unless forloop.first %}</div></div>{% endunless %}{% assign cur = r['meet_id'].value %}{% assign curlift = "" %}
-<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value }}</div><div class="sub"><span class="v">{{ r['total_kg'].value | round: 1 }}</span> kg total &middot; <span class="v">{{ r['dots'].value | round: 2 }}</span> DOTS &middot; {{ r['bodyweight_kg'].value | round: 1 }} kg bw</div></div><div class="grid3" style="margin-top:10px">{% endif %}
+<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value | escape }}</div><div class="sub"><span class="v">{{ r['total_kg'].value | round: 1 }}</span> $U_MASS_ALT total &middot; <span class="v">{{ r['dots'].value | round: 2 }}</span> DOTS &middot; {{ r['bodyweight_kg'].value | round: 1 }} $U_MASS_ALT bw</div></div><div class="grid3" style="margin-top:10px">{% endif %}
 {% if r['lift'].value != curlift %}{% assign curlift = r['lift'].value %}{% endif %}
-<div><div class="eyebrow" style="letter-spacing:.1em">{{ r['lift'].value }} {{ r['attempt_no'].value }}</div><span class="chip {% if r['made'].value %}made{% else %}miss{% endif %}">{{ r['weight_kg'].value | round: 1 }}</span></div>
+<div><div class="eyebrow" style="letter-spacing:.1em">{{ r['lift'].value | escape }} {{ r['attempt_no'].value }}</div><span class="chip {% if r['made'].value %}made{% else %}miss{% endif %}">{{ r['weight_kg'].value | round: 1 }}</span></div>
 {% if forloop.last %}</div></div>{% endif %}{% endfor %}
 </div>{% endif %}"""))
 
@@ -419,12 +493,8 @@ RECENT_NOTES = page(tok("""
 <div class="eyebrow">Recent notes</div>
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No notes") + """</div>{% else %}
 <div class="list" style="margin-top:8px">
-{% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value }}<br><span style="color:$DIM">{{ r['phase'].value }}</span></span><span class="txt"><span class="prose" style="color:$CHALK">{{ r['text'].value }}</span>{% if r['exercise.name'].value %} <span class="faint">{{ r['exercise.name'].value }}</span>{% endif %}{% if r['tags_s'].value %}<br>{% assign tags = r['tags_s'].value | split: "|" %}{% for t in tags %}<span class="chip">{{ t }}</span>{% endfor %}{% endif %}</span></div>{% endfor %}
+{% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value | escape }}<br><span style="color:$DIM">{{ r['phase'].value | escape }}</span></span><span class="txt"><span class="prose" style="color:$CHALK">{{ r['text'].value | escape }}</span>{% if r['exercise.name'].value %} <span class="faint">{{ r['exercise.name'].value | escape }}</span>{% endif %}{% if r['tags_s'].value %}<br>{% assign tags = r['tags_s'].value | split: "|" %}{% for t in tags %}<span class="chip">{{ t | escape }}</span>{% endfor %}{% endif %}</span></div>{% endfor %}
 </div>{% endif %}"""))
-
-
-def total_card(meet_max: float) -> str:
-    return TOTAL_CARD.replace("$MEET_MAX_NUM", str(meet_max)).replace("$MEET_MAX", f"{meet_max:g}")
 
 
 # --------------------------------------------------------------------------- Signal cards
@@ -481,11 +551,14 @@ def signal(question: str, body: str, prov: str, see: str = "") -> str:
     and neither is our own nav - which is what would have made embed mode stick.
     """
     tail = f'<div class="see">{see}</div>' if see else ""
-    return (BASE_CSS + SIGNAL_CSS + '<div class="sig">'
-            + f'<div class="q">{question}</div>'
-            + body
-            + f'<div class="prov">{prov}</div>'
-            + tail + "</div>")
+    # tok() over the assembled card, not just the CSS. The bodies are plain module
+    # strings and carry $U_WEIGHT and $TZ_OFF now; an unsubstituted token is a Liquid
+    # syntax error, which blanks the panel.
+    return tok(BASE_CSS + SIGNAL_CSS + '<div class="sig">'
+               + f'<div class="q">{question}</div>'
+               + body
+               + f'<div class="prov">{prov}</div>'
+               + tail + "</div>")
 
 
 # --- 1. intensity ----------------------------------------------------------
@@ -508,36 +581,59 @@ the filter bar.</div>
 {%- if tot == 0 -%}
 <div class="none">No main-lift reps logged this week.<br>Nothing to weigh yet.</div>
 {%- else -%}
-{%- assign prior = 0 -%}{%- assign beat = 0 -%}{%- assign sum = 0 -%}{%- assign maxh = hv -%}
+{%- comment -%} `equal` is not a rounding detail. Thirteen weeks of heavy = 0 is an
+ordinary hypertrophy block, and counting a tie as a loss made every one of those weeks
+read "Lighter than every one of your last 13 weeks" under evidence saying 0 of 80. Ties
+are carried separately and score half, so a week level with its history lands mid-scale.
+{%- endcomment -%}
+{%- assign prior = 0 -%}{%- assign beat = 0 -%}{%- assign equal = 0 -%}
+{%- assign sum = 0 -%}{%- assign maxh = hv -%}
 {%- for r in rows offset: 1 -%}
   {%- assign rt = r['tot'].value | plus: 0 -%}
   {%- if rt > 0 -%}
     {%- assign rh = r['heavy'].value | plus: 0 -%}
     {%- assign prior = prior | plus: 1 -%}
     {%- assign sum = sum | plus: rh -%}
-    {%- if rh < hv -%}{%- assign beat = beat | plus: 1 -%}{%- endif -%}
+    {%- if rh < hv -%}{%- assign beat = beat | plus: 1 -%}
+    {%- elsif rh == hv -%}{%- assign equal = equal | plus: 1 -%}{%- endif -%}
     {%- if rh > maxh -%}{%- assign maxh = rh -%}{%- endif -%}
   {%- endif -%}
 {%- endfor -%}
+{%- comment -%} How much history exists is the indexer's answer, not a count of the rows
+this query happened to return: the query is LIMIT 13 and a lifter with 40 weeks behind
+them should not be told the log is thin because 13 came back. {%- endcomment -%}
+{%- assign avail = prior -%}
+{%- if rows[0]['weeks_available'].value -%}
+{%- assign avail = rows[0]['weeks_available'].value | plus: 0 -%}
+{%- endif -%}
+{%- assign open_wk = false -%}
+{%- if rows[0]['week_state'].value == "in-progress" -%}{%- assign open_wk = true -%}{%- endif -%}
 {%- if prior < 4 -%}
 <div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
 <div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
+{%- if open_wk -%}<div class="base">this week is still open; both counts will grow</div>{%- endif -%}
 <div class="none">Ranking a week against your own history needs 4 earlier weeks
-carrying main-lift work. You have <b>{{ prior }}</b>.
+carrying main-lift work. You have <b>{{ avail }}</b>.
 </div>
 {%- else -%}
-{%- assign share = beat | times: 100 | divided_by: prior -%}
+{%- comment -%} (beat + equal/2) / prior, in integer arithmetic. {%- endcomment -%}
+{%- assign share = beat | times: 2 | plus: equal | times: 50 | divided_by: prior -%}
 {%- assign band = "b-light" -%}
 {%- if share >= 85 -%}{%- assign band = "b-max" -%}
 {%- elsif share >= 60 -%}{%- assign band = "b-heavy" -%}
 {%- elsif share >= 25 -%}{%- assign band = "b-normal" -%}{%- endif -%}
 <div class="verdict {{ band }}">
 {%- if beat == prior -%}Heavier than any of your last {{ prior }} weeks.
-{%- elsif beat == 0 -%}Lighter than every one of your last {{ prior }} weeks.
+{%- elsif equal == prior -%}Level with your last {{ prior }} weeks.
+{%- elsif beat == 0 and equal == 0 -%}Lighter than every one of your last {{ prior }} weeks.
+{%- elsif beat == 0 -%}Level with {{ equal }} of your last {{ prior }} weeks, under the rest.
 {%- else -%}Heavier than {{ beat }} of your last {{ prior }} weeks.{%- endif -%}
 </div>
 {%- assign avg = sum | times: 1.0 | divided_by: prior -%}
-<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more of your best in the last 90 days.</div>
+<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more of your best in the last 90 days.
+{%- if equal > 0 and beat > 0 and beat != prior %} Level with {{ equal }} of them.{% endif -%}
+</div>
+{%- if open_wk -%}<div class="base">this week is still open; both counts will grow</div>{%- endif -%}
 {%- if maxh > 0 -%}
 {%- assign w = hv | times: 100 | divided_by: maxh -%}
 {%- assign bx = avg | times: 100 | divided_by: maxh | round -%}
@@ -621,8 +717,8 @@ recent distinct months that were. {%- endcomment -%}
 {%- endfor -%}
 <div class="also">
 {%- if found == 0 -%}No earlier week in your whole log in this band.
-{%- elsif found == 1 -%}Last time you were here: <b>{{ months }}</b>.
-{%- else -%}The last two times you were here: <b>{{ months }}</b>.{%- endif -%}
+{%- elsif found == 1 -%}Last time you were here: <b>{{ months | escape }}</b>.
+{%- else -%}The last two times you were here: <b>{{ months | escape }}</b>.{%- endif -%}
 </div>
 {%- endif -%}
 {%- endunless -%}
@@ -656,7 +752,7 @@ signals index exists to remove. {%- endcomment -%}
 filter on this page excludes them &mdash; this card ignores the time picker, but not the
 filter bar.</div>
 {%- else -%}
-{%- assign now_s = "now" | date: "%s" | plus: 0 -%}
+{%- assign now_s = "now" | date: "%s" | plus: $TZ_OFF -%}
 {%- assign flagged = 0 -%}{%- assign ranked = 0 -%}{%- assign groups = 0 -%}
 {%- assign f_name = "" -%}{%- assign f_gap = 0 -%}{%- assign f_cad = 0 -%}
 {%- for r in rows -%}
@@ -692,7 +788,7 @@ means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
 {%- else -%}
 {%- assign ratio = f_gap | times: 10 | divided_by: f_cad | round -%}
 {%- assign cls = "b-heavy" -%}{%- if ratio >= 30 -%}{%- assign cls = "b-max" -%}{%- endif -%}
-<div class="verdict {{ cls }}">{{ f_name }}: {{ f_gap }} days.</div>
+<div class="verdict {{ cls }}">{{ f_name | escape }}: {{ f_gap }} days.</div>
 <div class="ev">Normally every <b>{{ f_cad | round }}</b> days.</div>
 {%- assign scale = f_cad | times: 3 -%}
 {%- assign w = f_gap | times: 100 | divided_by: scale | round -%}
@@ -712,14 +808,14 @@ means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
     {%- assign nm = r['muscle'].value | replace: "-", " " | capitalize -%}
     {%- if gap > lim and nm != f_name -%}
       {%- assign shown = shown | plus: 1 -%}
-      {{ nm }} {{ gap }}d &middot; every {{ cad | round }}<br>
+      {{ nm | escape }} {{ gap }}d &middot; every {{ cad | round }}<br>
     {%- endif -%}
   {%- endif -%}
 {%- endfor -%}
 </div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
 
@@ -728,8 +824,10 @@ SIGNAL_DRIFT = signal(
     "What am I neglecting",
     _DRIFT_BODY,
     "Working sets, last 365 days, counted when the log was indexed rather than from what "
-    "this page is showing. Normal is that group's average gap over the year; a group is "
-    "flagged past twice it. Groups trained fewer than 6 times are not ranked.",
+    "this page is showing. Normal is that group's own average gap between sessions, "
+    "measured across the stretch it has actually been trained rather than across the whole "
+    "year; a group is flagged past twice it. Groups trained fewer than 6 times are not "
+    "ranked.",
     "See Session &#9656; every set",
 )
 
@@ -782,8 +880,8 @@ You have <b>{{ n }}</b> in this range.</div>
 {%- elsif gap <= 8 -%}Close to your best.
 {%- else -%}{{ gap }}% under your best.{%- endif -%}
 </div>
-<div class="ev">Recent best <b>{{ recent | round }}</b> lb &middot;
-your best <b>{{ peak | round }}</b> lb, {{ peak_s }}.</div>
+<div class="ev">Recent best <b>{{ recent | round }}</b> $U_WEIGHT &middot;
+your best <b>{{ peak | round }}</b> $U_WEIGHT, {{ peak_s | escape }}.</div>
 {%- if peak > 0 -%}
 {%- assign w = recent | times: 100 | divided_by: peak | round -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:100%"></u></div>
@@ -843,6 +941,11 @@ recent one; the week in progress always has the smallest weeks_out and is read o
 own, never folded into a total. {%- endcomment -%}
 {%- assign cur = "" -%}{%- assign cur_label = "" -%}
 {%- assign cur_n = 0 -%}{%- assign cur_k = 0 -%}
+{%- comment -%} cum_weeks is now ABSENT, not zero, on a cycle with no closed week inside
+its run-in, and `nil | plus: 0` is 0 - so presence is carried in its own flag. Without
+that the card cannot tell "no closed weeks" from "the field did not arrive", and the two
+want opposite sentences. {%- endcomment -%}
+{%- assign cur_closed = false -%}{%- assign cur_has = false -%}
 {%- assign cur_ton = 0 -%}{%- assign cur_heavy = 0 -%}
 {%- assign open_n = 0 -%}{%- assign open_ton = 0 -%}{%- assign open_days = 0 -%}{%- assign open_rpe = 0 -%}
 {%- for r in rows -%}
@@ -855,8 +958,14 @@ own, never folded into a total. {%- endcomment -%}
       {%- assign open_days = r['training_days'].value | plus: 0 -%}
       {%- assign open_rpe = r['avg_working_rpe'].value | plus: 0 -%}
     {%- else -%}
+      {%- assign cur_closed = true -%}
       {%- assign cur_n = r['weeks_out'].value | plus: 0 -%}
-      {%- assign cur_k = r['cum_weeks'].value | plus: 0 -%}
+      {%- if r['cum_weeks'].value -%}
+        {%- assign cur_has = true -%}
+        {%- assign cur_k = r['cum_weeks'].value | plus: 0 -%}
+      {%- else -%}
+        {%- assign cur_has = false -%}{%- assign cur_k = 0 -%}
+      {%- endif -%}
       {%- assign cur_ton = r['cum_tonnage_lb'].value | plus: 0 -%}
       {%- assign cur_heavy = r['cum_heavy'].value | plus: 0 -%}
     {%- endif -%}
@@ -900,30 +1009,41 @@ has to match as well, because a cycle whose run-in predates the log carries fewe
 weeks at the same distance, and its total would read low for that reason alone rather
 than because the lifter did less. {%- endcomment -%}
 {%- assign ref_ton = 0 -%}{%- assign ref_heavy = 0 -%}
+{%- assign ref_k = 0 -%}{%- assign ref_has = false -%}
 {%- assign ref_week = 0 -%}{%- assign ref_wk_days = 0 -%}{%- assign ref_wk_rpe = 0 -%}
 {%- for r in rows -%}
   {%- if r['cycle'].value == ref -%}
     {%- assign wo = r['weeks_out'].value | plus: 0 -%}
-    {%- assign ck = r['cum_weeks'].value | plus: 0 -%}
-    {%- if cur_k > 0 and wo == cur_n and ck == cur_k -%}
-      {%- assign ref_ton = r['cum_tonnage_lb'].value | plus: 0 -%}
-      {%- assign ref_heavy = r['cum_heavy'].value | plus: 0 -%}
+    {%- if wo == cur_n -%}
+      {%- if r['cum_weeks'].value -%}
+        {%- assign ref_has = true -%}
+        {%- assign ref_k = r['cum_weeks'].value | plus: 0 -%}
+      {%- endif -%}
+      {%- comment -%} The current cycle's cumulative window was widened at index time, so
+      two rows at the same weeks_out can cover a different number of closed weeks. Dividing
+      across that mismatch produced 466% where the old structural zero produced 0%; both
+      numbers describe the calendar, not the lifter. Compare only on an exact match.
+      {%- endcomment -%}
+      {%- if cur_has and ref_has and ref_k == cur_k -%}
+        {%- assign ref_ton = r['cum_tonnage_lb'].value | plus: 0 -%}
+        {%- assign ref_heavy = r['cum_heavy'].value | plus: 0 -%}
+      {%- endif -%}
     {%- endif -%}
-    {%- if cur_k == 0 and wo == open_n -%}
+    {%- if cur_closed == false and wo == open_n -%}
       {%- assign ref_week = r['tonnage_lb'].value | plus: 0 -%}
       {%- assign ref_wk_days = r['training_days'].value | plus: 0 -%}
       {%- assign ref_wk_rpe = r['avg_working_rpe'].value | plus: 0 -%}
     {%- endif -%}
   {%- endif -%}
 {%- endfor -%}
-{%- if cur_k == 0 -%}
+{%- if cur_closed == false -%}
 {%- comment -%} The run-in has opened but no week of it has closed. Ruling here would
 compare a Wednesday against a finished week and print a collapse in volume that is only
 a calendar artefact. {%- endcomment -%}
 <div class="verdict b-light">Week {{ open_n }} of the run-in, still open.</div>
 <div class="ev"><b>__OPEN_DAYS__</b>&nbsp;training day{% if open_days != 1 %}s{% endif %} in,
-<b>__OPEN_TON__</b>&nbsp;lb{%- if open_rpe > 0 %} at RPE __OPEN_RPE__{% endif -%}.
-{%- if ref_week > 0 %} {{ ref_label }} closed the same week on <b>__REF_WEEK__</b>&nbsp;lb
+<b>__OPEN_TON__</b>&nbsp;$U_WEIGHT{%- if open_rpe > 0 %} at RPE __OPEN_RPE__{% endif -%}.
+{%- if ref_week > 0 %} {{ ref_label | escape }} closed the same week on <b>__REF_WEEK__</b>&nbsp;$U_WEIGHT
 across {{ ref_wk_days }} day{% if ref_wk_days != 1 %}s{% endif %}{% if ref_wk_rpe > 0 %} at RPE __REF_WK_RPE__{% endif %}.{% endif -%}
 </div>
 <div class="base">nothing is ranked until the week closes</div>
@@ -932,32 +1052,34 @@ across {{ ref_wk_days }} day{% if ref_wk_days != 1 %}s{% endif %}{% if ref_wk_rp
 {%- assign cls = "b-heavy" -%}
 {%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
 {%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
-<div class="verdict {{ cls }}">{{ pct }}% of {{ ref_label }}'s volume.</div>
+<div class="verdict {{ cls }}">{{ pct }}% of {{ ref_label | escape }}'s volume.</div>
 <div class="ev">Through week <b>{{ cur_n }}</b> out,
 <b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} of the run-in:
-<b>__CUR_TON__</b>&nbsp;lb.
-{{ ref_label }}, {{ ref_made }} for {{ ref_tot }},
-had moved <b>__REF_TON__</b>&nbsp;lb by the same point.</div>
+<b>__CUR_TON__</b>&nbsp;$U_WEIGHT.
+{{ ref_label | escape }}, {{ ref_made }} for {{ ref_tot }},
+had moved <b>__REF_TON__</b>&nbsp;$U_WEIGHT by the same point.</div>
 {%- comment -%} The bar runs to 150% of the yardstick so being ahead of it is visible
 rather than pinned at full width, and the tick sits where the yardstick is. {%- endcomment -%}
 {%- assign w = pct | times: 100 | divided_by: 150 -%}
 {%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
-<div class="base">tick marks {{ ref_label }}'s pace</div>
+<div class="base">tick marks {{ ref_label | escape }}'s pace</div>
 {%- if cur_heavy > 0 or ref_heavy > 0 -%}
-<div class="also">reps at 80%+ &middot; you {{ cur_heavy }} &middot; {{ ref_label }} {{ ref_heavy }}</div>
+<div class="also">reps at 80%+ &middot; you {{ cur_heavy }} &middot; {{ ref_label | escape }} {{ ref_heavy }}</div>
 {%- endif -%}
 {%- elsif ref == "" -%}
-<div class="none">No meet on record yet to measure the run-in to {{ cur_label }} against.
+<div class="none">No meet on record yet to measure the run-in to {{ cur_label | escape }} against.
 The comparison starts with your second meet.</div>
 {%- else -%}
-<div class="none">Through week <b>{{ cur_n }}</b> out you have <b>{{ cur_k }}</b> closed
-week{% if cur_k != 1 %}s{% endif %} logged, and
-{{ ref_label }} has no matching stretch at that distance &mdash;
-the log does not reach far enough back before it.</div>
+<div class="none">Through week <b>{{ cur_n }}</b> out this run-in has
+{%- if cur_has %} <b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} behind it
+{%- else %} no closed week behind it yet{% endif %}, and {{ ref_label | escape }} has
+{%- if ref_has %} <b>{{ ref_k }}</b> at the same distance{% else %} none recorded at that distance{% endif %}.
+Two run-ins only compare across the same number of closed weeks, so this one waits for
+them to line up.</div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return (raw
@@ -1024,18 +1146,18 @@ thing the card knows. Twelve weeks is the window the intensity card already uses
     {%- if v > inol -%}{%- assign harder = harder | plus: 1 -%}{%- endif -%}
   {%- endif -%}
 {%- endfor -%}
-<div class="verdict {{ cls }}">{{ band | capitalize }}.</div>
-<div class="ev"><b>{{ w['inol_hardest_lift'].value }}</b> is the hardest lift of the week
-at INOL __INOL__ &mdash; {{ w['inol_hardest_gloss'].value }}.
+<div class="verdict {{ cls }}">{{ band | capitalize | escape }}.</div>
+<div class="ev"><b>{{ w['inol_hardest_lift'].value | escape }}</b> is the hardest lift of the week
+at INOL __INOL__{% if w['inol_hardest_gloss'].value %} &mdash; {{ w['inol_hardest_gloss'].value | escape }}{% endif %}.
 {%- if seen > 0 %} Harder than <b>{{ seen | minus: harder }}</b> of your last {{ seen }} weeks.{% endif -%}
 </div>
 {%- assign acwr = w['acwr'].value | plus: 0 -%}
 {%- if acwr > 0 -%}
-<div class="also">load {{ w['acwr_band'].value }} at __ACWR__ &middot; {{ w['acwr_gloss'].value }}</div>
+<div class="also">load {{ w['acwr_band'].value | escape }} at __ACWR__{% if w['acwr_gloss'].value %} &middot; {{ w['acwr_gloss'].value | escape }}{% endif %}</div>
 {%- endif -%}
-<div class="base">last trained {{ w['week_end'].value }}{% if w['block'].value %} &middot; {{ w['block'].value }} block{% endif %}</div>
+<div class="base">last trained {{ w['week_end'].value | escape }}{% if w['block'].value %} &middot; {{ w['block'].value | escape }} block{% endif %}</div>
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return (raw
@@ -1088,8 +1210,13 @@ starts once one of them is the most recent.</div>
 {%- assign peers = cur['peers'].value | plus: 0 -%}
 {%- assign mine = cur['heavy_per_session'].value | plus: 0 -%}
 {%- assign theirs = cur['peer_heavy_per_session'].value | plus: 0 -%}
+{%- comment -%} The peer median is taken over each earlier block's FIRST N sessions,
+N being this block's length, so a six-session block is not measured against the whole of
+a fifty-session one. The card has to say which N, or the number reads as a full-block
+median it no longer is. {%- endcomment -%}
+{%- assign win = cur['peer_window_sessions'].value | plus: 0 -%}
 {%- if peers == 0 or theirs == 0 -%}
-<div class="verdict b-light">Your first {{ name }} block.</div>
+<div class="verdict b-light">Your first {{ name | escape }} block.</div>
 <div class="ev"><b>__MINE__</b> heavy reps a session across <b>{{ cur['sessions'].value }}</b>
 sessions &mdash; <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b>
 main-lift reps at 80% or more. There is nothing of the same kind to rank it against yet.</div>
@@ -1098,19 +1225,19 @@ main-lift reps at 80% or more. There is nothing of the same kind to rank it agai
 {%- assign cls = "b-heavy" -%}
 {%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
 {%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
-<div class="verdict {{ cls }}">{{ pct }}% of the heavy work in a usual {{ name }} block.</div>
+<div class="verdict {{ cls }}">{{ pct }}% of the heavy work in a usual {{ name | escape }} block.</div>
 <div class="ev"><b>__MINE__</b> heavy reps a session this block,
-against a median of <b>__THEIRS__</b> across your {{ peers }} earlier {{ name }} blocks.
+against a median of <b>__THEIRS__</b> across{% if win > 0 %} the first {{ win }} session{% if win != 1 %}s{% endif %} of{% endif %} your {{ peers }} earlier {{ name | escape }} blocks.
 That is <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b> main-lift reps
 at 80% or more, against __PSHARE__% then.</div>
 {%- assign w = pct | times: 100 | divided_by: 150 -%}
 {%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
-<div class="base">tick marks your usual {{ name }} block</div>
+<div class="base">tick marks your usual {{ name | escape }} block</div>
 {%- endif -%}
-<div class="base">this block began {{ cur['first_trained'].value }}{% if peers > 0 %}, the comparison reaches back to {{ cur['peer_from'].value }}{% endif %}</div>
+<div class="base">this block began {{ cur['first_trained'].value | escape }}{% if peers > 0 %}, the comparison reaches back to {{ cur['peer_from'].value | escape }}{% endif %}</div>
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return (raw
@@ -1128,9 +1255,10 @@ SIGNAL_BLOCK = signal(
     "Heavy is 80% or more of your best estimate in the trailing 90 days, main lifts only. "
     "A block is a run of consecutive sessions sharing a program block, and the comparison "
     "is against earlier runs of the same kind only &mdash; a strength block and a "
-    "hypertrophy block are not meant to load alike. Reps per session rather than share, "
-    "because a share off a small denominator swings on one set. Runs under 4 sessions are "
-    "not ranked.",
+    "hypertrophy block are not meant to load alike. Each earlier block is measured over "
+    "its first sessions only, as many as this one has run, so a block four days old is "
+    "not held against a finished one. Reps per session rather than share, because a share "
+    "off a small denominator swings on one set. Runs under 4 sessions are not ranked.",
     "See the zone chart below for the shape of it",
 )
 
@@ -1158,26 +1286,38 @@ this card ignores the time picker, but not the filter bar.</div>
 competition lifts.</div>
 {%- else -%}
 {%- assign peers = now['peers'].value | plus: 0 -%}
+{%- comment -%} peer_pct and expected_lb are absent, not zero, under three peer meets:
+a ratio off one or two of them is whichever day went best, not a calibration. The card
+has to tell those two silences apart - no meet has a projection behind it at all, versus
+some do but not enough of them - because they are different things to be waiting for.
+{%- endcomment -%}
 {%- assign ratio = now['peer_pct'].value | plus: 0 -%}
-{%- if peers == 0 or ratio == 0 -%}
-<div class="verdict b-light">__NOW__&nbsp;lb projected.</div>
+{%- if ratio == 0 -%}
+<div class="verdict b-light">__NOW__&nbsp;$U_WEIGHT projected.</div>
+{%- if peers == 0 -%}
 <div class="ev">No meet on record has a projection behind it yet, so there is nothing to
 say about what this number has been worth on the platform.</div>
 {%- else -%}
-<div class="verdict b-normal">{{ ratio | round }}% of projection, both times.</div>
+<div class="ev">Only <b>{{ peers }}</b> meet{% if peers != 1 %}s{% endif %} on record
+{% if peers == 1 %}carries{% else %}carry{% endif %} a projection behind
+{% if peers == 1 %}it{% else %}them{% endif %}. Calibrating this number against the
+platform needs three, or the ratio is just whichever day went best.</div>
+{%- endif -%}
+{%- else -%}
+<div class="verdict b-normal">{{ ratio | round }}% of projection, across {{ peers }} meets.</div>
 <div class="ev">
 {%- for r in rows -%}
   {%- if r['cycle_role'].value == "past" -%}
-{{ r['cycle_label'].value }} projected <b>{{ r['projected_total_lb'].value | round }}</b> and you totalled <b>{{ r['meet_total_lb'].value | round }}</b>.&#32;
+{{ r['cycle_label'].value | escape }} projected <b>{{ r['projected_total_lb'].value | round }}</b> and you totalled <b>{{ r['meet_total_lb'].value | round }}</b>.&#32;
   {%- endif -%}
 {%- endfor -%}
-It reads <b>__NOW__</b>&nbsp;lb today, which puts a realistic platform total near
-<b>__EXPECTED__</b>&nbsp;lb.</div>
+It reads <b>__NOW__</b>&nbsp;$U_WEIGHT today, which puts a realistic platform total near
+<b>__EXPECTED__</b>&nbsp;$U_WEIGHT.</div>
 <div class="base">a projection is a training estimate;
 the platform is singles at a commanded pace</div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return (raw
@@ -1194,8 +1334,8 @@ SIGNAL_PROJECTION = signal(
     "The projected total is the sum of your best estimate on each competition lift inside "
     "a 90-day window, taken from competition lifts only. For each meet on record it is the "
     "projection as it stood in the last week before that meet &mdash; what you would have "
-    "been told walking in, not a number computed afterwards. Two meets is a ratio, not a "
-    "rule.",
+    "been told walking in, not a number computed afterwards. Under three meets the card "
+    "declines to rank: a ratio off one or two is whichever day went best, not a rule.",
     "See Overview &#9656; projected total",
 )
 
@@ -1225,12 +1365,12 @@ there are a few weeks of them this card starts reading them back.</div>
 {%- assign win = rows[0]['window_days'].value | plus: 0 -%}
 {%- if span < __MIN_SPAN__ -%}
 <div class="verdict b-light">Too new to read a pattern.</div>
-<div class="ev">Your notes begin <b>{{ rows[0]['notes_from'].value }}</b> &mdash;
+<div class="ev">Your notes begin <b>{{ rows[0]['notes_from'].value | escape }}</b> &mdash;
 <b>{{ total }}</b> of them across <b>{{ span }}</b> days. A tag needs about
 {{ __MIN_SPAN__ }} days behind it before "more than usual" means anything.</div>
 <div class="also">
 {%- for r in rows limit: 3 -%}
-{{ r['tag'].value }} {{ r['total'].value }}{% unless forloop.last %} &middot; {% endunless %}
+{{ r['tag'].value | escape }} {{ r['total'].value }}{% unless forloop.last %} &middot; {% endunless %}
 {%- endfor -%}
 </div>
 {%- else -%}
@@ -1239,19 +1379,19 @@ there are a few weeks of them this card starts reading them back.</div>
 {%- if n == 0 -%}
 <div class="verdict b-light">Nothing written in the last {{ win }} days.</div>
 <div class="ev">The log has <b>{{ total }}</b> tagged notes, most recently
-{{ t['last_trained'].value }}.</div>
+{{ t['last_trained'].value | escape }}.</div>
 {%- else -%}
 {%- assign before = t['prior'].value | plus: 0 -%}
 <div class="verdict b-normal">
-You have written &ldquo;{{ t['tag'].value }}&rdquo; {{ n }} time{% if n != 1 %}s{% endif %} in {{ win }} days.</div>
+You have written &ldquo;{{ t['tag'].value | escape }}&rdquo; {{ n }} time{% if n != 1 %}s{% endif %} in {{ win }} days.</div>
 <div class="ev">
 {%- if before > 0 -%}Against <b>{{ before }}</b> in the {{ win }} days before that.
 {%- else -%}Nothing tagged that way in the {{ win }} days before that.{%- endif -%}
-{%- if rows.size > 1 %} Next: {{ rows[1]['tag'].value }} ({{ rows[1]['recent'].value }}).{% endif -%}
+{%- if rows.size > 1 %} Next: {{ rows[1]['tag'].value | escape }} ({{ rows[1]['recent'].value }}).{% endif -%}
 </div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return raw.replace("__MIN_SPAN__", str(MIN_TAG_SPAN_DAYS))

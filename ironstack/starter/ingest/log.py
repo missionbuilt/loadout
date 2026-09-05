@@ -17,6 +17,7 @@ the markdown log, and print a summary. Nothing is committed unless you ask.
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -25,8 +26,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import derive
 import render_md
 import shorthand
+import suggest
 import weather
 from jsonschema import Draft202012Validator
 
@@ -135,24 +138,54 @@ def summarize(doc: dict) -> str:
     return " · ".join(parts)
 
 
+def build_parser() -> argparse.ArgumentParser:
+    """Every flag this script has ever taken, declared in one place.
+
+    The old hand-rolled parse was `[a for a in argv if not a.startswith("--")]`, which
+    collects flag VALUES as positionals: `--message "Log foo" session.iron` read the
+    source file as Path("Log foo") and died on a missing file, or - worse, when the
+    message happened to name something readable - expanded the wrong input entirely.
+    """
+    parser = argparse.ArgumentParser(
+        prog="ingest/log.py",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("source", nargs="?", type=Path,
+                        help="the .iron shorthand file to expand")
+    parser.add_argument("--stdin", action="store_true",
+                        help="read the shorthand on stdin instead of from a file")
+    parser.add_argument("--date", default=None,
+                        help="session date for --stdin (default: today)")
+    parser.add_argument("--no-weather", action="store_true",
+                        help="skip the weather lookup")
+    parser.add_argument("--skip-names", action="store_true",
+                        help="do not check exercise names against the taxonomy")
+    parser.add_argument("--strict", action="store_true",
+                        help="fail when session metadata is missing")
+    parser.add_argument("--commit", action="store_true",
+                        help="git add and git commit the three written files")
+    parser.add_argument("--push", action="store_true",
+                        help="commit and push (CI then indexes)")
+    parser.add_argument("--message", default=None,
+                        help="commit message (default: 'Log <date> — <summary>')")
+    return parser
+
+
 def main(argv: list) -> int:
-    flags = {a for a in argv if a.startswith("--")}
-    args = [a for a in argv if not a.startswith("--")]
+    opts = build_parser().parse_args(argv)
 
-    def flag_value(name, default=None):
-        if name in argv:
-            index = argv.index(name)
-            if index + 1 < len(argv):
-                return argv[index + 1]
-        return default
-
-    if "--stdin" in flags:
+    if opts.stdin:
         text = sys.stdin.read()
-        session_date = flag_value("--date") or date.today().isoformat()
+        session_date = opts.date or date.today().isoformat()
         source = None
-    elif args:
-        source = Path(args[0])
-        text = source.read_text()
+    elif opts.source is not None:
+        source = opts.source
+        try:
+            text = source.read_text()
+        except OSError as exc:
+            print(f"cannot read {source}: {exc.strerror or exc}", file=sys.stderr)
+            return 1
         session_date = source.stem[:10]
     else:
         print(__doc__)
@@ -161,7 +194,7 @@ def main(argv: list) -> int:
     doc = shorthand.decode(text, use_defaults=True, filename=f"{session_date}.iron")
     resolve_program(doc)
 
-    note = "" if "--no-weather" in flags else add_weather(doc)
+    note = "" if opts.no_weather else add_weather(doc)
 
     defaults = shorthand.load_defaults()
     gaps = missing_metadata(doc["session"], defaults.get("require", []))
@@ -174,6 +207,33 @@ def main(argv: list) -> int:
     md_path = year_dir / f"{stem}.md"
     iron_path = year_dir / f"{stem}.iron"
 
+    # Exercise names, before the write. Until now nothing here classified them, so an
+    # unknown name was written, committed, pushed, and first failed in CI at
+    # index_workouts --validate - by which time the person who could say what they meant
+    # has moved on. This is the only moment they are still sitting here.
+    if not opts.skip_names:
+        taxonomy = derive.load_taxonomy()
+        unknown = []
+        for exercise in doc.get("exercises", []):
+            name = exercise.get("name")
+            if name and name not in taxonomy and name not in unknown:
+                unknown.append(name)
+        if unknown:
+            interactive = sys.stdin.isatty() and not opts.stdin
+            accepted, unresolved = suggest.resolve(unknown, taxonomy,
+                                                   interactive=interactive)
+            if unresolved:
+                print("", file=sys.stderr)
+                for name in unresolved:
+                    print(f"unknown exercise: {name!r}", file=sys.stderr)
+                print("Add it to config/exercises.json with its movement pattern and "
+                      "muscles, or fix the name in the log.", file=sys.stderr)
+                if not interactive:
+                    print("(no terminal to ask on - rerun in a shell to be offered "
+                          "the close matches)", file=sys.stderr)
+                print("Nothing was written.", file=sys.stderr)
+                return 5
+
     errors = sorted(Draft202012Validator(json.loads(SCHEMA_PATH.read_text())).iter_errors(doc),
                     key=lambda e: e.path)
     if errors:
@@ -181,7 +241,7 @@ def main(argv: list) -> int:
             print(f"schema: {'/'.join(str(p) for p in error.path)}: {error.message}", file=sys.stderr)
         return 2
 
-    if gaps and "--strict" in flags:
+    if gaps and opts.strict:
         print(f"missing session metadata: {', '.join(gaps)}", file=sys.stderr)
         return 4
 
@@ -194,19 +254,37 @@ def main(argv: list) -> int:
     if note:
         print(f"  {note}")
     if gaps:
-        print(f"  missing: {', '.join(gaps)}" + ("" if "--strict" in flags else " — ask before the memory fades"))
+        print(f"  missing: {', '.join(gaps)}" + ("" if opts.strict else " — ask before the memory fades"))
     print(f"  {json_path.relative_to(REPO_ROOT)}")
     print(f"  {md_path.relative_to(REPO_ROOT)}")
     print(f"  {iron_path.relative_to(REPO_ROOT)}")
 
-    if "--commit" in flags or "--push" in flags:
+    if opts.commit or opts.push:
         paths = [str(p.relative_to(REPO_ROOT)) for p in (iron_path, json_path, md_path)]
-        subprocess.run(["git", "add", *paths], cwd=REPO_ROOT, check=True)
-        message = flag_value("--message") or f"Log {session_date} — {summarize(doc)}"
+        # check=True here raised a bare CalledProcessError traceback at the end of an
+        # otherwise successful run. The files are written by this point; the only thing
+        # that failed is git, so say which command failed and what it said.
+        added = subprocess.run(["git", "add", *paths], cwd=REPO_ROOT,
+                               capture_output=True, text=True)
+        if added.returncode != 0:
+            print(f"git add failed ({added.returncode}): "
+                  f"{added.stderr.strip() or added.stdout.strip()}", file=sys.stderr)
+            print("The session files are written; stage and commit them by hand.",
+                  file=sys.stderr)
+            return 6
+        message = opts.message or f"Log {session_date} — {summarize(doc)}"
         result = subprocess.run(["git", "commit", "-m", message], cwd=REPO_ROOT,
                                 capture_output=True, text=True)
         print(result.stdout.strip() or result.stderr.strip())
-        if "--push" in flags:
+        # The commit's return code was never looked at, and --push ran regardless: a
+        # failed commit (a hook rejecting it, nothing staged) pushed whatever happened
+        # to be on the branch already and reported success for a session that was never
+        # committed at all.
+        if result.returncode != 0:
+            print(f"commit failed ({result.returncode}) — nothing was pushed; "
+                  f"the session files are written and staged", file=sys.stderr)
+            return 6
+        if opts.push:
             push = subprocess.run(["git", "push"], cwd=REPO_ROOT, capture_output=True, text=True)
             print(push.stdout.strip() or push.stderr.strip())
             if push.returncode != 0:

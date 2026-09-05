@@ -2,7 +2,8 @@
   "mappings": {
     "properties": {
       "@timestamp": {
-        "type": "date"
+        "type": "date",
+        "format": "strict_date_time||strict_date_time_no_millis"
       },
       "session_id": {
         "type": "keyword"
@@ -14,7 +15,8 @@
         "type": "keyword"
       },
       "timestamp": {
-        "type": "date"
+        "type": "date",
+        "format": "strict_date_time||strict_date_time_no_millis"
       },
       "weekday": {
         "type": "keyword"

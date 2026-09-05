@@ -1,3 +1,6 @@
+# Move this to .github/workflows/index.yml in your instance repo.
+# It lives here as workflows/index.yml so cloning the template does not start a
+# workflow in the Loadout itself.
 name: Index workouts
 
 on:
@@ -8,6 +11,11 @@ on:
       - "meets/*.json"
       - "schema/**"
       - "ingest/**"
+      # The exercise taxonomy decides whether a log validates at all, so editing it
+      # has to re-run validation just as editing the indexer does.
+      - "config/**"
+      # Without this, editing the workflow never exercises the workflow.
+      - ".github/workflows/index.yml"
   workflow_dispatch: {}
 
 jobs:
@@ -27,6 +35,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r ingest/requirements.txt
 
+      # These need no cluster and no data, so they run first and fail fastest.
+      - name: Unit tests
+        run: |
+          python ingest/test_metrics.py
+          python ingest/test_shorthand.py
+          python ingest/test_suggest.py
+          python ingest/test_derive.py
+          python ingest/test_ceiling.py
+
       - name: Validate workout logs
         run: python ingest/index_workouts.py --validate
 
@@ -45,6 +62,30 @@ jobs:
         if: ${{ env.ES_ENDPOINT != '' }}
         run: python ingest/index_meets.py
 
-      - name: Elasticsearch not configured, skipping index
+      # Indexing reports success when the bulk call succeeds, which is not the same as
+      # the cluster matching the repo: a set _id embeds the exercise slug, so renaming a
+      # lift leaves the old set documents behind with correct types, correct fields, and
+      # a perfectly green index step. verify_index.py compares repo counts to cluster
+      # counts and catches exactly that. A push is a deploy here, so the verification
+      # belongs in the deploy.
+      - name: Verify the cluster matches the repo
+        if: ${{ env.ES_ENDPOINT != '' }}
+        run: python ingest/verify_index.py
+
+      # A green run that indexed nothing hides a broken pipeline. On main a missing
+      # secret is a failure, not a note - but only once there is something to index. A
+      # fresh instance has no logs and no meets yet, and failing its very first push for
+      # not having indexed nothing would be the wrong lesson on day one.
+      - name: Elasticsearch not configured
         if: ${{ env.ES_ENDPOINT == '' }}
-        run: echo "Set the ES_ENDPOINT and ES_API_KEY repository secrets to enable indexing. Validation still ran above."
+        run: |
+          echo "::warning::ES_ENDPOINT is not set, so nothing was indexed. Validation still ran."
+          logs=$(find workouts -name '*.json' 2>/dev/null | wc -l)
+          meets=$(find meets -name '*.json' 2>/dev/null | wc -l)
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "$((logs + meets))" -gt 0 ]; then
+            echo "::error::Refusing to report success on main without indexing $logs log(s) and $meets meet record(s). Set the ES_ENDPOINT and ES_API_KEY repository secrets."
+            exit 1
+          fi
+          if [ "$((logs + meets))" -eq 0 ]; then
+            echo "::notice::No logs or meet records yet, so there was nothing to index either way."
+          fi

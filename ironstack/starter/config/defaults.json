@@ -1,15 +1,12 @@
 {
-  "_comment": "Filled in for any session that doesn't say otherwise, so the daily log stays short. `require` is the metadata every session should carry \u2014 log.py names what's missing, and --strict refuses to write without it.",
+  "_comment": "Filled in for any session that doesn't say otherwise, so the daily log stays short. `require` is the metadata every session should carry — log.py names what's missing, and --strict refuses to write without it. Edit this file first: everything here is a placeholder.",
+  "_geo": "There is deliberately no location.geo. ingest/weather.py sends those coordinates to Open-Meteo on your first log, and a template that shipped its author's coordinates sent his weather to every stranger who cloned it, silently and correctly-looking. Absent, nothing is sent and log.py says so: `no weather: the session has no coordinates (set location.geo in config/defaults.json)`, and `environment.temp_f` stays on the `require` list below so the gap is named on every run. Add yours as \"geo\": {\"lat\": 39.8, \"lon\": -89.65} inside \"location\" — town level is enough, and it is the only thing here that leaves your machine.",
   "location_detail": "coarse",
   "session": {
     "timezone": "America/New_York"
   },
   "location": {
     "name": "Home gym",
-    "geo": {
-      "lat": 40.35,
-      "lon": -80.05
-    },
     "travel": false
   },
   "program": {

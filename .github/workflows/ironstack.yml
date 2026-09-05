@@ -1,0 +1,88 @@
+# The Loadout ships dashboards and a pipeline template that a stranger imports into
+# their own cluster. Until now nothing ran on a push here at all, so the two could
+# disagree and the first person to find out was the stranger.
+#
+# Everything below runs offline: no Elasticsearch, no Kibana, no API keys, no network.
+name: Ironstack
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ironstack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Only jsonschema. ingest/requirements.txt also pins requests, but nothing in
+      # this workflow talks to a cluster, so nothing here imports it.
+      - name: Install dependencies
+        run: pip install jsonschema
+
+      # The Liquid in the dashboard cards is rendered by Kibana, not by us, so a
+      # broken filter chain is invisible until a panel is on screen.
+      - name: Kibana card templates render
+        run: python ironstack/kibana/verify_liquid.py
+
+      # dashboards.ndjson is committed, and it is what people import. --check rebuilds
+      # it from templates.py and diffs the result, so a template edit that was never
+      # rebuilt fails here instead of shipping a stale artifact. No IRONSTACK_COACH_URL
+      # is set: the check is built to run with it unset.
+      - name: Committed dashboards match the build
+        run: python ironstack/kibana/build_dashboards.py --check
+
+      # The template's own tests, run from the template, on the empty corpus it ships
+      # with. This is the state every new user starts in, so it is the state CI covers.
+      - name: Starter unit tests
+        working-directory: ironstack/starter
+        run: |
+          python ingest/test_metrics.py
+          python ingest/test_shorthand.py
+          python ingest/test_suggest.py
+          python ingest/test_derive.py
+          python ingest/test_ceiling.py
+
+      # ironstack/examples/ is three files describing one session: the shorthand a
+      # person writes, the JSON the pipeline derives from it, and the markdown. The
+      # .iron and the .json are committed side by side and nothing regenerated one
+      # from the other, so a parser change could silently make the pair a lie. This
+      # runs the parser on the example in both directions and requires them to agree,
+      # using the same normalize() and diff() ingest/test_shorthand.py uses.
+      - name: The example round-trips through the starter's parser
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          sys.path.insert(0, "ironstack/starter/ingest")
+          import shorthand
+          import test_shorthand as ts
+
+          iron = Path("ironstack/examples/2026-09-01.iron")
+          committed = json.loads(Path("ironstack/examples/2026-09-01.json").read_text())
+
+          # use_defaults=False on purpose: the example carries its own metadata, so this
+          # tests the format rather than config/defaults.json.
+          decoded = shorthand.decode(iron.read_text(), use_defaults=False, filename=iron.name)
+
+          problems = list(ts.diff(ts.normalize(committed), decoded))
+          if problems:
+              print(f"FAIL {iron} does not decode to the committed JSON")
+              for problem in problems[:10]:
+                  print(f"     {problem}")
+              sys.exit(1)
+
+          # And back out again: the .iron is the file a person edits, so the encoder has
+          # to be able to write the same one it just read.
+          encoded = shorthand.encode(decoded, use_defaults=False)
+          if encoded.strip() != iron.read_text().strip():
+              print(f"FAIL re-encoding the example does not reproduce {iron}")
+              sys.exit(1)
+
+          print(f"ok {iron} round-trips both ways")
+          PY

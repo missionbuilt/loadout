@@ -3,7 +3,7 @@
 
     python ingest/test_metrics.py
 
-The DOTS cases are golden tests against Mike's own meet records: if the
+The DOTS cases are golden tests against hand-checked values: if the
 coefficients are ever mistyped, these fail loudly rather than quietly shifting
 every score on the Meets dashboard.
 """
@@ -18,18 +18,22 @@ import metrics as m
 failures = []
 
 
-def check(label, got, want, tol=None):
-    ok = abs(got - want) <= tol if (tol is not None and got is not None) else got == want
+def check(label, got, want):
+    # There was a `tol` parameter here that no call site has ever passed, so every
+    # comparison below was exact equality wearing a tolerance's clothes. The values
+    # metrics.py returns are rounded at the source, so exact is the right test - the
+    # parameter is gone rather than left to imply a looseness that was never applied.
+    ok = got == want
     print(f"  {'ok  ' if ok else 'FAIL'}  {label}: got {got!r}, want {want!r}")
     if not ok:
         failures.append(label)
 
 
-print("DOTS — golden tests against meets/*.json")
-check("Nov 16 2024: 90.0 kg bw, 412.5 kg total", m.dots(90.0, 412.5), 266.72)
-check("Apr 6 2024: 91.0 kg bw, 387.5 kg total", m.dots(91.0, 387.5), 249.18)
+print("DOTS — golden tests against the published coefficients")
+check("100.0 kg bw, 500.0 kg total", m.dots(100.0, 500.0), 307.76)
+check("75.0 kg bw, 400.0 kg total", m.dots(75.0, 400.0), 286.97)
 check("female coefficients still produce a score", m.dots(60.0, 300.0, "female") > 0, True)
-check("no bodyweight -> no score", m.dots(0, 412.5), None)
+check("no bodyweight -> no score", m.dots(0, 500.0), None)
 
 print("\nRPE table — anchors from the published RTS chart")
 check("1 rep @ RPE 10", m.pct_from_rpe(1, 10), 100.0)

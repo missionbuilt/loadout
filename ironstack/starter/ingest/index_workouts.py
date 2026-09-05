@@ -7,8 +7,9 @@ Usage:
 With no arguments, indexes every workouts/**/*.json in the repo.
 Validation-only mode (no Elasticsearch needed): --validate
 
-Idempotent: every document gets a deterministic _id derived from the
-session, exercise, and set, so re-running after an edit updates in place.
+Idempotent: every document gets a deterministic _id derived from the session and
+the set's position within it, so re-running after an edit updates in place. The id
+deliberately carries no exercise name - renaming a lift must not orphan its history.
 
 Session links (prev_session_id / next_session_id / streak_day) are computed
 from every log under workouts/, not hand-written, so they stay correct even
@@ -25,12 +26,15 @@ import json
 import os
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import derive
+from envconf import env_secret, env_url
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "workout.schema.json"
@@ -63,19 +67,42 @@ def session_key(session: dict) -> str:
     return session.get("session_id") or session["date"]
 
 
+def resolve_timezone(tz_name: str):
+    """ZoneInfo for an IANA name, or ValueError. Never a silent fallback.
+
+    An unrecognised zone is a typo, not a condition: swallowing it produced an
+    offset-less timestamp, and @timestamp is mapped `date`, so Elasticsearch read
+    the string as UTC. A 6am America/New_York session landed at 1am and every
+    hour-of-day panel shifted with nothing anywhere reporting an error.
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
+        raise ValueError(f"unknown timezone {tz_name!r} ({exc})") from exc
+
+
 def timestamp_for(session: dict) -> str:
-    """ISO instant for the session start. Falls back to the date at midnight local."""
+    """ISO instant for the session start. Falls back to the date at midnight local.
+
+    Note on the fold: naive.replace(tzinfo=...) uses fold=0, so on the ambiguous
+    hour of the DST fall-back (01:00-01:59 local, which happens twice) this resolves
+    to the FIRST, still-daylight-saving occurrence. That is a one-hour ambiguity on
+    one hour of one night a year, and the log has no way to say which pass it was.
+    """
     day = session["date"]
     start = session.get("start_time") or "00:00"
     tz_name = session.get("timezone")
     naive = datetime.fromisoformat(f"{day}T{start}:00")
     if tz_name:
         try:
-            from zoneinfo import ZoneInfo
-
-            return naive.replace(tzinfo=ZoneInfo(tz_name)).isoformat()
-        except Exception:  # unknown zone: index as a naive local time
-            pass
+            return naive.replace(tzinfo=resolve_timezone(tz_name)).isoformat()
+        except ValueError as exc:
+            where = source_path(session_key(session))
+            sys.exit(f"error: {where or session_key(session)}: {exc}\n"
+                     f"       Fix session.timezone: it must be an IANA name such as "
+                     f"America/New_York.")
     return naive.isoformat()
 
 
@@ -101,38 +128,63 @@ def program_block(program: dict) -> dict:
 # --------------------------------------------------------------------------- links
 
 
-def catalog_sessions(extra_paths: list[Path]) -> list[tuple[str, str]]:
-    """All (date, session_id) pairs the repo knows about, sorted chronologically."""
-    seen: dict[str, str] = {}
-    paths = list(WORKOUTS_DIR.rglob("*.json")) if WORKOUTS_DIR.exists() else []
-    paths += extra_paths
-    for path in paths:
-        try:
-            session = json.loads(path.read_text()).get("session") or {}
-            if "date" in session:
-                seen[session_key(session)] = session["date"]
-        except (OSError, ValueError):
-            continue
-    return sorted(((d, sid) for sid, d in seen.items()), key=lambda pair: (pair[0], pair[1]))
+# session_id -> the file it was read from, so an error about a session can name the
+# file a person has to open. Filled by catalog_logs().
+_SOURCE_PATHS: dict[str, Path] = {}
 
 
-def catalog_logs(extra_paths: list[Path]) -> list[tuple[str, str, dict]]:
+def source_path(session_id: str) -> Path | None:
+    return _SOURCE_PATHS.get(session_id)
+
+
+def log_paths(extra_paths: list[Path] | None = None) -> list[Path]:
+    """Every workout log this repo knows about.
+
+    The one walk of the corpus. verify_index.py used to do its own glob("*/*.json")
+    while this walked rglob("*.json"); they agreed only for as long as every log
+    happened to sit at exactly depth 2. The script whose whole job is catching drift
+    must not have a walk of its own to drift.
+    """
+    paths = sorted(WORKOUTS_DIR.rglob("*.json")) if WORKOUTS_DIR.exists() else []
+    return paths + list(extra_paths or [])
+
+
+def catalog_logs(extra_paths: list[Path] | None = None) -> list[tuple[str, str, dict]]:
     """(date, session_id, log) for every session the repo knows about.
 
     The analytics reference (best e1RM per lift as of each date) has to see the
-    whole history, not just the files named on the command line.
+    whole history, not just the files named on the command line. That is exactly why
+    nothing here may be skipped quietly: this corpus feeds build_reference,
+    rollup_docs and signal_docs, so one unreadable file computes the whole analysis
+    layer on partial history and reports success. Every skip is fatal and named.
     """
     seen: dict[str, tuple[str, dict]] = {}
-    paths = list(WORKOUTS_DIR.rglob("*.json")) if WORKOUTS_DIR.exists() else []
-    paths += extra_paths
-    for path in paths:
+    skipped: list[str] = []
+    _SOURCE_PATHS.clear()
+    for path in log_paths(extra_paths):
         try:
             log = json.loads(path.read_text())
-        except (OSError, ValueError):
+        except OSError as exc:
+            skipped.append(f"{path}: cannot be read ({exc.strerror or exc})")
+            continue
+        except ValueError as exc:
+            skipped.append(f"{path}: is not valid JSON ({exc})")
             continue
         session = log.get("session") or {}
-        if "date" in session:
-            seen[session_key(session)] = (session["date"], log)
+        if "date" not in session:
+            skipped.append(f"{path}: session has no date")
+            continue
+        key = session_key(session)
+        if key in seen:
+            first = _SOURCE_PATHS.get(key)
+            skipped.append(f"{path}: session_id {key!r} is already used by {first} "
+                           f"- one of the two would silently overwrite the other")
+            continue
+        seen[key] = (session["date"], log)
+        _SOURCE_PATHS[key] = path
+    if skipped:
+        sys.exit("error: the corpus is incomplete, so nothing downstream of it can be "
+                 "trusted:\n" + "\n".join(f"  {line}" for line in skipped))
     return [(day, sid, log) for sid, (day, log) in seen.items()]
 
 
@@ -246,7 +298,15 @@ def explode(log: dict, links: dict[str, dict] | None = None,
             }
             doc.update(derive.set_fields(exercise, s, session_id, reference))
             set_docs.append(doc)
-            docs.append(("workout-sets", f"{session_id}-{slug}-{set_type}-{set_number}", doc))
+            # The id is the set's position in the session, never its name. It used to
+            # be {session_id}-{slug}-{set_type}-{set_number}: renaming an exercise
+            # changed the id, so the reindex stopped being an upsert and left the old
+            # documents behind (429 of them on 2026-09-05). The slug also disagreed
+            # with derive.set_fields' canonical lift_slug on the very same document,
+            # and two same-named exercises in one session collided silently. `seq`
+            # counts every set in the session across exercises, so it is unique by
+            # construction and survives any rename. check_unique_ids() proves it.
+            docs.append(("workout-sets", f"{session_id}-{seq}", doc))
 
     for order, note in enumerate(log.get("notes", []), start=1):
         doc = {
@@ -399,10 +459,10 @@ def strip_nones(value):
 def bulk_index(docs: list[tuple[str, str, dict]]) -> None:
     import requests
 
-    endpoint = os.environ.get("ES_ENDPOINT", "").strip().rstrip("/")
-    api_key = os.environ.get("ES_API_KEY", "").strip()
-    if not endpoint or not api_key:
+    if not os.environ.get("ES_ENDPOINT", "").strip() or not os.environ.get("ES_API_KEY", "").strip():
         sys.exit("error: ES_ENDPOINT and ES_API_KEY must be set (or use --validate)")
+    endpoint = env_url("ES_ENDPOINT")
+    api_key = env_secret("ES_API_KEY")
 
     lines = []
     for index, _id, doc in docs:
@@ -432,11 +492,136 @@ def bulk_index(docs: list[tuple[str, str, dict]]) -> None:
     print(f"indexed {len(docs)} document(s)")
 
 
+def check_unique_ids(docs: list[tuple[str, str, dict]]) -> None:
+    """No two documents in one index may share an _id.
+
+    A collision is invisible in Elasticsearch - the second document simply replaces
+    the first, the bulk call succeeds, and the count quietly comes up short. Since
+    the ids are generated here, that can only ever be a bug here.
+    """
+    seen: dict[tuple[str, str], dict] = {}
+    clashes: list[str] = []
+    for index, _id, doc in docs:
+        key = (index, _id)
+        if key in seen:
+            clashes.append(f"  {index} _id={_id} (sessions {seen[key].get('session_id')!r} "
+                           f"and {doc.get('session_id')!r})")
+        else:
+            seen[key] = doc
+    if clashes:
+        sys.exit(f"error: {len(clashes)} duplicate document id(s); each one would "
+                 f"silently overwrite the other:\n" + "\n".join(clashes[:10]))
+
+
+def check_signal_fields(signals: list[tuple[str, str, dict]]) -> None:
+    """Every field the signal rows carry must be declared in the mapping.
+
+    ironstack-signals is `dynamic: strict`, so a field added to signal_docs and not to
+    schema/mappings/ironstack-signals.json is rejected by Elasticsearch - correctly, but
+    as a bulk error listing document ids, in CI, after the run has already written its
+    other indices. Caught here it is one line naming the field and the file to add it to,
+    before anything is sent.
+
+    Strict is what makes this necessary and is worth it anyway: the alternative is
+    Elasticsearch inventing the mapping, and for a field holding "2026-10-24" the mapping
+    it invents is a date - which is the one thing this index must never contain.
+    """
+    declared = set(
+        json.loads((REPO_ROOT / "schema" / "mappings" / f"{derive.SIGNAL_INDEX}.json")
+                   .read_text())["mappings"]["properties"]
+    )
+    undeclared = sorted({k for _index, _id, doc in signals
+                         for k in strip_nones(doc)} - declared)
+    if undeclared:
+        sys.exit(
+            f"error: signal_docs emits {', '.join(undeclared)}, which "
+            f"schema/mappings/{derive.SIGNAL_INDEX}.json does not declare.\n"
+            f"       That index is dynamic: strict, so Elasticsearch would reject every "
+            f"row carrying them.\n"
+            f"       Add them to the mapping as keyword - never as date, whatever they "
+            f"hold - and run setup_indices.py."
+        )
+
+
+def sweep_signals(stamp: str) -> None:
+    """Delete signal rows this run did not write.
+
+    Signal ids carry meaning - drift:calves, intensity:2026-W36 - so a row stops being
+    rewritten the moment its subject leaves the window: a muscle group not trained for
+    366 days, or a week that ages out of the last 13. The bulk index replaces documents
+    by id and has no opinion about ids it was not given, so those rows would survive
+    forever, carrying a last_trained and a session count from a window that no longer
+    exists. The drift card reads every drift row, so a stale one can become the headline
+    verdict. That is the same failure this index was built to remove, arriving by a
+    different door.
+
+    Every row written this run carries today's stamp, so anything else is stale by
+    definition and no id bookkeeping is needed.
+    """
+    import requests
+
+    endpoint = env_url("ES_ENDPOINT")
+    api_key = env_secret("ES_API_KEY")
+    headers = {"Authorization": f"ApiKey {api_key}", "Content-Type": "application/json"}
+
+    # The bulk write above sends no refresh, so the rows it just wrote are not yet
+    # searchable. `refresh=true` on _delete_by_query means "refresh AFTER the delete",
+    # not before the search, so without this the sweep scrolls a pre-write view: it
+    # matches the previous versions of rows this run just rewrote, hits version
+    # conflicts, and with the default conflicts=abort stops the whole request while
+    # still answering 200. Refresh first, and the sweep sees what was written.
+    resp = requests.post(f"{endpoint}/{derive.SIGNAL_INDEX}/_refresh",
+                         headers=headers, timeout=60)
+    if not resp.ok:
+        sys.exit(f"error: could not refresh {derive.SIGNAL_INDEX} before the stale-row "
+                 f"sweep -> {resp.status_code} {resp.text[:200]}")
+
+    resp = requests.post(
+        f"{endpoint}/{derive.SIGNAL_INDEX}/_delete_by_query",
+        # conflicts=proceed: a row rewritten between the refresh and the scroll is not
+        # a reason to abandon the sweep half-done. Any conflict that does happen is
+        # reported below rather than counted as success.
+        params={"refresh": "true", "conflicts": "proceed"},
+        json={"query": {"bool": {"must_not": {"term": {"computed_through": stamp}}}}},
+        headers=headers,
+        timeout=60,
+    )
+    if not resp.ok:
+        sys.exit(f"error: could not sweep stale signal rows -> {resp.status_code} "
+                 f"{resp.text[:500]}")
+    try:
+        body = resp.json()
+    except ValueError:
+        sys.exit(f"error: stale-row sweep returned no JSON body -> {resp.text[:200]}")
+
+    # _delete_by_query answers 200 even when it did nothing at all. The counts are the
+    # only report there is, so none of them may be dropped on the floor.
+    deleted = body.get("deleted", 0)
+    total = body.get("total", 0)
+    conflicts = body.get("version_conflicts", 0)
+    failures = body.get("failures") or []
+    timed_out = bool(body.get("timed_out"))
+    noops = body.get("noops", 0)
+    print(f"signals -> swept {deleted} of {total} matched stale row(s)"
+          + (f", {noops} noop(s)" if noops else ""))
+    if conflicts or failures or timed_out:
+        sys.exit(
+            f"error: the stale signal sweep did not complete: {conflicts} version "
+            f"conflict(s), {len(failures)} failure(s)"
+            f"{', and it timed out' if timed_out else ''}.\n"
+            f"       {deleted} of {total} matched row(s) were deleted, so stale "
+            f"verdicts may still be in {derive.SIGNAL_INDEX}.\n"
+            + (f"       first failures: {json.dumps(failures[:3])[:500]}\n" if failures else "")
+            + f"       Re-run the indexer; if it repeats, the index is being written "
+            f"by something else at the same time."
+        )
+
+
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     validate_only = "--validate" in sys.argv
 
-    paths = [Path(a) for a in args] or sorted(WORKOUTS_DIR.rglob("*.json"))
+    paths = [Path(a) for a in args] or log_paths()
     if not paths:
         print("no workout logs found: nothing to do")
         return
@@ -449,20 +634,23 @@ def main() -> None:
     links = session_links(sorted(((day, sid) for day, sid, _ in corpus),
                                  key=lambda pair: (pair[0], pair[1])))
     reference = derive.build_reference(corpus)
-    requested: set[str] = set()
-    failed = False
-    for path in paths:
-        log = json.loads(path.read_text())
+    requested = {session_key(json.loads(path.read_text())["session"]) for path in paths}
+
+    # Validate the WHOLE corpus, not only the named files. Every log below is exploded
+    # a few lines further down whether or not it was named on the command line, and in
+    # explode() a missing key is a bare KeyError traceback rather than a schema error
+    # pointing at a file. The documents are already in memory; this is one more pass.
+    failed = []
+    for _day, sid, log in sorted(corpus, key=lambda row: (row[0], row[1])):
         errors = sorted(validator.iter_errors(log), key=lambda e: e.json_path)
-        if errors:
-            failed = True
-            print(f"INVALID {path}")
-            for error in errors[:10]:
-                print(f"  {error.json_path}: {error.message}")
+        if not errors:
             continue
-        requested.add(session_key(log["session"]))
+        failed.append(sid)
+        print(f"INVALID {source_path(sid) or sid}")
+        for error in errors[:10]:
+            print(f"  {error.json_path}: {error.message}")
     if failed:
-        sys.exit("error: fix the invalid log(s) above")
+        sys.exit(f"error: fix the {len(failed)} invalid log(s) above")
 
     # Explode the whole corpus once. The requested sessions are indexed; the rest are
     # here because the daily and weekly rollups describe the whole history and cannot
@@ -474,18 +662,35 @@ def main() -> None:
     except derive.UnknownExercise as exc:
         sys.exit(f"error: {exc}")
 
+    check_unique_ids(every)
+
     all_docs = [d for d in every if d[2].get("session_id") in requested]
     for sid in sorted(requested):
         print(f"ok {sid} -> {sum(1 for d in all_docs if d[2].get('session_id') == sid)} document(s)")
 
-    rollups = derive.rollup_docs(every)
+    # One clock for the whole run. rollup_docs and signal_docs each default to the
+    # current UTC date, so calling them without one is two reads of the wall clock a
+    # few lines apart: a run that straddles midnight would mark the same week
+    # in-progress on the rollup and closed on the signal row, or the reverse.
+    today = datetime.now(timezone.utc).date()
+
+    rollups = derive.rollup_docs(every, today)
     all_docs.extend(rollups)
     print(f"rollups -> {len(rollups)} document(s)")
+
+    # The Overview verdicts, windowed at index time so the dashboard picker cannot
+    # re-scope them. See derive.signal_docs for why this index carries no date field.
+    signals = derive.signal_docs(every, rollups, today)
+    check_signal_fields(signals)
+    all_docs.extend(signals)
+    print(f"signals -> {len(signals)} document(s)")
 
     if validate_only:
         print("validation passed")
         return
     bulk_index(all_docs)
+    if signals:
+        sweep_signals(signals[0][2]["computed_through"])
 
 
 if __name__ == "__main__":

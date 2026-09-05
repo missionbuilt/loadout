@@ -157,9 +157,13 @@ def inol(reps: float, pct: float | None) -> float | None:
 
 
 def _band(value: float | None, bands) -> str | None:
+    """The band LABEL only. Its sentence is `_gloss()` on the same table - split rather
+    than returned as a pair because every caller of this one wants a bare keyword for a
+    mapping, and a tuple here would have to be unpacked at four call sites to say the
+    same thing. Both read the same rows, so they cannot disagree about a threshold."""
     if value is None:
         return None
-    for ceiling, label, _ in bands:
+    for ceiling, label, _gloss_text in bands:
         if value < ceiling:
             return label
     return bands[-1][1]
@@ -171,6 +175,32 @@ def inol_session_band(value: float | None) -> str | None:
 
 def inol_week_band(value: float | None) -> str | None:
     return _band(value, INOL_WEEK_BANDS)
+
+
+def _gloss(value, bands):
+    """The sentence that ships with a band, so the cards do not restate the table.
+
+    A band name alone is the "measurement not judgment" failure the Signal cards exist
+    to fix: INOL 1.2 means nothing, "easy - recovery, or a week after a hard one" does.
+    Duplicating these strings in Liquid would let them drift from the thresholds beside
+    them here, so they travel with the row instead.
+    """
+    if value is None:
+        return None
+    for ceiling, _name, gloss in bands:
+        if value < ceiling:
+            return gloss
+    # The same fallback `_band` uses, so a table whose last ceiling is finite still
+    # answers rather than dropping the sentence and leaving the card reading "at 0.75 - ".
+    return bands[-1][2]
+
+
+def inol_week_gloss(value: float | None) -> str | None:
+    return _gloss(value, INOL_WEEK_BANDS)
+
+
+def acwr_gloss(value: float | None) -> str | None:
+    return _gloss(value, ACWR_BANDS)
 
 
 # -------------------------------------------------------------------- Prilepin
@@ -281,6 +311,10 @@ def monotony(daily_loads: list[float]) -> float | None:
     Rest days count as zeros — that is the point of the metric. A week where
     every day looks the same scores high, which is the pattern that precedes
     stagnation.
+
+    A day that has not happened yet is not a rest day, and this function cannot tell
+    the difference. Callers pass only the ELAPSED days of a week in progress; see the
+    clamp in derive.rollup_docs(), which measured 1.09 padded against 1.31 real.
     """
     if len(daily_loads) < 2:
         return None

@@ -13,13 +13,14 @@
     "session": {
       "type": "object",
       "required": [
-        "date"
+        "date",
+        "session_id"
       ],
       "additionalProperties": false,
       "properties": {
         "session_id": {
           "type": "string",
-          "description": "Unique id. Defaults to the date; add a suffix for a second session in one day (e.g. 2026-09-01-pm).",
+          "description": "Unique id, required. Conventionally the date; add a suffix for a second session in one day (e.g. 2026-09-01-pm). It was optional, and session_key() fell back to the date, so a second dated-only session on a day already carrying one silently replaced it - nine dates in this repo carry two sessions.",
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[a-z0-9-]+)?$"
         },
         "date": {
@@ -172,6 +173,10 @@
               "maximum": 24
             }
           }
+        },
+        "source": {
+          "type": "string",
+          "description": "Where the log came from when it wasn't logged live \u2014 e.g. 'juggernautai-export'. Absent means logged in the moment."
         }
       }
     },

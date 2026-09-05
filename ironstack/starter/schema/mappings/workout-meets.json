@@ -4,20 +4,26 @@
       "@timestamp": {
         "type": "date"
       },
-      "meet_id": {
-        "type": "keyword"
+      "attempt_no": {
+        "type": "integer"
+      },
+      "attempts_made": {
+        "type": "integer"
+      },
+      "best": {
+        "type": "boolean"
+      },
+      "bodyweight_kg": {
+        "type": "float"
+      },
+      "bodyweight_lb": {
+        "type": "float"
       },
       "date": {
         "type": "date"
       },
-      "name": {
-        "type": "keyword"
-      },
-      "federation": {
-        "type": "keyword"
-      },
-      "lift": {
-        "type": "keyword"
+      "dots": {
+        "type": "float"
       },
       "exercise": {
         "properties": {
@@ -29,38 +35,23 @@
           }
         }
       },
-      "attempt_no": {
-        "type": "integer"
+      "federation": {
+        "type": "keyword"
       },
-      "weight_kg": {
-        "type": "float"
+      "lift": {
+        "type": "keyword"
       },
-      "weight_lb": {
-        "type": "float"
+      "lift_slug": {
+        "type": "keyword"
       },
       "made": {
         "type": "boolean"
       },
-      "best": {
-        "type": "boolean"
+      "meet_id": {
+        "type": "keyword"
       },
-      "total_kg": {
-        "type": "float"
-      },
-      "total_lb": {
-        "type": "float"
-      },
-      "dots": {
-        "type": "float"
-      },
-      "bodyweight_kg": {
-        "type": "float"
-      },
-      "bodyweight_lb": {
-        "type": "float"
-      },
-      "attempts_made": {
-        "type": "integer"
+      "name": {
+        "type": "keyword"
       },
       "notes": {
         "type": "text",
@@ -70,6 +61,18 @@
             "ignore_above": 2048
           }
         }
+      },
+      "total_kg": {
+        "type": "float"
+      },
+      "total_lb": {
+        "type": "float"
+      },
+      "weight_kg": {
+        "type": "float"
+      },
+      "weight_lb": {
+        "type": "float"
       }
     }
   }

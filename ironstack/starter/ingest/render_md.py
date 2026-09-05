@@ -149,6 +149,10 @@ def render(doc: dict) -> str:
     if session.get("gear_notes"):
         lines.append(f"**Gear:** {session['gear_notes']}")
 
+    if session.get("source"):
+        lines.append(f"**Source:** imported from `{session['source']}` — "
+                     "no notes were captured at the time.")
+
     lines += ["", "_Effort is logged as RPE — 10 means nothing left in the tank._", ""]
 
     notes = doc.get("notes", [])

@@ -37,10 +37,17 @@ KG_TO_LB = 2.20462
 LIFTS = ("squat", "bench", "deadlift")
 # How each competition lift is named in your workout logs, so a meet's best lift
 # can drill into that lift's training history. Override per meet with "lift_names".
+#
+# These are resolved through config/exercises.json before they are written, so an
+# alias here and the canonical name in your logs end up as the same exercise. That
+# resolution is the whole point: until it existed, a meet document carried
+# "Competition Squat" while every training set carried "Comp Squat", the Meets ->
+# Lift drilldown filtered on a name no set had, and the target dashboard came back
+# empty with nothing anywhere reporting a problem.
 DEFAULT_LIFT_NAMES = {
-    "squat": "Competition Squat",
-    "bench": "Competition Bench Press",
-    "deadlift": "Competition Deadlift",
+    "squat": "Comp Squat",
+    "bench": "Comp Bench",
+    "deadlift": "Comp Deadlift",
 }
 
 
@@ -48,6 +55,29 @@ def slugify(name: str) -> str:
     import re
 
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def canonical_exercise(name: str) -> dict:
+    """The exercise a meet attempt should be filed under, as the logs spell it.
+
+    A meet is the only place a lift's name is typed by configuration rather than by
+    the lifter, so it is the one place the two vocabularies can silently diverge.
+    Resolving through the taxonomy means "Competition Bench Press" in a meet file and
+    "Comp Bench" in a log are one exercise, sharing one slug, and the Meets -> Lift
+    drilldown lands on real sets. An unresolvable name is a hard error with the close
+    matches attached, exactly as it is for a workout log: a meet that cannot reach its
+    training history is a broken meet, not a meet with a cosmetic problem.
+    """
+    import derive
+
+    try:
+        canonical = derive.classify(name)["canonical"]
+    except derive.UnknownExercise as exc:
+        sys.exit(f"error: meet lift name {name!r} is not in config/exercises.json.\n"
+                 f"{exc}\n"
+                 "Add it as an alias of the name your logs use, or set \"lift_names\" "
+                 "on the meet record.")
+    return {"name": canonical, "slug": slugify(canonical)}
 
 
 def lb(kg: float | None) -> float | None:
@@ -82,12 +112,14 @@ def explode(meet: dict) -> list[tuple[str, str, dict]]:
     }
 
     lift_names = {**DEFAULT_LIFT_NAMES, **(meet.get("lift_names") or {})}
+    exercises = {lift: canonical_exercise(name) for lift, name in lift_names.items()}
     docs = []
     for a in attempts:
         doc = {
             **header,
             "lift": a["lift"],
-            "exercise": {"name": lift_names[a["lift"]], "slug": slugify(lift_names[a["lift"]])},
+            "exercise": exercises[a["lift"]],
+            "lift_slug": exercises[a["lift"]]["slug"],
             "attempt_no": a["attempt_no"],
             "weight_kg": a["weight_kg"],
             "weight_lb": lb(a["weight_kg"]),

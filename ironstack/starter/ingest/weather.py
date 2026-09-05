@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Look up the weather a session was trained in, so nobody has to type it.
 
-    python ingest/weather.py 40.35 -80.05 2026-09-03 18 America/New_York
+    python ingest/weather.py 39.8 -89.65 2026-09-03 18 America/Chicago
 
 Open-Meteo, no API key. The forecast endpoint covers roughly the last three
 months; older dates fall back to the archive. Every failure returns None —

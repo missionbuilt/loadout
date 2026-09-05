@@ -197,7 +197,7 @@ GROUPS = {
     # deleted from the JuggernautAI app and exported as "undefined". Left
     # deliberately unclassified: it counts toward tonnage and session totals and
     # is excluded from muscle-group and ratio metrics until it gets a name.
-    "unknown": ["Unknown exercise"],
+    "unknown": ["Deleted in JuggernautAI"],
 }
 
 

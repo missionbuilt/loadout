@@ -16,13 +16,13 @@ Stdlib only. No network.
 
 from __future__ import annotations
 
-import copy
 import json
-from urllib.parse import quote
 import os
+import re
 import sys
 import uuid
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import templates as tpl  # noqa: E402
@@ -48,8 +48,27 @@ PHASES = [  # order is the training arc, and the tones are a luminance ramp alon
     ("peaking", "Peaking", "#e4ddce"),
 ]
 
-MEET_MAX_LB = 909.4    # last meet total; the oxblood reference line on Overview
-MEET_BEST_DOTS = 266.72  # Nov 16 2024; the line the DOTS trajectory is measured against
+# The Overview chart's oxblood reference line and its title. A Lens reference line is a
+# static number baked into a saved object and a panel title is a string, so neither can
+# read the reader's own data the way a Liquid card can. Until 2026-09-05 that number was
+# 909.4 - the author's last meet total - which meant every install of this repo told a
+# stranger, in the chart title and on the line, that their meet best was his.
+#
+# So it is optional and it comes from the environment. Unset: no reference line, and a
+# title that makes no claim about a meet best. Set: today's behaviour, for the one person
+# whose number it is. The card underneath (TOTAL_CARD) reads the real value out of
+# workout-meets and is the honest surface for it.
+def _env_float(name: str) -> float | None:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        sys.exit(f"error: {name} must be a number, got {raw!r}. Nothing was written.")
+
+
+MEET_MAX_LB = _env_float("IRONSTACK_MEET_MAX_LB")
 
 # --------------------------------------------------------------------------- ids
 
@@ -61,12 +80,15 @@ def uid(*parts: str) -> str:
     return str(uuid.uuid5(NS, ":".join(parts)))
 
 
+# Only the data views something actually points at. A data view is a saved object with
+# an id, and an unreferenced one is an object a user has to look at in Saved Objects and
+# wonder about. ironstack-dv-meets and ironstack-dv-daily were both dead: everything on
+# the Meets page is a custom-content panel, and ES|QL names its own index, so neither
+# needed one. check() fails if a Lens layer or a control ever asks for a view not here.
 DV = {
     "sessions": ("ironstack-dv-sessions", "workout-sessions", "timestamp"),
     "sets": ("ironstack-dv-sets", "workout-sets", "date"),
     "notes": ("ironstack-dv-notes", "workout-notes", "date"),
-    "meets": ("ironstack-dv-meets", "workout-meets", "date"),
-    "daily": ("ironstack-dv-daily", "workout-daily", "@timestamp"),
     "weekly": ("ironstack-dv-weekly", "workout-weekly", "@timestamp"),
 }
 
@@ -179,17 +201,14 @@ def phase_columns(op, field, fmt=FMT_INT):
 
 # --------------------------------------------------------------------------- layers
 
-def layer(columns: dict, order: list[str] | None = None, link_to: str | None = None):
+def layer(columns: dict, order: list[str] | None = None):
     if order is None:
         # Buckets before metrics, stable within each group. Lens resolves accessors
         # against this order; a metric listed first breaks the panel outright.
         names = list(columns)
         order = ([n for n in names if columns[n].get("isBucketed")] +
                  [n for n in names if not columns[n].get("isBucketed")])
-    L = {"columns": columns, "columnOrder": order, "incompleteColumns": {}, "sampling": 1}
-    if link_to:
-        L["linkToLayers"] = [link_to]
-    return L
+    return {"columns": columns, "columnOrder": order, "incompleteColumns": {}, "sampling": 1}
 
 
 # --------------------------------------------------------------------------- saved objects
@@ -237,8 +256,7 @@ XY_BASE = {
 
 
 def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, ref=None,
-       query="", legend=True, right_axis=(), palette=None, y_bounds=None, ref_metric=None,
-       ref_text=True):
+       query="", legend=True, palette=None, ref_metric=None, ref_text=True):
     """One data layer (optionally a reference-line layer). colors: accessor -> hex.
 
     `ref` is a fixed number: the meet best, an ACWR of 1.0 - a line that means the same
@@ -252,15 +270,12 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         "layerId": "l", "layerType": "data", "seriesType": series, "position": "top",
         "showGridlines": False, "xAccessor": x, "accessors": accessors,
         "yConfig": [
-            {"forAccessor": a, "color": (colors or {}).get(a), "axisMode": "right" if a in right_axis else "left"}
+            {"forAccessor": a, "color": (colors or {}).get(a), "axisMode": "left"}
             for a in accessors
         ],
     }
     if palette:
         data_layer["palette"] = palette if isinstance(palette, dict) else {"type": "palette", "name": palette}
-    if y_bounds:
-        lower, upper = y_bounds
-        vis_extent = {"mode": "custom", "lowerBound": lower, "upperBound": upper}
     if split:
         data_layer["splitAccessor"] = split
     layers = {"l": (dv, layer(columns))}
@@ -281,8 +296,6 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         })
     vis = {**XY_BASE, "preferredSeriesType": series, "layers": vis_layers}
     vis["legend"] = {**XY_BASE["legend"], "isVisible": legend}
-    if y_bounds:
-        vis["yLeftExtent"] = vis_extent
     return lens(id_, title, "lnsXY", vis, layers, query=query)
 
 
@@ -385,10 +398,10 @@ def windowed(query: str, since: str = "now-1y") -> str:
 
 NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mindset"]
 
-# The nav in three groups. Custom panels cannot navigate (no <a href>, no scripts in the
-# sandbox), so a Links panel is the only door — and three of them, spaced, is the only way
-# to show hierarchy in the nav row.
-NAV_GROUPS = [("all", NAV_ORDER, 48)]
+# Custom panels cannot navigate (no <a href>, no scripts in the sandbox), so a Links
+# panel is the only door. It was once three grouped panels, spaced, to show hierarchy in
+# the nav row; that collapsed to one full-width strip and NAV_GROUPS became a one-element
+# list whose third field was destructured into `_`. Removed 2026-09-05.
 
 
 # The Ironstack Coach is an Agent Builder agent and lives outside the dashboards. It is
@@ -409,11 +422,25 @@ NAV_GROUPS = [("all", NAV_ORDER, 48)]
 # simply not built and the nav takes the full width.
 COACH_URL = os.environ.get("IRONSTACK_COACH_URL", "").strip()
 
+# The hosts a committed dashboards.ndjson is allowed to point at. Everything else is
+# somebody's real deployment. One sat in this public repo, seven times over, from the
+# day the coach link was built until the day someone read the artifact instead of the
+# code that writes it. check() refuses to let another one through.
+# Set by main() from --allow-private-coach: a lifter building this for their own
+# import genuinely does point it at their own cluster, and should not be blocked. What
+# must never happen silently is that build being the one that gets committed.
+ALLOW_PRIVATE_COACH = False
+
+COACH_PLACEHOLDER_HOSTS = {
+    "kibana.example.com", "example.com", "www.example.com",
+    "localhost", "127.0.0.1", "[::1]",
+}
+
 
 # A question the page can hand the coach, per dashboard. The coach is the only surface
 # that can read the semantic fields, so the pages whose real question is a reading rather
-# than a number get theirs pre-filled. `encode_url: False` is why the value is quoted here
-# rather than left to Kibana.
+# than a number get theirs pre-filled. Written as plain text: coach_destination() puts it
+# in the URL's query component through urlencode, which is what does the quoting.
 COACH_ASK = {
     "lift": "How has this lift been trending, and what should I do about it?",
     "mindset": "Read my training notes and tell me what keeps coming up.",
@@ -421,22 +448,48 @@ COACH_ASK = {
 }
 
 
+def coach_destination(base: str, ask: str | None) -> str:
+    """`base` with `ask` in its QUERY component, whatever shape `base` is.
+
+    The old test was `"?" in COACH_URL`, which is wrong for the URL Kibana actually
+    hands you. A Kibana app URL is `https://host/app/x#/route?a=b`: the `?` lives in the
+    fragment, so the naive test saw one, appended `&q=...`, and buried the parameter
+    inside the fragment where the server never sees it. urlsplit knows the difference.
+    """
+    parts = urlsplit(base)
+    if parts.scheme not in ("http", "https"):
+        sys.exit(
+            f"error: IRONSTACK_COACH_URL must be http or https, got {parts.scheme or '(none)'}://\n"
+            f"       in {base!r}. A javascript:, data: or file: destination in a saved\n"
+            "       object is a link somebody else can be sent. Nothing was written."
+        )
+    if not parts.netloc:
+        sys.exit(f"error: IRONSTACK_COACH_URL has no host: {base!r}. Nothing was written.")
+    if not ask:
+        return base
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["q"] = ask
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 def coach_link(current: str) -> Inline:
-    ask = COACH_ASK.get(current)
-    destination = COACH_URL
-    if ask:
-        # Unverified until probe_links.py is run: whether Agent Builder reads ?q=. An
-        # unknown query parameter is ignored by every app I have seen, so the downside is
-        # a link that works without the prefill rather than a broken one.
-        destination += ("&" if "?" in COACH_URL else "?") + "q=" + quote(ask)
+    # Unverified against a live Agent Builder: whether it reads ?q=. An unknown query
+    # parameter is ignored by every app I have seen, so the downside is a link that works
+    # without the prefill rather than a broken one.
+    #
+    # encode_url is True now. It was False because the ask was pre-quoted by hand; the
+    # destination is now assembled by urlunsplit, which is already a valid URL, so
+    # letting Kibana own the encoding is the smaller surface. NOT verified in a browser:
+    # if a prefilled ask ever arrives at the coach double-encoded (%2520 for a space),
+    # this flag is the first thing to look at.
     return Inline(f"coach-{current}", "links", {
         "title": "", "layout": "horizontal", "hidePanelTitles": True,
         "links": [{
             "type": "externalLink",
             "label": "ASK THE COACH",
-            "destination": destination,
+            "destination": coach_destination(COACH_URL, COACH_ASK.get(current)),
             "order": 0,
-            "options": {"open_in_new_tab": True, "encode_url": False},
+            "options": {"open_in_new_tab": True, "encode_url": True},
         }],
     })
 
@@ -494,8 +547,7 @@ class Dashboard:
         if COACH_URL:
             brand.append((coach_link(key), 10, []))
         self.row(*brand, h=4)
-        nav = [(links(key, name, members), 48, []) for name, members, _ in NAV_GROUPS]
-        self.row(*nav, h=2)
+        self.row((links(key), 48, []), h=2)
 
     def row(self, *items, h=8):
         """items: (saved object | Inline, width, drilldowns); drilldowns are
@@ -625,11 +677,19 @@ Q = {
     "days": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date) | KEEP program.*, date_s, meet_s, days_to_meet',
     # The total and its three lifts come from ONE query, so the card cannot contradict
     # itself the way the old total card contradicted the e1RM tiles above it.
-    "total": ('FROM workout-sets '
-              '| WHERE is_competition_lift == true AND set_type == "working" '
-              'AND e1rm_confidence != "low" AND @timestamp >= NOW() - 90 days '
-              '| STATS e1 = MAX(est_e1rm), first_d = MIN(date) BY lift_family '
-              '| SORT e1 DESC | LIMIT 3 | EVAL lift = lift_family | KEEP lift, e1, first_d'),
+    # Two indices, one panel. A custom-content panel gets exactly one query, and the
+    # card has to state the projected total AND what the reader's own meet best is - so
+    # the query unions workout-meets in and lets one extra row carry MAX(total_lb). The
+    # meet row has no lift_family, so it groups on its own and the card tells the two
+    # apart by whether `fam` arrived. NULLS LAST keeps that row from winning the SORT.
+    "total": ('FROM workout-sets,workout-meets '
+              '| WHERE (is_competition_lift == true AND set_type == "working" '
+              'AND e1rm_confidence != "low" AND @timestamp >= NOW() - 90 days) '
+              'OR total_lb IS NOT NULL '
+              '| STATS e1 = MAX(est_e1rm), first_d = MIN(date), meet_lb = MAX(total_lb) '
+              'BY lift_family '
+              '| SORT e1 DESC NULLS LAST | LIMIT 4 '
+              '| EVAL fam = lift_family | KEEP fam, e1, first_d, meet_lb'),
     "meet_bests": ('FROM workout-meets | WHERE made == true '
                    '| STATS lb = MAX(weight_lb), kg = MAX(weight_kg) BY lift '
                    '| SORT lb DESC | LIMIT 3'),
@@ -682,10 +742,16 @@ Q = {
     # claiming there is no data.
     "sig_intensity": ('FROM ironstack-signals | WHERE signal == "intensity" '
                       '| SORT week_end DESC | LIMIT 13 '
-                      '| KEEP iso_week, week_end, heavy, tot, computed_through'),
+                      '| KEEP iso_week, week_end, week_state, weeks_available, '
+                      'heavy, tot, computed_through'),
+    # acwr_off_layoff and chronic_days_trained are read by the comeback branch in
+    # templates._LOAD_BODY. They were not in this KEEP, so `off` was always nil, the
+    # branch could not fire, and eight tests in verify_liquid passed over the gap because
+    # their fixture invented both columns. That class of bug is now linted in check().
     "sig_load": ('FROM ironstack-signals | WHERE signal == "load" '
                  '| SORT week_end DESC | LIMIT 200 '
-                 '| KEEP iso_week, week_end, month_s, acwr, acwr_band, monotony, computed_through'),
+                 '| KEEP iso_week, week_end, month_s, acwr, acwr_band, monotony, '
+                 'acwr_off_layoff, chronic_days_trained, computed_through'),
     "sig_drift": ('FROM ironstack-signals | WHERE signal == "drift" '
                   '| SORT last_trained ASC | LIMIT 40 '
                   '| KEEP muscle, sessions, last_trained, cadence_days, computed_through'),
@@ -704,12 +770,12 @@ Q = {
                   '| SORT ordinal ASC | LIMIT 200 '
                   '| KEEP block, ordinal, block_role, first_trained, sessions, heavy, '
                   'main_reps, heavy_per_session, share_pct, peers, peer_heavy_per_session, '
-                  'peer_share_pct, peer_from, computed_through'),
+                  'peer_share_pct, peer_from, peer_window_sessions, computed_through'),
     "sig_projection": ('FROM ironstack-signals | WHERE signal == "projection" '
                        '| SORT cycle ASC | LIMIT 40 '
                        '| KEEP cycle, cycle_label, cycle_role, projected_total_lb, '
                        'meet_total_lb, platformed_pct, peers, peer_pct, expected_lb, '
-                       'computed_through'),
+                       'peer_from, peer_to, computed_through'),
     # recent DESC puts the tag the card leads with in row 0; the corpus span it checks
     # first is denormalised onto every row, so row 0 answers both questions.
     "sig_tags": ('FROM ironstack-signals | WHERE signal == "tag" '
@@ -721,14 +787,68 @@ Q = {
                   '| KEEP cycle, cycle_label, cycle_role, week_state, weeks_out, '
                   'attempts_made, attempts_total, training_days, tonnage_lb, '
                   'avg_working_rpe, cum_weeks, cum_tonnage_lb, cum_heavy, computed_through'),
+    # LIMIT 1000, not 200, and the Liquid still filters to one lift. Both halves have
+    # a reason.
+    #
+    # A dashboard filter DOES reach an ES|QL panel - that is why the signals index was
+    # built with no date field (the picker cannot filter what is not there) while the
+    # note beside it records that a KQL query on a missing field still empties the card.
+    # So when Lift is entered the way it is meant to be, by drilldown, `lift_slug` is in
+    # the app filter array and these rows are already one lift. There is nothing left to
+    # push down: the filter is the dashboard's, not ours, and Lift deliberately carries
+    # no control of its own to push (see the Dashboard call below).
+    #
+    # The Liquid-side filter exists for the OTHER arrival - the nav strip, which carries
+    # no filter - where the query returns every lift the log has. 200 session/lift pairs
+    # across 30 exercises is under 7 sessions each, so a lifter with fifty was told the
+    # card needs five. 1000 pairs is ~250 sessions of history at four lifts a session,
+    # which covers this page's 2y default with room, and is a fraction of the 10,000-row
+    # ES|QL ceiling.
     "sig_lift": ('FROM workout-sets '
                  '| WHERE set_type == "working" AND e1rm_confidence != "low" '
                  'AND est_e1rm IS NOT NULL '
                  '| STATS e1 = MAX(est_e1rm), sess_d = MAX(date) BY session_id, lift_slug '
-                 '| SORT sess_d DESC | LIMIT 200 '
+                 '| SORT sess_d DESC | LIMIT 1000 '
                  '| EVAL when_s = DATE_FORMAT("MMM yyyy", sess_d) '
                  '| KEEP session_id, lift_slug, when_s, e1'),
 }
+
+# The indices this app is allowed to read. Six are written by the log's own indexer and
+# ironstack-signals by derive.signal_docs; a FROM naming anything else is a query against
+# an index the pipeline does not create, which imports cleanly and renders an error.
+INDICES = {
+    "workout-sessions", "workout-sets", "workout-notes", "workout-meets",
+    "workout-daily", "workout-weekly", "ironstack-signals",
+}
+
+FROM_CLAUSE = re.compile(r"\bFROM\s+([A-Za-z0-9_,.*-]+)")
+
+# ---------------------------------------------------------------- timezone
+#
+# Every DATE_FORMAT here used to format in UTC, so a session logged at 8pm on Sunday in
+# Denver printed as Monday on every card that named a date. ES|QL's DATE_FORMAT takes no
+# timezone parameter - the only lever either engine offers is shifting the instant before
+# it is formatted - which is why IRONSTACK_TZ is a fixed offset and not an IANA zone.
+# templates.tz_offset_seconds owns the parsing; Liquid's own "now" arithmetic is shifted
+# by the same number through the $TZ_OFF token.
+#
+# Applied here, once, over the whole of Q rather than at each of the eight call sites: a
+# ninth DATE_FORMAT written next month is covered without anyone remembering to.
+
+DATE_FORMAT_CALL = re.compile(r'DATE_FORMAT\("([^"]+)",\s*([A-Za-z0-9_.@]+)\)')
+
+
+def with_timezone(query: str) -> str:
+    if tpl.TZ_OFFSET_SEC == 0:
+        return query
+    sign = "+" if tpl.TZ_OFFSET_SEC > 0 else "-"
+    secs = abs(tpl.TZ_OFFSET_SEC)
+    return DATE_FORMAT_CALL.sub(
+        lambda m: f'DATE_FORMAT("{m.group(1)}", {m.group(2)} {sign} {secs} seconds)', query)
+
+
+Q = {k: with_timezone(v) for k, v in Q.items()}
+
 
 # --------------------------------------------------------------------------- shared Lens panels
 
@@ -799,7 +919,7 @@ def notes_table(id_, title, size=20):
 
 def build() -> list[dict]:
     objs: list[dict] = [data_view(k) for k in DV]
-    S, T, N, M, D, W = "sessions", "sets", "notes", "meets", "daily", "weekly"
+    S, T, N, W = "sessions", "sets", "notes", "weekly"
     L = lambda name: f"ironstack-lens-{name}"  # noqa: E731
 
     # ---------------------------------------------------------------- Overview
@@ -838,17 +958,25 @@ def build() -> list[dict]:
     # corpus is ~28 documents and the real topic tags sit at 3-4 over a year.)
     d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 32, []),
           (custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []), h=11)
-    d.row((custom("ov-total", tpl.total_card(MEET_MAX_LB), Q["total"]), 20, []),
+    # No reference line and no number in the title unless IRONSTACK_MEET_MAX_LB says
+    # what it is. A Lens saved object cannot compute either from the reader's data; the
+    # card to its left can, and does.
+    total_title = "PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM PER COMPETITION LIFT"
+    if MEET_MAX_LB is not None:
+        total_title = ("PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM AGAINST YOUR MEET "
+                       f"BEST, {MEET_MAX_LB:g} LB")
+    d.row((custom("ov-total", tpl.TOTAL_CARD, Q["total"]), 20, []),
           # Stacked, so the top edge is the projected total week by week and the dashed
           # line is the platform best. The old title said "e1RM" and nothing on the
           # panel said the stack meant anything; a lifter read it as three noisy bars.
           # Area instead of bars: the fitting function bridges weeks a lift was not
           # trained, so the edge reads as a line and not a picket fence.
-          (xy(L("ov-total-chart"), f"PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM AGAINST YOUR MEET BEST, {MEET_MAX_LB:g} LB",
+          (xy(L("ov-total-chart"), total_title,
               "area_stacked", T,
               {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=3),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
-              "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
+              "x", ["m"], split="lift", palette="gray",
+              ref=(MEET_MAX_LB, "MEET BEST") if MEET_MAX_LB is not None else None,
               ref_text=False,
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("url", LIFT_URL, "Lift")]), h=11)
@@ -1042,6 +1170,49 @@ def build() -> list[dict]:
     return out
 
 
+# A number a stranger cannot own. 909.4 (the author's meet total) and 266.72 (his best
+# DOTS) were compiled into a panel title, a reference line and a card sentence, so every
+# install of this repo asserted them as the reader's records. Two shapes catch it: a
+# three- or four-digit number carrying a fraction, which in this app is always a measured
+# record and never a design constant, and any such number sitting next to a unit.
+PR_DECIMAL = re.compile(r"(?<![\d.])\d{3,4}\.\d+")
+PR_WITH_UNIT = re.compile(r"(?<![\d.])\d{3,5}(?:\.\d+)?\s*(?:&nbsp;)?\s*(?:lb|LB|kg|KG|DOTS)\b")
+
+# Every column a Liquid template reads, and the KEEP that has to project it.
+COL_READ = re.compile(r"\['([A-Za-z0-9_.@]+)'\]\.value")
+
+
+def _keep_columns(esql: str) -> list[str] | None:
+    """The columns the LAST `| KEEP` in this query projects, or None if it has none.
+
+    A query with no KEEP returns whatever its last STATS or EVAL left, which this cannot
+    know without a cluster, so those panels are skipped rather than guessed at.
+    """
+    keep = None
+    for stage in esql.split("|"):
+        stage = stage.strip()
+        if stage.upper().startswith("KEEP "):
+            keep = stage[5:]
+    if keep is None:
+        return None
+    return [c.strip() for c in keep.split(",") if c.strip()]
+
+
+def _projected(column: str, keep: list[str]) -> bool:
+    for k in keep:
+        if k == column or k == "*":
+            return True
+        if k.endswith("*") and column.startswith(k[:-1]):
+            return True
+    return False
+
+
+def note(line: str) -> None:
+    """Diagnostics go to stderr. `--stdout > dashboards.ndjson` is a supported
+    invocation, and a finding printed on stdout lands inside the file it is about."""
+    print(line, file=sys.stderr)
+
+
 def check(objs: list[dict]) -> int:
     """Duplicate ids, dangling references and wiring shape — the ways this file breaks
     silently.
@@ -1068,7 +1239,20 @@ def check(objs: list[dict]) -> int:
     # filters of the page you left. Neither is a duplicate id or a dangling reference,
     # and neither shows up in a Liquid render. They are shape, so shape is checked.
     shape = []
+    # And three more, each of which shipped: a private Elastic host in a public artifact,
+    # somebody else's meet total rendered as the reader's, and a card reading a column its
+    # own query never projected.
+    private, records, unprojected = [], [], []
+
+    def scan_record(where: str, text: str):
+        for m in PR_DECIMAL.findall(text) + PR_WITH_UNIT.findall(text):
+            if MEET_MAX_LB is not None and f"{MEET_MAX_LB:g}" in m:
+                continue  # the reader said this is theirs, in IRONSTACK_MEET_MAX_LB
+            records.append(f"{where}: {m!r} looks like a hardcoded personal record")
+
     for o in objs:
+        if o["type"] == "lens":
+            scan_record(f'lens {o["id"]} title', o["attributes"]["title"])
         if o["type"] != "dashboard":
             continue
         for p in json.loads(o["attributes"]["panelsJSON"]):
@@ -1079,30 +1263,81 @@ def check(objs: list[dict]) -> int:
             for ev in cfg.get("enhancements", {}).get("dynamicActions", {}).get("events", []):
                 if not ev.get("triggers") or not ev.get("action", {}).get("factoryId"):
                     shape.append(f'{o["id"]}: drilldown event missing triggers or factoryId')
+            if cfg.get("title"):
+                scan_record(f'{o["id"]} panel title', cfg["title"])
             for link in cfg.get("links", []):
                 opts = link.get("options", {})
                 if opts.get("use_filters") or opts.get("use_time_range"):
                     shape.append(f'{o["id"]}: nav link "{link.get("label")}" carries '
                                  f'filters or the time range; each page is entered on its own terms')
-    for item in shape:
-        print(f"  shape: {item}")
+                if link.get("type") != "externalLink":
+                    continue
+                host = urlsplit(link.get("destination", "")).hostname or ""
+                if host.lower() not in COACH_PLACEHOLDER_HOSTS and not ALLOW_PRIVATE_COACH:
+                    private.append(
+                        f'{o["id"]}: external link "{link.get("label")}" points at {host}, '
+                        f'which is not a documented placeholder')
+            template = cfg.get("template")
+            if not template:
+                continue
+            scan_record(f'{o["id"]} custom panel {p["panelIndex"][:8]}', template)
+            esql = (cfg.get("esql_query") or [None])[0]
+            if not esql:
+                continue
+            keep = _keep_columns(esql)
+            if keep is None:
+                continue  # no KEEP: the projection is whatever the last stage left
+            for column in sorted(set(COL_READ.findall(template))):
+                if not _projected(column, keep):
+                    unprojected.append(
+                        f'{o["id"]}: a custom panel reads {column!r} but its query does '
+                        f'not KEEP it')
 
-    for label, items in (("duplicate id", dupes), ("dangling reference", dangling)):
+    # A FROM naming an index the pipeline does not write imports cleanly and renders an
+    # error. The list is the six the indexer creates plus the one derive.py writes.
+    unknown_index = []
+    for name, query in Q.items():
+        for m in FROM_CLAUSE.findall(query):
+            for idx in m.split(","):
+                idx = idx.strip()
+                if idx and idx not in INDICES:
+                    unknown_index.append(f'Q[{name!r}] reads {idx!r}, which nothing indexes')
+
+    for item in shape:
+        note(f"  shape: {item}")
+
+    for label, items in (("duplicate id", dupes), ("dangling reference", dangling),
+                         ("private host", private), ("hardcoded record", records),
+                         ("unprojected column", unprojected), ("unknown index", unknown_index)):
         for item in items:
-            print(f"  {label}: {item}")
-    bad = len(dupes) + len(dangling) + len(shape)
-    print(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, "
-          f"{len(dangling)} dangling references, {len(shape)} shape problems")
+            note(f"  {label}: {item}")
+    bad = (len(dupes) + len(dangling) + len(shape) + len(private) + len(records)
+           + len(unprojected) + len(unknown_index))
+    note(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, "
+          f"{len(dangling)} dangling references, {len(shape)} shape problems, "
+          f"{len(private)} private hosts, {len(records)} hardcoded records, "
+          f"{len(unprojected)} unprojected columns, {len(unknown_index)} unknown indices")
     return bad
 
 
 def main() -> None:
-    # Before the build, not after it. A note printed under a successful "wrote
-    # dashboards.ndjson" is a note nobody reads, and the file it is describing has
-    # already replaced the good one: seven dashboards silently lose ASK THE COACH and
-    # the next import takes the link away. Caught on Sept 5 while adding the taper
-    # card - the one-panel change came out as a fourteen-line diff.
-    if not COACH_URL and "--no-coach" not in sys.argv:
+    global COACH_URL, ALLOW_PRIVATE_COACH
+    args = sys.argv[1:]
+    ALLOW_PRIVATE_COACH = "--allow-private-coach" in args
+    checking = "--check" in args
+
+    if checking:
+        # --check compares the build against the committed artifact, and the committed
+        # artifact is the --no-coach build: the coach URL is deployment-specific, so it
+        # cannot live in a public repo (see README). Building the same way here is what
+        # makes the check runnable with IRONSTACK_COACH_URL set or unset.
+        COACH_URL = ""
+    elif not COACH_URL and "--no-coach" not in args:
+        # Before the build, not after it. A note printed under a successful "wrote
+        # dashboards.ndjson" is a note nobody reads, and the file it is describing has
+        # already replaced the good one: seven dashboards silently lose ASK THE COACH and
+        # the next import takes the link away. Caught on Sept 5 while adding the taper
+        # card - the one-panel change came out as a fourteen-line diff.
         sys.exit(
             "error: IRONSTACK_COACH_URL is unset, so ASK THE COACH cannot be built and\n"
             "       importing the result would remove the link from all seven "
@@ -1112,15 +1347,46 @@ def main() -> None:
             "       if dropping the link is what you meant.\n"
             "       Nothing was written."
         )
+
     objs = build()
-    if "--check" in sys.argv:
-        sys.exit(1 if check(objs) else 0)
+    # Above the --stdout branch, not below it. It sat below, so
+    # `build_dashboards.py --stdout > dashboards.ndjson` wrote the file having run no
+    # guard at all - the one invocation that most needed them.
+    bad = check(objs)
     ndjson = "\n".join(json.dumps(o, ensure_ascii=False) for o in objs) + "\n"
-    if "--stdout" in sys.argv:
+
+    if checking:
+        # --check used to build the objects, inspect them, and never once look at the
+        # file in the repo. Appending {"garbage":true} to dashboards.ndjson and running
+        # it reported "0 shape problems" and exited 0.
+        if not OUT.exists():
+            note(f"  artifact: {OUT.name} does not exist")
+            sys.exit(1)
+        on_disk = OUT.read_text()
+        if on_disk != ndjson:
+            want, got = ndjson.splitlines(), on_disk.splitlines()
+            note(f"  artifact: {OUT.name} is not what this build produces "
+                 f"({len(got)} lines on disk, {len(want)} generated)")
+            for n, (a, b) in enumerate(zip(want, got), 1):
+                if a != b:
+                    note(f"  artifact: first difference on line {n}")
+                    note(f"      built: {a[:160]}")
+                    note(f"    on disk: {b[:160]}")
+                    break
+            else:
+                extra = got[len(want):] or want[len(got):]
+                side = "on disk" if len(got) > len(want) else "built"
+                note(f"  artifact: {len(extra)} extra line(s) {side}, "
+                     f"first: {extra[0][:160]}")
+            sys.exit(1)
+        note(f"check: {OUT.name} matches the build")
+        sys.exit(1 if bad else 0)
+
+    if bad:
+        sys.exit("refusing to write a broken dashboards.ndjson")
+    if "--stdout" in args:
         sys.stdout.write(ndjson)
         return
-    if check(objs):
-        sys.exit("refusing to write a broken dashboards.ndjson")
     OUT.write_text(ndjson)
     kinds = {}
     for o in objs:

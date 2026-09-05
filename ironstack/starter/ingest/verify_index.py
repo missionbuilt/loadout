@@ -25,6 +25,8 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import index_workouts as ix
 import index_meets as im
+import setup_indices
+from envconf import env_secret, env_url
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -43,6 +45,47 @@ EXPECTED = {
         "density_lb_per_min": "float",
         "load_au": "float",
         "load_estimated": "boolean",
+    },
+    # The one index whose mapping correctness is load-bearing rather than cosmetic: a
+    # single date-typed field here silently hands the Overview verdicts back to the
+    # dashboard time picker. setup_indices guards the write; this checks what landed.
+    "ironstack-signals": {
+        "signal": "keyword",
+        "computed_through": "keyword",
+        "muscle": "keyword",
+        "last_trained": "keyword",
+        "first_trained": "keyword",
+        "week_end": "keyword",
+        "iso_week": "keyword",
+        "month_s": "keyword",
+        "cadence_days": "double",
+        "acwr": "double",
+        "acwr_off_layoff": "boolean",
+        # taper. meet_date is the one most likely to drift back to a date type,
+        # because it reads like one everywhere else in the repo.
+        "cycle": "keyword",
+        "cycle_label": "keyword",
+        "meet_date": "keyword",
+        "cycle_role": "keyword",
+        "weeks_out": "integer",
+        "week_state": "keyword",
+        "top_pct": "double",
+        "cum_tonnage_lb": "double",
+        # block, tag and projection rows. peer_from / notes_from are the date-shaped
+        # strings most likely to drift back to a date type.
+        "block": "keyword",
+        "block_role": "keyword",
+        "ordinal": "integer",
+        "heavy_per_session": "double",
+        "peer_heavy_per_session": "double",
+        "peer_from": "keyword",
+        "tag": "keyword",
+        "notes_from": "keyword",
+        "notes_span_days": "integer",
+        "platformed_pct": "double",
+        "expected_lb": "double",
+        "inol_hardest": "double",
+        "inol_hardest_gloss": "keyword",
     },
     "workout-sets": {
         "exercise.equipment_ids": "keyword",
@@ -63,6 +106,7 @@ EXPECTED = {
         "inol": "float",
         "prilepin_zone": "keyword",
         "lift_slug": "keyword",
+        "lift_name": "keyword",
         "pattern": "keyword",
         "muscles_primary": "keyword",
         "muscles_secondary": "keyword",
@@ -79,6 +123,8 @@ EXPECTED = {
     },
     "workout-weekly": {
         "acwr": "float",
+        "acwr_off_layoff": "boolean",
+        "chronic_days_trained": "integer",
         "acwr_band": "keyword",
         "monotony": "float",
         "strain": "float",
@@ -117,17 +163,25 @@ def dig(mapping: dict, path: str):
 
 def local_documents() -> dict:
     """Every document this repo would produce, keyed by index then _id."""
-    logs = [json.loads(p.read_text()) for p in sorted((REPO_ROOT / "workouts").glob("*/*.json"))]
-    links = ix.session_links(ix.catalog_sessions([]))
-    reference = ix.derive.build_reference(ix.catalog_logs([]))
+    # One corpus, walked by the indexer's own function. This used to glob("*/*.json")
+    # while the indexer walked rglob("*.json"); they agreed only because every log
+    # happens to sit at depth 2 today. The script whose entire job is catching drift
+    # is the last place that should have a walk of its own.
+    corpus = ix.catalog_logs()
+    links = ix.session_links(sorted(((day, sid) for day, sid, _ in corpus),
+                                    key=lambda pair: (pair[0], pair[1])))
+    reference = ix.derive.build_reference(corpus)
     docs: dict = {}
     every: list = []
-    for log in logs:
+    for _day, _sid, log in sorted(corpus, key=lambda row: (row[0], row[1])):
         exploded = ix.explode(log, links, reference)
         every.extend(exploded)
         for index, _id, doc in exploded:
             docs.setdefault(index, {})[_id] = ix.strip_nones(doc)
-    for index, _id, doc in ix.derive.rollup_docs(every):
+    rollups = ix.derive.rollup_docs(every)
+    for index, _id, doc in rollups:
+        docs.setdefault(index, {})[_id] = ix.strip_nones(doc)
+    for index, _id, doc in ix.derive.signal_docs(every, rollups):
         docs.setdefault(index, {})[_id] = ix.strip_nones(doc)
     for path in sorted((REPO_ROOT / "meets").glob("*.json")):
         for index, _id, doc in im.explode(json.loads(path.read_text())):
@@ -136,10 +190,13 @@ def local_documents() -> dict:
 
 
 def main() -> int:
-    endpoint = os.environ.get("ES_ENDPOINT", "").rstrip("/")
-    api_key = os.environ.get("ES_API_KEY", "")
-    if not endpoint or not api_key:
+    if not os.environ.get("ES_ENDPOINT", "").strip() or not os.environ.get("ES_API_KEY", "").strip():
         sys.exit("error: set ES_ENDPOINT and ES_API_KEY (source .env)")
+    # Same reading as the indexers: the endpoint loses a trailing slash, the key never
+    # does. This script used to strip neither, so a newline picked up from `source .env`
+    # failed verification against a cluster the indexer had just written successfully.
+    endpoint = env_url("ES_ENDPOINT")
+    api_key = env_secret("ES_API_KEY")
 
     session = requests.Session()
     session.headers.update({"Authorization": f"ApiKey {api_key}", "Content-Type": "application/json"})
@@ -165,11 +222,51 @@ def main() -> int:
                  f"{index}.{field}: {got or 'missing'} (want semantic_text)",
                  soft=(got is None))
 
+    # The signals index is range-proof only while it has no date field. Everything else
+    # here checks that a type is right; this checks that a type is absent.
+    resp = session.get(f"{endpoint}/{ix.derive.SIGNAL_INDEX}/_mapping")
+    if resp.ok:
+        live = list(resp.json().values())[0]["mappings"]
+        # Recurse the same way setup_indices does. The index is flat today, and a flat
+        # scan here would be the thing that stops being true first.
+        dated = setup_indices._date_fields(live.get("properties"))
+        note(not dated,
+             f"{ix.derive.SIGNAL_INDEX}: no date-typed field"
+             + (f", but found {', '.join(dated)} - the time picker can reach the "
+                f"Overview verdicts again" if dated else ""))
+        # And that the cluster still refuses to invent one. This is the check the repo
+        # cannot make for itself: setup_indices validates the file, this validates what
+        # Elasticsearch was actually left holding.
+        note(live.get("date_detection") is False,
+             f"{ix.derive.SIGNAL_INDEX}: date_detection off "
+             f"(live: {live.get('date_detection')}) - on, an undeclared field holding "
+             f"a date string is mapped as a date")
+        note(live.get("dynamic") == "strict",
+             f"{ix.derive.SIGNAL_INDEX}: dynamic strict "
+             f"(live: {live.get('dynamic')}) - otherwise an undeclared field is mapped "
+             f"silently instead of rejected")
+    else:
+        note(False, f"{ix.derive.SIGNAL_INDEX}: cannot read mapping ({resp.status_code})")
+
     print("\nCounts")
+    # Refresh first. In CI this runs seconds after index_workouts.py, whose bulk write
+    # sends no refresh, so an unrefreshed _count is a race: the documents are in the
+    # cluster and not yet in the searchable view, and the verifier reports a mismatch
+    # (or, worse, a stale match) that has nothing to do with the repo.
+    indices = ",".join(sorted(expected))
+    resp = session.post(f"{endpoint}/{indices}/_refresh")
+    if not resp.ok:
+        note(False, f"could not refresh {indices} before counting ({resp.status_code}) "
+                    f"- the counts below may be a race, not a drift")
     for index, docs in sorted(expected.items()):
         resp = session.get(f"{endpoint}/{index}/_count")
         got = resp.json().get("count") if resp.ok else None
-        note(got == len(docs), f"{index}: {got} in Elasticsearch, {len(docs)} in the repo")
+        note(got == len(docs), f"{index}: {got} in Elasticsearch, {len(docs)} in the repo"
+             + ("" if got == len(docs) else
+                f" - fix with: python ingest/setup_indices.py --recreate {index} && "
+                f"python ingest/index_workouts.py && python ingest/index_meets.py. "
+                f"Recreating {index} loses nothing: this repo is the source of truth "
+                f"and every document in it is rebuilt from workouts/ and meets/"))
 
     print("\nContent")
     probes = [

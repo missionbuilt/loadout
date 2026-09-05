@@ -415,6 +415,19 @@
     "competition": false,
     "unilateral": false
   },
+  "Chest Expander": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "chest",
+      "rear-delt"
+    ],
+    "muscles_secondary": [
+      "upper-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
   "Chest Supported Dumbbell Row": {
     "alias_of": "Chest Supported Rows"
   },
@@ -551,6 +564,9 @@
     "lift_family": "squat",
     "competition": true,
     "unilateral": false
+  },
+  "Competition Bench Press": {
+    "alias_of": "Comp Bench"
   },
   "Competition Deadlift": {
     "alias_of": "Comp Deadlift"
@@ -847,6 +863,14 @@
     "competition": false,
     "unilateral": false
   },
+  "Deleted in JuggernautAI": {
+    "pattern": "unknown",
+    "muscles_primary": [],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
   "Dips": {
     "pattern": "horizontal-press",
     "muscles_primary": [
@@ -952,6 +976,9 @@
     "lift_family": null,
     "competition": false,
     "unilateral": false
+  },
+  "Farmers Carry": {
+    "alias_of": "Farmers Walk"
   },
   "Farmers Walk": {
     "pattern": "carry",
@@ -1280,6 +1307,9 @@
     "lift_family": null,
     "competition": false,
     "unilateral": false
+  },
+  "Incline DB Press": {
+    "alias_of": "DB Incline Bench"
   },
   "Inverted Rows": {
     "pattern": "horizontal-pull",
@@ -2083,14 +2113,6 @@
     "muscles_primary": [
       "triceps"
     ],
-    "muscles_secondary": [],
-    "lift_family": null,
-    "competition": false,
-    "unilateral": false
-  },
-  "Unknown exercise": {
-    "pattern": "unknown",
-    "muscles_primary": [],
     "muscles_secondary": [],
     "lift_family": null,
     "competition": false,

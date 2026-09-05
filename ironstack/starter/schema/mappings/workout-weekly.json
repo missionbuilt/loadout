@@ -98,6 +98,12 @@
       "acwr_band": {
         "type": "keyword"
       },
+      "acwr_gloss": {
+        "type": "keyword"
+      },
+      "week_state": {
+        "type": "keyword"
+      },
       "monotony": {
         "type": "float"
       },
@@ -119,8 +125,17 @@
       "inol_hardest_band": {
         "type": "keyword"
       },
+      "inol_hardest_gloss": {
+        "type": "keyword"
+      },
       "bodyweight_source": {
         "type": "keyword"
+      },
+      "chronic_days_trained": {
+        "type": "integer"
+      },
+      "acwr_off_layoff": {
+        "type": "boolean"
       }
     }
   }

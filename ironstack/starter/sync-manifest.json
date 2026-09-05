@@ -1,0 +1,179 @@
+{
+  "_comment": [
+    "Which files in this template are copies of the private instance's pipeline, and which are the template's own.",
+    "",
+    "The starter is a fork of a working private instance. Fixes land there first, and for several days nothing checked that they ever arrived here: the dashboards this repo ships were built against a pipeline the template did not contain, so a stranger's import raised eight Kibana errors on an index the template never created. This file is the list that stops that recurring, and sync_check.py is what reads it. The private instance's CI clones this repo, runs that script against itself, and fails when a shared file has drifted.",
+    "",
+    "One list, two readers. Do not restate it in a shell script, a workflow, or a README.",
+    "",
+    "verbatim  - must be byte-identical in both repos.",
+    "redacted  - shared code carrying one or two of the author's own facts (his coordinates, his meet totals, gear only he owns). The named lines are replaced on the way here, and the check applies the same replacements before comparing, so the rest of each file is still guarded.",
+    "",
+    "A redaction rule names the line by a substring that contains none of the private value - the point of the exercise is that this file is public, so the thing being removed must not be written down in it. `contains` selects the matching lines, `of` is how many lines are expected to match, `nth` picks which one (1-based, default 1), and `public` is the whole replacement line. When `of` no longer holds, the check fails as stale rather than guessing: the upstream file changed around the redaction and a person has to decide whether the public line changes too."
+  ],
+
+  "upstream": {
+    "public_repo": "missionbuilt/loadout",
+    "starter_path": "ironstack/starter",
+    "instance_note": "The private instance has this template's layout at its own repo root: ingest/, schema/, config/, docs/."
+  },
+
+  "verbatim": [
+    "ingest/build_exercise_taxonomy.py",
+    "ingest/ceiling.py",
+    "ingest/derive.py",
+    "ingest/envconf.py",
+    "ingest/index_meets.py",
+    "ingest/index_workouts.py",
+    "ingest/log.py",
+    "ingest/metrics.py",
+    "ingest/render_md.py",
+    "ingest/requirements.txt",
+    "ingest/setup_indices.py",
+    "ingest/shorthand.py",
+    "ingest/suggest.py",
+    "ingest/test_ceiling.py",
+    "ingest/test_shorthand.py",
+    "ingest/test_suggest.py",
+    "ingest/verify_index.py",
+    "schema/workout.schema.json",
+    "schema/meet.schema.json",
+    "schema/mappings/ironstack-signals.json",
+    "schema/mappings/workout-daily.json",
+    "schema/mappings/workout-meets.json",
+    "schema/mappings/workout-notes.json",
+    "schema/mappings/workout-sessions.json",
+    "schema/mappings/workout-sets.json",
+    "schema/mappings/workout-weekly.json",
+    "config/exercises.json"
+  ],
+
+  "redacted": {
+    "ingest/test_metrics.py": {
+      "why": "The DOTS cases were golden tests against the author's own two meets. The arithmetic is what matters, not whose bodyweight it ran on, so the template checks the same coefficients against a lifter who does not exist.",
+      "lines": [
+        {
+          "contains": "The DOTS cases are golden tests against",
+          "of": 1,
+          "public": "The DOTS cases are golden tests against hand-checked values: if the"
+        },
+        {
+          "contains": "print(\"DOTS",
+          "of": 1,
+          "public": "print(\"DOTS — golden tests against the published coefficients\")"
+        },
+        {
+          "contains": "m.dots(",
+          "nth": 1,
+          "of": 4,
+          "public": "check(\"100.0 kg bw, 500.0 kg total\", m.dots(100.0, 500.0), 307.76)"
+        },
+        {
+          "contains": "m.dots(",
+          "nth": 2,
+          "of": 4,
+          "public": "check(\"75.0 kg bw, 400.0 kg total\", m.dots(75.0, 400.0), 286.97)"
+        },
+        {
+          "contains": "no bodyweight -> no score",
+          "of": 1,
+          "public": "check(\"no bodyweight -> no score\", m.dots(0, 500.0), None)"
+        }
+      ]
+    },
+
+    "ingest/test_derive.py": {
+      "why": "Two of the synthetic projection fixtures were built from the author's real meet totals. Nothing in the test asserts on those numbers, so the template uses round ones.",
+      "lines": [
+        {
+          "contains": "with fake_meets([meet(",
+          "nth": 2,
+          "of": 3,
+          "public": "with fake_meets([meet(\"2024-04-06\", 380.0), meet(\"2024-11-16\", 410.0)]):"
+        },
+        {
+          "contains": "with fake_meets([meet(",
+          "nth": 3,
+          "of": 3,
+          "public": "with fake_meets([meet(\"2024-04-06\", 380.0), meet(\"2024-11-16\", 410.0),"
+        }
+      ]
+    },
+
+    "ingest/weather.py": {
+      "why": "The usage example in the docstring is the author's home coordinates, and this is the script that sends them to a third party. The template uses the same fictional location as ironstack/examples/.",
+      "lines": [
+        {
+          "contains": "python ingest/weather.py",
+          "of": 1,
+          "public": "    python ingest/weather.py 39.8 -89.65 2026-09-03 18 America/Chicago"
+        }
+      ]
+    },
+
+    "docs/shorthand.md": {
+      "why": "Same coordinates in the command list, and two equipment ids that exist only in the author's config/equipment.json. An example that names gear the shipped registry does not have teaches the wrong thing.",
+      "lines": [
+        {
+          "contains": "python ingest/weather.py",
+          "of": 1,
+          "public": "python ingest/weather.py 39.8 -89.65 2026-09-04 18 America/Chicago   # the weather lookup alone"
+        },
+        {
+          "contains": "# Competition Deadlift | main |",
+          "of": 1,
+          "public": "# Competition Deadlift | main | @ohio-power"
+        }
+      ]
+    }
+  },
+
+  "never_copy": {
+    "_comment": "Present in the private instance and deliberately absent here: the author's own data, his credentials, and one-off imports. `paths` is the human list. `must_be_absent` and `must_match_nothing` are the machine half - sync_check.py fails if any of them turns up in the template, because a leak is the one drift that cannot be fixed by copying harder.",
+    "paths": [
+      "ingest/convert_juggernaut.py  - a one-off JuggernautAI import, with a 1.2MB CSV of the author's own sessions beside it",
+      "ingest/juggernaut/            - that CSV",
+      "config/name-suggestions.jsonl - a log of the author's exercise-name resolutions",
+      ".env                          - his Elasticsearch credentials",
+      "workouts/                     - his training history (the template ships the folder and its README, no logs)",
+      "meets/                        - his competition results (the template ships one fictional example)",
+      "Claude outputs/               - working files",
+      ".venv/                        - his virtualenv",
+      "docs/ARCH.md                  - describes the instance, not the template",
+      "README.md                     - the instance's README; the template has its own"
+    ],
+    "must_be_absent": [
+      "ingest/convert_juggernaut.py",
+      "ingest/juggernaut",
+      "config/name-suggestions.jsonl",
+      ".env",
+      "Claude outputs",
+      ".venv",
+      "docs/ARCH.md"
+    ],
+    "must_match_nothing": [
+      "workouts/**/*.json",
+      "workouts/**/*.iron",
+      "workouts/**/*.md",
+      "meets/*.json"
+    ]
+  },
+
+  "starter_only": {
+    "_comment": "The template's own files. Generic on purpose, so they must not be overwritten from the instance and must not be checked against it.",
+    "paths": [
+      "README.md",
+      "sync-manifest.json",
+      "sync_check.py",
+      "config/defaults.json",
+      "config/equipment.json",
+      "templates/prep/pap.json",
+      "templates/prep/pap-short.json",
+      "workflows/index.yml",
+      ".gitignore",
+      "workouts/README.md",
+      "meets/README.md",
+      "meets/example-meet.json.example"
+    ]
+  }
+}

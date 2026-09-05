@@ -1,0 +1,229 @@
+{
+  "mappings": {
+    "_meta": {
+      "no_date_field": [
+        "NO date-typed field belongs in this mapping, ever.",
+        "These rows exist so the Overview verdict cards cannot be re-scoped by the dashboard",
+        "time picker. Kibana applies the dashboard range to an ES|QL card by filtering on the",
+        "index's date field; with none, the picker cannot reach these rows at all. Verified in",
+        "the browser 2026-09-05 (kibana/probe_notime.py): at Last 15 minutes a card reading a",
+        "no-date index returned every row while a control on workout-sessions returned zero.",
+        "Adding a date field here - even one called computed_at - silently reverts the whole",
+        "mechanism with no visible symptom. computed_through is a keyword for that reason.",
+        "date_detection is off and dynamic is strict for the same reason. The guard above reads this file, but Elasticsearch maps what it is SENT: an unmapped field holding '2026-10-24' would be auto-detected as a date and revert the mechanism with nothing in the repo to show for it. Strict makes the unmapped field a rejected document at index time instead - loud, in CI, before it can lie."
+      ],
+      "written_by": "ingest/derive.py signal_docs()"
+    },
+    "dynamic": "strict",
+    "date_detection": false,
+    "properties": {
+      "signal": {
+        "type": "keyword"
+      },
+      "computed_through": {
+        "type": "keyword"
+      },
+      "window_days": {
+        "type": "integer"
+      },
+      "muscle": {
+        "type": "keyword"
+      },
+      "sessions": {
+        "type": "integer"
+      },
+      "last_trained": {
+        "type": "keyword"
+      },
+      "first_trained": {
+        "type": "keyword"
+      },
+      "cadence_days": {
+        "type": "double"
+      },
+      "iso_week": {
+        "type": "keyword"
+      },
+      "week_end": {
+        "type": "keyword"
+      },
+      "month_s": {
+        "type": "keyword"
+      },
+      "heavy": {
+        "type": "integer"
+      },
+      "tot": {
+        "type": "integer"
+      },
+      "weeks_available": {
+        "type": "integer"
+      },
+      "heavy_per_training_day": {
+        "type": "double"
+      },
+      "acwr": {
+        "type": "double"
+      },
+      "acwr_band": {
+        "type": "keyword"
+      },
+      "monotony": {
+        "type": "double"
+      },
+      "chronic_days_trained": {
+        "type": "integer"
+      },
+      "acwr_off_layoff": {
+        "type": "boolean"
+      },
+      "cycle": {
+        "type": "keyword"
+      },
+      "cycle_label": {
+        "type": "keyword"
+      },
+      "meet_date": {
+        "type": "keyword"
+      },
+      "attempts_made": {
+        "type": "integer"
+      },
+      "attempts_total": {
+        "type": "integer"
+      },
+      "meet_total_lb": {
+        "type": "double"
+      },
+      "weeks_out": {
+        "type": "integer"
+      },
+      "training_days": {
+        "type": "integer"
+      },
+      "tonnage_lb": {
+        "type": "double"
+      },
+      "avg_working_rpe": {
+        "type": "double"
+      },
+      "top_pct": {
+        "type": "double"
+      },
+      "projected_total_lb": {
+        "type": "double"
+      },
+      "cum_weeks": {
+        "type": "integer"
+      },
+      "cum_tonnage_lb": {
+        "type": "double"
+      },
+      "cum_heavy": {
+        "type": "integer"
+      },
+      "cycle_role": {
+        "type": "keyword"
+      },
+      "week_state": {
+        "type": "keyword"
+      },
+      "block": {
+        "type": "keyword"
+      },
+      "ordinal": {
+        "type": "integer"
+      },
+      "block_role": {
+        "type": "keyword"
+      },
+      "main_reps": {
+        "type": "integer"
+      },
+      "heavy_per_session": {
+        "type": "double"
+      },
+      "share_pct": {
+        "type": "double"
+      },
+      "tonnage_per_session": {
+        "type": "double"
+      },
+      "rankable": {
+        "type": "boolean"
+      },
+      "peers": {
+        "type": "integer"
+      },
+      "peer_heavy_per_session": {
+        "type": "double"
+      },
+      "peer_heavy_per_session_full": {
+        "type": "double"
+      },
+      "peer_window_sessions": {
+        "type": "integer"
+      },
+      "peer_share_pct": {
+        "type": "double"
+      },
+      "peer_tonnage_per_session": {
+        "type": "double"
+      },
+      "peer_from": {
+        "type": "keyword"
+      },
+      "peer_to": {
+        "type": "keyword"
+      },
+      "inol_hardest": {
+        "type": "double"
+      },
+      "inol_hardest_lift": {
+        "type": "keyword"
+      },
+      "inol_hardest_band": {
+        "type": "keyword"
+      },
+      "inol_hardest_gloss": {
+        "type": "keyword"
+      },
+      "acwr_gloss": {
+        "type": "keyword"
+      },
+      "tag": {
+        "type": "keyword"
+      },
+      "total": {
+        "type": "integer"
+      },
+      "recent": {
+        "type": "integer"
+      },
+      "prior": {
+        "type": "integer"
+      },
+      "notes_total": {
+        "type": "integer"
+      },
+      "notes_from": {
+        "type": "keyword"
+      },
+      "notes_to": {
+        "type": "keyword"
+      },
+      "notes_span_days": {
+        "type": "integer"
+      },
+      "platformed_pct": {
+        "type": "double"
+      },
+      "peer_pct": {
+        "type": "double"
+      },
+      "expected_lb": {
+        "type": "double"
+      }
+    }
+  }
+}

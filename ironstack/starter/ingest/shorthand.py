@@ -288,11 +288,7 @@ def parse_exercise_header(line: str) -> dict:
 
 def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
     defaults = load_defaults(use_defaults)
-    session = dict(defaults.get("session", {}))
-    program = dict(defaults.get("program", {}))
-    location = dict(defaults.get("location", {})) if defaults.get("location") else {}
-    metrics = {}
-    environment = dict(defaults.get("environment", {}))
+    session, program, location, metrics, environment = {}, {}, {}, {}, {}
     exercises: list = []
     pre_notes: list = []
     exercise_notes: list = []
@@ -356,6 +352,8 @@ def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
             session["start_time"] = value
         elif key == "tod":
             session["time_of_day"] = value
+        elif key == "source":
+            session["source"] = value
         elif key == "tz":
             session["timezone"] = value
         elif key == "duration":
@@ -373,7 +371,6 @@ def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
         elif key == "prep":
             prep_template = value
         elif key == "place":
-            location = dict(location)
             location["name"] = value
             home = (defaults.get("location") or {}).get("name")
             if home and value != home:
@@ -407,6 +404,18 @@ def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
         else:
             raise SystemExit(f"unknown key {key!r} in line: {stripped!r}")
 
+    # Defaults fill in what a live log leaves unsaid. A log carrying `source` is an
+    # imported record of a day that is over: it gets exactly what it says, nothing more.
+    if defaults and "source" not in session:
+        for key, value in (defaults.get("session") or {}).items():
+            session.setdefault(key, value)
+        for key, value in (defaults.get("program") or {}).items():
+            program.setdefault(key, value)
+        for key, value in (defaults.get("environment") or {}).items():
+            environment.setdefault(key, value)
+        for key, value in (defaults.get("location") or {}).items():
+            location.setdefault(key, value)
+
     if "date" not in session and filename:
         session["date"] = Path(filename).stem[:10]
     if "date" not in session:
@@ -437,11 +446,11 @@ def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
 
 _HEADER_KEYS = {
     "date", "id", "start", "tod", "tz", "duration", "bw", "sleep", "gear",
-    "wrapup", "watch", "note", "prep", "place", "geo", "travel", "program", "env",
+    "wrapup", "watch", "note", "prep", "place", "geo", "travel", "program", "env", "source",
 } | set(NOTE_PHASES)
 
 _SESSION_ORDER = [
-    "session_id", "date", "start_time", "timezone", "duration_min", "time_of_day",
+    "session_id", "date", "source", "start_time", "timezone", "duration_min", "time_of_day",
     "location", "environment", "program", "metrics", "gear_notes", "wrap_up", "watch_items",
 ]
 
@@ -564,8 +573,8 @@ def encode_set(entry: dict) -> str:
 
 
 def encode(doc: dict, use_defaults: bool = True) -> str:
-    defaults = load_defaults(use_defaults)
     session = doc["session"]
+    defaults = load_defaults(use_defaults and "source" not in session)
     d_session = defaults.get("session", {})
     lines = []
 
@@ -576,6 +585,7 @@ def encode(doc: dict, use_defaults: bool = True) -> str:
     if session.get("date") != session.get("session_id"):
         put("id", session.get("session_id"))
     put("date", session.get("date"))
+    put("source", session.get("source"))
     put("start", session.get("start_time"))
     if session.get("start_time") and session.get("time_of_day") != time_of_day(session["start_time"]):
         put("tod", session.get("time_of_day"))

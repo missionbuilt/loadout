@@ -23,7 +23,12 @@ import requests
 
 NDJSON = Path(__file__).resolve().parent / "dashboards.ndjson"
 PREFIX = "ironstack-"
-TYPES = ["lens", "map", "visualization", "search"]
+# index-pattern is on the list because the build stopped emitting two data views on
+# 2026-09-05 (ironstack-dv-daily and ironstack-dv-meets, which nothing pointed at). They
+# still exist in any Kibana that imported an earlier build, and an orphaned data view is
+# a saved object a user has to look at and wonder about. Deleting one is only ever done
+# with --only and --delete, and only for ids starting with "ironstack-".
+TYPES = ["lens", "map", "visualization", "search", "index-pattern"]
 
 
 def env(name: str) -> str:

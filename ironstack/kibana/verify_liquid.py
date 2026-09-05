@@ -39,6 +39,7 @@ except ImportError:
     sys.exit("error: pip install python-liquid")
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+import build_dashboards as bd  # noqa: E402
 import templates as tpl  # noqa: E402
 
 env = Environment()
@@ -70,6 +71,26 @@ def has(name: str, out: str, text: str) -> None:
 
 def lacks(name: str, out: str, text: str) -> None:
     check(name, text not in out, f"did not expect {text!r} in output")
+
+
+def fixture_is_real(qname: str, row: dict) -> None:
+    """A fixture may not invent a column the panel's query does not project.
+
+    This is the test-side half of the lint added to build_dashboards.check() on
+    2026-09-05. SIGNAL_LOAD's comeback branch could not fire for weeks because
+    sig_load's KEEP projected neither acwr_off_layoff nor chronic_days_trained, and
+    eight assertions in this file passed straight over the gap because the fixture
+    they ran against invented both columns. A test that supplies data the panel can
+    never receive is not a test, and this is how that stops being possible.
+    """
+    keep = bd._keep_columns(bd.Q[qname])
+    check(f"{qname}: the query has a KEEP to check against", keep is not None,
+          "no KEEP clause; the fixture cannot be verified")
+    if keep is None:
+        return
+    for col in sorted(row):
+        check(f"{qname} fixture: {col!r} is projected", bd._projected(col, keep),
+              f"{col!r} is not in the query's KEEP, so no panel will ever see it")
 
 
 def band(name: str, out: str, cls: str) -> None:
@@ -140,7 +161,6 @@ def section_all_templates() -> None:
         if "$" in value:
             continue  # an unfilled placeholder; covered via its factory below
         candidates.append((name, value))
-    candidates.append(("total_card()", tpl.total_card(909.4)))
 
     seen = 0
     for name, value in candidates:
@@ -171,8 +191,9 @@ def section_all_templates() -> None:
 
 # ============================================================ 3. Signal cards
 
-def week(heavy, tot):
-    return {"iso_week": "2026-W00", "heavy": heavy, "tot": tot}
+def week(heavy, tot, state="closed", available=None):
+    return {"iso_week": "2026-W00", "week_end": "2026-09-06", "week_state": state,
+            "weeks_available": available, "heavy": heavy, "tot": tot}
 
 
 # The real trailing 13 weeks off the cluster, newest first. W32 is the trap the
@@ -184,6 +205,7 @@ REAL_WEEKS = [week(5, 57), week(0, 10), week(0, 36), week(0, 38), week(4, 4),
 
 def section_intensity() -> None:
     t = tpl.SIGNAL_INTENSITY
+    fixture_is_real("sig_intensity", week(5, 57))
 
     out = render(t, [])
     has("intensity: no rows", out, "No signal rows came back")
@@ -199,6 +221,13 @@ def section_intensity() -> None:
     has("intensity: thin history says so", out, "needs 4 earlier weeks")
     has("intensity: thin history counts what it has", out, "You have <b>2</b>")
     lacks("intensity: thin history does not rank", out, "Heavier than 2")
+
+    # weeks_available is the indexer's count of closed weeks with main-lift work. The
+    # query is LIMIT 13, so counting returned rows told a lifter with forty weeks behind
+    # them that the log was thin.
+    out = render(t, rows_of(week(5, 57, available=31), week(0, 30), week(1, 40)))
+    has("intensity: thin history uses weeks_available", out, "You have <b>31</b>")
+    lacks("intensity: thin history does not count rows", out, "You have <b>2</b>")
 
     out = render(t, rows_of(*REAL_WEEKS))
     has("intensity: real verdict", out, "Heavier than 10 of your last 12 weeks.")
@@ -225,6 +254,46 @@ def section_intensity() -> None:
     has("intensity: beats nothing", out, "Lighter than every one of your last 12 weeks.")
     band("intensity: light band", out, "b-light")
 
+    # --- ties. `beat` incremented only on a strict <, so a tie counted as a loss.
+    # Thirteen weeks of heavy = 0 is an ordinary hypertrophy block and it rendered
+    # "Lighter than every one of your last 12 weeks" under evidence reading 0 of 80.
+    flat = [week(0, 80) for _ in range(13)]
+    out = render(t, rows_of(*flat))
+    has("intensity: thirteen zero weeks read as level", out, "Level with your last 12 weeks.")
+    lacks("intensity: thirteen zero weeks are not the lightest ever", out, "Lighter than every one")
+    has("intensity: thirteen zero weeks keep the evidence", out, "<b>0</b> of 80 main-lift reps")
+    band("intensity: a level week lands mid-scale", out, "b-normal")
+    balanced("intensity (flat zeroes)", out)
+
+    same = [week(10, 90) for _ in range(5)]
+    out = render(t, rows_of(*same))
+    has("intensity: five identical weeks read as level", out, "Level with your last 4 weeks.")
+    band("intensity: five identical weeks land mid-scale", out, "b-normal")
+    balanced("intensity (identical)", out)
+
+    # A tie in the middle of a mixed history is scored at half, not at zero.
+    mixed = [week(6, 90), week(6, 90), week(2, 90), week(3, 90),
+             week(9, 90), week(11, 90), week(1, 90)]
+    out = render(t, rows_of(*mixed))
+    has("intensity: mixed week ranks", out, "Heavier than 3 of your last 6 weeks.")
+    has("intensity: mixed week names the tie", out, "Level with 1 of them.")
+    balanced("intensity (mixed)", out)
+
+    # Level with some, under the rest: neither "lighter than every one" nor a rank.
+    under = [week(4, 90), week(4, 90), week(9, 90), week(9, 90), week(9, 90)]
+    out = render(t, rows_of(*under))
+    has("intensity: level with some, under the rest", out,
+        "Level with 1 of your last 4 weeks, under the rest.")
+    balanced("intensity (level-under)", out)
+
+    # --- the week in progress has to say so, in both branches
+    out = render(t, rows_of(week(5, 57, state="in-progress"), *REAL_WEEKS[1:]))
+    has("intensity: an open week says so", out, "this week is still open")
+    out = render(t, rows_of(week(5, 57, state="in-progress"), week(1, 40)))
+    has("intensity: an open week says so under the threshold too", out, "this week is still open")
+    out = render(t, rows_of(*REAL_WEEKS))
+    lacks("intensity: a closed week does not", out, "this week is still open")
+
     # Null Prilepin buckets are why the query COALESCEs; the card must not crash
     # if one arrives null anyway.
     out = render(t, rows_of(week(None, None), *REAL_WEEKS[1:]))
@@ -238,6 +307,8 @@ def section_load() -> None:
         return {"iso_week": "2026-W00", "month_s": month, "acwr": acwr,
                 "acwr_band": band, "monotony": mono,
                 "chronic_days_trained": trained, "acwr_off_layoff": off}
+
+    fixture_is_real("sig_load", wk(1.0, "steady", "Sep 2026"))
 
     out = render(t, [])
     has("load: no rows", out, "No signal rows came back")
@@ -332,6 +403,8 @@ def section_drift() -> None:
         return {"muscle": name, "last_trained": stamp, "sessions": sessions,
                 "cadence_days": round(365 / sessions, 2) if cadence is None else cadence,
                 "computed_through": now.strftime("%Y-%m-%d")}
+
+    fixture_is_real("sig_drift", group("calves", 17, 58))
 
     out = render(t, [])
     # Not "no working sets in the last year": zero rows means unindexed or filtered, and
@@ -436,6 +509,120 @@ def section_float_leaks() -> None:
                   "float field needs | round, | round: 1 or num()")
 
 
+# Columns carrying text a human typed, or a keyword the indexer copied out of one. A
+# raw render of any of these puts whatever was in the log straight into the card's HTML.
+# The panel sandbox strips <a> and <script>, so the live blast radius is layout rather
+# than script execution - but a note containing "<div" silently breaks the card it is on,
+# and the suite never saw it because until 2026-09-05 the only value it ever fed a text
+# column was nil. Same shape as FLOAT_COLUMNS above: a source check, because the bug is
+# invisible in a render that happens to use clean data.
+TEXT_COLUMNS = {
+    "item", "text", "notes", "gear_s", "gear_notes", "wrap_up", "tags_s", "watch_s",
+    "exercise.name", "exercise.category", "location.name", "environment.conditions",
+    "environment.wind", "environment.setting", "program.name", "program.block",
+    "program.phase", "session_id", "prev_session_id", "next_session_id", "start_time",
+    "time_of_day", "set_type", "phase", "lift", "lift_slug", "lift_name", "name", "fam",
+    "muscle", "block", "block_role", "cycle", "cycle_label", "cycle_role", "week_state",
+    "iso_week", "tag", "acwr_band", "acwr_gloss", "inol_hardest_band",
+    "inol_hardest_lift", "inol_hardest_gloss", "meet_id",
+    "date_s", "meet_s", "last_s", "when_s", "month_s", "notes_from", "computed_through",
+    "last_trained", "first_trained", "peer_from", "peer_to", "week_end",
+}
+
+OUTPUT_TAG = re.compile(r"\{\{(?P<body>[^{}]*)\}\}")
+COL_IN_TAG = re.compile(r"\['([^']+)'\]\.value")
+
+
+def section_escaping() -> None:
+    for name in dir(tpl):
+        if name.startswith("__"):
+            continue
+        value = getattr(tpl, name)
+        if not isinstance(value, str) or "{{" not in value:
+            continue
+        for m in OUTPUT_TAG.finditer(value):
+            body = m.group("body")
+            cols = COL_IN_TAG.findall(body)
+            if not cols or cols[0] not in TEXT_COLUMNS:
+                continue
+            check(f"{name}: {cols[0]} is escaped", "escape" in body,
+                  f"text column rendered raw: {{{{{body}}}}}")
+
+
+def section_escaping_renders() -> None:
+    """The other half: actually push markup and an ampersand through a card.
+
+    balanced() is the assertion that matters. An unescaped "<div" arrives with no
+    closing tag, so the card's own div count stops matching and the panel renders
+    with the rest of its content swallowed by the stray element.
+    """
+    # Deliberately unbalanced. A closed <div> escapes into the card without tripping
+    # balanced(), which is exactly the note that would slip through: the failure a lifter
+    # actually sees is an unterminated tag swallowing the rest of the panel.
+    nasty = '<div onclick="x">bench & press'
+
+    out = render(tpl.NOTES_CARD, rows_of({"session_id": "s1", "order": 1, "phase": "pre",
+                                          "exercise.name": nasty, "text": nasty,
+                                          "tags_s": "grip|<b>bold</b>"}))
+    balanced("escaping: a note carrying markup", out)
+    # python-liquid emits &quot;; Kibana's JavaScript Liquid emits &#34;. Assert on the
+    # part both agree about rather than on one engine's entity spelling.
+    has("escaping: the note is escaped", out, "&lt;div onclick=")
+    lacks("escaping: the raw tag is gone", out, "<div onclick")
+    has("escaping: the ampersand is escaped", out, "bench &amp; press")
+    lacks("escaping: no live attribute survives", out, 'onclick="x"')
+    has("escaping: a tag is escaped too", out, "&lt;b&gt;bold&lt;/b&gt;")
+
+    out = render(tpl.RECENT_NOTES, rows_of({"date_s": "Sep 4", "phase": "wrap",
+                                            "exercise.name": nasty, "text": nasty,
+                                            "tags_s": "grip"}))
+    balanced("escaping: recent notes", out)
+    has("escaping: recent notes escaped", out, "&amp;")
+
+    out = render(tpl.WATCH_CARD, rows_of({"date_s": "Sep 4", "item": nasty}))
+    balanced("escaping: a watch item", out)
+    lacks("escaping: watch item has no raw div", out, '<div onclick')
+
+    out = render(tpl.WRAP_CARD, rows_of({"wrap_up": nasty, "gear_notes": nasty,
+                                         "watch_s": nasty + "|" + nasty}))
+    balanced("escaping: a wrap-up and its watch items", out)
+    has("escaping: wrap-up escaped", out, "&lt;div")
+
+    out = render(tpl.PERFORMANCE_CARD, rows_of(
+        {"session_id": "s1", "set_number": 1, "exercise.name": nasty,
+         "exercise.category": "main", "set_type": "working", "load_type": "barbell",
+         "weight_lb": 315, "reps": 3, "rep_unit": "reps", "distance_ft": None,
+         "rpe": 8, "gear_s": nasty, "notes": nasty}))
+    balanced("escaping: an exercise name and a set note", out)
+    has("escaping: the exercise name is escaped", out, "&lt;div onclick")
+
+    out = render(tpl.SESSION_HEADER, rows_of(
+        {"program.name": nasty, "program.block": nasty, "program.week": 1,
+         "program.day": 2, "program.total_days": 12, "date_s": "Sep 4",
+         "start_time": "06:00", "time_of_day": "morning", "location.name": nasty,
+         "location.travel": False, "prev_session_id": "2026-09-03",
+         "next_session_id": "2026-09-05"}))
+    balanced("escaping: a location and a program name", out)
+    has("escaping: the location is escaped", out, "&lt;div onclick")
+
+    out = render(tpl.CONDITIONS_CARD, rows_of(
+        {"environment.temp_f": 71, "environment.humidity_pct": 40,
+         "environment.conditions": nasty, "environment.wind": nasty,
+         "environment.setting": nasty, "time_of_day": "morning"}))
+    balanced("escaping: the conditions line", out)
+    has("escaping: conditions escaped", out, "&lt;div onclick")
+
+    out = render(tpl.SIGNAL_TAGS, rows_of(tag_row(nasty, 9, 5, prior=1, span=60, notes=210)))
+    balanced("escaping: a tag in the verdict", out)
+    lacks("escaping: no raw div in a verdict", out, "<div onclick")
+
+    out = render(tpl.SIGNAL_DRIFT, rows_of(
+        {"muscle": nasty, "sessions": 20, "cadence_days": 6.0,
+         "last_trained": "2020-01-01", "computed_through": "2026-09-05"}))
+    balanced("escaping: a muscle name in the verdict", out)
+    lacks("escaping: no raw div in the drift verdict", out, "<div onclick")
+
+
 # num() ends in `{%- endif -%}`, and Liquid's `-%}` strips the whitespace that
 # follows it, so a literal " lb" written after a num() call renders as "909.4lb".
 # The check runs on the assembled template, not the source: in templates.py these
@@ -489,6 +676,7 @@ def lift_rows(values, slug="comp-deadlift", when="Jul 2026"):
 
 def section_lift() -> None:
     t = tpl.SIGNAL_LIFT
+    fixture_is_real("sig_lift", lift_rows([300.0])[0])
 
     out = render(t, [])
     has("lift: no rows", out, "No confident estimates for this lift yet.")
@@ -567,29 +755,63 @@ def section_orphans() -> None:
 
 
 def section_total_card() -> None:
-    """The label must report the window the picker actually left, not the one asked for."""
-    t = tpl.total_card(909.4)
+    """The label must report the window the picker actually left, not the one asked for,
+    and the meet best has to come from the reader's own log or not be claimed at all."""
+    t = tpl.TOTAL_CARD
     now = datetime.now(timezone.utc)
 
     def lift(name, e1, first_days_ago):
-        return {"lift": name, "e1": e1,
+        return {"fam": name, "e1": e1, "meet_lb": None,
                 "first_d": (now - timedelta(days=first_days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
 
-    out = render(t, rows_of(lift("deadlift", 361.0, 88), lift("squat", 283.0, 80), lift("bench", 228.0, 85)))
+    def meet(lb):
+        return {"fam": None, "e1": None, "first_d": None, "meet_lb": lb}
+
+    fixture_is_real("total", lift("deadlift", 361.0, 88))
+
+    lifts = [lift("deadlift", 361.0, 88), lift("squat", 283.0, 80), lift("bench", 228.0, 85)]
+    out = render(t, rows_of(*(lifts + [meet(909.4)])))
     has("total: full window label", out, "best of the last 90 days")
     has("total: sum", out, "872")
+    has("total: the meet best is the reader's own", out, "909.4")
+    has("total: the comparison", out, "of your meet best")
+    has("total: what is left to go", out, "37")
     lacks("total: no widen hint at full window", out, "widen the time picker")
+    # The meet row carries no lift family and must not be drawn as a fourth lift.
+    rowcount = out.count('class="liftrow"')
+    check("total: the meet row is not a lift row", rowcount == 3, f"{rowcount} lift rows")
     balanced("total (full)", out)
 
-    out = render(t, rows_of(lift("deadlift", 339.0, 29), lift("squat", 276.0, 25), lift("bench", 228.0, 28)))
+    # No meet on record: the card says so rather than showing a percentage of nothing.
+    out = render(t, rows_of(*lifts))
+    has("total: still names the projection", out, "872")
+    has("total: no meet says so", out, "No meet on the record yet")
+    lacks("total: no percentage of nothing", out, "of your meet best")
+    lacks("total: nothing to go", out, "to go")
+    balanced("total (no meet)", out)
+
+    out = render(t, rows_of(lift("deadlift", 339.0, 29), lift("squat", 276.0, 25),
+                            lift("bench", 228.0, 28), meet(909.4)))
     has("total: narrow window says its width", out, "best of the last <span class=\"v\">29</span> days")
     has("total: narrow window says how to fix it", out, "widen the time picker")
     lacks("total: narrow window does not claim 90", out, "best of the last 90 days")
     balanced("total (narrow)", out)
 
     # No first_d at all (an older query shape): fall back to the plain label.
-    out = render(t, rows_of({"lift": "deadlift", "e1": 361.0}))
+    out = render(t, rows_of({"fam": "deadlift", "e1": 361.0}))
     has("total: no first_d falls back", out, "best of the last 90 days")
+
+    # Only the meet row came back: no main-lift work in the window, and the card must
+    # not print a confident zero total.
+    out = render(t, rows_of(meet(909.4)))
+    has("total: no lifts says so", out, "No main-lift work in this window")
+    lacks("total: no zero total", out, "class=\"hero\"")
+    balanced("total (no lifts)", out)
+
+    # The author's numbers must not be reachable from the template source at all.
+    src = tpl.TOTAL_CARD
+    check("total: no build-time meet best in the source", "909.4" not in src)
+    check("total: no build-time DOTS in the source", "266.72" not in src)
 
 
 def section_meet_cards() -> None:
@@ -670,8 +892,11 @@ def section_cold_start() -> None:
     balanced("cold load", out)
 
     now = datetime.now(timezone.utc)
-    thin = [{"muscles_primary": m, "sessions": 2,
-             "last_d": (now - timedelta(days=5, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+    # muscles_primary / last_d were the pre-signals column names and the card has not
+    # read either since the index landed. A fixture on dead columns tests nothing, which
+    # is why fixture_is_real() now runs over every one of them.
+    thin = [{"muscle": m, "sessions": 2, "cadence_days": 40.0,
+             "last_trained": (now - timedelta(days=5, hours=12)).strftime("%Y-%m-%d")}
             for m in ("chest", "quads", "lats")]
     out = render(tpl.SIGNAL_DRIFT, rows_of(*thin))
     has("cold drift: names the threshold", out, "6 sessions in a year")
@@ -691,8 +916,16 @@ def section_cold_start() -> None:
 # card shipped is the first case, so it is the one tested hardest.
 
 def taper_row(cycle, label, role, wo, state="closed", days=3, ton=0.0, rpe=6.5,
-              heavy=0, k=0, cum=0.0, cum_heavy=0, made=None, tot=None):
-    return {
+              heavy=0, k=0, cum=0.0, cum_heavy=0, made=None, tot=None,
+              absent_cum=False):
+    """`absent_cum` drops the three cumulative columns from the row entirely.
+
+    That is what the indexer now writes for a cycle with no closed week inside its
+    run-in: absent, not zero. The distinction is the whole of the taper fix - `nil |
+    plus: 0` is 0, so a card that does not check presence cannot tell "no closed weeks"
+    from "the field did not arrive", and those want opposite sentences.
+    """
+    row = {
         "cycle": cycle, "cycle_label": label, "cycle_role": role,
         "week_state": state, "weeks_out": wo, "training_days": days,
         "tonnage_lb": ton, "avg_working_rpe": rpe,
@@ -700,6 +933,10 @@ def taper_row(cycle, label, role, wo, state="closed", days=3, ton=0.0, rpe=6.5,
         "cum_weeks": k, "cum_tonnage_lb": cum, "cum_heavy": cum_heavy,
         "computed_through": "2026-09-05",
     }
+    if absent_cum:
+        for col in ("cum_weeks", "cum_tonnage_lb", "cum_heavy"):
+            del row[col]
+    return row
 
 
 # Nov 2024 went nine for nine; Apr 2024 went six for nine. Weeks 8 and 7 out, in the
@@ -716,6 +953,7 @@ APR = [taper_row("2024-04-06", "Apr 2024", "past", 8, ton=34140.0, rpe=6.6,
 
 def section_taper() -> None:
     T = tpl.SIGNAL_TAPER
+    fixture_is_real("sig_taper", NOV[0])
 
     # --- the live case: week 8 open, nothing closed yet
     live = [taper_row("2026-10-24", "Oct 2026", "current", 8, state="in-progress",
@@ -788,9 +1026,49 @@ def section_taper() -> None:
     out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
                                          ton=62000.0, k=2, cum=115915.0)] + short)))
     balanced("taper mismatched span", out)
-    has("taper mismatched span: says so", out, "no matching stretch at that distance")
+    has("taper mismatched span: names its own count", out, "<b>2</b> closed weeks behind it")
+    has("taper mismatched span: names the peer's count", out, "<b>1</b> at the same distance")
+    has("taper mismatched span: says what it is waiting for", out, "same number of closed")
     has("taper mismatched span: still names the window", out, "Through week <b>7</b> out")
     lacks("taper mismatched span: no ratio", out, "% of Nov 2024's volume")
+
+    # --- the shape the widened index actually produces on 2026-09-05: seven weeks out,
+    # the current cycle carrying seven closed weeks in its (widened) cumulative window,
+    # the yardstick carrying one at the same distance. The old card divided across that
+    # mismatch and would have printed 466% - as meaningless as the 0% the structural
+    # zero used to produce. It has to decline and name both counts.
+    wide = [taper_row("2026-10-24", "Oct 2026", "current", 7, ton=62000.0,
+                      k=7, cum=159000.0, cum_heavy=9)]
+    peer = [dict(NOV[1], cum_weeks=1, cum_tonnage_lb=34140.0),
+            dict(NOV[0], cum_weeks=1, cum_tonnage_lb=34140.0)]
+    out = render(T, rows_of(*(wide + peer)))
+    balanced("taper widened window", out)
+    has("taper widened: names its own count", out, "<b>7</b> closed weeks behind it")
+    has("taper widened: names the peer's count", out, "<b>1</b> at the same distance")
+    has("taper widened: says what it waits for", out, "same number of closed")
+    lacks("taper widened: no percentage", out, "% of Nov 2024's volume")
+    lacks("taper widened: no 466", out, "466")
+    lacks("taper widened: no zero either", out, "0% of")
+    lacks("taper widened: no gauge", out, 'class="gauge"')
+
+    # --- the current closed row arrives with no cumulative columns at all
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                         ton=62000.0, absent_cum=True)] + NOV + APR)))
+    balanced("taper absent cum on the current row", out)
+    has("taper absent cum: says it has none", out, "no closed week behind it yet")
+    lacks("taper absent cum: does not claim the week is open", out, "still open")
+    lacks("taper absent cum: no ratio", out, "% of Nov 2024's volume")
+
+    # --- and the peer row is the one missing them
+    bare = [dict(r) for r in NOV]
+    for r in bare:
+        for col in ("cum_weeks", "cum_tonnage_lb", "cum_heavy"):
+            r.pop(col, None)
+    out = render(T, rows_of(*([taper_row("2026-10-24", "Oct 2026", "current", 7,
+                                         ton=62000.0, k=2, cum=115915.0)] + bare + APR)))
+    balanced("taper absent cum on the peer row", out)
+    has("taper absent peer cum: says so", out, "none recorded at that distance")
+    lacks("taper absent peer cum: no ratio", out, "% of Nov 2024's volume")
 
     # --- no meet on the calendar
     out = render(T, rows_of(*(NOV + APR)))
@@ -843,20 +1121,20 @@ def load_row(inol=0.7472, lift="Comp Bench", band="easy",
 
 def block_row(ordinal, block="strength", role="past", sessions=20, heavy=17,
               main_reps=83, hps=0.85, share=20.5, peers=None, peer_hps=None,
-              peer_share=None, peer_from=None, first="2026-02-09"):
+              peer_share=None, peer_from=None, first="2026-02-09", window=None):
     return {"block": block, "ordinal": ordinal, "block_role": role,
             "first_trained": first, "sessions": sessions, "heavy": heavy,
             "main_reps": main_reps, "heavy_per_session": hps, "share_pct": share,
             "peers": peers, "peer_heavy_per_session": peer_hps,
             "peer_share_pct": peer_share, "peer_from": peer_from,
-            "computed_through": "2026-09-05"}
+            "peer_window_sessions": window, "computed_through": "2026-09-05"}
 
 
 # The live shape: the current strength block, eight earlier strength blocks behind it.
 BLOCK_LIVE = [
     block_row(0, role="current", sessions=6, heavy=5, main_reps=67, hps=0.83, share=7.5,
               peers=8, peer_hps=1.75, peer_share=12.05, peer_from="2023-05-29",
-              first="2026-08-24"),
+              first="2026-08-24", window=6),
     block_row(1, block="hypertrophy", sessions=56, heavy=48, main_reps=1461, hps=0.86),
     block_row(4, sessions=20, heavy=17, main_reps=83, hps=0.85),
 ]
@@ -870,8 +1148,9 @@ PROJ_PAST = [
      "computed_through": "2026-09-05"},
 ]
 PROJ_NOW = {"cycle": "now", "cycle_label": "now", "cycle_role": "current",
-            "projected_total_lb": 871.9, "peers": 2, "peer_pct": 97.2,
-            "expected_lb": 847.5, "computed_through": "2026-09-05"}
+            "projected_total_lb": 871.9, "peers": 3, "peer_pct": 97.2,
+            "expected_lb": 847.5, "peer_from": "2024-04-06", "peer_to": "2026-03-14",
+            "computed_through": "2026-09-05"}
 
 
 def tag_row(tag, total, recent, prior=0, span=4, notes=31, frm="2026-09-01"):
@@ -882,6 +1161,7 @@ def tag_row(tag, total, recent, prior=0, span=4, notes=31, frm="2026-09-01"):
 
 def section_program() -> None:
     T = tpl.SIGNAL_PROGRAM
+    fixture_is_real("sig_program", load_row())
 
     out = render(T, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
                             load_row(inol=0.99, week_end="2026-08-23")))
@@ -918,12 +1198,27 @@ def section_program() -> None:
     balanced("program no acwr", out)
     lacks("program no acwr: no dangling load line", out, "load  at")
 
+    # Both glosses are indexed now (they were KEEPed and rendered before anything wrote
+    # them, which is where "at INOL 0.75 - ." came from). Present, they read; absent,
+    # the sentence has to close cleanly rather than trailing an em-dash into a full stop.
+    out = render(T, rows_of(load_row(gloss=None)))
+    balanced("program no inol gloss", out)
+    has("program no inol gloss: keeps the number", out, "INOL 0.75.")
+    lacks("program no inol gloss: no dangling em-dash", out, "&mdash; .")
+    lacks("program no inol gloss: no orphaned dash", out, "0.75 &mdash;")
+
+    out = render(T, rows_of(load_row(acwr_gloss=None)))
+    balanced("program no acwr gloss", out)
+    has("program no acwr gloss: keeps the band and number", out, "load rising at 1.37")
+    lacks("program no acwr gloss: no dangling middot", out, "1.37 &middot;")
+
     out = render(T, [])
     has("program empty", out, "No signal rows came back")
 
 
 def section_block() -> None:
     T = tpl.SIGNAL_BLOCK
+    fixture_is_real("sig_block", BLOCK_LIVE[0])
 
     out = render(T, rows_of(*BLOCK_LIVE))
     balanced("block", out)
@@ -932,6 +1227,7 @@ def section_block() -> None:
     has("block: its own rate", out, "<b>0.83</b> heavy reps a session")
     has("block: the peer median", out, "median of <b>1.75</b>")
     has("block: how many peers", out, "your 8 earlier strength blocks")
+    has("block: names the window the median was taken over", out, "the first 6 sessions of")
     has("block: the denominator is visible", out, "<b>5</b> of <b>67</b> main-lift reps")
     has("block: how far back the comparison reaches", out, "reaches back to 2023-05-29")
     has("block: gauge", out, 'class="gauge"')
@@ -942,6 +1238,13 @@ def section_block() -> None:
     check("block: the verdict names only this block type",
           "hypertrophy" not in verdict, verdict[:80])
     has("block: peer count is same-kind only", out, "your 8 earlier strength blocks")
+
+    # peer_window_sessions absent (an older index): the sentence still has to read.
+    out = render(T, rows_of(dict(BLOCK_LIVE[0], peer_window_sessions=None), *BLOCK_LIVE[1:]))
+    balanced("block no window", out)
+    has("block no window: still ranks", out, "47% of the heavy work")
+    lacks("block no window: drops the window clause", out, "the first")
+    has("block no window: keeps the peer count", out, "your 8 earlier strength blocks")
 
     out = render(T, rows_of(block_row(0, role="current", peers=0, sessions=6,
                                       heavy=5, main_reps=67, hps=0.83)))
@@ -967,10 +1270,12 @@ def section_block() -> None:
 
 def section_projection() -> None:
     T = tpl.SIGNAL_PROJECTION
+    fixture_is_real("sig_projection", PROJ_NOW)
+    fixture_is_real("sig_projection", PROJ_PAST[0])
 
     out = render(T, rows_of(*(PROJ_PAST + [PROJ_NOW])))
     balanced("projection", out)
-    has("projection: the ratio is the verdict", out, "97% of projection, both times")
+    has("projection: the ratio is the verdict", out, "97% of projection, across 3 meets")
     has("projection: Nov numbers", out, "Nov 2024 projected <b>929</b>")
     has("projection: Nov total", out, "you totalled <b>909</b>")
     has("projection: Apr numbers", out, "Apr 2024 projected <b>885</b>")
@@ -978,10 +1283,22 @@ def section_projection() -> None:
     has("projection: what it implies", out, "platform total near")
     has("projection: the caveat is on the card", out, "singles at a commanded pace")
 
+    # peer_pct and expected_lb are absent entirely under three peer meets now. The card
+    # must degrade to naming the projection, and must not print "near lb" off a nil.
+    out = render(T, rows_of(dict(PROJ_NOW, peers=2, peer_pct=None, expected_lb=None)))
+    balanced("projection two peers", out)
+    has("projection two peers: still names the number", out, "872")
+    has("projection two peers: counts what it has", out, "<b>2</b> meets")
+    has("projection two peers: names the threshold", out, "needs three")
+    lacks("projection two peers: no ratio", out, "% of projection")
+    lacks("projection two peers: no expected total", out, "platform total near")
+
+    # And the other silence: no meet on record carries a projection at all.
     out = render(T, rows_of(dict(PROJ_NOW, peers=0, peer_pct=None, expected_lb=None)))
     balanced("projection no peers", out)
     has("projection no peers: still names the number", out, "872")
-    has("projection no peers: says why it cannot rank", out, "nothing to")
+    has("projection no peers: says why it cannot rank", out, "No meet on record has a projection")
+    lacks("projection no peers: does not count to three", out, "needs three")
     lacks("projection no peers: no ratio", out, "% of projection")
 
     out = render(T, rows_of(*PROJ_PAST))
@@ -994,6 +1311,7 @@ def section_projection() -> None:
 
 def section_tags() -> None:
     T = tpl.SIGNAL_TAGS
+    fixture_is_real("sig_tags", tag_row("grip", 9, 5))
 
     # The live state: 31 notes across four days. Ranking here would be the confident
     # empty verdict, so the card must refuse and say what it has.
@@ -1028,6 +1346,66 @@ def section_tags() -> None:
     has("tags empty: names the cause", out, "No tagged notes yet")
 
 
+def section_units_and_timezone() -> None:
+    """Unit labels come from templates.UNITS, and the clock comes from IRONSTACK_TZ.
+
+    Neither is a conversion. The data model is lb / ft / F and saying otherwise without
+    converting the numbers would be the loudest lie a training log can tell; what these
+    assert is that the LABELS have one home, so the day a conversion exists there is one
+    row to change per unit rather than a dozen string literals to find.
+    """
+    for key, want in (("weight", "lb"), ("distance", "ft"), ("temp", "F"),
+                      ("mass_alt", "kg")):
+        check(f"units: {key} is {want}", tpl.UNITS[key] == want, tpl.UNITS[key])
+        check(f"units: ${key.upper()} token substitutes",
+              tpl.tok(f"$U_{key.upper()}") == want, tpl.tok(f"$U_{key.upper()}"))
+
+    # No unit token may survive into a rendered card: an unsubstituted $ is a Liquid
+    # syntax error and blanks the panel, which is how the signal cards broke the hour
+    # the tokens were introduced (signal() was concatenating, not tok()ing).
+    for name in dir(tpl):
+        if name.startswith("_"):
+            continue
+        value = getattr(tpl, name)
+        if not isinstance(value, str) or "<div" not in value:
+            continue
+        check(f"{name}: no unsubstituted token", "$" not in value,
+              f"holds {value[value.index('$'):value.index('$') + 12]!r}" if "$" in value else "")
+
+    check("tz: UTC is the default", tpl.tz_offset_seconds("UTC") == 0)
+    check("tz: a negative offset", tpl.tz_offset_seconds("-07:00") == -25200)
+    check("tz: a positive offset", tpl.tz_offset_seconds("+05:30") == 19800)
+    check("tz: a compact offset", tpl.tz_offset_seconds("-0700") == -25200)
+    try:
+        tpl.tz_offset_seconds("America/Denver")
+        check("tz: a named zone is refused", False, "accepted an IANA zone")
+    except ValueError as exc:
+        check("tz: a named zone is refused", True)
+        check("tz: and says why", "DATE_FORMAT" in str(exc), str(exc))
+
+    # The offset reaches both engines: Liquid through $TZ_OFF, ES|QL through
+    # build_dashboards.with_timezone.
+    check("tz: $TZ_OFF reaches the days-to-meet arithmetic",
+          "$TZ_OFF" in tpl.DAYS_TO_MEET)
+    check("tz: UTC leaves ES|QL untouched",
+          bd.with_timezone('EVAL d = DATE_FORMAT("MMM d", date)')
+          == 'EVAL d = DATE_FORMAT("MMM d", date)')
+    # Not a live-cluster assertion, just that the shift is emitted where TZ is set.
+    shifted = bd.DATE_FORMAT_CALL.sub(
+        lambda m: f'DATE_FORMAT("{m.group(1)}", {m.group(2)} - 25200 seconds)',
+        'EVAL d = DATE_FORMAT("MMM d", date)')
+    check("tz: a non-UTC offset shifts the instant",
+          shifted == 'EVAL d = DATE_FORMAT("MMM d", date - 25200 seconds)', shifted)
+
+    # Every DATE_FORMAT in Q has to be reachable by that rewrite, or a card keeps
+    # printing UTC while everything around it moved.
+    for name, query in bd.Q.items():
+        raw = query.count("DATE_FORMAT(")
+        seen = len(bd.DATE_FORMAT_CALL.findall(query))
+        check(f"tz: every DATE_FORMAT in Q[{name!r}] is rewritable", raw == seen,
+              f"{seen} of {raw} matched")
+
+
 def main() -> None:
     section_cold_start()
     section_total_card()
@@ -1039,6 +1417,9 @@ def main() -> None:
     section_unit_spacing()
     section_unit_spacing_before()
     section_float_leaks()
+    section_escaping()
+    section_escaping_renders()
+    section_units_and_timezone()
     section_helpers()
     section_all_templates()
     section_intensity()

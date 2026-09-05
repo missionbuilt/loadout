@@ -1,0 +1,22 @@
+{
+  "meet_id": "2026-11-14",
+  "date": "2026-11-14",
+  "name": "Example Open (sample data, not a real meet)",
+  "federation": "Example Powerlifting Federation",
+  "bodyweight_kg": 84.0,
+  "total_kg": 515.0,
+  "dots": 345.36,
+  "attempts": [
+    { "lift": "squat", "attempt_no": 1, "weight_kg": 165, "made": true },
+    { "lift": "squat", "attempt_no": 2, "weight_kg": 177.5, "made": true },
+    { "lift": "squat", "attempt_no": 3, "weight_kg": 185, "made": true },
+    { "lift": "bench", "attempt_no": 1, "weight_kg": 110, "made": true },
+    { "lift": "bench", "attempt_no": 2, "weight_kg": 117.5, "made": true },
+    { "lift": "bench", "attempt_no": 3, "weight_kg": 122.5, "made": false, "notes": "Left it at the chest. A missed attempt still belongs in the file." },
+    { "lift": "deadlift", "attempt_no": 1, "weight_kg": 200, "made": true },
+    { "lift": "deadlift", "attempt_no": 2, "weight_kg": 212.5, "made": true },
+    { "lift": "deadlift", "attempt_no": 3, "weight_kg": 220, "made": false },
+    { "lift": "deadlift", "attempt_no": 4, "weight_kg": 227.5, "made": false, "notes": "Fourth attempt, record only. Never counts toward the total." }
+  ],
+  "notes": "Sample data. Nobody lifted this. Eight for ten, and the numbers are round on purpose so you can see how a meet file turns into ten workout-meets documents."
+}
