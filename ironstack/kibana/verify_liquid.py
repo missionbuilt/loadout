@@ -445,6 +445,25 @@ def section_float_leaks() -> None:
 UNIT_AFTER_NUM = re.compile(r"\{%- endif -%\}\{%- endif -%\}(&nbsp;|\s)?([A-Za-z%]+)")
 
 
+# The same trap on the other end: num() OPENS with `{%- if`, and `{%-` strips the
+# whitespace BEFORE it, so a literal "best e1RM " written ahead of a num() call renders
+# as "best e1RM420". Found on the Lift header 2026-09-05, after the trailing-side check
+# above had been passing for weeks. Matched on `{%- assign _n`, which only num() emits.
+UNIT_BEFORE_NUM = re.compile(r"([A-Za-z0-9%])(&nbsp;|\s)?\{%- if [^{}]*?-%\}\{%- assign _n")
+
+
+def section_unit_spacing_before() -> None:
+    for name in dir(tpl):
+        if name.startswith("__"):
+            continue
+        value = getattr(tpl, name)
+        if not isinstance(value, str):
+            continue
+        for last_char, sep in UNIT_BEFORE_NUM.findall(value):
+            check(f"{name}: space after {last_char!r} survives into num()", sep == "&nbsp;",
+                  "a plain space before num() is stripped by `{%-`; use &nbsp;")
+
+
 def section_unit_spacing() -> None:
     for name in dir(tpl):
         if name.startswith("__"):
@@ -1022,6 +1041,7 @@ def main() -> None:
     section_orphans()
     section_lift()
     section_unit_spacing()
+    section_unit_spacing_before()
     section_float_leaks()
     section_helpers()
     section_all_templates()

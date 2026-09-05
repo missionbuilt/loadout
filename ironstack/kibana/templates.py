@@ -352,7 +352,7 @@ LIFT_HEADER = page(tok("""
 <div class="row">
 <div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value }}</div></div>
 <div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value }}</div>
-<div class="sub">best e1RM """ + num("rows[0]['e1'].value") + """&nbsp;lb &middot; best top set """ + num("rows[0]['top'].value") + """&nbsp;lb &middot; avg RPE {{ rows[0]['rpe'].value | round: 1 }}</div></div>
+<div class="sub">best e1RM&nbsp;""" + num("rows[0]['e1'].value") + """&nbsp;lb &middot; best top set&nbsp;""" + num("rows[0]['top'].value") + """&nbsp;lb &middot; avg RPE {{ rows[0]['rpe'].value | round: 1 }}</div></div>
 </div>{% endif %}"""))
 
 
