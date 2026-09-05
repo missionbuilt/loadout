@@ -295,8 +295,8 @@ def section_drift() -> None:
     # Same class as the "RPE 6.260000228881836" leak in the Sept 4 QA pass.
     divides = tpl.SIGNAL_DRIFT.count("divided_by: 86400")
     floored = tpl.SIGNAL_DRIFT.count("divided_by: 86400 | floor")
-    check("drift: every day-gap is floored", divides == floored and divides == 2,
-          f"{floored} of {divides} floored, expected 2 of 2")
+    check("drift: every day-gap is floored", divides == floored and divides == 3,
+          f"{floored} of {divides} floored, expected 3 of 3")
 
     def group(name, days_ago, sessions):
         stamp = (now - timedelta(days=days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
@@ -333,6 +333,25 @@ def section_drift() -> None:
     # rear-delt at 26 days against a 21-day cadence is inside 2x and must not fire.
     lacks("drift: rear-delt not flagged", out, "Rear delt")
     lacks("drift: adductors not flagged", out, "Adductors")
+
+    # The picker cut the year. Sept 5: at "Last 30 days" this card ruled "Nothing is
+    # drifting" over a 17-day calves gap, because every cadence was 365/n against a
+    # window that was 30 days wide. With first_d in the rows the card can tell.
+    def recent(name, days_ago, sessions, first_days_ago):
+        g = group(name, days_ago, sessions)
+        g["first_d"] = (now - timedelta(days=first_days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        return g
+    narrow = rows_of(recent("chest", 1, 8, 29), recent("quads", 4, 7, 28), recent("calves", 17, 6, 29))
+    out = render(t, narrow)
+    has("drift: narrow range declines to rule", out, "the page is showing")
+    has("drift: narrow range counts the days", out, "<b>29</b> days")
+    lacks("drift: narrow range no false calm", out, "Nothing is drifting.")
+    lacks("drift: narrow range no false flag", out, "Calves:")
+    balanced("drift (narrow)", out)
+    # A full year present: the guard stays out of the way.
+    wide = rows_of(recent("calves", 17, 58, 360), recent("chest", 1, 120, 364))
+    out = render(t, wide)
+    has("drift: wide range still rules", out, "Calves: 17 days.")
 
     # A second flagged group is listed under the headline, not promoted over it.
     two = rows_of(group("traps", 60, 20), group("calves", 40, 58), group("chest", 1, 120))
@@ -490,6 +509,84 @@ def section_orphans() -> None:
               "defined in templates.py and built by nothing")
 
 
+def section_total_card() -> None:
+    """The label must report the window the picker actually left, not the one asked for."""
+    t = tpl.total_card(909.4)
+    now = datetime.now(timezone.utc)
+
+    def lift(name, e1, first_days_ago):
+        return {"lift": name, "e1": e1,
+                "first_d": (now - timedelta(days=first_days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+
+    out = render(t, rows_of(lift("deadlift", 361.0, 88), lift("squat", 283.0, 80), lift("bench", 228.0, 85)))
+    has("total: full window label", out, "best of the last 90 days")
+    has("total: sum", out, "872")
+    lacks("total: no widen hint at full window", out, "widen the time picker")
+    balanced("total (full)", out)
+
+    out = render(t, rows_of(lift("deadlift", 339.0, 29), lift("squat", 276.0, 25), lift("bench", 228.0, 28)))
+    has("total: narrow window says its width", out, "best of the last <span class=\"v\">29</span> days")
+    has("total: narrow window says how to fix it", out, "widen the time picker")
+    lacks("total: narrow window does not claim 90", out, "best of the last 90 days")
+    balanced("total (narrow)", out)
+
+    # No first_d at all (an older query shape): fall back to the plain label.
+    out = render(t, rows_of({"lift": "deadlift", "e1": 361.0}))
+    has("total: no first_d falls back", out, "best of the last 90 days")
+
+
+def section_meet_cards() -> None:
+    out = render(tpl.MEET_CARDS, rows_of({"meets": 1, "total_kg": 412.5, "total_lb": 909.4,
+                                          "dots": 266.72, "made": 9, "attempts": 9}))
+    has("meets: count says what it counts", out, "in the page's range")
+    has("meets: success says what it counts", out, "100% made in range")
+    lacks("meets: no 'logged' claim", out, "competitions logged")
+    lacks("meets: no 'all meets' claim", out, "all meets")
+
+
+def section_moat() -> None:
+    """The trailing-90-day idea is the most defensible thing in the system and it was
+    set in 10px grey. It now has to be in the evidence line of the intensity verdict."""
+    out = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
+    has("moat: in the evidence line", out, "of your best in the last 90 days")
+    has("moat: provenance says why", out, "Heavy means heavy for you now")
+    # And the thin-history state tells the lifter what to do about the picker.
+    out = render(tpl.SIGNAL_INTENSITY, rows_of(week(5, 57), week(0, 30), week(1, 40)))
+    has("intensity: thin history names the range", out, "in the page's range")
+    has("intensity: thin history says to widen", out, "widen it")
+
+
+def section_contrast() -> None:
+    """No colour below 4.5:1 on either ground may style text a lifter has to read.
+
+    FAINT is 2.5:1 on the panel ground. It is fine for a hairline or a separator and
+    it was styling eyebrows, provenance, cold-start copy and the tagline that carries
+    the product's one defensible idea.
+    """
+    def lum(h):
+        r, g, b = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        f = lambda c: c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4  # noqa: E731
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+
+    def ratio(a, b):
+        la, lb = sorted((lum(a), lum(b)), reverse=True)
+        return (la + .05) / (lb + .05)
+
+    for name, colour in (("STEEL", tpl.STEEL), ("DIM", tpl.DIM), ("CHALK", tpl.CHALK)):
+        for ground in (tpl.BG, tpl.PANEL):
+            check(f"contrast: {name} on {ground} >= 4.5", ratio(colour, ground) >= 4.5,
+                  f"{ratio(colour, ground):.2f}")
+    faint = tpl.FAINT
+    for cls in (".eyebrow{", ".sig .q{", ".sig .prov{", ".sig .none{", ".sig .base{", ".empty{",
+                ".item .when{", ".faint{"):
+        src = tpl.BASE_CSS + tpl.SIGNAL_CSS
+        i = src.find(cls)
+        rule = src[i:src.find("}", i)]
+        check(f"contrast: {cls.rstrip('{')} is not FAINT", faint not in rule and "$FAINT" not in rule,
+              "text role styled with a 2.5:1 colour")
+    check("contrast: brand tagline is not FAINT", faint not in tpl.brand_bar("X", "y").split(".tagline")[1].split("}")[0])
+
+
 def section_cold_start() -> None:
     """Week one through week twelve — the state that decides whether anyone stays.
 
@@ -529,6 +626,10 @@ def section_cold_start() -> None:
 
 def main() -> None:
     section_cold_start()
+    section_total_card()
+    section_meet_cards()
+    section_moat()
+    section_contrast()
     section_orphans()
     section_lift()
     section_unit_spacing()

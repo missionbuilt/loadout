@@ -504,10 +504,15 @@ class Dashboard:
                 dv, field, label = control[0], control[1], control[2]
                 default = list(control[3]) if len(control) > 3 else []
                 cid = uid(self.id, "control", field)
+                # Single select. Two lifts checked at once fed one blended verdict to the
+                # Lift card and nothing on the page said so.
+                explicit = {"id": cid, "fieldName": field, "title": label, "singleSelect": True,
+                            "selectedOptions": default, "searchTechnique": "prefix",
+                            "sort": {"by": "_key", "direction": "asc"}}
+                if len(control) > 4:
+                    explicit.update(control[4])
                 panels[cid] = {"type": "optionsListControl", "order": order, "grow": False, "width": "small",
-                               "explicitInput": {"id": cid, "fieldName": field, "title": label,
-                                                 "selectedOptions": default, "searchTechnique": "prefix",
-                                                 "sort": {"by": "_key", "direction": "asc"}}}
+                               "explicitInput": explicit}
                 refs.append({"name": f"controlGroup_{cid}:optionsListDataView", "type": "index-pattern", "id": DV[dv][0]})
             attrs["controlGroupInput"] = {
                 "controlStyle": "oneLine", "chainingSystem": "HIERARCHICAL", "showApplySelections": False,
@@ -528,8 +533,8 @@ Q = {
     "total": ('FROM workout-sets '
               '| WHERE is_competition_lift == true AND set_type == "working" '
               'AND e1rm_confidence != "low" AND @timestamp >= NOW() - 90 days '
-              '| STATS e1 = MAX(est_e1rm) BY lift_family '
-              '| SORT e1 DESC | LIMIT 3 | EVAL lift = lift_family | KEEP lift, e1'),
+              '| STATS e1 = MAX(est_e1rm), first_d = MIN(date) BY lift_family '
+              '| SORT e1 DESC | LIMIT 3 | EVAL lift = lift_family | KEEP lift, e1, first_d'),
     "meet_bests": ('FROM workout-meets | WHERE made == true '
                    '| STATS lb = MAX(weight_lb), kg = MAX(weight_kg) BY lift '
                    '| SORT lb DESC | LIMIT 3'),
@@ -586,7 +591,9 @@ Q = {
                   '| WHERE set_type == "working" AND @timestamp >= NOW() - 365 days '
                   'AND muscles_primary IS NOT NULL '
                   '| MV_EXPAND muscles_primary '
-                  '| STATS last_d = MAX(date), sessions = COUNT_DISTINCT(session_id) BY muscles_primary '
+                  # first_d: the card compares the span it was actually given against the
+                  # 365 days it asked for, and declines to rule when the picker cut it.
+                  '| STATS last_d = MAX(date), first_d = MIN(date), sessions = COUNT_DISTINCT(session_id) BY muscles_primary '
                   '| SORT last_d ASC | LIMIT 40'),
 }
 
@@ -678,7 +685,13 @@ def build() -> list[dict]:
     d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 32, []),
           (custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []), h=11)
     d.row((custom("ov-total", tpl.total_card(MEET_MAX_LB), Q["total"]), 20, []),
-          (xy(L("ov-total-chart"), "BEST e1RM PER WEEK. COMPETITION LIFTS", "bar_stacked", T,
+          # Stacked, so the top edge is the projected total week by week and the dashed
+          # line is the platform best. The old title said "e1RM" and nothing on the
+          # panel said the stack meant anything; a lifter read it as three noisy bars.
+          # Area instead of bars: the fitting function bridges weeks a lift was not
+          # trained, so the edge reads as a line and not a picket fence.
+          (xy(L("ov-total-chart"), f"PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM AGAINST YOUR MEET BEST, {MEET_MAX_LB:g} LB",
+              "area_stacked", T,
               {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
@@ -754,7 +767,12 @@ def build() -> list[dict]:
     # ---------------------------------------------------------------- Lift
     d = Dashboard("lift", "Ironstack. Lift", "One exercise over time. Arrives filtered to exercise.name.",
                   "One exercise over time. Pick a lift above, or click a lift anywhere to land here.",
-                  controls=[(T, "lift_slug", "LIFT", ["comp-deadlift"]),
+                  # Sorted by set count so the competition lifts lead the list instead of
+                  # "1-arm-cable-rows". The values are still slugs: there is no display-name
+                  # field on a set yet (exercise.name is the raw logged spelling, which is
+                  # why the header reads COMPETITION DEADLIFT for one lift and COMP BENCH
+                  # for another). That is an indexer change, not a dashboard one.
+                  controls=[(T, "lift_slug", "LIFT", ["comp-deadlift"], {"sort": {"by": "_count", "direction": "desc"}}),
                             (T, "program.block", "BLOCK")], time_from="now-2y")
     d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=6)
     e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
@@ -795,7 +813,9 @@ def build() -> list[dict]:
               "t": metric("average", "totals.tonnage_lb", "AVG TONNAGE", fmt=FMT_INT)},
              "x", ["t"], colors={"t": CHALK_DIM}, legend=False)
     d.row((tod, 48, []), h=8)
-    acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. 7 DAY OVER 28 DAY", "line", W,
+    # The 4.0 in Aug 2025 is a layoff artefact (open item: suppress in derive.py). Until
+    # then the title says how to read it, so the spike is not the scariest thing on the page.
+    acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. ABOVE 1.5 IS A SPIKE; A SPIKE RIGHT AFTER A LAYOFF IS EXPECTED", "line", W,
               {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
               "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))
     d.row((acwr, 48, []), h=8)
@@ -818,7 +838,10 @@ def build() -> list[dict]:
 
     # ---------------------------------------------------------------- Mindset
     d = Dashboard("mindset", "Ironstack. Mindset", "Every note. Search above; semantic where ELSER is on.",
-                  "Everything you wrote, searchable. Click a note to open its session.")
+                  # "searchable" was a promise with no search box behind it: the semantic
+                  # fields are reachable only through the coach.
+                  "Everything you wrote, tagged and in order. Click a note to open its session. "
+                  "To ask a question of it, ask the coach.")
     tag_cols = {"x": terms("tags", "TAG", size=25, by_col="c", direction="desc"), "c": count("NOTES")}
     tags = xy(L("mi-tags"), "TAGS. CLICK TO FILTER", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
     # TAGS OVER TIME was three stacked bars under a twelve-entry legend that filled the

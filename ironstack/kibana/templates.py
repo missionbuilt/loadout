@@ -20,7 +20,7 @@ RULE = "#2a2622"
 CHALK = "#ebe5d8"
 DIM = "#a8a094"
 FAINT = "#5a564f"
-STEEL = "#7a7873"
+STEEL = "#8f8b84"  # 5.0:1 on the panel ground; the floor for any text that carries meaning
 BLOOD = "#a8211a"
 BLOOD_DIM = "#5e1e1c"
 ARMY = "#7a8b3a"
@@ -49,7 +49,7 @@ BASE_CSS = tok("""<style>
 html,body{height:100%}
 body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:$RULE}::-webkit-scrollbar-track{background:transparent}
-.eyebrow{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$FAINT;white-space:nowrap}
+.eyebrow{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;white-space:nowrap}
 .eyebrow.blood{color:$BLOOD}
 .eyebrow.dim{color:$DIM}
 .hero{font-size:46px;font-weight:700;line-height:1;letter-spacing:-.015em;text-transform:uppercase;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -57,7 +57,7 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .value{font-size:32px;font-weight:600;line-height:1.05;text-transform:uppercase;white-space:nowrap}
 .value small{font-size:15px;font-weight:500;color:$DIM;letter-spacing:.04em;margin-left:5px}
 .sub{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.03em;line-height:1.55}
-.faint{color:$FAINT}
+.faint{color:$STEEL}
 .mono{font-family:$MONO}
 .prose{font-family:$SERIF;font-size:14px;line-height:1.6;color:$DIM}
 .rule{border-top:1px solid $RULE}
@@ -74,11 +74,11 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .bar{height:2px;background:$RULE;position:relative;margin-top:8px}
 .bar i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
 .bar.dim i{background:$DIM}
-.empty{color:$FAINT;font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.empty{color:$STEEL;font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .list{display:flex;flex-direction:column}
 .item{display:flex;align-items:baseline;gap:12px;padding:7px 0;border-top:1px solid $RULE;font-family:$MONO;font-size:13px}
 .item:first-child{border-top:0}
-.item .when{color:$FAINT;font-size:11px;letter-spacing:.06em;text-transform:uppercase;min-width:72px}
+.item .when{color:$STEEL;font-size:11px;letter-spacing:.06em;text-transform:uppercase;min-width:72px}
 .item .txt{color:$CHALK;flex:1;min-width:0}
 .item .num{color:$DIM;white-space:nowrap;font-variant-numeric:tabular-nums}
 .set{display:flex;align-items:baseline;gap:9px;font-family:$MONO;font-size:14px;padding:4px 0;font-variant-numeric:tabular-nums}
@@ -91,7 +91,7 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .set .rpe.mid{color:$DIM}
 .set .rpe.hi{color:$CHALK;font-weight:600}
 .set .rpe.max{color:$BLOOD;font-weight:700}
-.set .note{color:$FAINT;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set .note{color:$STEEL;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .set.prep{opacity:.55}
 .set.prep .w{font-size:14px;font-weight:400;color:$DIM}
 .set.prep .r{color:$DIM;font-size:13px}
@@ -106,14 +106,14 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .lval{font-size:21px;font-weight:600;color:$CHALK;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
 .lbar{flex:1;min-width:24px;height:3px;background:$RULE;position:relative}
 .lbar i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
-.lkg{font-family:$MONO;font-size:11px;color:$FAINT;min-width:62px;text-align:right}
+.lkg{font-family:$MONO;font-size:11px;color:$STEEL;min-width:62px;text-align:right}
 .warm{font-family:$MONO;font-size:12px;line-height:1.9;color:$DIM;margin-top:5px}
 .warm .nm{color:$CHALK;text-transform:uppercase;letter-spacing:.04em;font-size:11px;margin-right:5px}
 .warm .qty{color:$FAINT;margin-right:7px}
 .warm .sep{color:$RULE;margin-right:9px}
 .cols .ex{break-inside:avoid}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px}
-.k{color:$FAINT}
+.k{color:$STEEL}
 .v{color:$CHALK}
 .hdr{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
 .hdr .title{font-size:30px;font-weight:700;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
@@ -149,7 +149,7 @@ body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px;overflo
 .sq{{display:inline-block;width:11px;height:11px;background:$BLOOD;transform:translateY(-1px)}}
 .vr{{width:1px;height:22px;background:$RULE;transform:translateY(4px);margin:0 6px}}
 .section{{font-family:$MONO;font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$DIM}}
-.tagline{{font-family:$MONO;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:$FAINT;text-align:right;max-width:52%;line-height:1.5}}
+.tagline{{font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:$DIM;text-align:right;max-width:52%;line-height:1.55}}
 </style>
 <div class="eyebrow">&#9646;&#9646;&#9646;&nbsp;&nbsp;A Mission Built training system&nbsp;&nbsp;&#9646;&#9646;&#9646;</div>
 <div class="bar"><div class="left"><span class="word">Iron</span><span class="sq"></span><span class="word">Stack</span><span class="vr"></span><span class="section">{section}</span></div><div class="tagline">{tagline}</div></div>""")
@@ -217,9 +217,15 @@ TOTAL_CARD = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Projected total</div>""" + empty() + """{% else %}
 {%- assign total = 0 -%}{%- for r in rows -%}{%- assign _v = r['e1'].value | round -%}{%- assign total = total | plus: _v -%}{%- endfor -%}
 {%- assign best = rows[0]['e1'].value | plus: 0 -%}
+{%- comment -%} The query asks for 90 days and the picker is ANDed on top. At "Last 30
+days" the number was 843 under a label still promising 90; the label now reports the
+window it actually got. {%- endcomment -%}
+{%- assign now_s = "now" | date: "%s" | plus: 0 -%}{%- assign oldest_s = 0 -%}
+{%- for r in rows -%}{%- if r['first_d'].value -%}{%- assign fs = r['first_d'].value | date: "%s" | plus: 0 -%}{%- if oldest_s == 0 or fs < oldest_s -%}{%- assign oldest_s = fs -%}{%- endif -%}{%- endif -%}{%- endfor -%}
+{%- assign span_d = 90 -%}{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
 <div class="eyebrow">Projected total</div>
 <div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">lb</span></div>
-<div class="sub" style="margin-top:3px">best of the last 90 days</div>
+<div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days{% endif %}</div>
 <div style="margin-top:12px">
 {% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endfor %}
 </div>
@@ -358,10 +364,13 @@ FOUR_CARDS = page(tok("""
 MEET_CARDS = page(tok("""
 <div class="row">
 {% if rows.size == 0 %}<div class="card">""" + empty("No meets logged") + """</div>{% else %}
-<div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">competitions logged</div></div>
+{%- comment -%} "logged" and "all meets" were lies at any picker narrower than the
+record: at two years this read "1 competitions logged, 100% success" against a real
+2 and 83%. The tiles now say what they count. {%- endcomment -%}
+<div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">in the page's range</div></div>
 <div class="card"><div class="top"><div class="eyebrow">Best total</div><div class="value" style="color:$BLOOD">{{ rows[0]['total_kg'].value | round: 1 }}<small>kg</small></div></div><div class="sub">""" + num("rows[0]['total_lb'].value", 1) + """&nbsp;lb</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Best DOTS</div><div class="value">{{ rows[0]['dots'].value | round: 2 }}</div></div><div class="sub">all meets</div></div>
-<div class="card"><div class="top"><div class="eyebrow">Attempts made</div><div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div></div><div class="sub">{%- assign att = rows[0]['attempts'].value | plus: 0 -%}{% if att > 0 %}{{ rows[0]['made'].value | times: 100 | divided_by: att | round }}% success{% else %}no attempts logged{% endif %}</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Best DOTS</div><div class="value">{{ rows[0]['dots'].value | round: 2 }}</div></div><div class="sub">across those meets</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Attempts made</div><div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div></div><div class="sub">{%- assign att = rows[0]['attempts'].value | plus: 0 -%}{% if att > 0 %}{{ rows[0]['made'].value | times: 100 | divided_by: att | round }}% made in range{% else %}no attempts logged{% endif %}</div></div>
 {% endif %}
 </div>"""))
 
@@ -412,7 +421,7 @@ SIGNAL_CSS = tok("""<style>
    always the height Kibana implies, and anything that pushes to the bottom opened a
    ~100px hole between a number and its caption on the Session cards. */
 .sig{display:block}
-.sig .q{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$FAINT;line-height:1.45}
+.sig .q{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;line-height:1.45}
 .sig .verdict{font-size:20px;font-weight:600;line-height:1.25;letter-spacing:-.005em;margin-top:9px;color:$CHALK}
 .sig .verdict.b-light{color:$DIM;font-weight:500}
 .sig .verdict.b-normal{color:$CHALK;font-weight:600}
@@ -424,11 +433,11 @@ SIGNAL_CSS = tok("""<style>
 .sig .gauge{height:3px;background:$RULE;position:relative;margin:10px 0 6px}
 .sig .gauge i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
 .sig .gauge u{position:absolute;top:-4px;bottom:-4px;width:1px;background:$STEEL;display:block}
-.sig .base{font-family:$MONO;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:$FAINT}
-.sig .also{font-family:$MONO;font-size:11px;color:$DIM;letter-spacing:.02em;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
-.sig .prov{font-family:$MONO;font-size:10px;line-height:1.6;color:$FAINT;letter-spacing:.02em;margin-top:12px;padding-top:9px;border-top:1px solid $RULE}
-.sig .see{font-family:$MONO;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-top:8px}
-.sig .none{font-family:$MONO;font-size:12px;color:$FAINT;letter-spacing:.03em;margin-top:10px;line-height:1.55}
+.sig .base{font-family:$MONO;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:$STEEL}
+.sig .also{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.02em;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
+.sig .prov{font-family:$MONO;font-size:11px;line-height:1.6;color:$DIM;letter-spacing:.02em;margin-top:12px;padding-top:9px;border-top:1px solid $RULE}
+.sig .see{font-family:$MONO;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-top:8px}
+.sig .none{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.03em;margin-top:10px;line-height:1.55}
 </style>""")
 
 
@@ -482,7 +491,9 @@ _INTENSITY_BODY = """
 <div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
 <div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
 <div class="none">Ranking a week against your own history needs 4 earlier weeks
-carrying main-lift work. You have <b>{{ prior }}</b>.</div>
+carrying main-lift work. You have <b>{{ prior }}</b> in the page's range.
+{%- if rows.size < 13 %} The card reads 13 weeks; if the time picker is narrower than
+that, widen it.{% endif %}</div>
 {%- else -%}
 {%- assign share = beat | times: 100 | divided_by: prior -%}
 {%- assign band = "b-light" -%}
@@ -495,7 +506,7 @@ carrying main-lift work. You have <b>{{ prior }}</b>.</div>
 {%- else -%}Heavier than {{ beat }} of your last {{ prior }} weeks.{%- endif -%}
 </div>
 {%- assign avg = sum | times: 1.0 | divided_by: prior -%}
-<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more.</div>
+<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more of your best in the last 90 days.</div>
 {%- if maxh > 0 -%}
 {%- assign w = hv | times: 100 | divided_by: maxh -%}
 {%- assign bx = avg | times: 100 | divided_by: maxh | round -%}
@@ -510,8 +521,10 @@ carrying main-lift work. You have <b>{{ prior }}</b>.</div>
 SIGNAL_INTENSITY = signal(
     "How heavy was this week",
     _INTENSITY_BODY,
-    "Main lifts only. A rep counts as heavy against your best in the trailing 90 days, "
-    "so this is heavy relative to current form, not to an all-time max.",
+    # The moat, said in the evidence line above at body size, and defended here.
+    "Heavy means heavy for you now. Every logging app measures a set against an "
+    "all-time PR, so a lifter back from a layoff sees everything as light. This measures "
+    "it against the trailing 90 days. Main lifts only.",
     "See History &#9656; where the reps live",
 )
 
@@ -590,6 +603,23 @@ _DRIFT_BODY = """
 <div class="none">No working sets in the last year.</div>
 {%- else -%}
 {%- assign now_s = "now" | date: "%s" | plus: 0 -%}
+{%- comment -%} The query asks for 365 days and the dashboard picker is ANDed on top, so
+at "Last 30 days" every cadence is computed against a year that is not there and the
+card said "Nothing is drifting" with a 17-day calves gap in the data. `first_d` is the
+earliest working set the query actually saw; if the span is well short of a year the
+card says so instead of ruling. {%- endcomment -%}
+{%- assign span_d = 0 -%}{%- assign oldest_s = 0 -%}
+{%- for r in rows -%}
+  {%- if r['first_d'].value -%}
+    {%- assign fs = r['first_d'].value | date: "%s" | plus: 0 -%}
+    {%- if oldest_s == 0 or fs < oldest_s -%}{%- assign oldest_s = fs -%}{%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
+{%- if oldest_s > 0 and span_d < 300 -%}
+<div class="none">This card reads a year of working sets and the page is showing
+<b>{{ span_d }}</b> days. Widen the time picker to a year or more to rank your muscle groups.</div>
+{%- else -%}
 {%- assign flagged = 0 -%}{%- assign ranked = 0 -%}{%- assign groups = 0 -%}
 {%- assign f_name = "" -%}{%- assign f_gap = 0 -%}{%- assign f_cad = 0 -%}
 {%- for r in rows -%}
@@ -644,6 +674,7 @@ means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
   {%- endif -%}
 {%- endfor -%}
 </div>
+{%- endif -%}
 {%- endif -%}
 {%- endif -%}
 {%- endif -%}
