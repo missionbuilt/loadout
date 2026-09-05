@@ -236,9 +236,10 @@ def section_intensity() -> None:
 def section_load() -> None:
     t = tpl.SIGNAL_LOAD
 
-    def wk(acwr, band, month, mono=0.8):
+    def wk(acwr, band, month, mono=0.8, trained=16, off=False):
         return {"iso_week": "2026-W00", "month_s": month, "acwr": acwr,
-                "acwr_band": band, "monotony": mono}
+                "acwr_band": band, "monotony": mono,
+                "chronic_days_trained": trained, "acwr_off_layoff": off}
 
     out = render(t, [])
     has("load: no rows", out, "No signal rows came back")
@@ -275,6 +276,28 @@ def section_load() -> None:
     band("load: spike band", out, "b-max")
     has("load: no precedent", out, "No earlier week in your whole log in this band.")
     lacks("load: precedent is not range-scoped", out, "in this range")
+
+    # A ratio off a layoff. Three blank weeks make chronic equal acute, so 4.0 arrives
+    # before a single hard set - the card must not call that a spike and tell a lifter
+    # coming back to do less. The indexer flags the week; this is the card honouring it.
+    out = render(t, rows_of(wk(4.0, "spike", "Sep 2026", trained=4, off=True),
+                            wk(1.0, "steady", "Aug 2026")))
+    has("load: comeback is not a spike", out, "Coming back.")
+    has("load: comeback shows the base it has", out, "<b>4</b> of the last 28 days")
+    has("load: comeback says the ratio is arithmetic", out, "arithmetic rather than a spike")
+    lacks("load: comeback drops the spike wording", out, "Sharp jump in load")
+    lacks("load: comeback drops the percentage claim", out, "above")
+    # "the last two times you were here" is scoped to a band this branch declines to claim.
+    lacks("load: comeback drops the band precedent", out, "you were here")
+    band("load: comeback is not top-banded", out, "b-normal")
+    balanced("load (comeback)", out)
+
+    # And the same week without the flag still bands normally, so the guard is not
+    # swallowing real spikes.
+    out = render(t, rows_of(wk(4.0, "spike", "Sep 2026", trained=18),
+                            wk(1.0, "steady", "Aug 2026")))
+    has("load: a real spike still bands", out, "Sharp jump in load.")
+    lacks("load: a real spike is not a comeback", out, "Coming back.")
 
     out = render(t, rows_of(wk(0.76, "undertrained", "Sep 2026"),
                             wk(0.9, "steady", "Aug 2026"),

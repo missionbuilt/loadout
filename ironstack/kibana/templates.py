@@ -553,6 +553,18 @@ anything. You have <b>{{ rows.size }}</b> week{% unless rows.size == 1 %}s{% end
 {%- if band == "spike" -%}{%- assign cls = "b-max" -%}{%- assign word = "Sharp jump in load." -%}
 {%- elsif band == "rising" -%}{%- assign cls = "b-heavy" -%}{%- assign word = "Ramping." -%}
 {%- elsif band == "undertrained" -%}{%- assign cls = "b-light" -%}{%- assign word = "Backing off." -%}{%- endif -%}
+{%- comment -%} A ratio off a layoff is arithmetic, not a spike. Three blank weeks make
+chronic equal acute, so the number is 4.0 before a single hard set is lifted. Calling that
+"Sharp jump in load" tells a lifter coming back to do less, which is both wrong and the
+opposite of useful. The indexer flags the week; the card refuses to band it. {%- endcomment -%}
+{%- assign off = rows[0]['acwr_off_layoff'].value -%}
+{%- assign trained = rows[0]['chronic_days_trained'].value | plus: 0 -%}
+{%- if off -%}
+<div class="verdict b-normal">Coming back.</div>
+<div class="ev">Only <b>{{ trained }}</b> of the last 28 days carried load, so this ratio is
+arithmetic rather than a spike. It will mean something again once the four-week base
+refills.</div>
+{%- else -%}
 <div class="verdict {{ cls }}">{{ word }}</div>
 {%- assign pct = acwr | minus: 1 | times: 100 | round -%}
 <div class="ev">7-day load
@@ -582,6 +594,7 @@ recent distinct months that were. {%- endcomment -%}
 {%- elsif found == 1 -%}Last time you were here: <b>{{ months }}</b>.
 {%- else -%}The last two times you were here: <b>{{ months }}</b>.{%- endif -%}
 </div>
+{%- endif -%}
 {%- endunless -%}
 {%- endif -%}
 """
