@@ -230,8 +230,8 @@ TOTAL_CARD = page(tok("""
 
 
 WATCH_CARD = page(tok("""
-<div class="eyebrow">Watch items</div>
-{% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("Nothing to watch") + """</div>{% else %}
+<div class="eyebrow">In your own words</div>
+{% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("Nothing flagged yet") + """</div>{% else %}
 <div class="list" style="margin-top:8px">
 {% for r in rows %}<div class="item"><span class="when">{{ r['date_s'].value }}</span><span class="txt">{{ r['item'].value }}</span></div>{% endfor %}
 </div>{% endif %}"""))

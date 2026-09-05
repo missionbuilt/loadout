@@ -654,6 +654,15 @@ def build() -> list[dict]:
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
           (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=10)
+    # Watch items sit directly under the verdicts, on purpose. The drift card says
+    # calves; these say grip, deadlift, lower back. Both are true — one measures volume
+    # gaps, the other records what the lifter actually felt — and a lifter trusts the
+    # thing he wrote himself. Nothing reconciles them and nothing should pretend to:
+    # putting them adjacent makes the disagreement the point instead of an accident of
+    # spacing. (A computed "recurring themes" card was considered and rejected: the note
+    # corpus is ~28 documents and the real topic tags sit at 3-4 over a year.)
+    d.row((custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 32, []),
+          (custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []), h=11)
     d.row((custom("ov-total", tpl.total_card(MEET_MAX_LB), Q["total"]), 20, []),
           (xy(L("ov-total-chart"), "BEST e1RM PER WEEK. COMPETITION LIFTS", "bar_stacked", T,
               {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_family", "LIFT", size=3),
@@ -661,16 +670,10 @@ def build() -> list[dict]:
               "x", ["m"], split="lift", palette="gray", ref=(MEET_MAX_LB, "MEET BEST"),
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("lift", "Lift")]), h=11)
-    # Streak, Latest session, Bodyweight and Sleep were cut here. Every one of them is
-    # something a phone logging app shows better and shows at the gym, so on this page
-    # they only told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also
-    # had exactly one reading between them in seven years of logs.
-    #
-    # What is left is what no logging app can say: three verdicts, the projected total
-    # against the platform best, the meet countdown, the lifter's own watch items, and a
-    # door into any session.
-    d.row((custom("ov-days", tpl.DAYS_TO_MEET_CARD, Q["days"]), 16, []),
-          (custom("ov-watch", tpl.WATCH_CARD, Q["watch"]), 32, []), h=11)
+    # Streak, Latest session, Bodyweight and Sleep were cut from this page. Every one is
+    # something a phone logging app shows better and shows at the gym, so here they only
+    # told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also had one
+    # reading between them in seven years of logs.
     # The block timeline stays as the door into a session. It is ~400 bars and is not
     # readable as a chart, which is why it is no longer above the fold.
     d.row((block_timeline(L("ov-timeline"), query=windowed("")), 48, [("session", "Session")]), h=10)
