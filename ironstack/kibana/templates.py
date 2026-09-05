@@ -727,3 +727,81 @@ SIGNAL_DRIFT = signal(
     "group is flagged past twice it. Groups trained fewer than 6 times are not ranked.",
     "See Session &#9656; every set",
 )
+
+
+# --- 4. lift trajectory (Lift page) ----------------------------------------
+#
+# "Is this lift going up" cannot be answered session to session. A confident e1RM is
+# taken from whatever the day's top working set happened to be, so across 20 deadlift
+# sessions it swings 243 to 383 — that is how hard the day was, not how strong the
+# lifter is. Ranking one session against recent ones would flip the verdict weekly.
+#
+# So: best of the last five sessions against the best in the page's range. Both ends
+# are a max, so a light day cannot drag either one, and the gap is a real statement
+# about where the lift sits.
+
+_LIFT_BODY = """
+{%- if rows.size == 0 -%}
+<div class="none">No confident estimates for this lift yet.</div>
+{%- else -%}
+{%- comment -%} The control supplies the lift; with it cleared, follow whichever lift the
+most recent session used, the way the header above does. {%- endcomment -%}
+{%- assign slug = rows[0]['lift_slug'].value -%}
+{%- assign n = 0 -%}{%- assign recent = 0 -%}{%- assign prev = 0 -%}
+{%- assign peak = 0 -%}{%- assign peak_s = "" -%}
+{%- for r in rows -%}
+  {%- if r['lift_slug'].value == slug -%}
+    {%- assign v = r['e1'].value | plus: 0 -%}
+    {%- if v > 0 -%}
+      {%- assign n = n | plus: 1 -%}
+      {%- if n <= 5 -%}
+        {%- if v > recent -%}{%- assign recent = v -%}{%- endif -%}
+      {%- elsif n <= 10 -%}
+        {%- if v > prev -%}{%- assign prev = v -%}{%- endif -%}
+      {%- endif -%}
+      {%- if v > peak -%}{%- assign peak = v -%}{%- assign peak_s = r['when_s'].value -%}{%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if n < 5 -%}
+<div class="none">Only {{ n }} session{% unless n == 1 %}s{% endunless %} with a confident
+estimate in this range. Not enough to place this lift yet.</div>
+{%- else -%}
+{%- assign gap = peak | minus: recent | times: 100 | divided_by: peak | round -%}
+{%- assign cls = "b-light" -%}
+{%- if gap <= 2 -%}{%- assign cls = "b-max" -%}
+{%- elsif gap <= 8 -%}{%- assign cls = "b-heavy" -%}
+{%- elsif gap <= 15 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
+<div class="verdict {{ cls }}">
+{%- if gap <= 2 -%}At your best.
+{%- elsif gap <= 8 -%}Close to your best.
+{%- else -%}{{ gap }}% under your best.{%- endif -%}
+</div>
+<div class="ev">Recent best <b>{{ recent | round }}</b> lb &middot;
+your best <b>{{ peak | round }}</b> lb, {{ peak_s }}.</div>
+{%- if peak > 0 -%}
+{%- assign w = recent | times: 100 | divided_by: peak | round -%}
+<div class="gauge"><i style="width:{{ w }}%"></i><u style="left:100%"></u></div>
+<div class="base">tick marks your best</div>
+{%- endif -%}
+{%- if prev > 0 -%}
+{%- assign dif = recent | minus: prev -%}{%- assign dir = "Up" -%}
+{%- if dif < 0 -%}{%- assign dif = 0 | minus: dif -%}{%- assign dir = "Down" -%}{%- endif -%}
+{%- assign dpct = dif | times: 100 | divided_by: prev | round -%}
+<div class="also">
+{%- if dpct == 0 -%}Level with the five sessions before.
+{%- else -%}{{ dir }} <b>{{ dpct }}%</b> on the five sessions before.{%- endif -%}
+</div>
+{%- endif -%}
+{%- endif -%}
+{%- endif -%}
+"""
+
+SIGNAL_LIFT = signal(
+    "Where is this lift",
+    _LIFT_BODY,
+    "Confident e1RM estimates on working sets, for the lift selected above and this "
+    "page's range. One session's estimate swings with how hard that day was, so this "
+    "compares your best of five sessions, never one session to the next.",
+    "Below &#9656; every working set",
+)

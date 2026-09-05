@@ -394,7 +394,76 @@ def section_unit_spacing() -> None:
                   "a plain space after num() is stripped by `-%}`; use &nbsp;")
 
 
+# The real comp-deadlift series off the cluster, newest first. The point of these
+# numbers is the noise: 243 to 383 across seven months, because a confident e1RM comes
+# from whatever the day's top working set was. Ranking session against session here
+# would have produced a verdict that flipped weekly.
+DEADLIFT = [339.1, 243.6, 360.9, 330.9, 346.5, 312.9, 347.8, 308.8, 321.6, 324.2,
+            308.8, 297.1, 347.8, 346.5, 383.4, 352.5, 314.4, 351.5, 340.5, 353.4]
+
+
+def lift_rows(values, slug="comp-deadlift", when="Jul 2026"):
+    return [{"session_id": f"s{i}", "lift_slug": slug, "when_s": when, "e1": v}
+            for i, v in enumerate(values)]
+
+
+def section_lift() -> None:
+    t = tpl.SIGNAL_LIFT
+
+    out = render(t, [])
+    has("lift: no rows", out, "No confident estimates for this lift yet.")
+    balanced("lift (no rows)", out)
+
+    out = render(t, rows_of(*lift_rows([340.0, 300.0, 320.0])))
+    has("lift: thin history", out, "Only 3 sessions with a confident")
+    lacks("lift: thin history does not rank", out, "under your best")
+    balanced("lift (thin)", out)
+
+    # The real case: recent best 360.9 against a peak of 420.4 set in Mar 2025 — a peak
+    # that sits outside the last 20 sessions entirely, which is why the card reads the
+    # whole range and not a recent window.
+    real = lift_rows(DEADLIFT) + lift_rows([420.4], when="Mar 2025")
+    out = render(t, rows_of(*real))
+    has("lift: real verdict", out, "14% under your best.")
+    band("lift: real band", out, "b-normal")
+    has("lift: recent best", out, "Recent best <b>361</b> lb")
+    has("lift: peak and date", out, "your best <b>420</b> lb, Mar 2025.")
+    has("lift: gauge", out, "width:86%")
+    has("lift: direction", out, "Up <b>4%</b> on the five sessions before.")
+    balanced("lift (real)", out)
+
+    out = render(t, rows_of(*lift_rows([500.0] + DEADLIFT)))
+    has("lift: at best", out, "At your best.")
+    band("lift: at-best band", out, "b-max")
+
+    out = render(t, rows_of(*lift_rows([380.0, 370.0, 360.0, 350.0, 340.0,
+                                        330.0, 320.0, 310.0, 300.0, 400.0])))
+    has("lift: close to best", out, "Close to your best.")
+    band("lift: close band", out, "b-heavy")
+
+    # Another lift's sessions must not leak into the ranking. With the control cleared
+    # the query returns every lift, so the card follows rows[0]'s slug and ignores the
+    # rest — bench at 900 here would otherwise blow the peak apart.
+    mixed = []
+    for i, v in enumerate(DEADLIFT):
+        mixed.append({"session_id": f"d{i}", "lift_slug": "comp-deadlift",
+                      "when_s": "Jul 2026", "e1": v})
+        mixed.append({"session_id": f"b{i}", "lift_slug": "comp-bench",
+                      "when_s": "Jul 2026", "e1": 900.0})
+    out = render(t, rows_of(*mixed))
+    has("lift: ignores other lifts", out, "your best <b>383</b> lb")
+    lacks("lift: no cross-lift gap", out, "60% under your best.")
+    balanced("lift (mixed)", out)
+
+    # Exactly five sessions: there is no earlier five to compare against, so the
+    # direction line must be absent rather than dividing by zero.
+    out = render(t, rows_of(*lift_rows([360.0, 350.0, 340.0, 330.0, 320.0])))
+    has("lift: five sessions still ranks", out, "At your best.")
+    lacks("lift: no direction without a prior five", out, "sessions before")
+
+
 def main() -> None:
+    section_lift()
     section_unit_spacing()
     section_float_leaks()
     section_helpers()

@@ -565,6 +565,15 @@ Q = {
     "sig_load": ('FROM workout-weekly | WHERE acwr IS NOT NULL | SORT @timestamp DESC | LIMIT 200 '
                  '| EVAL month_s = DATE_FORMAT("MMM yyyy", @timestamp) '
                  '| KEEP iso_week, month_s, acwr, acwr_band, monotony'),
+    # lift_slug comes from the page control; it is kept in the result so the card can
+    # follow one lift even if the control is cleared, the way lift_header does.
+    "sig_lift": ('FROM workout-sets '
+                 '| WHERE set_type == "working" AND e1rm_confidence != "low" '
+                 'AND est_e1rm IS NOT NULL '
+                 '| STATS e1 = MAX(est_e1rm), sess_d = MAX(date) BY session_id, lift_slug '
+                 '| SORT sess_d DESC | LIMIT 200 '
+                 '| EVAL when_s = DATE_FORMAT("MMM yyyy", sess_d) '
+                 '| KEEP session_id, lift_slug, when_s, e1'),
     "sig_drift": ('FROM workout-sets '
                   '| WHERE set_type == "working" AND @timestamp >= NOW() - 365 days '
                   'AND muscles_primary IS NOT NULL '
@@ -727,12 +736,15 @@ def build() -> list[dict]:
     top = xy(L("li-top"), "TOP SET OVER TIME", "line", T,
              {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "weight_lb", "TOP SET", fmt=FMT_INT)},
              "x", ["m"], colors={"m": CHALK}, legend=False, query='set_type: "working"')
-    d.row((e1, 24, [("session", "Session")]), (top, 24, [("session", "Session")]), h=10)
     zdist = xy(L("li-zones"), "WHERE THE REPS LAND. INTENSITY ZONE", "bar", T,
                {"x": terms("prilepin_zone", "ZONE", size=4),
                 "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
                "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
-    d.row((zdist, 48, []), h=8)
+    # The verdict leads, and the charts it is drawn from sit beside it. Both charts are
+    # honest and neither answers "is this going up" on its own: they are sawtooths.
+    d.row((custom("li-signal", tpl.SIGNAL_LIFT, Q["sig_lift"]), 18, []),
+          (e1, 30, [("session", "Session")]), h=10)
+    d.row((top, 24, [("session", "Session")]), (zdist, 24, []), h=8)
     all_cols = {
         "sid": terms("session_id", "SESSION", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
