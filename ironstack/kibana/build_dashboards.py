@@ -620,21 +620,31 @@ Q = {
     #
     # COALESCE on every Prilepin bucket: a null bucket would null the whole sum and
     # silently drop the week out of the ranking.
-    "sig_intensity": ('FROM workout-weekly | SORT @timestamp DESC | LIMIT 13 '
-                      '| EVAL heavy = COALESCE(prilepin_reps.z80_89, 0) + COALESCE(prilepin_reps.z90plus, 0), '
-                      'tot = COALESCE(prilepin_reps.lt70, 0) + COALESCE(prilepin_reps.z70_79, 0) '
-                      '+ COALESCE(prilepin_reps.z80_89, 0) + COALESCE(prilepin_reps.z90plus, 0) '
-                      '| KEEP iso_week, heavy, tot'),
-    # 200 rows covers the whole 178-week history, which the precedent lookup needs:
-    # the last time he was in this band can be years back.
-    # No `WHERE acwr IS NOT NULL`: rows[0] must be the LATEST week so the card speaks
-    # about now. Filtering nulls out meant the most recent week carrying an acwr was
-    # presented as current, which for a week without one is a stale verdict.
-    "sig_load": ('FROM workout-weekly | SORT @timestamp DESC | LIMIT 200 '
-                 '| EVAL month_s = DATE_FORMAT("MMM yyyy", @timestamp) '
-                 '| KEEP iso_week, month_s, acwr, acwr_band, monotony'),
-    # lift_slug comes from the page control; it is kept in the result so the card can
-    # follow one lift even if the control is cleared, the way lift_header does.
+    # The three Overview verdicts read ironstack-signals, not the live indices.
+    #
+    # That index carries no date-typed field, which is the whole point: Kibana applies the
+    # dashboard range to an ES|QL card by filtering on the index's date field, so with none
+    # there is nothing to filter on and the picker cannot re-scope a verdict. Verified in
+    # the browser on Sept 5 (kibana/probe_notime.py): at Last 15 minutes a card on a no-date
+    # index returned every row while a control on workout-sessions returned zero.
+    #
+    # The rows are windowed by derive.signal_docs() at index time - 365 days for drift, 13
+    # weeks for intensity - and shaped to match what these queries used to return, so the
+    # templates keep their arithmetic. What they lose is the Phase 0 span check, which
+    # existed to notice a picker that is now unreachable.
+    #
+    # Still reachable: a filter. A KQL query on a field this index does not have matches
+    # nothing and empties the card, so the zero-row state names that possibility instead of
+    # claiming there is no data.
+    "sig_intensity": ('FROM ironstack-signals | WHERE signal == "intensity" '
+                      '| SORT week_end DESC | LIMIT 13 '
+                      '| KEEP iso_week, week_end, heavy, tot, computed_through'),
+    "sig_load": ('FROM ironstack-signals | WHERE signal == "load" '
+                 '| SORT week_end DESC | LIMIT 200 '
+                 '| KEEP iso_week, week_end, month_s, acwr, acwr_band, monotony, computed_through'),
+    "sig_drift": ('FROM ironstack-signals | WHERE signal == "drift" '
+                  '| SORT last_trained ASC | LIMIT 40 '
+                  '| KEEP muscle, sessions, last_trained, cadence_days, computed_through'),
     "sig_lift": ('FROM workout-sets '
                  '| WHERE set_type == "working" AND e1rm_confidence != "low" '
                  'AND est_e1rm IS NOT NULL '
@@ -642,14 +652,6 @@ Q = {
                  '| SORT sess_d DESC | LIMIT 200 '
                  '| EVAL when_s = DATE_FORMAT("MMM yyyy", sess_d) '
                  '| KEEP session_id, lift_slug, when_s, e1'),
-    "sig_drift": ('FROM workout-sets '
-                  '| WHERE set_type == "working" AND @timestamp >= NOW() - 365 days '
-                  'AND muscles_primary IS NOT NULL '
-                  '| MV_EXPAND muscles_primary '
-                  # first_d: the card compares the span it was actually given against the
-                  # 365 days it asked for, and declines to rule when the picker cut it.
-                  '| STATS last_d = MAX(date), first_d = MIN(date), sessions = COUNT_DISTINCT(session_id) BY muscles_primary '
-                  '| SORT last_d ASC | LIMIT 40'),
 }
 
 # --------------------------------------------------------------------------- shared Lens panels

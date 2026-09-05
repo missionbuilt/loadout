@@ -188,7 +188,8 @@ def section_intensity() -> None:
     t = tpl.SIGNAL_INTENSITY
 
     out = render(t, [])
-    has("intensity: no rows", out, "No weekly rollup yet.")
+    has("intensity: no rows", out, "No signal rows came back")
+    lacks("intensity: no rows does not blame the rollup", out, "No weekly rollup yet")
     balanced("intensity (no rows)", out)
 
     out = render(t, rows_of(week(0, 0), week(3, 40)))
@@ -240,7 +241,8 @@ def section_load() -> None:
                 "acwr_band": band, "monotony": mono}
 
     out = render(t, [])
-    has("load: no rows", out, "No weekly rollup yet.")
+    has("load: no rows", out, "No signal rows came back")
+    lacks("load: no rows does not blame the rollup", out, "No weekly rollup yet")
     balanced("load (no rows)", out)
 
     out = render(t, rows_of(wk(None, None, "Sep 2026")))
@@ -271,7 +273,8 @@ def section_load() -> None:
     out = render(t, rows_of(wk(1.81, "spike", "Sep 2026"), wk(0.9, "steady", "Aug 2026")))
     has("load: spike verdict", out, "Sharp jump in load.")
     band("load: spike band", out, "b-max")
-    has("load: no precedent", out, "No earlier week in this range in this band.")
+    has("load: no precedent", out, "No earlier week in your whole log in this band.")
+    lacks("load: precedent is not range-scoped", out, "in this range")
 
     out = render(t, rows_of(wk(0.76, "undertrained", "Sep 2026"),
                             wk(0.9, "steady", "Aug 2026"),
@@ -293,17 +296,29 @@ def section_drift() -> None:
     # Kibana's engine is JavaScript, where every number is a float, so the same
     # expression rendered "Calves: 17.02787037037037 days." on the live dashboard.
     # Same class as the "RPE 6.260000228881836" leak in the Sept 4 QA pass.
+    # Two now, not three: the third lived in the Phase 0 span check, which the signals
+    # index retired. The lint is the count matching, not the number 3.
     divides = tpl.SIGNAL_DRIFT.count("divided_by: 86400")
     floored = tpl.SIGNAL_DRIFT.count("divided_by: 86400 | floor")
-    check("drift: every day-gap is floored", divides == floored and divides == 3,
-          f"{floored} of {divides} floored, expected 3 of 3")
+    check("drift: every day-gap is floored", divides == floored and divides == 2,
+          f"{floored} of {divides} floored, expected 2 of 2")
 
-    def group(name, days_ago, sessions):
-        stamp = (now - timedelta(days=days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        return {"muscles_primary": name, "last_d": stamp, "sessions": sessions}
+    # A row from ironstack-signals: the window was applied by derive.signal_docs at index
+    # time, so last_trained is a plain keyword date and cadence arrives precomputed rather
+    # than being derived as 365/n in the template.
+    def group(name, days_ago, sessions, cadence=None):
+        stamp = (now - timedelta(days=days_ago, hours=12)).strftime("%Y-%m-%d")
+        return {"muscle": name, "last_trained": stamp, "sessions": sessions,
+                "cadence_days": round(365 / sessions, 2) if cadence is None else cadence,
+                "computed_through": now.strftime("%Y-%m-%d")}
 
     out = render(t, [])
-    has("drift: no rows", out, "No working sets in the last year.")
+    # Not "no working sets in the last year": zero rows means unindexed or filtered, and
+    # the card must not claim to know which.
+    has("drift: no rows", out, "No signal rows came back")
+    has("drift: no rows names the filter bar", out, "filter bar")
+    has("drift: no rows says the picker is not the cause", out, "ignores the time picker")
+    lacks("drift: no rows does not claim an empty year", out, "No working sets")
     balanced("drift (no rows)", out)
 
     # Groups trained fewer than six times a year have no meaningful cadence.
@@ -334,24 +349,25 @@ def section_drift() -> None:
     lacks("drift: rear-delt not flagged", out, "Rear delt")
     lacks("drift: adductors not flagged", out, "Adductors")
 
-    # The picker cut the year. Sept 5: at "Last 30 days" this card ruled "Nothing is
-    # drifting" over a 17-day calves gap, because every cadence was 365/n against a
-    # window that was 30 days wide. With first_d in the rows the card can tell.
-    def recent(name, days_ago, sessions, first_days_ago):
-        g = group(name, days_ago, sessions)
-        g["first_d"] = (now - timedelta(days=first_days_ago, hours=12)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        return g
-    narrow = rows_of(recent("chest", 1, 8, 29), recent("quads", 4, 7, 28), recent("calves", 17, 6, 29))
-    out = render(t, narrow)
-    has("drift: narrow range declines to rule", out, "the page is showing")
-    has("drift: narrow range counts the days", out, "<b>29</b> days")
-    lacks("drift: narrow range no false calm", out, "Nothing is drifting.")
-    lacks("drift: narrow range no false flag", out, "Calves:")
-    balanced("drift (narrow)", out)
-    # A full year present: the guard stays out of the way.
-    wide = rows_of(recent("calves", 17, 58, 360), recent("chest", 1, 120, 364))
-    out = render(t, wide)
-    has("drift: wide range still rules", out, "Calves: 17 days.")
+    # The picker can no longer cut the year - these rows are windowed at index time by
+    # derive.signal_docs, and ironstack-signals has no date field for the picker to filter
+    # on. So the Phase 0 span check is gone, and with it the "widen the time picker" copy.
+    lacks("drift: no stale widen hint", out, "widen the time picker")
+    lacks("drift: no stale range language", out, "the page is showing")
+
+    # Cadence is read from the row now instead of being derived as 365/n, so for the first
+    # time it can be absent. Unguarded that is `divided_by: 0`, which throws and renders
+    # the panel blank - a verdict card showing nothing at all. Caught by this suite on
+    # Sept 5 before it reached the browser.
+    no_cad = rows_of(group("calves", 17, 58, cadence=0), group("chest", 1, 120))
+    out = render(t, no_cad)
+    check("drift: a cadence-less group cannot blank the card", "Calves" not in out,
+          "a row with no cadence was ranked anyway")
+    balanced("drift (no cadence)", out)
+
+    # And the freshness stamp, because staleness is the failure mode this index has.
+    out = render(t, rows_of(group("calves", 17, 58), group("chest", 1, 120)))
+    has("drift: says when it was computed", out, "from the whole log, indexed")
 
     # A second flagged group is listed under the headline, not promoted over it.
     two = rows_of(group("traps", 60, 20), group("calves", 40, 58), group("chest", 1, 120))
@@ -552,8 +568,11 @@ def section_moat() -> None:
     has("moat: provenance says why", out, "Heavy means heavy for you now")
     # And the thin-history state tells the lifter what to do about the picker.
     out = render(tpl.SIGNAL_INTENSITY, rows_of(week(5, 57), week(0, 30), week(1, 40)))
-    has("intensity: thin history names the range", out, "in the page's range")
-    has("intensity: thin history says to widen", out, "widen it")
+    has("intensity: thin history still names the threshold", out, "needs 4 earlier weeks")
+    # The 13 weeks come from ironstack-signals, so a short history is a short history -
+    # not a picker the lifter can widen. Telling them to widen it would be a lie now.
+    lacks("intensity: no stale widen hint", out, "widen it")
+    lacks("intensity: no stale range language", out, "in the page's range")
 
 
 def section_contrast() -> None:

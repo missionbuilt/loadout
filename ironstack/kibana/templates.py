@@ -469,7 +469,9 @@ def signal(question: str, body: str, prov: str, see: str = "") -> str:
 
 _INTENSITY_BODY = """
 {%- if rows.size == 0 -%}
-<div class="none">No weekly rollup yet.</div>
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash; this card ignores the time picker, but not
+the filter bar.</div>
 {%- else -%}
 {%- assign hv = rows[0]['heavy'].value | plus: 0 -%}
 {%- assign tot = rows[0]['tot'].value | plus: 0 -%}
@@ -491,9 +493,8 @@ _INTENSITY_BODY = """
 <div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
 <div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
 <div class="none">Ranking a week against your own history needs 4 earlier weeks
-carrying main-lift work. You have <b>{{ prior }}</b> in the page's range.
-{%- if rows.size < 13 %} The card reads 13 weeks; if the time picker is narrower than
-that, widen it.{% endif %}</div>
+carrying main-lift work. You have <b>{{ prior }}</b>.
+</div>
 {%- else -%}
 {%- assign share = beat | times: 100 | divided_by: prior -%}
 {%- assign band = "b-light" -%}
@@ -538,7 +539,9 @@ SIGNAL_INTENSITY = signal(
 
 _LOAD_BODY = """
 {%- if rows.size == 0 -%}
-<div class="none">No weekly rollup yet.</div>
+<div class="none">No signal rows came back. Either the log has not been indexed yet,
+or a filter on this page excludes them &mdash; this card ignores the time picker, but not
+the filter bar.</div>
 {%- else -%}
 {%- assign acwr = rows[0]['acwr'].value -%}
 {%- unless acwr -%}
@@ -575,7 +578,7 @@ recent distinct months that were. {%- endcomment -%}
   {%- endunless -%}
 {%- endfor -%}
 <div class="also">
-{%- if found == 0 -%}No earlier week in this range in this band.
+{%- if found == 0 -%}No earlier week in your whole log in this band.
 {%- elsif found == 1 -%}Last time you were here: <b>{{ months }}</b>.
 {%- else -%}The last two times you were here: <b>{{ months }}</b>.{%- endif -%}
 </div>
@@ -600,41 +603,38 @@ SIGNAL_LOAD = signal(
 
 _DRIFT_BODY = """
 {%- if rows.size == 0 -%}
-<div class="none">No working sets in the last year.</div>
+{%- comment -%} Not "no working sets": this card reads ironstack-signals, which is written
+from the whole log at index time. Zero rows means the log has not been indexed, or a filter
+on this page excluded them. The time picker cannot do it - that is what the index is for -
+but a KQL query on a field this index does not carry matches nothing and empties the card.
+Saying "no working sets in the last year" here would be the same class of lie the whole
+signals index exists to remove. {%- endcomment -%}
+<div class="none">No signal rows came back. Either the log has not been indexed yet, or a
+filter on this page excludes them &mdash; this card ignores the time picker, but not the
+filter bar.</div>
 {%- else -%}
 {%- assign now_s = "now" | date: "%s" | plus: 0 -%}
-{%- comment -%} The query asks for 365 days and the dashboard picker is ANDed on top, so
-at "Last 30 days" every cadence is computed against a year that is not there and the
-card said "Nothing is drifting" with a 17-day calves gap in the data. `first_d` is the
-earliest working set the query actually saw; if the span is well short of a year the
-card says so instead of ruling. {%- endcomment -%}
-{%- assign span_d = 0 -%}{%- assign oldest_s = 0 -%}
-{%- for r in rows -%}
-  {%- if r['first_d'].value -%}
-    {%- assign fs = r['first_d'].value | date: "%s" | plus: 0 -%}
-    {%- if oldest_s == 0 or fs < oldest_s -%}{%- assign oldest_s = fs -%}{%- endif -%}
-  {%- endif -%}
-{%- endfor -%}
-{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
-{%- if oldest_s > 0 and span_d < 300 -%}
-<div class="none">This card reads a year of working sets and the page is showing
-<b>{{ span_d }}</b> days. Widen the time picker to a year or more to rank your muscle groups.</div>
-{%- else -%}
 {%- assign flagged = 0 -%}{%- assign ranked = 0 -%}{%- assign groups = 0 -%}
 {%- assign f_name = "" -%}{%- assign f_gap = 0 -%}{%- assign f_cad = 0 -%}
 {%- for r in rows -%}
   {%- assign n = r['sessions'].value | plus: 0 -%}
   {%- if n > 0 -%}{%- assign groups = groups | plus: 1 -%}{%- endif -%}
-  {%- if n >= 6 -%}
+  {%- assign cad = r['cadence_days'].value | plus: 0 -%}
+  {%- comment -%} cadence is read from the row now, not derived as 365/n, so for the first
+  time it can be missing or zero. Unguarded, `divided_by: f_cad` throws and Kibana renders
+  the panel blank rather than showing a verdict. A group with no cadence cannot be ranked,
+  which is the honest thing to do with it anyway. {%- endcomment -%}
+  {%- if n >= 6 and cad > 0 -%}
     {%- assign ranked = ranked | plus: 1 -%}
-    {%- assign last_s = r['last_d'].value | date: "%s" | plus: 0 -%}
+    {%- comment -%} gap is computed here, not at index time. Decided by the indexer it
+    would freeze: a card written on Tuesday would still say 17 days on Friday. {%- endcomment -%}
+    {%- assign last_s = r['last_trained'].value | date: "%s" | plus: 0 -%}
     {%- assign gap = now_s | minus: last_s | divided_by: 86400 | floor -%}
-    {%- assign cad = 365.0 | divided_by: n -%}
     {%- assign lim = cad | times: 2 -%}
     {%- if gap > lim -%}
       {%- assign flagged = flagged | plus: 1 -%}
       {%- if f_name == "" -%}
-        {%- assign f_name = r['muscles_primary'].value | replace: "-", " " | capitalize -%}
+        {%- assign f_name = r['muscle'].value | replace: "-", " " | capitalize -%}
         {%- assign f_gap = gap -%}{%- assign f_cad = cad -%}
       {%- endif -%}
     {%- endif -%}
@@ -661,12 +661,12 @@ means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
 {%- assign shown = 0 -%}
 {%- for r in rows -%}
   {%- assign n = r['sessions'].value | plus: 0 -%}
-  {%- if n >= 6 and shown < 2 -%}
-    {%- assign last_s = r['last_d'].value | date: "%s" | plus: 0 -%}
+  {%- assign cad = r['cadence_days'].value | plus: 0 -%}
+  {%- if n >= 6 and cad > 0 and shown < 2 -%}
+    {%- assign last_s = r['last_trained'].value | date: "%s" | plus: 0 -%}
     {%- assign gap = now_s | minus: last_s | divided_by: 86400 | floor -%}
-    {%- assign cad = 365.0 | divided_by: n -%}
     {%- assign lim = cad | times: 2 -%}
-    {%- assign nm = r['muscles_primary'].value | replace: "-", " " | capitalize -%}
+    {%- assign nm = r['muscle'].value | replace: "-", " " | capitalize -%}
     {%- if gap > lim and nm != f_name -%}
       {%- assign shown = shown | plus: 1 -%}
       {{ nm }} {{ gap }}d &middot; every {{ cad | round }}<br>
@@ -676,15 +676,17 @@ means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
 </div>
 {%- endif -%}
 {%- endif -%}
-{%- endif -%}
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value }}</div>
 {%- endif -%}
 """
+
 
 SIGNAL_DRIFT = signal(
     "What am I neglecting",
     _DRIFT_BODY,
-    "Working sets, last 365 days. Normal is that group's average gap over the year; a "
-    "group is flagged past twice it. Groups trained fewer than 6 times are not ranked.",
+    "Working sets, last 365 days, counted when the log was indexed rather than from what "
+    "this page is showing. Normal is that group's average gap over the year; a group is "
+    "flagged past twice it. Groups trained fewer than 6 times are not ranked.",
     "See Session &#9656; every set",
 )
 
