@@ -730,6 +730,18 @@ SIGNAL_CSS = tok("""<style>
 </style>""")
 
 
+# A custom content panel takes NO POINTER INPUT AT ALL. Not "links are stripped" - the
+# panel is inert: probe_disclosure.py put five mechanisms in one panel and clicked and
+# hovered every one. <details>/<summary> rendered and would not open. A checkbox and its
+# label rendered and would not toggle. A CSS :hover reveal never fired. A title= tooltip
+# never appeared. Only plain text works.
+#
+# So there is no tooltip, no disclosure and no hover here, and there cannot be. The
+# provenance is not load-bearing enough to justify a quarter of a thousand words on the
+# opening screen of a page whose job is three sentences, and it cannot be folded away, so
+# it is CUT: each card keeps the sentence that makes its number defensible and drops the
+# mechanism. The mechanism is what the coach is for, and Overview says so directly under
+# the Signal row.
 def signal(question: str, body: str, prov: str, see: str = "") -> str:
     """One verdict card: question, verdict, evidence, provenance, drilldown hint.
 
@@ -754,7 +766,7 @@ def signal(question: str, body: str, prov: str, see: str = "") -> str:
     return tok(BASE_CSS + SIGNAL_CSS + '<div class="sig">'
                + f'<div class="q">{question}</div>'
                + body
-               + f'<div class="prov">{prov}</div>'
+               + f'<div class="prov">{prov}</div>' 
                + tail + "</div>")
 
 
@@ -876,16 +888,20 @@ partial week's bar reads short under a sentence saying it is ahead. {%- endcomme
 SIGNAL_INTENSITY = signal(
     "How heavy was this week",
     _INTENSITY_BODY,
-    # The moat, said in the evidence line above at body size, and defended here.
-    "Heavy means heavy for you now. Every logging app measures a set against an "
-    "all-time PR, so a lifter back from a layoff sees everything as light. This measures "
-    "it against the trailing 90 days. Main lifts only. "
+    # The moat is said twice on this page already - in the brand-bar tagline above the
+    # nav ("Heavy means heavy for you now. Intensity is measured against your best in
+    # the last 90 days, not an all-time max") and in this card's own evidence line
+    # ("of your best in the last 90 days"). It opened here a third time, word for word,
+    # 40px under the tagline. What is left is the part neither of those says: WHY the
+    # trailing window is the right one.
+    "Every logging app measures a set against an all-time PR, so a lifter back from a "
+    "layoff sees everything as light. Main lifts only. "
     # The two cards rank the same week and can disagree, because weight and work are
     # different questions - a week of heavy singles is heavy here and easy there. Said
     # out loud on both sides: printed in one voice, one click apart, the disagreement
     # read as the app contradicting itself rather than as the finding it is.
-    "This ranks the week on weight. Program ranks the same week on work &mdash; how much "
-    "the hardest lift did &mdash; so a week can come out heavy here and easy there.",
+    "Program ranks the same week on work, not weight, so a week can come out heavy here "
+    "and easy there.",
     "See History &#9656; where the reps live",
 )
 
@@ -1020,9 +1036,8 @@ SIGNAL_LOAD = signal(
     "Am I ramping",
     _LOAD_BODY,
     "Acute:chronic is a flag, not a prediction. Load is tonnage, so a week you did not "
-    "train reads as zero load, which is why the ratio moves on a rest day. The precedent "
-    "lookup reads back through the weeks this card was handed, which is not the whole "
-    "log. Monotony counts rest days as zero, which is the point of it.",
+    "train reads as zero and the ratio moves on a rest day. Precedent reads only the "
+    "weeks this card was handed.",
     "See History &#9656; acute vs chronic",
 )
 
@@ -1130,12 +1145,9 @@ measure, before its normal gap means anything. None of your <b>{{ groups }}</b> 
 SIGNAL_DRIFT = signal(
     "What am I neglecting",
     _DRIFT_BODY,
-    "Working sets, last 365 days, counted when the log was indexed rather than from what "
-    "this page is showing. Normal is that group's own average gap between sessions, "
-    "measured across the stretch it has actually been trained rather than across the whole "
-    "year; a group is flagged past twice it. A group trained fewer than 6 times is not "
-    "ranked, and neither is one whose gap between sessions the indexer could not settle "
-    "on.",
+    "Working sets over the last 365 days, from the whole log, not this page. "
+    "Normal is that group's own average gap, measured across the stretch it has actually "
+    "been trained; a group is flagged past twice it. Fewer than 6 sessions is not ranked.",
     "See Session &#9656; every set",
 )
 
@@ -1231,9 +1243,9 @@ your best <b>{{ peak | round }}</b> $U_WEIGHT, {{ peak_s | escape }}.</div>
 SIGNAL_LIFT = signal(
     "Where is this lift",
     _LIFT_BODY,
-    "Confident e1RM estimates on working sets, for the lift you arrived on and this "
-    "page's range. One session's estimate swings with how hard that day was, so this "
-    "compares your best of five sessions, never one session to the next.",
+    "Confident e1RM estimates on working sets, for the lift you arrived on. One "
+    "session's estimate swings with how hard that day was, so this compares your best of "
+    "five sessions, never one session to the next.",
     "Below &#9656; every working set",
 )
 
@@ -1442,11 +1454,10 @@ _TAPER_BODY = _taper_body()
 SIGNAL_TAPER = signal(
     "Am I running this in like the last one",
     _TAPER_BODY,
-    "Weekly tonnage from the whole log, aligned by ISO week to each meet date and frozen "
-    "when the log was indexed. The week in progress is excluded, and a past cycle counts "
-    "only where it has the same number of closed weeks behind it. The yardstick is the "
-    "meet with the best attempt record. Two meets is a comparison, not a rule &mdash; "
-    "tonnage moves with exercise selection as much as with effort.",
+    "Weekly tonnage aligned by ISO week to each meet date. The yardstick is the meet "
+    "with the best attempt record, counted only where it has the same number of closed "
+    "weeks behind it. Two meets is a comparison, not a rule &mdash; tonnage moves with "
+    "exercise selection as much as with effort.",
     "See Program &#9656; the weeks behind this",
 )
 
@@ -1515,13 +1526,9 @@ _PROGRAM_BODY = _program_body()
 SIGNAL_PROGRAM = signal(
     "How hard is this week loading",
     _PROGRAM_BODY,
-    "INOL is reps divided by (100 minus intensity), summed per lift across the week; the "
-    "hardest single lift is the one worth banding, because Hristov's bands are per "
-    "exercise and a total across five lifts is not comparable to them. Easy is under 2, "
-    "loading to 3, brutal to 4, excessive above. Main lifts only, from the whole log "
-    "rather than from what this page is showing. "
-    "This ranks the week on work. Overview ranks the same week on weight, so a week of "
-    "heavy singles reads heavy there and easy here. Both are true.",
+    "INOL is reps divided by (100 minus intensity), per lift; the hardest single lift is "
+    "the one worth banding. Easy is under 2, loading to 3, brutal to 4, excessive above. "
+    "Overview ranks the same week on weight, not work, and both are true.",
     "See the weekly loading table below &middot; Overview ranks the same week on weight",
 )
 
@@ -1599,12 +1606,8 @@ SIGNAL_BLOCK = signal(
     "How heavy is this block",
     _BLOCK_BODY,
     "Heavy is 80% or more of your best estimate in the trailing 90 days, main lifts only. "
-    "A block is a run of consecutive sessions sharing a program block, and the comparison "
-    "is against earlier runs of the same kind only &mdash; a strength block and a "
-    "hypertrophy block are not meant to load alike. Each earlier block is measured over "
-    "its first sessions only, as many as this one has run, so a block four days old is "
-    "not held against a finished one. Reps per session rather than share, because a share "
-    "off a small denominator swings on one set. Runs under 4 sessions are not ranked.",
+    "A block is compared only against earlier runs of the same kind, each measured over as "
+    "many sessions as this one has run. Runs under 4 sessions are not ranked.",
     "See the zone chart below for the shape of it",
 )
 
@@ -1681,11 +1684,9 @@ _PROJECTION_BODY = _projection_body()
 SIGNAL_PROJECTION = signal(
     "What is this projection worth",
     _PROJECTION_BODY,
-    "The projected total is the sum of your best estimate on each competition lift inside "
-    "a 90-day window, taken from competition lifts only. For each meet on record it is the "
-    "projection as it stood in the last week before that meet &mdash; what you would have "
-    "been told walking in, not a number computed afterwards. Under three meets the card "
-    "declines to rank: a ratio off one or two is whichever day went best, not a rule.",
+    "The sum of your best estimate on each competition lift inside a 90-day window. For "
+    "each meet on record it is the projection as it stood walking in, not a number "
+    "computed afterwards. Under three meets the card declines to rank.",
     "See Overview &#9656; projected total",
 )
 
@@ -1769,9 +1770,8 @@ _TAG_BODY = _tag_body()
 SIGNAL_TAGS = signal(
     "What do I keep writing down",
     _TAG_BODY,
-    "Tags on your own notes, counted over the whole log rather than what this page is "
-    "showing. A count is not a diagnosis: it says what you wrote often, not what mattered "
-    "most. " + coach_or(
+    "Tags on your own notes, counted over the whole log. A count is not a diagnosis: it "
+    "says what you wrote often, not what mattered most. " + coach_or(
         "The question this page cannot answer &mdash; what a note actually said &mdash; "
         "goes to the coach.",
         "The question this page cannot answer &mdash; what a note actually said &mdash; "

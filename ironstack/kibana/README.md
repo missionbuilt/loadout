@@ -185,6 +185,28 @@ all — verified with `probe_links.py` on 2026-09-05, where a `<span>` styled as
 rendered and three anchors came out as bare text. That is why the nav is a Links panel and
 why the coach is one too.
 
+## A custom content panel takes no pointer input at all
+
+Not "links are stripped" - the panel is inert. `probe_disclosure.py` put five mechanisms
+in one panel and clicked and hovered every one of them:
+
+| | |
+|---|---|
+| `<details>` / `<summary>` | renders, will not open |
+| checkbox + `:checked` | renders, will not toggle |
+| CSS `:hover` reveal | never fires |
+| `title=""` tooltip | never appears |
+| plain text | works |
+
+So there is no tooltip, no disclosure, no hover and no link inside a card, and there
+cannot be. Anything a reader has to be able to reach is either on the card in plain text
+or it is somewhere else entirely - a Links panel, an XY chart's drilldown, or the coach.
+
+This is why the Signal cards' provenance is short rather than folded: it could not be
+folded, so it was cut, from 816 words across nine cards to 399, and from 232 words on
+Overview's opening row to 125. `verify_liquid.py` holds each card under 55 words and the
+Overview row under 130.
+
 ## After an import: open a NEW TAB, not a hard reload
 
 A custom content panel's Liquid template is cached in the browser per panel, and

@@ -1355,7 +1355,12 @@ def section_moat() -> None:
     set in 10px grey. It now has to be in the evidence line of the intensity verdict."""
     out = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
     has("moat: in the evidence line", out, "of your best in the last 90 days")
-    has("moat: provenance says why", out, "Heavy means heavy for you now")
+    # The claim itself is in the brand-bar tagline and in this card's own evidence line;
+    # a third copy opened the provenance 40px under the tagline, in the same words. What
+    # the provenance owes the reader is the REASON, which is said nowhere else.
+    has("moat: provenance says why", out, "sees everything as light")
+    lacks("moat: and does not repeat the tagline a third time", out,
+          "Heavy means heavy for you now")
     # And the thin-history state tells the lifter what to do about the picker.
     out = render(tpl.SIGNAL_INTENSITY, rows_of(week(5, 57), week(0, 30), week(1, 40)))
     has("intensity: thin history still names the threshold", out, "needs 4 earlier weeks")
@@ -2127,12 +2132,12 @@ def section_switcher_round_two() -> None:
 
     # --- the two readings of one week name their own axis -------------------------
     heavy = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
-    has("round two: intensity says it ranks weight", heavy, "ranks the week on weight")
-    has("round two: and points at the other reading", heavy, "Program ranks the same week on work")
+    has("round two: intensity points at the other reading", heavy,
+        "Program ranks the same week on work, not weight")
     loading = render(tpl.SIGNAL_PROGRAM, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
                                                  load_row(inol=0.99, week_end="2026-08-23")))
-    has("round two: program says it ranks work", loading, "ranks the week on work")
-    has("round two: and points back at Overview", loading, "Overview ranks the same week on weight")
+    has("round two: program points back at Overview", loading,
+        "Overview ranks the same week on weight, not work")
     # "Harder than 4 of your last 12 weeks" beside "Heavier than 10 of your last 12
     # weeks" read as one scale disagreeing with itself. The rank now says what it ranks.
     has("round two: the program rank names its unit", loading, "More work on that lift than")
@@ -2185,6 +2190,50 @@ def section_switcher_round_two() -> None:
     tl = [o for o in objs if o["id"] == "ironstack-lens-hi-timeline"][0]
     raw = json.dumps(tl)
     check("round two: the timeline bucket is not enlarged", '"size": 300' in raw, raw[:200])
+
+    # --- the provenance is short, because it cannot be folded ----------------------
+    #
+    # probe_disclosure.py settled this in the browser: a custom content panel takes no
+    # pointer input at all. <details> rendered and would not open, a checkbox would not
+    # toggle, a :hover reveal never fired, a title= tooltip never appeared. So there is
+    # no mechanism to hide behind and the only lever is the word count. Each card keeps
+    # the sentence that makes its number defensible and drops the mechanism; the
+    # mechanism is what the coach is for.
+    LIMIT = 55
+    for card, name in ((tpl.SIGNAL_INTENSITY, "intensity"), (tpl.SIGNAL_LOAD, "load"),
+                       (tpl.SIGNAL_DRIFT, "drift"), (tpl.SIGNAL_LIFT, "lift"),
+                       (tpl.SIGNAL_TAPER, "taper"), (tpl.SIGNAL_PROGRAM, "program"),
+                       (tpl.SIGNAL_BLOCK, "block"), (tpl.SIGNAL_TAGS, "tags"),
+                       (tpl.SIGNAL_PROJECTION, "projection")):
+        prov = re.search(r'<div class="prov">(.*?)</div>', card, re.S)
+        words = len(re.sub(r"<[^>]+>", " ", prov.group(1)).split()) if prov else 0
+        check(f"round two: {name}'s provenance is under {LIMIT} words",
+              0 < words <= LIMIT, f"{words} words")
+    # Three cards side by side on the opening screen. Their combined provenance was 232
+    # words, which is the finding: the Signal row was the best thing on the page and a
+    # reader had to get past a paragraph to reach the next verdict.
+    # `if prov else 0` on both loops, not just the first. Without it here, wrapping the
+    # provenance in anything other than that div made the SUITE CRASH with a traceback
+    # instead of failing an assertion - and a check that dies does not say which check
+    # died. Found mutating signal() to put the paragraph back behind a <details>.
+    row = 0
+    for card in (tpl.SIGNAL_INTENSITY, tpl.SIGNAL_LOAD, tpl.SIGNAL_DRIFT):
+        prov = re.search(r'<div class="prov">(.*?)</div>', card, re.S)
+        row += len(re.sub(r"<[^>]+>", " ", prov.group(1)).split()) if prov else 0
+    check("round two: the Overview row's method text is under 130 words", row <= 130,
+          f"{row} words across three cards")
+    # Cut, not deleted. The reason each number is defensible is still on the card.
+    has("round two: intensity still says why the window is trailing", tpl.SIGNAL_INTENSITY,
+        "sees everything as light")
+    has("round two: load still says what the flag is not", tpl.SIGNAL_LOAD,
+        "a flag, not a prediction")
+    has("round two: block still says what heavy means", tpl.SIGNAL_BLOCK,
+        "80% or more of your best estimate")
+    # And never behind something the panel cannot operate.
+    for card in (tpl.SIGNAL_INTENSITY, tpl.SIGNAL_LOAD, tpl.SIGNAL_DRIFT):
+        check("round two: no disclosure the panel cannot open",
+              "<details" not in card and "type=\"checkbox\"" not in card
+              and ":hover .body" not in card)
 
     # --- an opt-out flag turns the feature off, whatever the environment says ------
     #

@@ -1068,9 +1068,16 @@ def build() -> list[dict]:
     # The Signal row leads. Mike's framing: the analysis has to be the first thing on
     # the page or the app reads as a log with charts bolted on. Everything below this
     # row is the log, in descending order of how often it answers a question.
+    # Signal-card heights are MEASURED, not estimated. A ~45-word provenance needs 11
+    # rows in a 16-column card - Overview's three-across, where the paragraph wraps to
+    # five or six lines - and 9 across the full 48, where it is two. History takes 10
+    # because its evidence line runs long before the paragraph starts. Every one of these
+    # was set a row short on the first try and corrected against the browser: a card that
+    # slices its own pointer line is the defect the height exists to prevent, and it is
+    # not visible from the source.
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
-          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=12)
+          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=11)
     # Directly under the verdicts, and only here: repeated on all seven pages it would be
     # furniture. Built only when there is a coach to point at.
     if COACH_URL:
@@ -1253,7 +1260,7 @@ def build() -> list[dict]:
     # The verdict first, then the chart that shows its shape, then the log. Before this
     # the page opened on four tiles a phone already shows and the zone chart - the only
     # picture in the app of the trailing-90-day idea - was the third scroll.
-    d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=12)
+    d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=10)
     # The 4.0 in Aug 2025 is a layoff artefact (open item: suppress in derive.py). Until
     # then the title says how to read it, so the spike is not the scariest thing on the page.
     acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. ABOVE 1.5 IS A SPIKE; A SPIKE RIGHT AFTER A LAYOFF IS EXPECTED", "line", W,
@@ -1287,7 +1294,7 @@ def build() -> list[dict]:
     # The verdict goes above the record. The record is what the lifter already knows;
     # how this cycle compares to it is the thing only the log can say.
     d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 24, []),
-          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=12)
+          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=10)
     d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
