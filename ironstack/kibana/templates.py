@@ -685,12 +685,17 @@ MEET_CARDS = page(tok("""
 {%- comment -%} "logged" and "all meets" were lies at any picker narrower than the
 record: at two years this read "1 competitions logged, 100% success" against a real
 2 and 83%. The tiles now say what they count. {%- endcomment -%}
-<div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">in the page's range</div></div>
+{%- comment -%} On a record with totals the best finish rides on the count tile rather
+than taking a fifth of its own: the row is four tiles wide and measured at that width,
+and a placing is a fact about the meets counted here rather than a fifth independent
+measurement. On a points record the tile beside this one IS the placing, so this line
+stands down rather than printing the same number twice in one row. {%- endcomment -%}
+{%- assign pts = rows[0]['pts'].value | plus: 0 -%}
+<div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">in the page's range{% if rows[0]['best_place'].value and pts == 0 %}<br>best finish <span class="v">{{ rows[0]['best_place'].value }}""" + ordinal("rows[0]['best_place'].value") + """</span>{% endif %}</div></div>
 {%- comment -%} A meet scored on points has no total and no DOTS, and the two tiles
 that print them would read "Not logged" forever - which says the lifter forgot to write
 something down, when in fact their sport does not produce it. The tiles change question
 instead: best placing and best points score, off the record. {%- endcomment -%}
-{%- assign pts = rows[0]['pts'].value | plus: 0 -%}
 {% if pts > 0 %}
 <div class="card"><div class="top"><div class="eyebrow">Best placing</div>{% if rows[0]['best_place'].value %}<div class="value" style="color:$BLOOD">{{ rows[0]['best_place'].value }}<small>""" + ordinal("rows[0]['best_place'].value") + """</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['best_place'].value %}best finish in the page's range{% else %}no placing on any meet in range{% endif %}</div></div>
 {% else %}
@@ -722,10 +727,17 @@ MEET_LIST = page(tok("""
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No meets logged") + """</div>{% else %}
 <div class="row" style="margin-top:10px;height:auto;gap:0">
 {% assign cur = "" %}{% for r in rows %}{% if r['meet_id'].value != cur %}{% unless forloop.first %}</div></div>{% endunless %}{% assign cur = r['meet_id'].value %}{% assign curlift = "" %}
-<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value | escape }}</div><div class="sub">{%- comment -%} A meet with no total is not always a meet with something missing. A
-show scored on points has no total by definition, and "no total recorded" read as a
-reproach on every one of them. Where there is a placing or a points score, those are
-the meet's result and they are what the line reports. {%- endcomment -%}{% if r['total_kg'].value %}<span class="v">""" + numr("r['total_kg'].value", 1) + """</span> $U_MASS_ALT total{% elsif r['placing'].value %}<span class="v">{{ r['placing'].value }}""" + ordinal("r['placing'].value") + """</span> place{% elsif r['points'].value %}<span class="v">""" + numr("r['points'].value", 1) + """</span> points{% else %}<span class="faint">no total recorded</span>{% endif %}{% if r['points'].value and r['placing'].value %} &middot; <span class="v">""" + numr("r['points'].value", 1) + """</span> points{% endif %}{% if r['dots'].value %} &middot; <span class="v">""" + numr("r['dots'].value", 1) + """</span> DOTS{% endif %}{% if r['bodyweight_kg'].value %} &middot; """ + numr("r['bodyweight_kg'].value", 1) + """ $U_MASS_ALT bw{% endif %}</div></div><div class="grid3" style="margin-top:10px">{% endif %}
+<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value | escape }}</div><div class="sub">{%- comment -%} Three clauses that each stand or fall on their own, not a chain of
+elsifs. Written as an elsif chain, a PLACING was shown only where there was no total to
+show instead - so on a powerlifting record, where every meet has a total, first place
+never appeared anywhere in the app. That is the result the lifter is most likely to say
+out loud, and it was structurally unreachable.
+
+The `shown` flag carries the separator rather than each clause assuming one, because a
+meet may have any combination of the three and a leading or doubled middot is the tell
+that a line was assembled by guessing. And "no total recorded" prints only when none of
+the three said anything: a show scored on points has no total by definition, and that
+phrase read as a reproach on every one of them. {%- endcomment -%}{%- assign shown = 0 -%}{% if r['total_kg'].value %}<span class="v">""" + numr("r['total_kg'].value", 1) + """</span> $U_MASS_ALT total{% assign shown = 1 %}{% endif %}{% if r['placing'].value %}{% if shown == 1 %} &middot; {% endif %}<span class="v">{{ r['placing'].value }}""" + ordinal("r['placing'].value") + """</span> place{% assign shown = 1 %}{% endif %}{% if r['points'].value %}{% if shown == 1 %} &middot; {% endif %}<span class="v">""" + numr("r['points'].value", 1) + """</span> points{% assign shown = 1 %}{% endif %}{% if shown == 0 %}<span class="faint">no total recorded</span>{% endif %}{% if r['dots'].value %} &middot; <span class="v">""" + numr("r['dots'].value", 1) + """</span> DOTS{% endif %}{% if r['bodyweight_kg'].value %} &middot; """ + numr("r['bodyweight_kg'].value", 1) + """ $U_MASS_ALT bw{% endif %}</div></div><div class="grid3" style="margin-top:10px">{% endif %}
 {% if r['event_name'].value != curlift %}{% assign curlift = r['event_name'].value %}{% endif %}
 {%- comment -%} The chip carried weight_kg, which is null on every event that is not
 measured in kilograms - so a 12.9-second yoke run and a 5-rep sandbag ladder both
@@ -969,11 +981,16 @@ SCOPE_DRIFT = "working sets, whole log, last 365 days &middot; not this page"
 # neither of those says: WHY the trailing window is the right one, and why the card one
 # click away can rank the same week differently.
 METHOD_INTENSITY = (
+    # "This one measures against your best in the last 90 days" was here and came out
+    # again. That sentence is already the brand-bar tagline above the nav AND the card's
+    # own evidence line; a third copy is the exact duplication the card's provenance was
+    # cut for in the first place, reintroduced by writing this paragraph fresh instead of
+    # moving the one that existed. What the method owes the reader is the REASON, which
+    # is said nowhere else.
     "Every logging app measures a set against an all-time PR, so a lifter back from a "
-    "layoff sees everything as light. This one measures against your best in the last "
-    "90 days. Main lifts only. Program ranks the same week on work, not weight, so a "
-    "week can come out heavy here and easy there - that disagreement is a finding, not "
-    "a fault.")
+    "layoff sees everything as light. Main lifts only. Program ranks the same week on "
+    "work, not weight, so a week can come out heavy here and easy there - that "
+    "disagreement is a finding, not a fault.")
 METHOD_LOAD = (
     "Acute:chronic is a flag, not a prediction. Load is tonnage, so a week you did not "
     "train reads as zero and the ratio moves on a rest day. Precedent reads only the "

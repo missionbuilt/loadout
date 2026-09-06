@@ -1171,7 +1171,11 @@ def build() -> list[dict]:
     # explains. The verdicts lead; the mechanism is one scroll down, in full, in one
     # place where the three windows can be read against each other. It takes no query -
     # it carries no number, because every figure on this page is computed by the cards.
-    d.row((custom("ov-method", tpl.SIGNAL_METHOD), 48, []), h=6)
+    # 7, and it was 6 for one build: at 6 the intensity column died mid-sentence on
+    # "heavy here and easy there - that". Its paragraph is the longest of the three, so
+    # the height belongs to that column - the same rule as the row of cards above, one
+    # panel further down the page.
+    d.row((custom("ov-method", tpl.SIGNAL_METHOD), 48, []), h=7)
     objs += d.build()
 
     # ---------------------------------------------------------------- Program

@@ -1340,6 +1340,29 @@ def section_meet_cards() -> None:
     has("meets: a total meet is ranked on its total", out, "Best total")
     has("meets: and on DOTS", out, "Best DOTS")
 
+    # A placing on a record that has totals. Four tiles is the measured width of this
+    # row, so the best finish rides on the count tile rather than taking a fifth.
+    out = render(tpl.MEET_CARDS, rows_of({"meets": 3, "total_kg": 412.5, "total_lb": 909.4,
+                                          "dots": 269.57, "made": 22, "attempts": 27,
+                                          "best_place": 1}))
+    # The first tile only. The whole panel is four of them and two carry the words
+    # "best finish" for different reasons.
+    count_tile = lambda html: html.split('<div class="card">')[1].split('<div class="card">')[0]
+    has("meets: the best finish is on the count tile", count_tile(out), "best finish")
+    has("meets: with the ordinal", count_tile(out), "1st</span>")
+    tiles = out.count('class="card"')
+    check("meets: still four tiles", tiles == 4, f"{tiles} tiles")
+    balanced("meet cards (placed)", out)
+
+    # And on a POINTS record it stands down, because the tile beside it is the placing.
+    # Printing the same number twice in one row is worse than not printing it at all.
+    out = render(tpl.MEET_CARDS, rows_of({"meets": 2, "made": 7, "attempts": 9,
+                                          "pts": 1, "best_place": 3, "best_points": 41.5}))
+    has("meets points: the placing has its own tile", out, "Best placing")
+    # The COUNT tile specifically - "best finish" also appears in the placing tile's own
+    # sub line, which is the copy that makes that tile legible and is not the duplicate.
+    lacks("meets points: so the count tile stands down", count_tile(out), "best finish")
+
     # A show scored on points has no total and no DOTS, and the two tiles that print
     # them would have read "Not logged" forever - which says the lifter forgot to write
     # something down, when their sport does not produce it.
@@ -1397,6 +1420,38 @@ def section_meet_lists() -> None:
     has("meet list: the attempt", out, "155.0")
     has("meet list: the event is named as the platform named it", out, "Squat")
     balanced("meet list", out)
+
+    # --- a placing on a meet that also has a total --------------------------------
+    #
+    # This was structurally unreachable until 2026-09-06. The result line was a chain of
+    # elsifs, so a placing printed only where there was NO total to print instead - and
+    # on a powerlifting record every meet has a total, so first place never appeared
+    # anywhere in the app. The three clauses now stand or fall on their own.
+    placed = render(tpl.MEET_LIST, rows_of({**row, "placing": 1}))
+    has("meet list: the total is still there", placed, "412.5")
+    has("meet list: and the placing beside it", placed, "1st</span> place")
+    balanced("meet list (placed)", placed)
+
+    # Every combination of the three clauses, checked for the separator. A leading or
+    # doubled middot is the tell that a line was assembled by guessing.
+    for label, extra, want, absent in (
+            ("total only", {}, "412.5", "place"),
+            ("total and placing", {"placing": 2}, "total &middot; <span class=\"v\">2", None),
+            ("total, placing and points", {"placing": 2, "points": 41.5},
+             "place &middot; <span class=\"v\">41.5", None),
+            ("placing only", {"total_kg": None, "placing": 2}, "2nd</span> place", "no total recorded"),
+            ("points only", {"total_kg": None, "points": 41.5}, "41.5</span> points", "no total recorded"),
+            ("none of the three", {"total_kg": None}, "no total recorded", None)):
+        out = render(tpl.MEET_LIST, rows_of({**row, **extra}))
+        has(f"meet list ({label}): says it", out, want)
+        if absent:
+            lacks(f"meet list ({label}): and does not say {absent!r}", out, absent)
+        line = out[out.find('class="sub"'):]
+        line = line[:line.find("</div>")]
+        check(f"meet list ({label}): no leading separator",
+              "&middot;" not in line[:line.find("span")] if "span" in line else True, line[:80])
+        check(f"meet list ({label}): no doubled separator",
+              "&middot; &middot;" not in line, line[:120])
 
     # A show, not a meet: three units in one card, and a placing where the total was.
     # `value` carried in a `weight_kg` column would have made every one of these an
