@@ -204,8 +204,36 @@ or it is somewhere else entirely - a Links panel, an XY chart's drilldown, or th
 
 This is why the Signal cards' provenance is short rather than folded: it could not be
 folded, so it was cut, from 816 words across nine cards to 399, and from 232 words on
-Overview's opening row to 125. `verify_liquid.py` holds each card under 55 words and the
-Overview row under 130.
+Overview's opening row to 125 - and then, in Phase 2 of the Sept 6 design plan, to a
+fixed anatomy with a budget.
+
+## A verdict card: five parts and forty words
+
+`signal(question, body, scope, see, method)` in `templates.py`:
+
+1. **Label** (`.q`) - the question, one per card. A state chip can sit beside it: the
+   intensity card's `Open week` (a body that carries `__Q__` draws its own label).
+2. **Verdict** (`.verdict`) - the answer, Oswald 22, chalk. A band changes weight, never
+   colour; the max band adds an oxblood square and lights the gauge.
+3. **Evidence** (`.ev`) - one sentence, serif 14, numbers inline in mono chalk.
+4. **Gauge** with its baseline tick, captioned `Tick: ...` (`.base`).
+5. **Scope** (`.prov`, under the rule) - ONE line, what window and what population.
+   The last `.base` on a card that reads `ironstack-signals` is `Indexed <date>.`
+
+Then the pointer (`.see`), plain: `History › reps by week`. No em-dashes anywhere in a
+card; a dash that was doing a sentence's work became a period, a colon or a middot.
+
+The **method paragraph is not on the card.** `signal()` collects it in `METHODS` and
+`method_panel()` draws it once at the foot of the page - `SIGNAL_METHOD` on Overview
+(three columns, one under each card), `PROGRAM_METHOD`, `LIFT_METHOD`, `BLOCK_METHOD`,
+`MEETS_METHOD` (two columns) and `TAGS_METHOD` on their pages. A card that restates a
+sentence of its own method fails `section_switcher_round_two`.
+
+`section_word_budget` in `verify_liquid.py` measures every state the suite renders,
+through `render()` itself, and fails any card whose WORST state puts more than 40 words
+between the label and the rule (35 is the target). At Phase 2 the worst states sit at
+32-40 across ~120 rendered states; the open-week intensity card, which was 61 words on a
+Tuesday, is 38. The scope line is held to 18 words.
 
 ## After an import: open a NEW TAB, not a hard reload
 

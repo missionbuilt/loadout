@@ -76,8 +76,31 @@ def rows_of(*dicts) -> list[dict]:
     return [{k: {"value": v, "pct": 100} for k, v in d.items()} for d in dicts]
 
 
+# Every render of a verdict card is measured against the word budget, so the budget is
+# held on every state the suite exercises - the open-week Tuesday, the two-peer decline,
+# the no-rows fallback - and not on the one happy path someone remembered to count.
+# Keyed on the template string itself; section_word_budget() maps it back to a name.
+BUDGET: dict[str, list[tuple[int, str]]] = {}
+WORD_BUDGET = 40   # the ceiling; 35 is the target the Sept 6 review set
+TAG = re.compile(r"<[^>]+>")
+ENTITY = re.compile(r"&[a-z#0-9]+;")
+
+
+def card_words(out: str) -> tuple[int, str]:
+    """Words a reader meets between the label and the rule: verdict, evidence, gauge
+    captions, the also-line. The label is constant and the pointer sits under the rule."""
+    body = out.split('<div class="sig">', 1)[1].split('<div class="prov">', 1)[0]
+    body = re.sub(r'<div class="q">.*?</div>', " ", body, count=1, flags=re.DOTALL)
+    text = ENTITY.sub(" ", TAG.sub(" ", body))
+    words = [w for w in text.split() if any(ch.isalnum() for ch in w)]
+    return len(words), " ".join(words)
+
+
 def render(template: str, rows: list[dict]) -> str:
-    return env.from_string(template).render(rows=rows)
+    out = env.from_string(template).render(rows=rows)
+    if '<div class="sig">' in out and '<div class="prov">' in out:
+        BUDGET.setdefault(template, []).append(card_words(out))
+    return out
 
 
 def has(name: str, out: str, text: str) -> None:
@@ -323,8 +346,8 @@ def section_intensity() -> None:
 
     out = render(t, rows_of(*REAL_WEEKS))
     has("intensity: real verdict", out, "Heavier than 10 of your last 12 weeks.")
-    has("intensity: real evidence", out, "<b>5</b> of 57 main-lift reps")
-    has("intensity: real baseline", out, "your 12-week average: 3.8")
+    has("intensity: real evidence", out, "<b>5</b> of <b>57</b> main-lift reps")
+    has("intensity: real baseline", out, "Tick: your 12-week average, 3.8")
     band("intensity: band is heavy", out, "b-heavy")
     balanced("intensity (real)", out)
 
@@ -353,7 +376,7 @@ def section_intensity() -> None:
     out = render(t, rows_of(*flat))
     has("intensity: thirteen zero weeks read as level", out, "Level with your last 12 weeks.")
     lacks("intensity: thirteen zero weeks are not the lightest ever", out, "Lighter than every one")
-    has("intensity: thirteen zero weeks keep the evidence", out, "<b>0</b> of 80 main-lift reps")
+    has("intensity: thirteen zero weeks keep the evidence", out, "<b>0</b> of <b>80</b> main-lift reps")
     band("intensity: a level week lands mid-scale", out, "b-normal")
     balanced("intensity (flat zeroes)", out)
 
@@ -380,11 +403,15 @@ def section_intensity() -> None:
 
     # --- the week in progress has to say so, in both branches
     out = render(t, rows_of(week(5, 57, state="in-progress"), *REAL_WEEKS[1:]))
-    has("intensity: an open week says so", out, "this week is still open")
+    has("intensity: an open week says so", out, '<span class="chip">Open week</span>')
+    has("intensity: an open week is beside the label, not under the verdict", out,
+        '<div class="q">How heavy was this week<span class="chip">Open week</span></div>')
+    has("intensity: an open week says what it ranked on", out, "Open week, so ranked per training day")
     out = render(t, rows_of(week(5, 57, state="in-progress"), week(1, 40)))
-    has("intensity: an open week says so under the threshold too", out, "this week is still open")
+    has("intensity: an open week says so under the threshold too", out, '<span class="chip">Open week</span>')
+    has("intensity: and that the counts will grow", out, "Both counts grow until the week closes")
     out = render(t, rows_of(*REAL_WEEKS))
-    lacks("intensity: a closed week does not", out, "this week is still open")
+    lacks("intensity: a closed week does not", out, "Open week")
 
     # Null Prilepin buckets are why the query COALESCEs; the card must not crash
     # if one arrives null anyway.
@@ -480,7 +507,7 @@ def section_load() -> None:
                             wk(1.0, "steady", "Aug 2026")))
     has("load: comeback is not a spike", out, "Coming back.")
     has("load: comeback shows the base it has", out, "<b>4</b> of the last 28 days")
-    has("load: comeback says the ratio is arithmetic", out, "arithmetic rather than a spike")
+    has("load: comeback says the ratio is arithmetic", out, "arithmetic, not a spike")
     # The bar the count is being judged against. "Only 4 of 28" with nothing to be low
     # against is a judgment the reader cannot check, and the threshold is this lifter's
     # own - derive measures it from their history - so it cannot be a constant in copy.
@@ -677,7 +704,7 @@ def section_drift() -> None:
 
     # And the freshness stamp, because staleness is the failure mode this index has.
     out = render(t, rows_of(group("calves", 17, 58), group("chest", 1, 120)))
-    has("drift: says when it was computed", out, "from the whole log, indexed")
+    has("drift: says when it was computed", out, "Indexed 20")
 
     # A second flagged group is listed under the headline, not promoted over it.
     two = rows_of(group("traps", 60, 20), group("calves", 40, 58), group("chest", 1, 120))
@@ -1245,7 +1272,7 @@ def section_total_card() -> None:
     # whatever the picker admits. The card says which, the same way it does for the
     # 90-day window two lines above it.
     has("total: the meet best names its scope", out, "in this range")
-    has("total: and says the picker reaches it", out, "widen it if an older meet was bigger")
+    has("total: and says the picker reaches it", out, "Widen the time picker to reach an older meet")
     lacks("total: no unqualified 'your meet best'", out, "% of your meet best")
     has("total: what is left to go", out, "37")
     lacks("total: no widen hint at full window", out, "widen the time picker")
@@ -1494,7 +1521,7 @@ def section_moat() -> None:
     """The trailing-90-day idea is the most defensible thing in the system and it was
     set in 10px grey. It now has to be in the evidence line of the intensity verdict."""
     out = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
-    has("moat: in the evidence line", out, "of your best in the last 90 days")
+    has("moat: in the evidence line", out, "of your 90-day best")
     # The claim itself is in the brand-bar tagline and in this card's own evidence line;
     # a third copy opened the provenance 40px under the tagline, in the same words. What
     # the reader is owed is the REASON, which is said nowhere else - and it is now said
@@ -1502,7 +1529,7 @@ def section_moat() -> None:
     # side by side put 125 words of mechanism on the first screen.
     has("moat: the method says why", tpl.SIGNAL_METHOD, "sees everything as light")
     lacks("moat: and the card does not", out, "sees everything as light")
-    has("moat: the card still names its scope", out, "main lifts only")
+    has("moat: the card still names its scope", out, "Main lifts only")
     lacks("moat: and does not repeat the tagline a third time", out,
           "Heavy means heavy for you now")
     # And the thin-history state tells the lifter what to do about the picker.
@@ -1636,6 +1663,32 @@ def section_type_system() -> None:
             check(f"type: {name} draws its verdict before its gauge",
                   value.find('class="verdict') != -1 and value.find('class="verdict') < value.find('class="gauge"'))
 
+def section_word_budget() -> None:
+    """A verdict card has five parts and a word budget (Sept 6 design review, finding
+    05): label, verdict, one evidence sentence, gauge, one scope line. Sixty-one words
+    above the rule was the intensity card on a Tuesday; the target is 35 and the
+    ceiling, held here on every state the suite rendered, is 40.
+
+    Runs LAST, over what the other sections rendered, so it measures the states they
+    thought worth asserting on rather than a fixture of its own. A signal template no
+    section renders is reported, not skipped."""
+    names = {getattr(tpl, n): n for n in dir(tpl)
+             if n.startswith("SIGNAL_") and isinstance(getattr(tpl, n), str) and '<div class="sig">' in getattr(tpl, n)}
+    for template, name in names.items():
+        states = BUDGET.get(template)
+        check(f"budget: {name} was rendered by the suite", bool(states))
+        if not states:
+            continue
+        worst, text = max(states)
+        check(f"budget: {name} keeps every state under {WORD_BUDGET} words above the rule",
+              worst <= WORD_BUDGET, f"{worst} words: {text[:160]}")
+    # The scope line is ONE line: what window, what population.
+    for template, name in names.items():
+        scope = template.split('<div class="prov">', 1)[1].split("</div>", 1)[0]
+        n = len(TAG.sub(" ", scope).split())
+        check(f"budget: {name} scope line is one line", n <= 18, f"{n} words")
+
+
 def section_cold_start() -> None:
     """Week one through week twelve — the state that decides whether anyone stays.
 
@@ -1727,8 +1780,8 @@ def section_taper() -> None:
                       days=4, ton=53915.0, rpe=6.94, k=0, cum=0.0)] + NOV + APR
     out = render(T, rows_of(*live))
     balanced("taper open week", out)
-    has("taper open: names the week", out, "Week 8 of the run-in, still open")
-    has("taper open: days so far", out, "<b>4</b>&nbsp;training days in")
+    has("taper open: names the week", out, "Week 8 of the run-in.")
+    has("taper open: days so far", out, "<b>4</b>&nbsp;days in")
     # Per training day on BOTH sides. The totals - 53,915 across four days beside
     # 75,340 across three - were printed under a sentence declining to compare them,
     # which is an invitation to do the division yourself off the wrong pair. 53915/4
@@ -1738,9 +1791,10 @@ def section_taper() -> None:
     lacks("taper open: not the raw open total", out, "53,915")
     lacks("taper open: nor the raw finished total", out, "75,340")
     has("taper open: its own RPE", out, "6.9")
-    has("taper open: names the yardstick", out, "Nov 2024's same week ran")
-    has("taper open: says why it is a rate", out, "not comparable on the")
-    has("taper open: declines to rank", out, "nothing is ranked until the week closes")
+    has("taper open: names the yardstick", out, "Nov 2024's same week:")
+    has("taper open: says why it is a rate", out, "$U_WEIGHT a day".replace("$U_WEIGHT", tpl.UNITS["weight"]))
+    has("taper open: declines to rank", out, "Nothing is ranked until the week closes")
+    has("taper open: the open state is a chip on the verdict", out, 'of the run-in. <span class="chip">Open week</span>')
     # The whole point of the branch: no percentage, no gauge, no verdict class.
     lacks("taper open: no ratio", out, "% of Nov 2024")
     lacks("taper open: no gauge", out, 'class="gauge"')
@@ -1757,15 +1811,15 @@ def section_taper() -> None:
     balanced("taper ratio", out)
     # 115,915 / 168,302 = 68.9% -> 69
     has("taper ratio: the percentage is the verdict", out, "69% of Nov 2024's volume")
-    has("taper ratio: closed-week count", out, "<b>2</b> closed weeks of the run-in")
+    has("taper ratio: closed-week count", out, "<b>2</b> closed weeks in")
     has("taper ratio: names the last week counted, not where the lifter stands",
-        out, "Through week <b>7</b> out")
+        out, "Week <b>7</b> out")
     has("taper ratio: its own tonnage", out, "115,915")
     has("taper ratio: the yardstick's", out, "168,302")
     has("taper ratio: the yardstick's attempt record", out, "9 for 9")
     has("taper ratio: heavy reps both ways", out, "you 9 &middot; Nov 2024 12")
     has("taper ratio: gauge", out, 'class="gauge"')
-    has("taper ratio: tick is the yardstick", out, "tick marks Nov 2024's pace")
+    has("taper ratio: tick is the yardstick", out, "Tick: Nov 2024's pace")
     band("taper ratio: under 70 is the loudest band", out, "b-max")
 
     # --- on pace reads as normal, ahead reads as loud, and neither throws
@@ -1803,7 +1857,7 @@ def section_taper() -> None:
     has("taper mismatched span: names its own count", out, "<b>2</b> closed weeks behind it")
     has("taper mismatched span: names the peer's count", out, "<b>1</b> at the same distance")
     has("taper mismatched span: says what it is waiting for", out, "same number of closed")
-    has("taper mismatched span: still names the window", out, "Through week <b>7</b> out")
+    has("taper mismatched span: still names the window", out, "Week <b>7</b> out")
     lacks("taper mismatched span: no ratio", out, "% of Nov 2024's volume")
 
     # --- the shape the widened index actually produces on 2026-09-05: seven weeks out,
@@ -1874,7 +1928,7 @@ def section_taper() -> None:
                                          state="in-progress", days=1, ton=9000.0,
                                          rpe=None, k=0, cum=0.0)] + NOV + APR)))
     balanced("taper no rpe", out)
-    has("taper no rpe: singular day", out, "<b>1</b>&nbsp;training day in")
+    has("taper no rpe: singular day", out, "<b>1</b>&nbsp;day in")
     lacks("taper no rpe: no dangling label", out, "at RPE .")
 
 
@@ -1946,11 +2000,13 @@ def section_program() -> None:
     has("program: the band in words", out, "recovery, or a week after a hard one")
     has("program: ranks against recent weeks", out, "of your last 2 weeks")
     has("program: acwr in words", out, "loading faster than the 28-day base")
-    has("program: acwr banded", out, "load rising at 1.37")
-    has("program: names the block", out, "strength block")
-    # week_end is the last day trained, not the week's end - the copy must not promise
-    # the calendar week. See derive.rollup_docs.
-    has("program: labels the week honestly", out, "last trained 2026-09-06")
+    has("program: acwr banded", out, "Load rising at 1.37")
+    # The block and the last day trained are the PROGRAM_HEADER's two lines directly
+    # above this card; a second copy on the card was the kind of restatement Phase 2 of
+    # the design plan removed. week_end is still the last day trained, not the week's
+    # end - see derive.rollup_docs - so the card must not promise a calendar week either.
+    lacks("program: does not repeat the header's block", out, "strength block")
+    lacks("program: does not repeat the header's last-trained line", out, "last trained")
     lacks("program: does not claim a calendar week end", out, "week ending")
     lacks("program: does not imply the week starts then", out, "week of 2026")
     band("program: easy is the quiet band", out, "b-light")
@@ -1983,7 +2039,7 @@ def section_program() -> None:
 
     out = render(T, rows_of(load_row(acwr_gloss=None)))
     balanced("program no acwr gloss", out)
-    has("program no acwr gloss: keeps the band and number", out, "load rising at 1.37")
+    has("program no acwr gloss: keeps the band and number", out, "Load rising at 1.37")
     lacks("program no acwr gloss: no dangling middot", out, "1.37 &middot;")
 
     out = render(T, [])
@@ -1997,13 +2053,17 @@ def section_block() -> None:
     out = render(T, rows_of(*BLOCK_LIVE))
     balanced("block", out)
     # 0.83 / 1.75 = 47.4%
-    has("block: the ratio is the verdict", out, "47% of the heavy work in a usual strength block")
+    has("block: the ratio is the verdict", out, "47% of a usual strength block's heavy work")
     has("block: its own rate", out, "<b>0.83</b> heavy reps a session")
-    has("block: the peer median", out, "median of <b>1.75</b>")
+    has("block: the peer median", out, "median <b>1.75</b>")
     has("block: how many peers", out, "your 8 earlier strength blocks")
     has("block: names the window the median was taken over", out, "the first 6 sessions of")
-    has("block: the denominator is visible", out, "<b>5</b> of <b>67</b> main-lift reps")
-    has("block: how far back the comparison reaches", out, "reaches back to 2023-05-29")
+    # The rate IS the number; the rep share it was computed from restated it in a second
+    # sentence and went with Phase 2. The peers and the window stay, because they are
+    # what the rate is measured against.
+    lacks("block: the rate is not restated as a share", out, "main-lift reps")
+    has("block: the peers are named", out, "your 8 earlier strength blocks")
+    has("block: how far back the comparison reaches", out, "back to 2023-05-29")
     has("block: gauge", out, 'class="gauge"')
     band("block: under 70 is the loudest band", out, "b-max")
     # A hypertrophy block sits in the rows and must not be blended into the comparison.
@@ -2016,7 +2076,7 @@ def section_block() -> None:
     # peer_window_sessions absent (an older index): the sentence still has to read.
     out = render(T, rows_of(dict(BLOCK_LIVE[0], peer_window_sessions=None), *BLOCK_LIVE[1:]))
     balanced("block no window", out)
-    has("block no window: still ranks", out, "47% of the heavy work")
+    has("block no window: still ranks", out, "47% of a usual strength block")
     lacks("block no window: drops the window clause", out, "the first")
     has("block no window: keeps the peer count", out, "your 8 earlier strength blocks")
 
@@ -2024,7 +2084,7 @@ def section_block() -> None:
                                       heavy=5, main_reps=67, hps=0.83)))
     balanced("block first", out)
     has("block first: says so", out, "Your first strength block")
-    lacks("block first: no ratio", out, "% of the heavy work")
+    lacks("block first: no ratio", out, "% of a usual")
 
     # Rows exist but none is current - a state the index should never produce, and the
     # card still has to render rather than go blank.
@@ -2035,7 +2095,7 @@ def section_block() -> None:
     for hps, want, cls in ((1.70, 97, "b-normal"), (2.30, 131, "b-max"), (2.10, 120, "b-heavy")):
         rows = [dict(BLOCK_LIVE[0], heavy_per_session=hps)]
         out = render(T, rows_of(*rows))
-        has(f"block band {want}%", out, f"{want}% of the heavy work")
+        has(f"block band {want}%", out, f"{want}% of a usual")
         band(f"block band {want}% class", out, cls)
 
     out = render(T, [])
@@ -2050,12 +2110,14 @@ def section_projection() -> None:
     out = render(T, rows_of(*(PROJ_PAST + [PROJ_NOW])))
     balanced("projection", out)
     has("projection: the ratio is the verdict", out, "97% of projection, across 3 meets")
-    has("projection: Nov numbers", out, "Nov 2024 projected <b>929</b>")
-    has("projection: Nov total", out, "you totalled <b>909</b>")
-    has("projection: Apr numbers", out, "Apr 2024 projected <b>885</b>")
+    # Three meets, projected -> totalled, on one line under the evidence rather than
+    # three sentences inside it (Phase 2 of the design plan).
+    has("projection: Nov numbers", out, "Nov 2024 <b>929</b> &rarr; <b>909</b>")
+    has("projection: Apr numbers", out, "Apr 2024 <b>885</b> &rarr; <b>854</b>")
+    has("projection: the arrow is explained", out, "Projected &rarr; totalled")
     has("projection: today's reading", out, "<b>872</b>")
-    has("projection: what it implies", out, "platform total near")
-    has("projection: the caveat is on the card", out, "singles at a commanded pace")
+    has("projection: what it implies", out, "platform total is near")
+    has("projection: the caveat is in the method", tpl.MEETS_METHOD, "singles at a commanded pace")
 
     # peer_pct and expected_lb are absent entirely under three peer meets now. The card
     # must degrade to naming the projection, and must not print "near lb" off a nil.
@@ -2065,7 +2127,7 @@ def section_projection() -> None:
     has("projection two peers: counts what it has", out, "<b>2</b> meets")
     has("projection two peers: names the threshold", out, "needs three")
     lacks("projection two peers: no ratio", out, "% of projection")
-    lacks("projection two peers: no expected total", out, "platform total near")
+    lacks("projection two peers: no expected total", out, "platform total is near")
 
     # And the other silence: no meet on record carries a projection at all.
     out = render(T, rows_of(dict(PROJ_NOW, peers=0, peer_pct=None, expected_lb=None)))
@@ -2082,7 +2144,7 @@ def section_projection() -> None:
     # A sport scored on points. The card has to refuse the whole question rather than
     # print a percentage of a total that does not exist.
     out = render(T, rows_of({**PROJ_NOW, "scoring": "points", "discipline": "strongman"}))
-    has("projection points: names the reason", out, "no total to project")
+    has("projection points: names the reason", out, "nothing to project")
     has("projection points: names the sport", out, "strongman")
     has("projection points: sends the reader somewhere with an answer", out,
         "event readiness")
@@ -2106,7 +2168,7 @@ def section_tags() -> None:
     balanced("tags too new", out)
     has("tags too new: refuses", out, "Too new to read a pattern")
     has("tags too new: names the start", out, "<b>2026-09-01</b>")
-    has("tags too new: the corpus", out, "<b>31</b> of them across <b>4</b> days")
+    has("tags too new: the corpus", out, "<b>31</b> notes across <b>4</b> days")
     has("tags too new: still shows what it has", out, "watch 12")
     has("tags too new: it says what the number is", out, "in the last 28 days")
     lacks("tags too new: no claim about a trend", out, "You have written")
@@ -2329,11 +2391,11 @@ def section_coach_wording() -> None:
     import importlib
 
     check("coach: the suite runs in the no-coach build", tpl.HAS_COACH is False)
-    lacks("coach: the tag provenance does not point at one", tpl.SIGNAL_TAGS,
+    lacks("coach: the tag method does not point at one", tpl.TAGS_METHOD,
           "goes to the coach")
     lacks("coach: the tag pointer does not either", tpl.SIGNAL_TAGS,
-          "Ask the coach")
-    has("coach: it says what it cannot answer instead", tpl.SIGNAL_TAGS,
+          "Coach &rsaquo;")
+    has("coach: it says what it cannot answer instead", tpl.TAGS_METHOD,
         "is not answered anywhere in these dashboards")
     build = (__import__("pathlib").Path(__file__).resolve().parent / "build_dashboards.py").read_text()
     check("coach: the Mindset tagline is behind the same switch",
@@ -2345,10 +2407,10 @@ def section_coach_wording() -> None:
     try:
         with_coach = importlib.reload(tpl)
         check("coach: set, the build knows it", with_coach.HAS_COACH is True)
-        has("coach: set, the provenance points at it", with_coach.SIGNAL_TAGS,
+        has("coach: set, the method points at it", with_coach.TAGS_METHOD,
             "goes to the coach")
         has("coach: set, the pointer points at it", with_coach.SIGNAL_TAGS,
-            "Ask the coach to read the notes themselves")
+            "Coach &rsaquo; read the notes themselves")
     finally:
         os.environ["IRONSTACK_COACH_URL"] = ""
         importlib.reload(tpl)
@@ -2438,11 +2500,11 @@ def section_switcher_round_two() -> None:
         "Program ranks the same week on work, not weight")
     loading = render(tpl.SIGNAL_PROGRAM, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
                                                  load_row(inol=0.99, week_end="2026-08-23")))
-    has("round two: program points back at Overview", loading,
+    has("round two: program points back at Overview", tpl.PROGRAM_METHOD,
         "Overview ranks the same week on weight, not work")
     # "Harder than 4 of your last 12 weeks" beside "Heavier than 10 of your last 12
     # weeks" read as one scale disagreeing with itself. The rank now says what it ranks.
-    has("round two: the program rank names its unit", loading, "More work on that lift than")
+    has("round two: the program rank names its unit", loading, "More work on it than")
     lacks("round two: and no longer borrows the intensity card's word", loading, "Harder than <b>")
 
     # --- no panel instructs a click it cannot honour ------------------------------
@@ -2544,12 +2606,23 @@ def section_switcher_round_two() -> None:
             check(f"round two: the {label} card does not restate its method",
                   sentence not in card, sentence[:60])
 
-    # The two the method panel does not cover keep theirs on the card: those pages carry
-    # one signal card each, and one paragraph is not a wall.
+    # Every page with a verdict card now has its method panel; the card keeps one scope
+    # line and the paragraph is one scroll down (Phase 2 of the design plan).
     has("round two: load still says what the flag is not", tpl.SIGNAL_METHOD,
         "a flag, not a prediction")
-    has("round two: block still says what heavy means", tpl.SIGNAL_BLOCK,
+    has("round two: block still says what heavy means", tpl.BLOCK_METHOD,
         "80% or more of your best estimate")
+    for name, card, panel, method in (
+            ("lift", tpl.SIGNAL_LIFT, tpl.LIFT_METHOD, tpl.METHOD_LIFT),
+            ("taper", tpl.SIGNAL_TAPER, tpl.MEETS_METHOD, tpl.METHOD_TAPER),
+            ("projection", tpl.SIGNAL_PROJECTION, tpl.MEETS_METHOD, tpl.METHOD_PROJECTION),
+            ("program", tpl.SIGNAL_PROGRAM, tpl.PROGRAM_METHOD, tpl.METHOD_PROGRAM),
+            ("block", tpl.SIGNAL_BLOCK, tpl.BLOCK_METHOD, tpl.METHOD_BLOCK),
+            ("tags", tpl.SIGNAL_TAGS, tpl.TAGS_METHOD, tpl.METHOD_TAGS)):
+        check(f"phase two: the {name} method is in its page's panel", method in panel)
+        for sentence in [x.strip() for x in method.split(". ") if len(x.split()) >= 8]:
+            check(f"phase two: the {name} card does not restate its method",
+                  sentence not in card, sentence[:60])
 
     # The method panel is the reason the cards can be short, so it has to be reachable
     # and it has to name which card each block explains. Three questions, three methods.
@@ -2704,6 +2777,7 @@ def main() -> None:
     section_tags()
     section_switcher_round_two()
     section_disciplines()
+    section_word_budget()   # last: it measures what the sections above rendered
 
     total = PASSED + len(FAILED)
     if FAILED:

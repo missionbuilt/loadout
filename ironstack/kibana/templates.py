@@ -315,7 +315,7 @@ No working reps in this range, so the chart above has nothing to place.
 {%- elsif zr == 0 -%}
 None of these <b>{{ tr | round }}</b> working reps carry an intensity zone, which is why the
 chart above is empty. A zone is a share of a reference weight, and a set gets one only once
-that lift has an earlier estimate to measure against &mdash; which is built out of a logged
+that lift has an earlier estimate to measure against, which is built out of a logged
 RPE. Put an RPE on your top sets and the zones fill in behind you.
 {%- elsif zr < tr -%}
 <b>{{ zr | round }}</b> of <b>{{ tr | round }}</b> working reps here carry an intensity zone.
@@ -504,7 +504,7 @@ scrupulous about exactly this two lines above ("The card reads 90; widen the tim
 for the real number"), so it says the same thing here rather than a different thing.
 {%- endcomment -%}
 {% if total >= meet_max %}<span class="v">{{ pct }}%</span> of your best meet total in this range,&nbsp;""" + num("meet_max") + """&nbsp;$U_WEIGHT{% else %}<span class="v">{{ pct }}%</span> of your best meet total in this range,&nbsp;""" + num("meet_max") + """&nbsp;$U_WEIGHT &middot; <span class="v">""" + num("togo") + """&nbsp;$U_WEIGHT</span> to go{% endif %}
-<br><span class="faint">the time picker reaches the meet record too; widen it if an older meet was bigger</span>
+<br><span class="faint">Widen the time picker to reach an older meet.</span>
 {%- else -%}
 No meet in this range, so there is nothing to hold this against. Log one, or widen the time picker past the last one, and this line starts keeping score.
 {%- endif -%}
@@ -533,7 +533,7 @@ PROGRAM_HEADER = page(tok("""
 
 SESSION_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Session</div>""" + empty("Open a session from any dashboard") + """{% else %}
-<div class="hdr"><span class="eyebrow">Session</span><span class="eyebrow dim">{{ rows[0]['program.name'].value | escape }}</span></div>
+<div class="hdr"><span class="eyebrow">Session</span></div>
 {%- comment -%} Program tracking is newer than the log: program.week and program.day are
 absent on everything logged before it. Printed unconditionally the hero rendered
 "HYPERTROPHY - WEEK - DAY OF" on those sessions - the largest type on the page, with the
@@ -542,7 +542,7 @@ a broken one, so the segment is only drawn when there is something to put in it.
 block name is always there and carries the line on its own. {%- endcomment -%}
 <div class="hdr" style="margin-top:8px"><span class="title">{{ rows[0]['program.block'].value | default: "Session" | escape }}{% if rows[0]['program.week'].value %}<span class="dot"></span>week {{ rows[0]['program.week'].value }}{% endif %}{% if rows[0]['program.day'].value %}<span class="dot"></span>day {{ rows[0]['program.day'].value }}{% if rows[0]['program.total_days'].value %} of {{ rows[0]['program.total_days'].value }}{% endif %}{% endif %}</span></div>
 <div class="sub" style="margin-top:10px"><span class="v">{{ rows[0]['date_s'].value | escape }}</span>{% if rows[0]['start_time'].value %} &middot; {{ rows[0]['start_time'].value | escape }}{% endif %}{% if rows[0]['time_of_day'].value %} &middot; {{ rows[0]['time_of_day'].value | escape }}{% endif %}{% if rows[0]['location.name'].value %} &middot; {{ rows[0]['location.name'].value | escape }}{% endif %}{% if rows[0]['location.travel'].value %} <span class="chip blood">travel</span>{% endif %}<br>
-<span class="faint">prev</span> {{ rows[0]['prev_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">next</span> {{ rows[0]['next_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">the panel on the right filters this page to either one</span></div>
+<span class="faint">prev</span> {{ rows[0]['prev_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">next</span> {{ rows[0]['next_session_id'].value | default: "none" | escape }} &nbsp; <span class="faint">the table on the right walks to either</span></div>
 {% endif %}"""))
 
 SESSION_TILES = page(tok("""
@@ -600,7 +600,7 @@ look at. Distinct rather than a row count: one session is many rows. {%- endcomm
 {% if pw != "" %}{%- assign delta = rows[0]['weight_lb'].value | minus: pw -%}
 <span class="sub"><span class="faint">last {{ pr | round }}-rep set</span>&nbsp; <span class="v">""" + num("pw") + """&nbsp;&times;&nbsp;{{ pr | round }}</span>{% if prpe %} <span class="faint">@&nbsp;{{ prpe | round: 1 }}</span>{% endif %} <span class="faint">&middot; {{ pd | escape }}</span></span>
 {% if delta > 0 %}<span class="chip blood">+{{ delta | round }} $U_WEIGHT</span>{% elsif delta < 0 %}<span class="chip">{{ delta | round }} $U_WEIGHT</span>{% else %}<span class="chip">same weight</span>{% endif %}
-{% elsif aw != "" %}<span class="sub"><span class="faint">last time</span>&nbsp; <span class="v">""" + num("aw") + """&nbsp;&times;&nbsp;{{ ar | round }}</span>{% if arpe %} <span class="faint">@&nbsp;{{ arpe | round: 1 }}</span>{% endif %} <span class="faint">&middot; {{ ad | escape }}</span> {% comment %}Neither `!= ""` nor truthiness works here and both were tried. A row projecting est_e1rm as null assigns nil, and nil != "" is TRUE, so the first guard printed an arrow between two blanks. In Liquid only nil and false are falsy - the empty string is truthy - so the second guard compared a skipped low-confidence estimate as 0 and reported the whole of the current estimate as a gain. `| plus: 0` sends nil and "" both to 0, which is the one test that holds for every shape this row arrives in.{% endcomment %}{% assign aev = ae | plus: 0 %}{% assign cev = ce | plus: 0 %}{% if aev > 0 and cev > 0 %}<span class="faint">&mdash; e1RM</span> <span class="v">{{ aev | round }}&nbsp;&rarr;&nbsp;{{ cev | round }}</span>{% assign ed = cev | minus: aev %}{% if ed > 0 %} <span class="chip blood">+{{ ed | round }} $U_WEIGHT</span>{% elsif ed < 0 %} <span class="chip">{{ ed | round }} $U_WEIGHT</span>{% else %} <span class="chip">level</span>{% endif %}{% else %}<span class="faint">&mdash; different reps, and neither set carries an estimate to compare them on</span>{% endif %}</span>
+{% elsif aw != "" %}<span class="sub"><span class="faint">last time</span>&nbsp; <span class="v">""" + num("aw") + """&nbsp;&times;&nbsp;{{ ar | round }}</span>{% if arpe %} <span class="faint">@&nbsp;{{ arpe | round: 1 }}</span>{% endif %} <span class="faint">&middot; {{ ad | escape }}</span> {% comment %}Neither `!= ""` nor truthiness works here and both were tried. A row projecting est_e1rm as null assigns nil, and nil != "" is TRUE, so the first guard printed an arrow between two blanks. In Liquid only nil and false are falsy - the empty string is truthy - so the second guard compared a skipped low-confidence estimate as 0 and reported the whole of the current estimate as a gain. `| plus: 0` sends nil and "" both to 0, which is the one test that holds for every shape this row arrives in.{% endcomment %}{% assign aev = ae | plus: 0 %}{% assign cev = ce | plus: 0 %}{% if aev > 0 and cev > 0 %}<span class="faint">&middot; e1RM</span> <span class="v">{{ aev | round }}&nbsp;&rarr;&nbsp;{{ cev | round }}</span>{% assign ed = cev | minus: aev %}{% if ed > 0 %} <span class="chip blood">+{{ ed | round }} $U_WEIGHT</span>{% elsif ed < 0 %} <span class="chip">{{ ed | round }} $U_WEIGHT</span>{% else %} <span class="chip">level</span>{% endif %}{% else %}<span class="faint">&middot; different reps, and neither set carries an estimate to compare them on</span>{% endif %}</span>
 {% else %}<span class="sub faint">first time on record for this lift</span>{% endif %}</div>{% endif %}
 {% endif %}"""))
 
@@ -782,6 +782,8 @@ SIGNAL_CSS = tok("""<style>
 .sig{display:block}
 /* Label 11: the question. */
 .sig .q{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;line-height:1.45}
+/* A state chip beside the label or the verdict (the open-week one). Sentence case inside a caps label. */
+.sig .q .chip,.sig .verdict .chip{font-family:$MONO;font-size:11px;font-weight:400;letter-spacing:.04em;text-transform:none;color:$DIM;margin:0 0 0 8px;vertical-align:middle}
 /* Verdict 22: the answer, in chalk. A band changes weight, never colour. */
 .sig .verdict{font-family:$DISPLAY;font-size:22px;font-weight:600;line-height:1.2;letter-spacing:-.005em;margin-top:8px;color:$CHALK}
 .sig .verdict.b-light{color:$DIM;font-weight:500}
@@ -823,32 +825,60 @@ SIGNAL_CSS = tok("""<style>
 # it is CUT: each card keeps the sentence that makes its number defensible and drops the
 # mechanism. The mechanism is what the coach is for, and Overview says so directly under
 # the Signal row.
-def signal(question: str, body: str, prov: str, see: str = "") -> str:
-    """One verdict card: question, verdict, evidence, provenance, drilldown hint.
+METHODS: dict[str, str] = {}
 
-    The provenance line is not optional. It is what makes the number defensible
-    instead of decorative, and it is the honest place to say what a metric cannot
-    see. `see` is a text pointer, not a link: custom content panels render in a
-    sandboxed iframe with no scripts and no <a href>, so the Links panel is the
-    only real door on the page.
 
-    Re-verified 2026-09-05 with kibana/probe_links.py, before Phase 4 built anything
-    on top of it. Four buttons in one panel, identical CSS: <a target="_top">,
-    <a target="_blank">, <a> with no target, and a <span> as the control. The span
-    rendered as the styled button; all three anchors came out as bare text having
-    lost even their class, and clicking them did nothing. Kibana strips the element,
-    not just its behaviour. So a coach button drawn inside a card is not possible,
-    and neither is our own nav - which is what would have made embed mode stick.
+def signal(question: str, body: str, scope: str, see: str = "", method: str = "") -> str:
+    """One verdict card: question, verdict, evidence, gauge, one scope line, pointer.
+
+    Five parts and a word budget (verify_liquid.py: 40 words between the label and the
+    rule, 35 the target). `scope` is ONE line under the rule - what window, what
+    population - and it is the only provenance the card carries. `method`, the
+    mechanism, is not drawn here: a custom content panel takes no pointer input, so
+    there is nothing to fold it behind, and the Sept 6 review measured what leaving it
+    on the card costs. It is collected in METHODS by question and drawn once, at the
+    foot of the page, by method_panel().
+
+    A body that carries `__Q__` draws its own label, so it can put a state chip beside
+    it (the intensity card's "Open week"); otherwise the label is drawn here.
+
+    `see` is a text pointer, not a link: custom content panels render in a sandboxed
+    iframe with no scripts and no <a href>, so the Links panel is the only real door on
+    the page. Re-verified 2026-09-05 with kibana/probe_links.py: Kibana strips <a>
+    elements from a custom panel entirely, class and all.
     """
+    if method:
+        METHODS[question] = method
     tail = f'<div class="see">{see}</div>' if see else ""
+    if "__Q__" in body:
+        head, body = "", body.replace("__Q__", question)
+    else:
+        head = f'<div class="q">{question}</div>'
     # tok() over the assembled card, not just the CSS. The bodies are plain module
     # strings and carry $U_WEIGHT and $TZ_OFF now; an unsubstituted token is a Liquid
     # syntax error, which blanks the panel.
-    return tok(BASE_CSS + SIGNAL_CSS + '<div class="sig">'
-               + f'<div class="q">{question}</div>'
-               + body
-               + f'<div class="prov">{prov}</div>' 
-               + tail + "</div>")
+    return tok(BASE_CSS + SIGNAL_CSS + '<div class="sig">' + head + body
+               + f'<div class="prov">{scope}</div>' + tail + "</div>")
+
+
+def method_panel(heading: str, items: list[tuple[str, str]]) -> str:
+    """The mechanism behind a page's verdict cards, drawn once at the foot of the page.
+
+    Static: no query, no Liquid. It carries no number, because every figure on the page
+    is computed by the cards. One column per card, so on Overview each column sits
+    under the card it explains."""
+    cols = "".join(f'<div><div class="q">{q}</div><p>{m}</p></div>' for q, m in items)
+    return page(tok(f"""<style>
+.mth{{font-family:$SERIF;font-size:14px;line-height:1.55;color:$DIM}}
+.mth .hd{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}}
+.mth .cols{{display:grid;grid-template-columns:repeat({len(items)},1fr);gap:22px}}
+.mth .q{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}}
+.mth p{{margin:0}}
+</style>
+<div class="mth">
+<div class="hd">{heading}</div>
+<div class="cols">{cols}</div>
+</div>"""))
 
 
 # --- 1. intensity ----------------------------------------------------------
@@ -861,10 +891,12 @@ def signal(question: str, body: str, prov: str, see: str = "") -> str:
 # weeks is the judgment the card exists to deliver.
 
 _INTENSITY_BODY = """
+{%- assign open_wk = false -%}
+{%- if rows.size > 0 -%}{%- if rows[0]['week_state'].value == "in-progress" -%}{%- assign open_wk = true -%}{%- endif -%}{%- endif -%}
+<div class="q">__Q__{% if open_wk %}<span class="chip">Open week</span>{% endif %}</div>
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash; this card ignores the time picker, but not
-the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign hv = rows[0]['heavy'].value | plus: 0 -%}
 {%- assign tot = rows[0]['tot'].value | plus: 0 -%}
@@ -876,8 +908,6 @@ ordinary hypertrophy block, and counting a tie as a loss made every one of those
 read "Lighter than every one of your last 13 weeks" under evidence saying 0 of 80. Ties
 are carried separately and score half, so a week level with its history lands mid-scale.
 {%- endcomment -%}
-{%- assign open_wk = false -%}
-{%- if rows[0]['week_state'].value == "in-progress" -%}{%- assign open_wk = true -%}{%- endif -%}
 {%- comment -%} An open week has fewer days in it than the weeks it is being ranked
 against, so a raw count compares a Wednesday with twelve Sundays. The indexer writes
 heavy_per_training_day for exactly this, and until the query carried it the card ranked
@@ -917,10 +947,8 @@ number the indexer cannot produce. {%- endcomment -%}
 {%- if prior < 4 -%}
 <div class="verdict b-normal">{{ hv }} rep{% unless hv == 1 %}s{% endunless %} at 80% or more.</div>
 <div class="ev">Out of <b>{{ tot }}</b> main-lift reps this week.</div>
-{%- if open_wk -%}<div class="base">this week is still open; both counts will grow</div>{%- endif -%}
-<div class="none">Ranking a week against your own history needs 4 earlier weeks
-carrying main-lift work. You have <b>{{ avail }}</b>.
-</div>
+{%- if open_wk -%}<div class="base">Both counts grow until the week closes.</div>{%- endif -%}
+<div class="none">Ranking needs 4 earlier weeks carrying main-lift work. You have <b>{{ avail }}</b>.</div>
 {%- else -%}
 {%- comment -%} (beat + equal/2) / prior, in integer arithmetic. {%- endcomment -%}
 {%- assign share = beat | times: 2 | plus: equal | times: 50 | divided_by: prior -%}
@@ -936,11 +964,10 @@ carrying main-lift work. You have <b>{{ avail }}</b>.
 {%- else -%}Heavier than {{ beat }} of your last {{ prior }} weeks.{%- endif -%}
 </div>
 {%- assign avg = sum | times: 1.0 | divided_by: prior -%}
-<div class="ev"><b>{{ hv }}</b> of {{ tot }} main-lift reps at 80% or more of your best in the last 90 days.
+<div class="ev"><b>{{ hv }}</b> of <b>{{ tot }}</b> main-lift reps at 80% or more of your 90-day best.
 {%- if equal > 0 and beat > 0 and beat != prior %} Level with {{ equal }} of them.{% endif -%}
 </div>
-{%- if open_wk -%}<div class="base">this week is still open, so it is ranked on heavy reps
-per training day &mdash; {{ cur | round: 1 }} across {{ rows[0]['training_days'].value }} so far</div>{%- endif -%}
+{%- if open_wk -%}<div class="base">Open week, so ranked per training day: {{ cur | round: 1 }} across {{ rows[0]['training_days'].value }} so far.</div>{%- endif -%}
 {%- comment -%} The gauge has to be drawn on whatever the verdict was ranked on, or a
 partial week's bar reads short under a sentence saying it is ahead. {%- endcomment -%}
 {%- if maxv > 0 -%}
@@ -960,7 +987,7 @@ partial week's bar reads short under a sentence saying it is ahead. {%- endcomme
 {%- assign bx = avgv | times: 100 | divided_by: maxv | round -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:{{ bx }}%"></u></div>
 {%- endif -%}
-<div class="base">your {{ prior }}-week average: {{ avg | round: 1 }} rep{% unless avg == 1 %}s{% endunless %} a week</div>
+<div class="base">Tick: your {{ prior }}-week average, {{ avg | round: 1 }} rep{% unless avg == 1 %}s{% endunless %} a week.</div>
 {%- endif -%}
 {%- endif -%}
 {%- endif -%}
@@ -986,9 +1013,9 @@ partial week's bar reads short under a sentence saying it is ahead. {%- endcomme
 # METHOD_* is the single copy of each. A card and its method are one explanation, and
 # the way that goes wrong is two copies drifting apart, so the card cannot restate it -
 # verify_liquid fails any card carrying a sentence from these.
-SCOPE_INTENSITY = "main lifts only &middot; ranked against your last 13 weeks"
-SCOPE_LOAD = "tonnage &middot; 7 days against the trailing 28"
-SCOPE_DRIFT = "working sets, whole log, last 365 days &middot; not this page"
+SCOPE_INTENSITY = "Main lifts only, ranked against your last 13 weeks"
+SCOPE_LOAD = "Tonnage, 7 days against the trailing 28"
+SCOPE_DRIFT = "Working sets over the whole log, not this page's range"
 
 # The moat is already said twice on this page - in the brand-bar tagline above the nav
 # and in this card's own evidence line. What is left for the method to carry is the part
@@ -1018,7 +1045,8 @@ SIGNAL_INTENSITY = signal(
     "How heavy was this week",
     _INTENSITY_BODY,
     SCOPE_INTENSITY,
-    "See History &#9656; where the reps live",
+    "History &rsaquo; reps by week",
+    METHOD_INTENSITY,
 )
 
 
@@ -1061,8 +1089,7 @@ _LOAD_WINDOW = """
 _LOAD_BODY = """
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash; this card ignores the time picker, but not
-the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign acwr = rows[0]['acwr'].value -%}
 {%- unless acwr -%}
@@ -1094,9 +1121,8 @@ them the way the INOL band words would if this file spelled them out. {%- endcom
 {%- assign lmin = rows[0]['layoff_min_training_days'].value -%}
 {%- if off -%}
 <div class="verdict b-normal">Coming back.</div>
-<div class="ev">Only <b>{{ trained }}</b> of the last 28 days carried load{% if lmin %}, under the <b>{{ lmin }}</b> this ratio needs{% endif %}, so it is
-arithmetic rather than a spike. It will mean something again once the four-week base
-refills.__WINDOW__</div>
+<div class="ev">Only <b>{{ trained }}</b> of the last 28 days carried load{% if lmin %}, under the <b>{{ lmin }}</b> this ratio needs{% endif %}, so this is
+arithmetic, not a spike.__WINDOW__</div>
 {%- else -%}
 <div class="verdict {{ cls }}">{{ word }}</div>
 {%- assign pct = acwr | minus: 1 | times: 100 | round -%}
@@ -1152,7 +1178,8 @@ SIGNAL_LOAD = signal(
     "Am I ramping",
     _LOAD_BODY,
     SCOPE_LOAD,
-    "See History &#9656; acute vs chronic",
+    "History &rsaquo; acute vs chronic",
+    METHOD_LOAD,
 )
 
 
@@ -1171,8 +1198,7 @@ but a KQL query on a field this index does not carry matches nothing and empties
 Saying "no working sets in the last year" here would be the same class of lie the whole
 signals index exists to remove. {%- endcomment -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet, or a
-filter on this page excludes them &mdash; this card ignores the time picker, but not the
-filter bar.</div>
+filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign now_s = "now" | date: "%s" | plus: $TZ_OFF -%}
 {%- assign flagged = 0 -%}{%- assign ranked = 0 -%}{%- assign groups = 0 -%}
@@ -1214,8 +1240,7 @@ yet", which counts nothing and denies something in the same sentence. {%- endcom
 <div class="none">No muscle groups came back with any sessions on them. Either the log
 has not been indexed yet, or a filter on this page excludes the rows this card reads.</div>
 {%- elsif ranked == 0 -%}
-<div class="none">A muscle group needs six sessions in the year, far enough apart to
-measure, before its normal gap means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
+<div class="none">A muscle group needs six sessions in the year before its normal gap means anything. None of your <b>{{ groups }}</b> qualify yet.</div>
 {%- elsif flagged == 0 -%}
 <div class="verdict b-normal">Nothing is drifting.</div>
 <div class="ev">All <b>{{ ranked }}</b> muscle groups trained inside their normal window.</div>
@@ -1228,7 +1253,7 @@ measure, before its normal gap means anything. None of your <b>{{ groups }}</b> 
 {%- assign w = f_gap | times: 100 | divided_by: scale | round -%}
 {%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:33%"></u></div>
-<div class="base">tick marks your normal gap</div>
+<div class="base">Tick: your normal gap.</div>
 {%- if flagged > 1 -%}
 <div class="also">
 {%- assign shown = 0 -%}
@@ -1251,7 +1276,7 @@ measure, before its normal gap means anything. None of your <b>{{ groups }}</b> 
 </div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 """
 
@@ -1260,7 +1285,8 @@ SIGNAL_DRIFT = signal(
     "What am I neglecting",
     _DRIFT_BODY,
     SCOPE_DRIFT,
-    "See Session &#9656; every set",
+    "Session &rsaquo; every set",
+    METHOD_DRIFT,
 )
 
 
@@ -1275,23 +1301,11 @@ SIGNAL_DRIFT = signal(
 # No query, so no Liquid runs here (see custom()): this is plain text and must stay
 # plain text. It carries no number, which is also why it can be - every figure on this
 # page is computed from the reader's own log by the cards above.
-SIGNAL_METHOD = page(tok("""<style>
-.mth{font-family:$SERIF;font-size:14px;line-height:1.55;color:$DIM}
-.mth .hd{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}
-.mth .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}
-.mth .q{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}
-.mth p{margin:0}
-</style>
-<div class="mth">
-<div class="hd">How the three verdicts above are measured</div>
-<div class="cols">
-<div><div class="q">How heavy was this week</div><p>__M_INTENSITY__</p></div>
-<div><div class="q">Am I ramping</div><p>__M_LOAD__</p></div>
-<div><div class="q">What am I neglecting</div><p>__M_DRIFT__</p></div>
-</div>
-</div>""".replace("__M_INTENSITY__", METHOD_INTENSITY)
-     .replace("__M_LOAD__", METHOD_LOAD)
-     .replace("__M_DRIFT__", METHOD_DRIFT)))
+SIGNAL_METHOD = method_panel("How the three verdicts above are measured", [
+    ("How heavy was this week", METHOD_INTENSITY),
+    ("Am I ramping", METHOD_LOAD),
+    ("What am I neglecting", METHOD_DRIFT),
+])
 
 
 # --- 4. lift trajectory (Lift page) ----------------------------------------
@@ -1326,10 +1340,8 @@ cannot see the filter bar. {%- endcomment -%}
 {%- endfor -%}
 {%- if slugs_seen > 1 -%}
 <div class="verdict b-light">No lift chosen.</div>
-<div class="ev">This page ranks ONE lift against its own history, and
-<b>{{ slugs_seen }}</b> came back &mdash; so nothing here is filtered to a lift yet.</div>
-<div class="none">Click a lift in Overview's projected-total chart, or a point on this page's e1RM line,
-and this card rules on that lift.</div>
+<div class="ev">This page ranks one lift against its own history, and <b>{{ slugs_seen }}</b> came back, so nothing is filtered to a lift yet.</div>
+<div class="none">Open a lift from Overview's projected-total chart, or from the e1RM line on this page.</div>
 {%- else -%}
 {%- assign n = 0 -%}{%- assign recent = 0 -%}{%- assign prev = 0 -%}
 {%- assign peak = 0 -%}{%- assign peak_s = "" -%}
@@ -1366,7 +1378,7 @@ your best <b>{{ peak | round }}</b> $U_WEIGHT, {{ peak_s | escape }}.</div>
 {%- if peak > 0 -%}
 {%- assign w = recent | times: 100 | divided_by: peak | round -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:100%"></u></div>
-<div class="base">tick marks your best</div>
+<div class="base">Tick: your best.</div>
 {%- endif -%}
 {%- if prev > 0 -%}
 {%- assign dif = recent | minus: prev -%}{%- assign dir = "Up" -%}
@@ -1382,14 +1394,20 @@ your best <b>{{ peak | round }}</b> $U_WEIGHT, {{ peak_s | escape }}.</div>
 {%- endif -%}
 """
 
+METHOD_LIFT = (
+    "Confident e1RM estimates on working sets, for the lift you arrived on. One "
+    "session's estimate swings with how hard that day was, so this compares your best of "
+    "five sessions, never one session to the next.")
+
 SIGNAL_LIFT = signal(
     "Where is this lift",
     _LIFT_BODY,
-    "Confident e1RM estimates on working sets, for the lift you arrived on. One "
-    "session's estimate swings with how hard that day was, so this compares your best of "
-    "five sessions, never one session to the next.",
-    "Below &#9656; every working set",
+    "Best of your last five sessions against your best in this range",
+    "Below &rsaquo; every working set",
+    METHOD_LIFT,
 )
+
+LIFT_METHOD = method_panel("How this verdict is measured", [("Where is this lift", METHOD_LIFT)])
 
 
 # --- 5. taper (Meets page) --------------------------------------------------
@@ -1414,8 +1432,7 @@ def _taper_body() -> str:
     raw = """
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash;
-this card ignores the time picker, but not the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- comment -%} The cycle being trained for, and how far into its run-in it is. Rows
 arrive weeks_out descending inside a cycle, so the last closed week seen is the most
@@ -1534,32 +1551,29 @@ is the invitation to rank it yourself off the wrong pair of numbers. {%- endcomm
 {%- if open_days > 0 -%}{%- assign open_rate = open_ton | divided_by: open_days -%}{%- endif -%}
 {%- assign ref_rate = 0 -%}
 {%- if ref_wk_days > 0 -%}{%- assign ref_rate = ref_week | divided_by: ref_wk_days -%}{%- endif -%}
-<div class="verdict b-light">Week {{ open_n }} of the run-in, still open.</div>
-<div class="ev"><b>__OPEN_DAYS__</b>&nbsp;training day{% if open_days != 1 %}s{% endif %} in,
-{%- if open_rate > 0 %} <b>__OPEN_RATE__</b>&nbsp;$U_WEIGHT a day{% else %} <b>__OPEN_TON__</b>&nbsp;$U_WEIGHT{% endif -%}
-{%- if open_rpe > 0 %} at RPE __OPEN_RPE__{% endif -%}.
-{%- if ref_rate > 0 %} {{ ref_label | escape }}'s same week ran <b>__REF_RATE__</b>&nbsp;$U_WEIGHT a day
-across {{ ref_wk_days }} day{% if ref_wk_days != 1 %}s{% endif %}{% if ref_wk_rpe > 0 %} at RPE __REF_WK_RPE__{% endif %}.{% endif -%}
+<div class="verdict b-light">Week {{ open_n }} of the run-in. <span class="chip">Open week</span></div>
+<div class="ev"><b>__OPEN_DAYS__</b>&nbsp;day{% if open_days != 1 %}s{% endif %} in
+{%- if open_rate > 0 %} at <b>__OPEN_RATE__</b>&nbsp;$U_WEIGHT a day{% else %}, <b>__OPEN_TON__</b>&nbsp;$U_WEIGHT{% endif -%}
+{%- if open_rpe > 0 %}, RPE __OPEN_RPE__{% endif -%}.
+{%- if ref_rate > 0 %} {{ ref_label | escape }}'s same week: <b>__REF_RATE__</b>&nbsp;a day
+over {{ ref_wk_days }} day{% if ref_wk_days != 1 %}s{% endif %}{% if ref_wk_rpe > 0 %}, RPE __REF_WK_RPE__{% endif %}.{% endif -%}
 </div>
-<div class="base">a day rate, because a part week and a finished one are not comparable on the
-total &mdash; nothing is ranked until the week closes</div>
+<div class="base">Nothing is ranked until the week closes.</div>
 {%- elsif ref_ton > 0 -%}
 {%- assign pct = cur_ton | times: 100 | divided_by: ref_ton | round -%}
 {%- assign cls = "b-heavy" -%}
 {%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
 {%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
 <div class="verdict {{ cls }}">{{ pct }}% of {{ ref_label | escape }}'s volume.</div>
-<div class="ev">Through week <b>{{ cur_n }}</b> out,
-<b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} of the run-in:
-<b>__CUR_TON__</b>&nbsp;$U_WEIGHT.
-{{ ref_label | escape }}, {{ ref_made }} for {{ ref_tot }},
-had moved <b>__REF_TON__</b>&nbsp;$U_WEIGHT by the same point.</div>
+<div class="ev">Week <b>{{ cur_n }}</b> out, <b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} in:
+<b>__CUR_TON__</b>&nbsp;$U_WEIGHT. {{ ref_label | escape }} ({{ ref_made }} for {{ ref_tot }})
+had <b>__REF_TON__</b>&nbsp;$U_WEIGHT here.</div>
 {%- comment -%} The bar runs to 150% of the yardstick so being ahead of it is visible
 rather than pinned at full width, and the tick sits where the yardstick is. {%- endcomment -%}
 {%- assign w = pct | times: 100 | divided_by: 150 -%}
 {%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
-<div class="base">tick marks {{ ref_label | escape }}'s pace</div>
+<div class="base">Tick: {{ ref_label | escape }}'s pace.</div>
 {%- if cur_heavy > 0 or ref_heavy > 0 -%}
 <div class="also">reps at 80%+ &middot; you {{ cur_heavy }} &middot; {{ ref_label | escape }} {{ ref_heavy }}</div>
 {%- endif -%}
@@ -1567,15 +1581,14 @@ rather than pinned at full width, and the tick sits where the yardstick is. {%- 
 <div class="none">No meet on record yet to measure the run-in to {{ cur_label | escape }} against.
 The comparison starts with your second meet.</div>
 {%- else -%}
-<div class="none">Through week <b>{{ cur_n }}</b> out this run-in has
+<div class="none">Week <b>{{ cur_n }}</b> out, this run-in has
 {%- if cur_has %} <b>{{ cur_k }}</b> closed week{% if cur_k != 1 %}s{% endif %} behind it
 {%- else %} no closed week behind it yet{% endif %}, and {{ ref_label | escape }} has
 {%- if ref_has %} <b>{{ ref_k }}</b> at the same distance{% else %} none recorded at that distance{% endif %}.
-Two run-ins only compare across the same number of closed weeks, so this one waits for
-them to line up.</div>
+Run-ins compare only over the same number of closed weeks, so this one waits.</div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 """
     return (raw
@@ -1593,14 +1606,18 @@ them to line up.</div>
 _TAPER_BODY = _taper_body()
 
 
+METHOD_TAPER = (
+    "Weekly tonnage aligned by ISO week to each meet date. The yardstick is the meet "
+    "with the best attempt record, counted only where it has the same number of closed "
+    "weeks behind it. Two meets is a comparison, not a rule: tonnage moves with "
+    "exercise selection as much as with effort.")
+
 SIGNAL_TAPER = signal(
     "Am I running this in like the last one",
     _TAPER_BODY,
-    "Weekly tonnage aligned by ISO week to each meet date. The yardstick is the meet "
-    "with the best attempt record, counted only where it has the same number of closed "
-    "weeks behind it. Two meets is a comparison, not a rule &mdash; tonnage moves with "
-    "exercise selection as much as with effort.",
-    "See Program &#9656; the weeks behind this",
+    "Weekly tonnage by ISO week, against the meet with the best attempt record",
+    "Program &rsaquo; the weeks behind this",
+    METHOD_TAPER,
 )
 
 
@@ -1618,8 +1635,7 @@ def _program_body() -> str:
     raw = """
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash;
-this card ignores the time picker, but not the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign w = rows[0] -%}
 {%- assign inol = w['inol_hardest'].value | plus: 0 -%}
@@ -1644,17 +1660,16 @@ thing the card knows. Twelve weeks is the window the intensity card already uses
   {%- endif -%}
 {%- endfor -%}
 <div class="verdict {{ cls }}">{{ band | capitalize | escape }}.</div>
-<div class="ev"><b>{{ w['inol_hardest_lift'].value | escape }}</b> is the hardest lift of the week
-at INOL __INOL__{% if w['inol_hardest_gloss'].value %} &mdash; {{ w['inol_hardest_gloss'].value | escape }}{% endif %}.
-{%- if seen > 0 %} More work on that lift than <b>{{ seen | minus: harder }}</b> of your last {{ seen }} weeks.{% endif -%}
+<div class="ev"><b>{{ w['inol_hardest_lift'].value | escape }}</b> is the hardest lift,
+INOL __INOL__{% if w['inol_hardest_gloss'].value %}: {{ w['inol_hardest_gloss'].value | escape }}{% endif %}.
+{%- if seen > 0 %} More work on it than <b>{{ seen | minus: harder }}</b> of your last {{ seen }} weeks.{% endif -%}
 </div>
 {%- assign acwr = w['acwr'].value | plus: 0 -%}
 {%- if acwr > 0 -%}
-<div class="also">load {{ w['acwr_band'].value | escape }} at __ACWR__{% if w['acwr_gloss'].value %} &middot; {{ w['acwr_gloss'].value | escape }}{% endif %}</div>
+<div class="also">Load {{ w['acwr_band'].value | escape }} at __ACWR__{% if w['acwr_gloss'].value %}, {{ w['acwr_gloss'].value | escape }}{% endif %}.</div>
 {%- endif -%}
-<div class="base">last trained {{ w['week_end'].value | escape }}{% if w['block'].value %} &middot; {{ w['block'].value | escape }} block{% endif %}</div>
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 """
     return (raw
@@ -1665,14 +1680,20 @@ at INOL __INOL__{% if w['inol_hardest_gloss'].value %} &mdash; {{ w['inol_hardes
 _PROGRAM_BODY = _program_body()
 
 
+METHOD_PROGRAM = (
+    "INOL is reps divided by (100 minus intensity), per lift; the hardest single lift is "
+    "the one worth banding. Easy is under 2, loading to 3, brutal to 4, excessive above. "
+    "Overview ranks the same week on weight, not work, and both are true.")
+
 SIGNAL_PROGRAM = signal(
     "How hard is this week loading",
     _PROGRAM_BODY,
-    "INOL is reps divided by (100 minus intensity), per lift; the hardest single lift is "
-    "the one worth banding. Easy is under 2, loading to 3, brutal to 4, excessive above. "
-    "Overview ranks the same week on weight, not work, and both are true.",
-    "See the weekly loading table below &middot; Overview ranks the same week on weight",
+    "INOL per lift: easy under 2, loading to 3, brutal to 4",
+    "Below &rsaquo; weekly loading",
+    METHOD_PROGRAM,
 )
+
+PROGRAM_METHOD = method_panel("How this verdict is measured", [("How hard is this week loading", METHOD_PROGRAM)])
 
 
 # --- 7. block intensity (History page) --------------------------------------
@@ -1690,8 +1711,7 @@ def _block_body() -> str:
     raw = """
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash;
-this card ignores the time picker, but not the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign cur = nil -%}
 {%- for r in rows -%}
@@ -1713,26 +1733,25 @@ median it no longer is. {%- endcomment -%}
 {%- if peers == 0 or theirs == 0 -%}
 <div class="verdict b-light">Your first {{ name | escape }} block.</div>
 <div class="ev"><b>__MINE__</b> heavy reps a session across <b>{{ cur['sessions'].value }}</b>
-sessions &mdash; <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b>
-main-lift reps at 80% or more. There is nothing of the same kind to rank it against yet.</div>
+sessions: <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b>
+main-lift reps at 80% or more. Nothing of the same kind to rank it against yet.</div>
 {%- else -%}
 {%- assign pct = mine | times: 100 | divided_by: theirs | round -%}
 {%- assign cls = "b-heavy" -%}
 {%- if pct >= 90 and pct <= 110 -%}{%- assign cls = "b-normal" -%}{%- endif -%}
 {%- if pct < 70 or pct > 130 -%}{%- assign cls = "b-max" -%}{%- endif -%}
-<div class="verdict {{ cls }}">{{ pct }}% of the heavy work in a usual {{ name | escape }} block.</div>
-<div class="ev"><b>__MINE__</b> heavy reps a session this block,
-against a median of <b>__THEIRS__</b> across{% if win > 0 %} the first {{ win }} session{% if win != 1 %}s{% endif %} of{% endif %} your {{ peers }} earlier {{ name | escape }} blocks.
-That is <b>{{ cur['heavy'].value }}</b> of <b>{{ cur['main_reps'].value }}</b> main-lift reps
-at 80% or more,{% if cur['peer_share_pct'].value %} against __PSHARE__% then{% else %} against a share those blocks did not record{% endif %}.</div>
+<div class="verdict {{ cls }}">{{ pct }}% of a usual {{ name | escape }} block's heavy work.</div>
+<div class="ev"><b>__MINE__</b> heavy reps a session, against a median <b>__THEIRS__</b>
+{% if win > 0 %}over the first {{ win }} session{% if win != 1 %}s{% endif %} of {% else %}across {% endif %}your {{ peers }} earlier {{ name | escape }} blocks.</div>
 {%- assign w = pct | times: 100 | divided_by: 150 -%}
 {%- if w > 100 -%}{%- assign w = 100 -%}{%- endif -%}
 <div class="gauge"><i style="width:{{ w }}%"></i><u style="left:66%"></u></div>
-<div class="base">tick marks your usual {{ name | escape }} block</div>
+<div class="base">Tick: your usual {{ name | escape }} block.</div>
 {%- endif -%}
-<div class="base">this block began {{ cur['first_trained'].value | escape }}{% if peers > 0 %}, the comparison reaches back to {{ cur['peer_from'].value | escape }}{% endif %}</div>
+<div class="base">Began {{ cur['first_trained'].value | escape }}{% if peers > 0 %}, back to {{ cur['peer_from'].value | escape }}{% endif %}; indexed {{ rows[0]['computed_through'].value | escape }}.</div>
+{%- else -%}
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
 """
     return (raw
@@ -1744,14 +1763,20 @@ at 80% or more,{% if cur['peer_share_pct'].value %} against __PSHARE__% then{% e
 _BLOCK_BODY = _block_body()
 
 
+METHOD_BLOCK = (
+    "Heavy is 80% or more of your best estimate in the trailing 90 days, main lifts only. "
+    "A block is compared only against earlier runs of the same kind, each measured over as "
+    "many sessions as this one has run. Runs under 4 sessions are not ranked.")
+
 SIGNAL_BLOCK = signal(
     "How heavy is this block",
     _BLOCK_BODY,
-    "Heavy is 80% or more of your best estimate in the trailing 90 days, main lifts only. "
-    "A block is compared only against earlier runs of the same kind, each measured over as "
-    "many sessions as this one has run. Runs under 4 sessions are not ranked.",
-    "See the zone chart below for the shape of it",
+    "Heavy is 80%+ of your 90-day best, main lifts only; under 4 sessions is not ranked",
+    "Below &rsaquo; share of reps by zone",
+    METHOD_BLOCK,
 )
+
+BLOCK_METHOD = method_panel("How this verdict is measured", [("How heavy is this block", METHOD_BLOCK)])
 
 
 # --- 8. projection calibration (Meets page) ---------------------------------
@@ -1765,8 +1790,7 @@ def _projection_body() -> str:
     raw = """
 {%- if rows.size == 0 -%}
 <div class="none">No signal rows came back. Either the log has not been indexed yet,
-or a filter on this page excludes them &mdash;
-this card ignores the time picker, but not the filter bar.</div>
+or a filter on this page excludes them. This card ignores the time picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign now = nil -%}
 {%- for r in rows -%}
@@ -1774,7 +1798,7 @@ this card ignores the time picker, but not the filter bar.</div>
 {%- endfor -%}
 {%- if now == nil -%}
 <div class="none">No projection yet. It needs a recent estimate on the lifts you
-compete in &mdash; the ones marked as competition lifts in your exercise list.</div>
+compete in, the ones marked as competition lifts in your exercise list.</div>
 {%- else -%}
 {%- assign peers = now['peers'].value | plus: 0 -%}
 {%- comment -%} A sport scored on points per event has no total, so this card has no
@@ -1784,13 +1808,11 @@ that DOES have an answer, beats printing a percentage of nothing. The scoring co
 the meet record - the next meet on the calendar if there is one, the last one otherwise.
 {%- endcomment -%}
 {%- if now['scoring'].value == "points" -%}
-<div class="verdict b-light">Scored on points, so there is no total to project.</div>
-<div class="ev">Your {{ now['discipline'].value | default: "next meet" | escape }} is
-ranked event by event and the placings are added, not the weights. A projected total
-would be a number no scoring table recognises, so this card does not compute one.
-Readiness on this record is per event.</div>
-<div class="base">see Overview &#9656; event readiness</div>
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="verdict b-light">Scored on points, so nothing to project.</div>
+<div class="ev">Your {{ now['discipline'].value | default: "next meet" | escape }} ranks
+event by event and adds the placings, not the weights. Readiness on this record is per event.</div>
+<div class="base">Overview &rsaquo; event readiness</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- else -%}
 {%- comment -%} peer_pct and expected_lb are absent, not zero, under three peer meets:
 a ratio off one or two of them is whichever day went best, not a calibration. The card
@@ -1801,31 +1823,34 @@ some do but not enough of them - because they are different things to be waiting
 {%- if ratio == 0 -%}
 <div class="verdict b-light">__NOW__&nbsp;$U_WEIGHT projected.</div>
 {%- if peers == 0 -%}
-<div class="ev">No meet on record has a projection behind it yet, so there is nothing to
-say about what this number has been worth on the platform.</div>
+<div class="ev">No meet on record has a projection behind it yet, so nothing can be said
+about what this number is worth on the platform.</div>
 {%- else -%}
 <div class="ev">Only <b>{{ peers }}</b> meet{% if peers != 1 %}s{% endif %} on record
 {% if peers == 1 %}carries{% else %}carry{% endif %} a projection behind
-{% if peers == 1 %}it{% else %}them{% endif %}. Calibrating this number against the
-platform needs three, or the ratio is just whichever day went best.</div>
+{% if peers == 1 %}it{% else %}them{% endif %}. Calibrating against the platform needs three;
+under that the ratio is whichever day went best.</div>
 {%- endif -%}
 {%- else -%}
 <div class="verdict b-normal">{{ ratio | round }}% of projection, across {{ peers }} meets.</div>
-<div class="ev">
+<div class="ev">It reads <b>__NOW__</b>&nbsp;$U_WEIGHT today, so a realistic platform total is near
+<b>__EXPECTED__</b>&nbsp;$U_WEIGHT.</div>
+<div class="also">
+{%- assign shown_p = 0 -%}
 {%- for r in rows -%}
   {%- if r['cycle_role'].value == "past" -%}
 {%- if r['projected_total_lb'].value and r['meet_total_lb'].value -%}
-{{ r['cycle_label'].value | escape }} projected <b>__P_PROJ__</b> and you totalled <b>__P_MEET__</b>.&#32;
+{%- if shown_p > 0 %} &middot; {% endif -%}
+{{ r['cycle_label'].value | escape }} <b>__P_PROJ__</b> &rarr; <b>__P_MEET__</b>
+{%- assign shown_p = shown_p | plus: 1 -%}
 {%- endif -%}
   {%- endif -%}
 {%- endfor -%}
-It reads <b>__NOW__</b>&nbsp;$U_WEIGHT today, which puts a realistic platform total near
-<b>__EXPECTED__</b>&nbsp;$U_WEIGHT.</div>
-<div class="base">a projection is a training estimate;
-the platform is singles at a commanded pace</div>
+</div>
+<div class="base">Projected &rarr; totalled, on the platform.</div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 {%- endif -%}
 """
@@ -1839,14 +1864,24 @@ the platform is singles at a commanded pace</div>
 _PROJECTION_BODY = _projection_body()
 
 
+METHOD_PROJECTION = (
+    "The sum of your best estimate on each competition lift inside a 90-day window, "
+    "where the sport adds them up. For each meet on record it is the projection as it "
+    "stood walking in, not one computed afterwards. A projection is a training estimate; "
+    "the platform is singles at a commanded pace. Under three meets it declines to rank.")
+
 SIGNAL_PROJECTION = signal(
     "What is this projection worth",
     _PROJECTION_BODY,
-    "The sum of your best estimate on each competition lift inside a 90-day window, "
-    "where the sport adds them up. For each meet on record it is the projection as it "
-    "stood walking in, not one computed afterwards. Under three meets it declines to rank.",
-    "See Overview &#9656; projected total",
+    "Best estimate on each competition lift in a 90-day window, as it stood walking in",
+    "Overview &rsaquo; projected total",
+    METHOD_PROJECTION,
 )
+
+MEETS_METHOD = method_panel("How the two verdicts above are measured", [
+    ("Am I running this in like the last one", METHOD_TAPER),
+    ("What is this projection worth", METHOD_PROJECTION),
+])
 
 
 # --- 9. tags over time (Mindset page) ---------------------------------------
@@ -1866,10 +1901,9 @@ MIN_TAG_SPAN_DAYS = 21
 def _tag_body() -> str:
     raw = """
 {%- if rows.size == 0 -%}
-<div class="none">No tagged notes came back. Either none have been written yet &mdash;
-tags go in the log beside a note, and this card starts reading them back once there are a
-few weeks of them &mdash; or a filter on this page excludes them. This card ignores the
-time picker, but not the filter bar.</div>
+<div class="none">No tagged notes came back. Either none are written yet (tags go in the
+log beside a note) or a filter on this page excludes them. This card ignores the time
+picker, but not the filter bar.</div>
 {%- else -%}
 {%- assign span = rows[0]['notes_span_days'].value | plus: 0 -%}
 {%- assign total = rows[0]['notes_total'].value | plus: 0 -%}
@@ -1884,9 +1918,9 @@ measurement of a corpus the card could not see. {%- endcomment -%}
 nothing to say yet about how long you have been writing.</div>
 {%- elsif span < __MIN_SPAN__ -%}
 <div class="verdict b-light">Too new to read a pattern.</div>
-<div class="ev">Your notes begin <b>{{ rows[0]['notes_from'].value | escape }}</b> &mdash;
-<b>{{ total }}</b> of them across <b>{{ span }}</b> days. A tag needs about
-{{ __MIN_SPAN__ }} days behind it before "more than usual" means anything.</div>
+<div class="ev"><b>{{ total }}</b> notes across <b>{{ span }}</b> days, from
+<b>{{ rows[0]['notes_from'].value | escape }}</b>. A tag needs about {{ __MIN_SPAN__ }} days
+behind it before "more than usual" means anything.</div>
 {%- comment -%} The rows arrive ranked by `recent` and this line printed `total`, so
 the order and the numbers were two different quantities sitting next to each other: the
 card led with the tag written most in the window and labelled it with a whole-log count,
@@ -1916,7 +1950,7 @@ You have written &ldquo;{{ t['tag'].value | escape }}&rdquo; {{ n }} time{% if n
 </div>
 {%- endif -%}
 {%- endif -%}
-<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 """
     return raw.replace("__MIN_SPAN__", str(MIN_TAG_SPAN_DAYS))
@@ -1925,15 +1959,20 @@ You have written &ldquo;{{ t['tag'].value | escape }}&rdquo; {{ n }} time{% if n
 _TAG_BODY = _tag_body()
 
 
+METHOD_TAGS = (
+    "A tag count is not a diagnosis: it says what you wrote often, not what mattered "
+    "most. " + coach_or(
+        "The question this page cannot answer, what a note actually said, goes to the coach.",
+        "The question this page cannot answer, what a note actually said, is not answered "
+        "anywhere in these dashboards: a count is all a tag can carry."))
+
 SIGNAL_TAGS = signal(
     "What do I keep writing down",
     _TAG_BODY,
-    "Tags on your own notes, counted over the whole log. A count is not a diagnosis: it "
-    "says what you wrote often, not what mattered most. " + coach_or(
-        "The question this page cannot answer &mdash; what a note actually said &mdash; "
-        "goes to the coach.",
-        "The question this page cannot answer &mdash; what a note actually said &mdash; "
-        "is not answered anywhere in these dashboards: a count is all a tag can carry."),
-    coach_or("Ask the coach to read the notes themselves",
-             "See Session &#9656; the notes in full"),
+    "Tags on your own notes, counted over the whole log",
+    coach_or("Coach &rsaquo; read the notes themselves",
+             "Session &rsaquo; the notes in full"),
+    METHOD_TAGS,
 )
+
+TAGS_METHOD = method_panel("How this verdict is measured", [("What do I keep writing down", METHOD_TAGS)])

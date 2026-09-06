@@ -1227,6 +1227,11 @@ def build() -> list[dict]:
     }
     d.row((table(L("pr-loading"), "WEEKLY LOADING. INOL IS PER LIFT, NOT PER WEEK", W, loading_cols,
                  sort="week", direction="desc", page=12), 48, []), h=10)
+    # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
+    # design plan): the card keeps one scope line and the method paragraph lives here,
+    # where it can be read in full. Height is a first guess for a one-column paragraph;
+    # MEASURE it in the browser like every other custom-panel height on this page.
+    d.row((custom("pr-method", tpl.PROGRAM_METHOD), 48, []), h=4)
     objs += d.build()
 
     # ---------------------------------------------------------------- Session
@@ -1308,6 +1313,11 @@ def build() -> list[dict]:
     }
     d.row((table(L("li-sets"), "EVERY WORKING SET", T, all_cols, sort="sid", direction="desc",
                  page=50, query='set_type: "working"', row_height="auto"), 48, [("session", "Session")]), h=12)
+    # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
+    # design plan): the card keeps one scope line and the method paragraph lives here,
+    # where it can be read in full. Height is a first guess for a one-column paragraph;
+    # MEASURE it in the browser like every other custom-panel height on this page.
+    d.row((custom("li-method", tpl.LIFT_METHOD), 48, []), h=4)
     objs += d.build()
 
     # ---------------------------------------------------------------- History
@@ -1338,6 +1348,11 @@ def build() -> list[dict]:
            48, [("session", "Session")]), h=9)
     d.row((acwr, 48, []), h=8)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
+    # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
+    # design plan): the card keeps one scope line and the method paragraph lives here,
+    # where it can be read in full. Height is a first guess for a one-column paragraph;
+    # MEASURE it in the browser like every other custom-panel height on this page.
+    d.row((custom("hi-method", tpl.BLOCK_METHOD), 48, []), h=4)
     objs += d.build()
 
     # ---------------------------------------------------------------- Meets
@@ -1354,6 +1369,11 @@ def build() -> list[dict]:
     d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
+    # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
+    # design plan): the card keeps one scope line and the method paragraph lives here,
+    # where it can be read in full. Height is a first guess for two columns of paragraph;
+    # MEASURE it in the browser like every other custom-panel height on this page.
+    d.row((custom("me-method", tpl.MEETS_METHOD), 48, []), h=5)
     objs += d.build()
 
     # ---------------------------------------------------------------- Mindset
@@ -1381,6 +1401,11 @@ def build() -> list[dict]:
     d.row((tags, 48, []), h=15)
     d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 32, []),
           (notes_table(L("mi-notes"), "THE SESSIONS BEHIND THESE NOTES"), 16, [("session", "Session")]), h=12)
+    # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
+    # design plan): the card keeps one scope line and the method paragraph lives here,
+    # where it can be read in full. Height is a first guess for a one-column paragraph;
+    # MEASURE it in the browser like every other custom-panel height on this page.
+    d.row((custom("mi-method", tpl.TAGS_METHOD), 48, []), h=4)
     objs += d.build()
 
     # The de-duplication that made the duplicate-id check unfireable, handled
