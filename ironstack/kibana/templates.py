@@ -12,9 +12,11 @@ No em-dashes in UI strings.
 
 from __future__ import annotations
 
+import base64
 import os
 import sys
 import re
+from pathlib import Path
 
 # --------------------------------------------------------------------------- units
 #
@@ -109,7 +111,17 @@ def coach_or(with_coach: str, without: str) -> str:
 
 # --------------------------------------------------------------------------- tokens
 
-BG = "#171513"
+# The ground is Kibana's. probe_phase0.py (2026-09-06) showed a transparent body renders
+# over the panel behind it, which ends the warm-card-on-navy split the Sept 6 review
+# measured on every page, and follows any future theme change for free. The Iron Log
+# rule that the background is always charcoal is a rule for surfaces we own; Kibana owns
+# this one. The brand survives in chalk, in the oxblood square, in Oswald.
+#
+# GROUND is what the panel behind us paints in Borealis dark, sampled from a screenshot,
+# and it exists for contrast arithmetic only (verify_liquid.section_contrast): nothing is
+# ever painted with it. If Kibana's theme changes, re-sample it and re-run the suite.
+BG = "transparent"
+GROUND = "#0d1627"
 PANEL = "#1f1c19"
 RULE = "#2a2622"
 CHALK = "#ebe5d8"
@@ -119,6 +131,37 @@ STEEL = "#8f8b84"  # 5.0:1 on the panel ground; the floor for any text that carr
 BLOOD = "#a8211a"
 BLOOD_DIM = "#5e1e1c"
 ARMY = "#7a8b3a"
+
+# The three faces are embedded, because a custom content panel fetches nothing: without
+# this the reader saw Arial Narrow, Menlo and Georgia for a week, and four review rounds
+# judged a typeface that was never on screen. probe_phase0.py showed a base64 data: font
+# renders in the sandbox (Kibana sets no font-src). Subsets live in kibana/fonts/ - see
+# its README for provenance and licence (all OFL). ~110 KB of CSS per panel.
+FONT_DIR = Path(__file__).resolve().parent / "fonts"
+# Four faces, not five. JetBrains Mono 400 is in fonts/ but not embedded: every mono
+# rule asking for 400 resolves to the 500 beside it, which at 11-13px is the same
+# glyph a hair darker, and leaving it out is 25 KB off every one of forty panels.
+FONT_FILES = (
+    ("Oswald", 500, "oswald-500.woff2"),
+    ("Oswald", 700, "oswald-700.woff2"),
+    ("JetBrains Mono", 500, "jetbrains-mono-500.woff2"),
+    ("Merriweather", 400, "merriweather-400.woff2"),
+)
+
+
+def _font_faces() -> str:
+    faces = []
+    for family, weight, name in FONT_FILES:
+        path = FONT_DIR / name
+        if not path.exists():
+            sys.exit(f"error: {path} is missing; the subsets live in kibana/fonts/ (see its README)")
+        data = base64.b64encode(path.read_bytes()).decode()
+        faces.append(f"@font-face{{font-family:'{family}';font-weight:{weight};font-style:normal;"
+                     f"font-display:block;src:url(data:font/woff2;base64,{data}) format('woff2')}}")
+    return "\n".join(faces) + "\n"
+
+
+FONT_FACES = _font_faces()
 
 DISPLAY = "'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif"
 MONO = "'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace"
@@ -132,6 +175,7 @@ TOKENS = {
     "$U_WEIGHT": UNITS["weight"], "$U_DISTANCE": UNITS["distance"],
     "$U_TEMP": UNITS["temp"], "$U_MASS_ALT": UNITS["mass_alt"],
     "$TZ_OFF": str(TZ_OFFSET_SEC),
+    "$FONT_FACES": FONT_FACES,
 }
 
 
@@ -144,7 +188,7 @@ def tok(s: str) -> str:
 # --------------------------------------------------------------------------- base css
 
 BASE_CSS = tok("""<style>
-*{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}
+$FONT_FACES*{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}
 html,body{height:100%}
 /* Six type steps, three families, three colours of text. Display 40 / Title 28 / Verdict 22
    (SIGNAL_CSS) / Body 14 / Data 13 / Label 11. Nothing renders under 11px. Capitals live in
@@ -194,9 +238,9 @@ body{background:$BG;color:$CHALK;font-family:$SERIF;font-size:14px;line-height:1
 .set{display:flex;align-items:baseline;gap:9px;font-family:$MONO;font-size:13px;padding:4px 0;font-variant-numeric:tabular-nums}
 .set .n{color:$STEEL;font-size:11px;min-width:14px;font-weight:400}
 .set .w{color:$CHALK;min-width:56px;text-align:right;font-size:15px;font-weight:600;letter-spacing:-.01em}
-.set .x{color:$DIM;font-size:12px}
+.set .x{color:$DIM;font-size:12px;white-space:nowrap}
 .set .r{color:$CHALK;min-width:30px;font-size:13px}
-.set .rpe{font-size:13px;letter-spacing:.02em}
+.set .rpe{font-size:13px;letter-spacing:.02em;white-space:nowrap}
 .set .rpe.lo{color:$STEEL}
 .set .rpe.mid{color:$DIM}
 .set .rpe.hi{color:$CHALK;font-weight:600}
@@ -245,7 +289,7 @@ def empty(text="Not logged yet") -> str:
 def brand_bar(section: str, tagline: str) -> str:
     """The chrome. Same on every dashboard; only the section name and tagline change."""
     return tok(f"""<style>
-*{{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}}
+$FONT_FACES*{{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}}
 /* No height:100%, no flex. The panel iframe is not always the height Kibana
    implies, and any centring or space-between put the wordmark below the fold.
    Plain block flow starts at the top of the document and cannot be pushed down. */

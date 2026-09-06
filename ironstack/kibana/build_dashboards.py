@@ -1447,6 +1447,7 @@ def build() -> list[dict]:
 # three- or four-digit number carrying a fraction, which in this app is always a measured
 # record and never a design constant, and any such number sitting next to a unit.
 PR_DECIMAL = re.compile(r"(?<![\d.])\d{3,4}\.\d+")
+FONT_DATA = re.compile(r"url\(data:font/woff2;base64,[A-Za-z0-9+/=]+\)")
 PR_WITH_UNIT = re.compile(r"(?<![\d.])\d{3,5}(?:\.\d+)?\s*(?:&nbsp;)?\s*(?:lb|LB|kg|KG|DOTS)\b")
 
 # The same class of fact, in words instead of digits. The load card closed its provenance
@@ -1788,6 +1789,9 @@ def check(objs: list[dict]) -> int:
     private, records, unprojected, months = [], [], [], []
 
     def scan_record(where: str, text: str):
+        # The embedded fonts are ~135 KB of base64 per panel, and base64 can spell
+        # "912lb/" by accident. They are not text a reader sees; scan without them.
+        text = FONT_DATA.sub("url(data:font)", text)
         for m in PR_DECIMAL.findall(text) + PR_WITH_UNIT.findall(text):
             if MEET_MAX_LB is not None and f"{MEET_MAX_LB:g}" in m:
                 continue  # the reader said this is theirs, in IRONSTACK_MEET_MAX_LB
@@ -1806,7 +1810,7 @@ def check(objs: list[dict]) -> int:
             continue
         text = getattr(tpl, attr)
         if isinstance(text, str):
-            for m in MONTH_YEAR.findall(text):
+            for m in MONTH_YEAR.findall(FONT_DATA.sub("url(data:font)", text)):
                 months.append(f"templates.{attr}: {m!r} is a hardcoded month; a date on "
                               f"these pages has to come from the reader's own rows")
 

@@ -98,6 +98,11 @@ def card_words(out: str) -> tuple[int, str]:
 
 def render(template: str, rows: list[dict]) -> str:
     out = env.from_string(template).render(rows=rows)
+    # The embedded fonts are ~135 KB of base64 in every render, identical each time, and
+    # base64 will eventually spell any three digits: the first run with them in found
+    # "872" inside Merriweather and failed the no-summed-hero check. They are not output
+    # a reader sees, so assertions do not see them either.
+    out = out.replace(tpl.FONT_FACES, "")
     if '<div class="sig">' in out and '<div class="prov">' in out:
         BUDGET.setdefault(template, []).append(card_words(out))
     return out
@@ -1558,7 +1563,9 @@ def section_contrast() -> None:
         return (la + .05) / (lb + .05)
 
     for name, colour in (("STEEL", tpl.STEEL), ("DIM", tpl.DIM), ("CHALK", tpl.CHALK)):
-        for ground in (tpl.BG, tpl.PANEL):
+        # BG is transparent since Phase 1b; GROUND is Kibana's panel colour, sampled, and
+        # is what the text actually sits on. PANEL is the one sunken surface we still paint.
+        for ground in (tpl.GROUND, tpl.PANEL):
             check(f"contrast: {name} on {ground} >= 4.5", ratio(colour, ground) >= 4.5,
                   f"{ratio(colour, ground):.2f}")
     faint = tpl.FAINT

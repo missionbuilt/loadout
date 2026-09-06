@@ -412,11 +412,26 @@ them to it:
   list; a new selector that needs them is added there on purpose.
 - **Warm-up sets are smaller, not fainter.** `.set.prep` is STEEL at 13px, no opacity.
 
-The three families are declared and not yet embedded: a custom content panel fetches
-nothing, so until `probe_fonts.py` answers whether a base64 `@font-face` renders, what the
-reader sees is the fallback stack (Arial Narrow, Menlo, Georgia on a Mac). The ground is
-the same shape of question: `probe_ground.py` will say whether a transparent body shows
-Kibana's panel behind it, which would end the warm-card-on-navy split on every page.
+### The three Phase 0 answers (probe_phase0.py, 2026-09-06)
+
+- **Ground: transparent works.** `body{background:transparent}` shows Kibana's panel
+  through the iframe. `$BG` is `transparent`; `GROUND` (`#0d1627`, sampled) exists only
+  for the contrast arithmetic in `verify_liquid.section_contrast`. The warm-card-on-navy
+  split the review measured on every page is gone, and the cards follow the theme.
+- **Fonts: a base64 `@font-face` renders.** Kibana sets no `font-src`, and the sandbox
+  honoured a `data:` woff2. `templates.py` embeds four of the five subsets from `fonts/` at
+  import (JetBrains Mono 400 resolves to the 500 beside it) (`FONT_FACES`, at the top of `BASE_CSS` and the brand bar) and refuses to build
+  without them. Cost: ~110 KB of CSS per custom panel, forty panels, ~4.5 MB of artifact;
+  the Overview saved object alone is ~1 MB. If serverless ever refuses the import,
+  Merriweather (the heaviest, 41 KB) is the one to drop first.
+  `build_dashboards.check()` strips the data URIs before scanning for hardcoded records
+  and months, and `verify_liquid.render()` strips them from every render - base64 will
+  spell any three digits eventually, and the first run found "872" inside Merriweather.
+- **Multi-query: no, and worse than no.** A panel whose `esql_query` is a list of two
+  is not rendered empty; Kibana drops the panel from the dashboard on load (the tell is
+  the "unsaved changes" prompt in edit mode - it repaired the panel list). One query per
+  panel, so the three Overview cards stay three panels, and Phase 4 is the two deletions
+  (the tagline, the coach prompt folded into the signal row) rather than a merge.
 
 The block timeline used to carry its own three-colour phase ramp, because it was drawn as
 three FILTERED metric columns — one each for `hypertrophy`, `strength` and `peaking`, the
