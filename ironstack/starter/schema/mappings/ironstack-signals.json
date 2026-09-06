@@ -71,6 +71,9 @@
       "cycle_role": {
         "type": "keyword"
       },
+      "discipline": {
+        "type": "keyword"
+      },
       "expected_lb": {
         "type": "double"
       },
@@ -176,6 +179,16 @@
       "prior": {
         "type": "integer"
       },
+      "projected_by_lift": {
+        "properties": {
+          "lift_family": {
+            "type": "keyword"
+          },
+          "value": {
+            "type": "float"
+          }
+        }
+      },
       "projected_total_lb": {
         "type": "double"
       },
@@ -184,6 +197,9 @@
       },
       "recent": {
         "type": "integer"
+      },
+      "scoring": {
+        "type": "keyword"
       },
       "sessions": {
         "type": "integer"

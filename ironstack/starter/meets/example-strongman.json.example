@@ -1,0 +1,52 @@
+{
+  "meet_id": "2026-06-13-example-strongman",
+  "date": "2026-06-13",
+  "name": "Example Strongman Classic (sample data, not a real show)",
+  "discipline": "strongman",
+  "scoring": "points",
+  "bodyweight_kg": 102.0,
+  "points": 41.5,
+  "placing": 3,
+  "events": [
+    {
+      "name": "Log Press",
+      "unit": "kg",
+      "lift_name": "Strict Press",
+      "points": 9.5,
+      "placing": 4,
+      "attempts": [
+        { "attempt_no": 1, "value": 100, "made": true },
+        { "attempt_no": 2, "value": 110, "made": true },
+        { "attempt_no": 3, "value": 117.5, "made": false, "notes": "Off the shoulders, never locked. A missed rep still belongs in the file." }
+      ]
+    },
+    {
+      "name": "Yoke 60ft",
+      "unit": "seconds",
+      "points": 12.0,
+      "placing": 1,
+      "attempts": [
+        { "attempt_no": 1, "value": 12.9, "made": true, "notes": "Faster is better here, and only a finished run counts." }
+      ]
+    },
+    {
+      "name": "Sandbag over Bar",
+      "unit": "reps",
+      "points": 8.0,
+      "placing": 5,
+      "attempts": [
+        { "attempt_no": 1, "value": 5, "made": true }
+      ]
+    },
+    {
+      "name": "Conan's Wheel",
+      "unit": "m",
+      "points": 12.0,
+      "placing": 2,
+      "attempts": [
+        { "attempt_no": 1, "value": 22.5, "made": true }
+      ]
+    }
+  ],
+  "notes": "Sample data. Nobody lifted this. Four events, four units, no total: a show scored on points has no total, and Ironstack will not compute one. Note that Yoke, Sandbag and Conan's Wheel carry no lift_name - they have no training analogue and do not need a fake one."
+}

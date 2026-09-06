@@ -726,6 +726,21 @@ class Dashboard:
 
 # --------------------------------------------------------------------------- ES|QL
 
+# How many competition lifts a card or chart will ask for. Not three - three is
+# powerlifting. A strongman show runs five or six events, a weightlifting meet two,
+# and until 2026-09-06 every one of those numbers was written as a literal 3 or 4 in
+# three separate queries, so a lifter in any other sport lost their fourth lift with
+# nothing on the page saying it had been dropped.
+#
+# This is a CAP on rows returned, not a count of anything: a card draws what comes
+# back. The cost of a generous cap is a taller panel on a record that fills it; the
+# cost of a tight one is a lift silently missing from a lifter's own dashboard.
+#
+# A constant rather than a read of config/exercises.json, deliberately: the build runs
+# from the loadout checkout and would read the TEMPLATE taxonomy rather than the
+# reader's, so a derived number would look responsive and be wrong.
+COMP_LIFT_LIMIT = 8
+
 Q = {
     "days": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEE MMM d", date), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date) | KEEP program.*, date_s, meet_s, days_to_meet',
     # The total and its three lifts come from ONE query, so the card cannot contradict
@@ -735,17 +750,35 @@ Q = {
     # the query unions workout-meets in and lets one extra row carry MAX(total_lb). The
     # meet row has no lift_family, so it groups on its own and the card tells the two
     # apart by whether `fam` arrived. NULLS LAST keeps that row from winning the SORT.
+    # `pts` is 1 when a meet in range was scored on points. It rides in on the meets
+    # half of the union, which carries no lift_family, so it lands on the same null
+    # row as meet_lb and the card reads it the same way. An integer rather than the
+    # `scoring` keyword because CASE and MAX over integers is arithmetic every ESQL
+    # version does the same thing with.
+    #
+    # `scoring IS NOT NULL` widens the union deliberately: a points meet has no
+    # total_lb on any of its documents, so under the old WHERE not one of its rows
+    # reached the panel and the card could not have known the sport had changed.
     "total": ('FROM workout-sets,workout-meets '
               '| WHERE (is_competition_lift == true AND set_type == "working" '
               'AND e1rm_confidence != "low" AND @timestamp >= NOW() - 90 days) '
-              'OR total_lb IS NOT NULL '
-              '| STATS e1 = MAX(est_e1rm), first_d = MIN(date), meet_lb = MAX(total_lb) '
+              'OR total_lb IS NOT NULL OR scoring IS NOT NULL '
+              '| EVAL p = CASE(scoring == "points", 1, 0) '
+              '| STATS e1 = MAX(est_e1rm), first_d = MIN(date), meet_lb = MAX(total_lb), '
+              'pts = MAX(p) '
               'BY lift_family '
-              '| SORT e1 DESC NULLS LAST | LIMIT 4 '
-              '| EVAL fam = lift_family | KEEP fam, e1, first_d, meet_lb'),
-    "meet_bests": ('FROM workout-meets | WHERE made == true '
-                   '| STATS lb = MAX(weight_lb), kg = MAX(weight_kg) BY lift '
-                   '| SORT lb DESC | LIMIT 3'),
+              '| SORT e1 DESC NULLS LAST | LIMIT ' + str(COMP_LIFT_LIMIT) + ' '
+              '| EVAL fam = lift_family | KEEP fam, e1, first_d, meet_lb, pts'),
+    # unit == "kg" is the whole guard. `weight_lb` is null on a timed or a rep event by
+    # design, so without it a yoke run came back as a lift with no weight and drew an
+    # empty bar in a chart of platform bests.
+    # BY event_name, not BY lift: `lift` is the id segment - a slug, lower case, and
+    # for a strongman event a machine word like "sandbag-over-bar". event_name is what
+    # the competition called it, which is what a card headed "best lifts on the
+    # platform" should be printing.
+    "meet_bests": ('FROM workout-meets | WHERE made == true AND unit == "kg" '
+                   '| STATS lb = MAX(weight_lb), kg = MAX(weight_kg) BY event_name '
+                   '| SORT lb DESC | LIMIT ' + str(COMP_LIFT_LIMIT)),
     "watch": 'FROM workout-sessions | WHERE watch_items IS NOT NULL | SORT @timestamp DESC | LIMIT 12 | MV_EXPAND watch_items | EVAL date_s = DATE_FORMAT("MMM d", date), item = watch_items | KEEP date_s, item',
     "program_header": 'FROM workout-sessions | EVAL wd = program.week * 100 + program.day | STATS n = COUNT(*), wd_max = MAX(wd), last_day = MAX(date) BY program.name, program.block, program.phase, program.total_days, program.meet_date | SORT last_day DESC | LIMIT 1 | EVAL program.week = FLOOR(wd_max / 100), program.day = wd_max % 100, date_s = DATE_FORMAT("EEE MMM d", last_day), meet_s = DATE_FORMAT("EEE MMM d, yyyy", program.meet_date)',
     "session_header": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | EVAL date_s = DATE_FORMAT("EEEE, MMM d, yyyy", date) | KEEP program.*, date_s, start_time, time_of_day, location.name, location.travel, prev_session_id, next_session_id',
@@ -782,8 +815,11 @@ Q = {
     # single competition lift), and a custom-content panel has no other way to see the
     # filter bar. LIMIT 1 threw that away and the cold start was unwritable.
     "lift_header": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date), name = MAX(lift_name) BY lift_slug | SORT last_day DESC | LIMIT 2 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
-    "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
-    "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
+    "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0), p = CASE(scoring == "points", 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*), pts = MAX(p), best_place = MIN(placing), best_points = MAX(points)',
+    # event_no is the running order off the record. It was CASE(lift == "squat", 1,
+    # lift == "bench", 2, 3) - a running order for one sport, which put every event of
+    # every other sport in third place together.
+    "meet_list": 'FROM workout-meets | EVAL date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, event_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, placing, points, event_name, event_no, unit, value, attempt_no, made',
     # The coverage line under each intensity-zone chart. `zoned` carries the set's reps
     # when it has a zone and 0.0 when it does not, so the two sums are directly
     # comparable and the card can say "n of m" without a second query.
@@ -883,7 +919,7 @@ Q = {
                        '| SORT cycle ASC | LIMIT 40 '
                        '| KEEP cycle, cycle_label, cycle_role, projected_total_lb, '
                        'meet_total_lb, platformed_pct, peers, peer_pct, expected_lb, '
-                       'peer_from, peer_to, computed_through'),
+                       'peer_from, peer_to, scoring, discipline, computed_through'),
     # recent DESC puts the tag the card leads with in row 0; the corpus span it checks
     # first is denormalised onto every row, so row 0 answers both questions.
     "sig_tags": ('FROM ironstack-signals | WHERE signal == "tag" '
@@ -1068,16 +1104,27 @@ def build() -> list[dict]:
     # The Signal row leads. Mike's framing: the analysis has to be the first thing on
     # the page or the app reads as a log with charts bolted on. Everything below this
     # row is the log, in descending order of how often it answers a question.
-    # Signal-card heights are MEASURED, not estimated. A ~45-word provenance needs 11
-    # rows in a 16-column card - Overview's three-across, where the paragraph wraps to
-    # five or six lines - and 9 across the full 48, where it is two. History takes 10
-    # because its evidence line runs long before the paragraph starts. Every one of these
-    # was set a row short on the first try and corrected against the browser: a card that
-    # slices its own pointer line is the defect the height exists to prevent, and it is
-    # not visible from the source.
+    # Signal-card heights are MEASURED, not estimated. Every one of these was set a row
+    # short on the first try and corrected against the browser: a card that slices its
+    # own pointer line is the defect the height exists to prevent, and it is not visible
+    # from the source. History still takes 10 because its evidence line runs long before
+    # the paragraph starts.
+    #
+    # 9, and it was 8 for one build. The 11 before that was sized for a ~45-word method
+    # paragraph wrapping to five or six lines inside a 16-column card; that paragraph
+    # moved to SIGNAL_METHOD at the foot of the page and a one-line scope replaced it,
+    # so rows came out with it. Subtracting the paragraph's lines from the old height
+    # said 6; the browser said 8 was still a row short, and sliced the intensity card's
+    # SEE HISTORY line in half.
+    #
+    # Three cards share one height, so the height belongs to the TALLEST STATE of the
+    # tallest card, which is intensity mid-week: the open-week branch adds two lines
+    # ("this week is still open, so it is ranked on heavy reps per training day") that
+    # neither of the other two ever carries. Measured against a closed week this fits at
+    # 8 and clips every Tuesday.
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
-          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=11)
+          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=9)
     # Directly under the verdicts, and only here: repeated on all seven pages it would be
     # furniture. Built only when there is a coach to point at.
     if COACH_URL:
@@ -1106,7 +1153,7 @@ def build() -> list[dict]:
           # trained, so the edge reads as a line and not a picket fence.
           (xy(L("ov-total-chart"), total_title,
               "area_stacked", T,
-              {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=3),
+              {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=COMP_LIFT_LIMIT),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray",
               ref=(MEET_MAX_LB, "MEET BEST") if MEET_MAX_LB is not None else None,
@@ -1120,6 +1167,11 @@ def build() -> list[dict]:
     # The block timeline stays as the door into a session. It is ~400 bars and is not
     # readable as a chart, which is why it is no longer above the fold.
     d.row((block_timeline(L("ov-timeline"), query=windowed("")), 48, [("session", "Session")]), h=10)
+    # Last on the page, and three columns wide so each one sits under the card it
+    # explains. The verdicts lead; the mechanism is one scroll down, in full, in one
+    # place where the three windows can be read against each other. It takes no query -
+    # it carries no number, because every figure on this page is computed by the cards.
+    d.row((custom("ov-method", tpl.SIGNAL_METHOD), 48, []), h=6)
     objs += d.build()
 
     # ---------------------------------------------------------------- Program

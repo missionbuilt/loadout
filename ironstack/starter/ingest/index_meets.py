@@ -39,6 +39,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "meet.schema.json"
 MEETS_DIR = REPO_ROOT / "meets"
 LIFTS = ("squat", "bench", "deadlift")
+# Units an event can be measured in, and which direction is better. This is the whole
+# of what makes the model discipline-agnostic: powerlifting and weightlifting are kg
+# events end to end, and strongman is a mix - a log press in kg, a yoke in seconds, a
+# sandbag in reps, a Conan's wheel in metres. A single "weight_kg" column could not
+# hold that, and a total summed across them would be a number no scoring table has
+# ever recognised.
+LOWER_IS_BETTER = {"seconds"}
+UNITS = ("kg", "seconds", "reps", "m")
 # How each competition lift is named in your workout logs, so a meet's best lift
 # can drill into that lift's training history. Override per meet with "lift_names".
 #
@@ -99,17 +107,114 @@ def lb(kg: float | None) -> float | None:
     return round(kg * metrics.LB_PER_KG, 1) if kg is not None else None
 
 
+def normalise(meet: dict) -> list[dict]:
+    """The meet as a list of events, whichever shape the file was written in.
+
+    A meet used to be three named lifts with three attempts each, and that shape is
+    still what most powerlifting files look like, so it is kept and translated rather
+    than deprecated: `attempts` becomes three kg events with the same keys, the same
+    ids and the same documents it produced before. A file written in 2024 indexes
+    byte-identically after this change - which is the test that matters, because the
+    alternative is asking every existing user to rewrite their history.
+
+    `key` is what goes in the `lift` column and into the document `_id`. For a legacy
+    file it stays "squat"/"bench"/"deadlift" so no id moves; for an events file it is
+    the slug of the event name.
+    """
+    if meet.get("events"):
+        out = []
+        for event in meet["events"]:
+            out.append({
+                "key": slugify(event["name"]),
+                "name": event["name"],
+                "unit": event.get("unit", "kg"),
+                "lift_name": event.get("lift_name"),
+                "lift_name_claimed": "lift_name" in event,
+                "attempts": [{"attempt_no": a["attempt_no"], "value": a["value"],
+                              "made": a["made"], "notes": a.get("notes")}
+                             for a in event["attempts"]],
+                "result": event.get("result"),
+                "points": event.get("points"),
+                "placing": event.get("placing"),
+                "notes": event.get("notes"),
+            })
+        return out
+
+    lift_names = {**DEFAULT_LIFT_NAMES, **(meet.get("lift_names") or {})}
+    by_lift: dict[str, list] = {}
+    for a in meet["attempts"]:
+        by_lift.setdefault(a["lift"], []).append(a)
+    return [{
+        "key": lift,
+        # The event as the competition called it, not as your logs spell it. Those are
+        # different words on purpose: a platform announces the squat, your log calls it
+        # Comp Squat, and `lift_name` below is what carries the second one.
+        "name": lift.capitalize(),
+        "unit": "kg",
+        "lift_name": lift_names[lift],
+        "lift_name_claimed": True,
+        "attempts": [{"attempt_no": a["attempt_no"], "value": a["weight_kg"],
+                      "made": a["made"], "notes": a.get("notes")}
+                     for a in by_lift[lift]],
+        "result": None, "points": None, "placing": None, "notes": None,
+    } for lift in LIFTS if lift in by_lift]
+
+
+def event_result(event: dict) -> float | None:
+    """The official result: the best MADE attempt, in the direction the unit runs."""
+    made = [a["value"] for a in event["attempts"] if a["made"]]
+    if not made:
+        return None
+    return min(made) if event["unit"] in LOWER_IS_BETTER else max(made)
+
+
+def event_exercise(event: dict) -> dict:
+    """The exercise this event maps to in the training logs, if it maps to one.
+
+    A claimed link is checked and an unclaimed one is not. `lift_name` given and
+    unresolvable is a hard error, exactly as a legacy meet's lift name has always
+    been: a meet that says it links to a lift and lands on an empty dashboard is worse
+    than a meet that says nothing. With no `lift_name`, the event is filed under its
+    own name - a medley, a Conan's wheel and a sandbag-over-bar have no training
+    analogue, and inventing one so the column is never null would be a lie in a field.
+    """
+    if event.get("lift_name_claimed") and event.get("lift_name"):
+        return canonical_exercise(event["lift_name"])
+    import derive
+    try:
+        canonical = derive.classify(event["name"])["canonical"]
+    except derive.UnknownExercise:
+        return {"name": event["name"], "slug": slugify(event["name"])}
+    return {"name": canonical, "slug": slugify(canonical)}
+
+
 def explode(meet: dict) -> list[tuple[str, str, dict]]:
     meet_id = meet.get("meet_id") or meet["date"]
-    attempts = meet["attempts"]
+    events = normalise(meet)
+    scoring = meet.get("scoring", "total")
 
-    best_kg = {lift: 0.0 for lift in LIFTS}
-    for a in attempts:
-        if a["made"] and a["weight_kg"] > best_kg[a["lift"]]:
-            best_kg[a["lift"]] = a["weight_kg"]
+    for event in events:
+        if event.get("result") is None:
+            event["result"] = event_result(event)
+
+    # A total is the sum of the kg events and nothing else, and only where the
+    # competition was scored on one. Strongman is scored on points per event placing:
+    # summing a log press and a yoke run produces a number no scoring table recognises,
+    # so `points` scoring gets no total at all rather than a plausible-looking wrong one.
     total_kg = meet.get("total_kg")
-    if total_kg is None:
-        total_kg = sum(best_kg.values())
+    if total_kg is None and scoring == "total":
+        weights = [e["result"] for e in events
+                   if e["unit"] == "kg" and e["result"] is not None]
+        total_kg = sum(weights) if weights else None
+    # And a stated one is dropped too, not just an uncomputed one. This is the strict
+    # reading on purpose: the Meets page ranks meets by total and by DOTS, and both of
+    # those rankings are powerlifting rankings. A strongman show that carries a
+    # kilogram total - because the file was copied from a powerlifting one, or because
+    # the log press and the deadlift medley were added up by hand - would sort into
+    # that ranking as a peer of meets it has nothing in common with. Saying `points`
+    # is saying this meet was not scored on weight, and Ironstack takes it at its word.
+    if scoring != "total":
+        total_kg = None
 
     header = {
         "@timestamp": meet["date"],
@@ -117,32 +222,54 @@ def explode(meet: dict) -> list[tuple[str, str, dict]]:
         "date": meet["date"],
         "name": meet.get("name"),
         "federation": meet.get("federation"),
+        "discipline": meet.get("discipline", "powerlifting"),
+        "scoring": scoring,
         "total_kg": total_kg,
         "total_lb": lb(total_kg),
-        "dots": meet.get("dots"),
+        # DOTS scores a summed total against a bodyweight. Without a total it scores
+        # nothing, so a points meet carrying one is dropped rather than indexed as a
+        # number the Meets page would happily rank.
+        "dots": meet.get("dots") if scoring == "total" else None,
         "bodyweight_kg": meet.get("bodyweight_kg"),
         "bodyweight_lb": lb(meet.get("bodyweight_kg")),
-        "attempts_made": sum(1 for a in attempts if a["made"]),
+        "points": meet.get("points"),
+        "placing": meet.get("placing"),
+        "attempts_made": sum(1 for e in events for a in e["attempts"] if a["made"]),
         "notes": meet.get("notes"),
     }
 
-    lift_names = {**DEFAULT_LIFT_NAMES, **(meet.get("lift_names") or {})}
-    exercises = {lift: canonical_exercise(name) for lift, name in lift_names.items()}
     docs = []
-    for a in attempts:
-        doc = {
-            **header,
-            "lift": a["lift"],
-            "exercise": exercises[a["lift"]],
-            "lift_slug": exercises[a["lift"]]["slug"],
-            "attempt_no": a["attempt_no"],
-            "weight_kg": a["weight_kg"],
-            "weight_lb": lb(a["weight_kg"]),
-            "made": a["made"],
-            "best": bool(a["made"] and a["weight_kg"] == best_kg[a["lift"]]),
-            "notes": a.get("notes") or header["notes"],
-        }
-        docs.append(("workout-meets", f"{meet_id}-{a['lift']}-{a['attempt_no']}", doc))
+    for ordinal, event in enumerate(events, start=1):
+        exercise = event_exercise(event)
+        for a in event["attempts"]:
+            is_kg = event["unit"] == "kg"
+            doc = {
+                **header,
+                "lift": event["key"],
+                "event_name": event["name"],
+                # Running order, so the Meets list can print a show in the order it was
+                # contested. It used to be `CASE(lift == "squat", 1, lift == "bench", 2, 3)`
+                # in the query - which is a running order, for exactly one sport.
+                "event_no": ordinal,
+                "exercise": exercise,
+                "lift_slug": exercise["slug"],
+                "unit": event["unit"],
+                "attempt_no": a["attempt_no"],
+                "value": a["value"],
+                # weight_kg stays kg-only on purpose: every query that asks for a best
+                # lift or a total reads it, and a yoke time in that column would be
+                # ranked as a weight.
+                "weight_kg": a["value"] if is_kg else None,
+                "weight_lb": lb(a["value"]) if is_kg else None,
+                "made": a["made"],
+                "best": bool(a["made"] and event["result"] is not None
+                             and a["value"] == event["result"]),
+                "event_result": event["result"],
+                "event_points": event.get("points"),
+                "event_placing": event.get("placing"),
+                "notes": a.get("notes") or event.get("notes") or header["notes"],
+            }
+            docs.append(("workout-meets", f"{meet_id}-{event['key']}-{a['attempt_no']}", doc))
     return docs
 
 

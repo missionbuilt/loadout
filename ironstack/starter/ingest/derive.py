@@ -187,18 +187,68 @@ def meet_bodyweights() -> list[tuple[str, float]]:
     return sorted(out)
 
 
+def _meet_events(meet: dict, path: Path) -> list[dict]:
+    """A meet as events with their results, whichever shape the file is written in.
+
+    Imported here rather than at module scope because index_meets imports this module
+    back for the taxonomy. Both readings of a meet - the reference maxes and the meet
+    cycles - go through the indexer's own normaliser rather than reaching into
+    `attempts` themselves, which is what left the legacy shape hardcoded in three
+    places at once.
+
+    This module reads meets/ without validating it - index_meets.py is what validates -
+    so a malformed record arrives here as a bare KeyError several frames deep, with no
+    filename and nothing to say which of the files to open. Same failure the missing
+    format_checker used to produce, same answer: name the file and name the command
+    that explains it.
+    """
+    import index_meets
+
+    try:
+        events = index_meets.normalise(meet)
+    except (KeyError, TypeError) as exc:
+        raise SystemExit(f"error: {path} is not a readable meet record: missing or "
+                         f"malformed {exc}.\n"
+                         f"Run `python ingest/index_meets.py --validate` for the "
+                         f"schema error in full.") from exc
+    for event in events:
+        if event.get("result") is None:
+            event["result"] = index_meets.event_result(event)
+    return events
+
+
+def _event_family(event: dict) -> str | None:
+    """The lift family a meet event maps to, or None if it maps to no trained lift.
+
+    A yoke run has no family and needs none: it is not compared against a training
+    reference, and inventing a family for it would put it in a ranking of barbell
+    lifts. `competition` is required for the same reason `_projection_family` requires
+    it - a meet best is set on the platform version of the lift.
+    """
+    name = event.get("lift_name") or event["name"]
+    try:
+        entry = classify(name)
+    except UnknownExercise:
+        return None
+    return entry.get("lift_family") if entry.get("competition") else None
+
+
 def _meet_maxes() -> list[tuple[str, dict]]:
-    """(date, {family: best made attempt in lb}) for every meet, chronological."""
+    """(date, {family: best made attempt in lb}) for every meet, chronological.
+
+    Weight events only. A 12.9-second yoke run is a result and it is not a maximum,
+    and a column that held both would rank them against each other.
+    """
     out = []
     for path in sorted(MEETS_DIR.glob("*.json")):
         meet = json.loads(path.read_text())
         best: dict[str, float] = {}
-        for attempt in meet.get("attempts", []):
-            if not attempt.get("made"):
+        for event in _meet_events(meet, path):
+            family = _event_family(event)
+            if event["unit"] != "kg" or event["result"] is None or not family:
                 continue
-            lift = attempt["lift"]
-            pounds = attempt["weight_kg"] * metrics.LB_PER_KG
-            best[lift] = max(best.get(lift, 0), round(pounds, 1))
+            pounds = round(event["result"] * metrics.LB_PER_KG, 1)
+            best[family] = max(best.get(family, 0), pounds)
         if best:
             out.append((meet["date"], best))
     return sorted(out)
@@ -420,7 +470,30 @@ LAYOFF_FRACTION = 0.5
 # Never below this, however sparse the history: at 1 the flag could never fire, and a
 # single week back after a real layoff is exactly what it is for.
 LAYOFF_FLOOR = 2
-COMP_FAMILIES = ("squat", "bench", "deadlift")
+# The lifts you compete in are the lifts your taxonomy says you compete in.
+#
+# This was `("squat", "bench", "deadlift")` - a tuple written into the source, which
+# made every projection, every taper intensity line and every meet max a powerlifting
+# fact. A strongman trains a log press and a yoke; a weightlifter trains a snatch. They
+# were not excluded by a decision, they were excluded by a constant.
+#
+# `competition: true` in config/exercises.json already meant "this is the platform
+# version of the lift, not a variant of it" - that is what kept Extra Wide Bench out of
+# the projection. Reading the families off that flag costs nothing and asks the one
+# question that was always being asked: which lifts does THIS lifter walk onto a
+# platform and perform? On a powerlifting taxonomy the answer is still squat, bench and
+# deadlift, in that order of nothing changing.
+_comp_families: tuple[str, ...] | None = None
+
+
+def comp_families() -> tuple[str, ...]:
+    """The lift families this lifter competes in, sorted, from the taxonomy."""
+    global _comp_families
+    if _comp_families is None:
+        _comp_families = tuple(sorted(
+            {entry["lift_family"] for entry in load_taxonomy().values()
+             if entry.get("competition") and entry.get("lift_family")}))
+    return _comp_families
 
 
 # A TRAINING DAY is a calendar day the lifter logged a session on. Not "a day with
@@ -778,7 +851,7 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         # Projection uses the competition lifts only. A high-bar squat or a wide-grip
         # bench belongs to the same family for grouping, but it does not transfer to
         # the platform one for one, and a total built from variants reads high.
-        comp_best = {family: 0.0 for family in COMP_FAMILIES}
+        comp_best = {family: 0.0 for family in comp_families()}
         window = end - timedelta(days=REFERENCE_WINDOW_DAYS)
         for slug, entries in e1rm_history.items():
             family = _projection_family(slug)
@@ -788,6 +861,13 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
             if recent:
                 comp_best[family] = max(comp_best[family], max(recent))
         projected = round(sum(comp_best.values()), 1) if all(comp_best.values()) else None
+        # Per lift as well as summed. A total is only a number in a discipline scored on
+        # one; in a discipline scored on points per event, the same estimates are still
+        # the answer to "am I ready", they just do not add up to anything. Carried on
+        # every row so the card can ask either question without a second pass, and so a
+        # lifter one lift short of a projection can still see the two they have.
+        by_lift = [{"lift_family": f, "value": round(v, 1)}
+                   for f, v in sorted(comp_best.items()) if v]
         # No sex in config means no DOTS on the row, rather than a male score for
         # whoever is reading. See metrics.dots().
         score = (metrics.dots(metrics.lb_to_kg(bodyweight), metrics.lb_to_kg(projected),
@@ -845,6 +925,7 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
             "bodyweight_lb": bodyweight,
             "bodyweight_source": bodyweight_source,
             "projected_total_lb": projected,
+            "projected_by_lift": by_lift,
             "dots": score,
             "best_e1rm": [{"lift_slug": k, "value": v} for k, v in sorted(best.items())],
             "sets_by_muscle": [{"muscle": k, "sets": v} for k, v in sorted(muscles.items())],
@@ -918,13 +999,22 @@ def _meet_cycles(today: date) -> list[dict]:
     cycles: list[dict] = []
     for path in sorted(MEETS_DIR.glob("*.json")):
         meet = json.loads(path.read_text())
-        attempts = meet.get("attempts") or []
-        total_kg = meet.get("total_kg")
+        events = _meet_events(meet, path)
+        attempts = [a for e in events for a in e["attempts"]]
+        scoring = meet.get("scoring", "total")
+        # The same refusal the indexer makes, for the same reason: a total is a number
+        # only where the competition was scored on one, so a points meet gets none here
+        # and drops out of the projection peers rather than joining them at a total
+        # nobody computed.
+        total_kg = meet.get("total_kg") if scoring == "total" else None
         cycles.append({
             "cycle": meet.get("meet_id") or meet["date"],
             "meet_date": meet["date"],
+            "discipline": meet.get("discipline", "powerlifting"),
+            "scoring": scoring,
             "attempts_made": sum(1 for a in attempts if a.get("made")) if attempts else None,
             "attempts_total": len(attempts) or None,
+            "events_total": len(events) or None,
             "meet_total_lb": round(total_kg * metrics.LB_PER_KG, 1) if total_kg else None,
         })
     planned = ((json.loads(DEFAULTS_PATH.read_text()).get("program") or {})
@@ -933,7 +1023,13 @@ def _meet_cycles(today: date) -> list[dict]:
     # better source and the planned date is a leftover in the config.
     if planned and not any(c["meet_date"] == planned for c in cycles):
         cycles.append({"cycle": planned, "meet_date": planned, "attempts_made": None,
-                       "attempts_total": None, "meet_total_lb": None})
+                       "attempts_total": None, "events_total": None,
+                       "meet_total_lb": None,
+                       # A meet that has not happened has no record to read a discipline
+                       # off, so it inherits the last one that did - a lifter's next
+                       # meet is overwhelmingly the same sport as their last.
+                       "discipline": cycles[-1]["discipline"] if cycles else "powerlifting",
+                       "scoring": cycles[-1]["scoring"] if cycles else "total"})
     for c in cycles:
         day = date.fromisoformat(c["meet_date"])
         c["upcoming"] = day >= today
@@ -989,7 +1085,7 @@ def _taper_rows(docs: list[tuple[str, str, dict]], weekly: list[dict],
         if index != "workout-sets" or doc.get("set_type") != "working":
             continue
         pct = doc.get("intensity_pct")
-        if not pct or doc.get("lift_family") not in COMP_FAMILIES:
+        if not pct or doc.get("lift_family") not in comp_families():
             continue
         week = _iso_week(date.fromisoformat(doc["date"]))
         top[week] = max(top.get(week, 0.0), pct)
@@ -1323,19 +1419,34 @@ def _projection_rows(rollups, today, stamp):
             "meet_total_lb": cycle["meet_total_lb"],
             "platformed_pct": round(cycle["meet_total_lb"] * 100 / projected, 1),
         }))
-    current = [w for w in weekly if w.get("projected_total_lb")]
+    # What the lifter is training for now decides which question the card asks. A
+    # discipline scored on a total gets a projected total; one scored on points gets
+    # the same estimates per event and no sum, because there is no sum to make.
+    ahead = [c for c in _meet_cycles(today) if c["upcoming"]]
+    behind = [c for c in _meet_cycles(today) if not c["upcoming"]]
+    next_cycle = (ahead[0] if ahead else (behind[-1] if behind else None))
+    scoring = next_cycle["scoring"] if next_cycle else "total"
+    discipline = next_cycle["discipline"] if next_cycle else "powerlifting"
+
+    current = [w for w in weekly if w.get("projected_by_lift")]
     if current:
         pcts = [d["platformed_pct"] for _i, _id, d in out]
         meet_days = sorted(d["meet_date"] for _i, _id, d in out)
         enough = len(pcts) >= PROJECTION_MIN_PEERS
-        now = current[-1]["projected_total_lb"]
+        now = current[-1].get("projected_total_lb") if scoring == "total" else None
         out.append((SIGNAL_INDEX, "projection:now", {
             "signal": "projection",
             "computed_through": stamp,
             "cycle": "now",
             "cycle_label": "now",
             "cycle_role": "current",
+            "scoring": scoring,
+            "discipline": discipline,
             "projected_total_lb": now,
+            # Per event, always. In a total discipline this is what the total is made
+            # of and the card can show its parts; in a points discipline it is the
+            # whole answer, because readiness there is per event and never a sum.
+            "projected_by_lift": current[-1]["projected_by_lift"],
             "iso_week": current[-1]["iso_week"],
             "peers": len(pcts),
             "peer_pct": _median(pcts) if enough else None,
@@ -1346,7 +1457,7 @@ def _projection_rows(rollups, today, stamp):
             # not multiply two numbers and imply a precision neither of them has; the
             # copy rounds it to the nearest five. Withheld, with peer_pct, below
             # PROJECTION_MIN_PEERS.
-            "expected_lb": round(now * _median(pcts) / 100, 1) if enough else None,
+            "expected_lb": round(now * _median(pcts) / 100, 1) if enough and now else None,
         }))
     return out
 
@@ -1528,6 +1639,6 @@ def _projection_family(slug: str) -> str | None:
         _slug_family = {}
         for entry in load_taxonomy().values():
             family = entry.get("lift_family")
-            if family in COMP_FAMILIES and entry.get("competition"):
+            if family and entry.get("competition"):
                 _slug_family[slugify(entry["canonical"])] = family
     return _slug_family.get(slug)

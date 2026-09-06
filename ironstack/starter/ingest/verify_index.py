@@ -140,7 +140,12 @@ EXPECTED = {
         "bodyweight_source": "keyword",
     },
     "workout-notes": {"text": "text", "phase": "keyword"},
-    "workout-meets": {"notes": "text"},
+    # scoring and unit are what make a meet discipline-agnostic, and both are
+    # branched on rather than displayed: a `unit` that came back as `text` would
+    # bucket nothing and a points meet would quietly render as a powerlifting one.
+    "workout-meets": {"notes": "text", "scoring": "keyword", "unit": "keyword",
+                      "discipline": "keyword", "value": "float",
+                      "event_result": "float", "event_name": "keyword"},
 }
 
 SEMANTIC = {

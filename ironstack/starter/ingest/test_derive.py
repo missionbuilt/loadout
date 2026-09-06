@@ -92,7 +92,13 @@ def working_set(day, sid, n=0, muscles=(), family=None, pct=None):
 
 def meet(day, total_kg):
     return {"date": day, "total_kg": total_kg,
-            "attempts": [{"lift": "squat", "weight_kg": 180.0, "made": True}]}
+            # attempt_no is schema-required and was omitted here for years, because
+            # nothing that read this fixture needed it. derive now reads a meet through
+            # the indexer's normaliser, so the fixture has to be a meet the indexer
+            # would accept - which is the right constraint on a fixture standing in for
+            # a real file.
+            "attempts": [{"lift": "squat", "attempt_no": 1, "weight_kg": 180.0,
+                          "made": True}]}
 
 
 def signals_by_id(docs, rollups, today):
@@ -413,8 +419,17 @@ check("the threshold is three", d.PROJECTION_MIN_PEERS, 3)
 
 # One closed week ending on or before each meet - that is the projection the lifter
 # would have been shown walking in - and one for the week the corpus ends on.
+#
+# Both projection fields, because the now row is gated on the per-lift one. That gate
+# is deliberately the more permissive of the two: a total needs an estimate for EVERY
+# competition lift, the per-lift list needs one for any of them, so a lifter two lifts
+# into a three-lift sport keeps a card instead of losing it. And in a sport scored on
+# points there is no total to gate on at all.
 PROJ_WEEKS = [("workout-weekly", week, {
-    "iso_week": week, "week_end": end, "projected_total_lb": projected})
+    "iso_week": week, "week_end": end, "projected_total_lb": projected,
+    "projected_by_lift": [{"lift_family": "bench", "value": round(projected * 0.25, 1)},
+                          {"lift_family": "deadlift", "value": round(projected * 0.4, 1)},
+                          {"lift_family": "squat", "value": round(projected * 0.35, 1)}]})
     for week, end, projected in (
         ("2024-W13", "2024-03-31", 800.0),
         ("2024-W45", "2024-11-10", 850.0),
@@ -444,6 +459,78 @@ check("three meets clears it", now["peers"], 3)
 check("and a figure ships", "expected_lb" in now, True)
 check("spanning both ends of the evidence", (now["peer_from"], now["peer_to"]),
       ("2024-04-06", "2025-11-15"))
+
+
+# ------------------------------------------------- a sport that is not powerlifting
+#
+# Ironstack was three barbell lifts because a tuple in this file said so. The lifts a
+# person competes in now come off their own taxonomy, and what their competition does
+# with those lifts comes off the meet record. The two questions the card can ask are
+# "what will you total" and "are you ready on each event", and the second one is the
+# only one a strongman show has an answer to.
+
+print("\nA discipline scored on points gets readiness, not a total")
+
+check("the competition families come off the taxonomy, not a constant",
+      d.comp_families(), ("bench", "deadlift", "squat"))
+
+
+def show(day, scoring="points"):
+    """A meet in the events shape: a kg press, a timed yoke, a rep sandbag."""
+    return {"meet_id": day, "date": day, "discipline": "strongman", "scoring": scoring,
+            "events": [
+                {"name": "Log Press", "unit": "kg", "lift_name": "Comp Bench",
+                 "attempts": [{"attempt_no": 1, "value": 100.0, "made": True}]},
+                {"name": "Yoke Carry", "unit": "seconds",
+                 "attempts": [{"attempt_no": 1, "value": 12.9, "made": True}]},
+                {"name": "Sandbag over Bar", "unit": "reps",
+                 "attempts": [{"attempt_no": 1, "value": 5, "made": True}]}]}
+
+
+with fake_meets([show("2026-06-13")]):
+    now = strip_nones([doc for _i, sid, doc in
+                       d._projection_rows(PROJ_WEEKS, TODAY, TODAY.isoformat())
+                       if sid == "projection:now"][0])
+check("the row knows how the sport is scored", now["scoring"], "points")
+check("and what the sport is", now["discipline"], "strongman")
+check("no projected total, because there is no total to project",
+      "projected_total_lb" in now, False)
+check("nor an expectation built on one", "expected_lb" in now, False)
+check("but readiness per lift still ships", len(now["projected_by_lift"]), 3)
+check("a points meet is not a peer for a total", now["peers"], 0)
+
+# The same weeks, the same lifter, a meet scored on a total: the card comes back.
+with fake_meets([show("2026-06-13", scoring="total")]):
+    now = strip_nones([doc for _i, sid, doc in
+                       d._projection_rows(PROJ_WEEKS, TODAY, TODAY.isoformat())
+                       if sid == "projection:now"][0])
+check("a total discipline still projects a total", now["projected_total_lb"], 900.0)
+check("and says so", now["scoring"], "total")
+
+# The reference maxes: a weight event sets a meet max, a timed one cannot.
+with fake_meets([show("2026-06-13")]):
+    maxes = dict(d._meet_maxes())
+check("an events meet still yields meet maxes", sorted(maxes["2026-06-13"]), ["bench"])
+check("and the max is the log press, converted",
+      maxes["2026-06-13"]["bench"], round(100.0 * d.metrics.LB_PER_KG, 1))
+
+# A meet cycle reads the events shape for its attempt counts, which used to be None on
+# anything that was not three named lifts.
+with fake_meets([show("2026-06-13")]):
+    cycle = [c for c in d._meet_cycles(TODAY) if c["cycle"] == "2026-06-13"][0]
+check("three events, three attempts", cycle["attempts_total"], 3)
+check("all three completed", cycle["attempts_made"], 3)
+check("and the events are counted too", cycle["events_total"], 3)
+check("a points meet contributes no platform total", cycle["meet_total_lb"], None)
+
+# A malformed meet is named, not traced.
+with fake_meets([{"meet_id": "2026-01-01", "date": "2026-01-01",
+                  "attempts": [{"lift": "squat", "weight_kg": 100.0, "made": True}]}]):
+    try:
+        d._meet_maxes()
+        check("a malformed meet names its file", "no exit", "SystemExit")
+    except SystemExit as exc:
+        check("a malformed meet names its file", "2026-01-01.json" in str(exc), True)
 
 
 # ------------------------------------------------- no lookahead in the reference

@@ -780,8 +780,11 @@ ALIAS_TYPES = {
     "last_day": "date",         # MAX(date)
     "last_s": "keyword",        # DATE_FORMAT
     "lb": "float",              # MAX(weight_lb)
-    "lift_no": "integer",       # CASE, a sort key
+    "best_place": "integer",    # MIN(placing)
+    "best_points": "float",     # MAX(points)
     "m": "integer",             # CASE(made, 1, 0)
+    "p": "integer",             # CASE(scoring == "points", 1, 0)
+    "pts": "integer",           # MAX(p) - was any meet in range scored on points
     "main_rank": "integer",     # CASE(exercise.category == "main", 0, 1), a sort key
     "meet_lb": "float",         # MAX(total_lb)
     "meet_s": "keyword",        # DATE_FORMAT
@@ -1292,6 +1295,35 @@ def section_total_card() -> None:
     lacks("total: no zero total", out, "class=\"hero\"")
     balanced("total (no lifts)", out)
 
+    # A sport scored on points per event. The lift rows are the same rows; what changes
+    # is that they no longer add up to anything, so the hero must not be a sum and the
+    # footer must not hold the lifter against a total nobody scored.
+    #
+    # `pts` rides in on the meets half of the union, which carries no lift family - the
+    # same row meet_lb arrives on. A card that read it off the lift rows instead would
+    # find nothing there and quietly render the powerlifting branch forever.
+    def show(pts=1, meet_lb=None):
+        return {"fam": None, "e1": None, "first_d": None, "meet_lb": meet_lb, "pts": pts}
+
+    out = render(t, rows_of(*(lifts + [show()])))
+    has("total points: the question changes", out, "Event readiness")
+    has("total points: and it counts the events", out, "of your events")
+    lacks("total points: no summed hero", out, "872")
+    lacks("total points: not called a projected total", out, "Projected total")
+    has("total points: says why there is no total", out, "scored on points per event")
+    lacks("total points: no percentage of a total", out, "of your best meet total")
+    lacks("total points: nothing to go", out, "to go")
+    rowcount = out.count('class="liftrow"')
+    check("total points: every lift is still drawn", rowcount == 3, f"{rowcount} lift rows")
+    balanced("total (points)", out)
+
+    # And the same rows with the sport scored on a total: the sum comes back. Without
+    # this pair, `pts` could be ignored entirely and half of these would still pass.
+    out = render(t, rows_of(*(lifts + [show(pts=0, meet_lb=909.4)])))
+    has("total not points: the sum is back", out, "872")
+    has("total not points: and the label with it", out, "Projected total")
+    lacks("total not points: no event readiness", out, "Event readiness")
+
     # The author's numbers must not be reachable from the template source at all.
     src = tpl.TOTAL_CARD
     check("total: no build-time meet best in the source", "909.4" not in src)
@@ -1305,6 +1337,35 @@ def section_meet_cards() -> None:
     has("meets: success says what it counts", out, "100% made in range")
     lacks("meets: no 'logged' claim", out, "competitions logged")
     lacks("meets: no 'all meets' claim", out, "all meets")
+    has("meets: a total meet is ranked on its total", out, "Best total")
+    has("meets: and on DOTS", out, "Best DOTS")
+
+    # A show scored on points has no total and no DOTS, and the two tiles that print
+    # them would have read "Not logged" forever - which says the lifter forgot to write
+    # something down, when their sport does not produce it.
+    out = render(tpl.MEET_CARDS, rows_of({"meets": 2, "total_kg": None, "total_lb": None,
+                                          "dots": None, "made": 7, "attempts": 9,
+                                          "pts": 1, "best_place": 3, "best_points": 41.5}))
+    has("meets points: ranked on placing", out, "Best placing")
+    has("meets points: with the ordinal", out, "3<small>rd")
+    has("meets points: and on points", out, "Best points")
+    has("meets points: the score", out, "41.5")
+    lacks("meets points: no total tile", out, "Best total")
+    lacks("meets points: no DOTS tile", out, "Best DOTS")
+    lacks("meets points: and no scolding for a missing sex", out, "needs a bodyweight and a sex")
+    balanced("meet cards (points)", out)
+
+    # First place is "1st", not "1th". The three ordinals that are not "th" are the
+    # only ones worth a line, and a placing is small enough that they are most of them.
+    # The teens are the case every naive ordinal gets wrong, and 11th through 13th is
+    # exactly where a mid-pack finish lands. 21st is the other half of the same bug.
+    for place, want in ((1, "1<small>st"), (2, "2<small>nd"), (3, "3<small>rd"),
+                        (4, "4<small>th"), (11, "11<small>th"), (12, "12<small>th"),
+                        (13, "13<small>th"), (21, "21<small>st"), (22, "22<small>nd"),
+                        (33, "33<small>rd"), (100, "100<small>th")):
+        out = render(tpl.MEET_CARDS, rows_of({"meets": 1, "made": 3, "attempts": 3,
+                                              "pts": 1, "best_place": place}))
+        has(f"meets points: {place} reads {place}{want[-2:]}", out, want)
 
 
 def section_meet_lists() -> None:
@@ -1318,22 +1379,46 @@ def section_meet_lists() -> None:
     balanced("meet bests (no numbers)", out)
     no_confident_zero("MEET_BESTS (absent)", out)
 
-    out = render(tpl.MEET_BESTS, rows_of({"lift": "squat", "lb": 385.8, "kg": 175.0},
-                                         {"lift": "deadlift", "lb": 407.9, "kg": 185.0}))
+    out = render(tpl.MEET_BESTS, rows_of({"event_name": "Squat", "lb": 385.8, "kg": 175.0},
+                                         {"event_name": "Deadlift", "lb": 407.9, "kg": 185.0}))
+    has("meet bests: the event's own name", out, "Squat")
     has("meet bests: the pounds figure", out, "386")
     lacks("meet bests: no decimal on a converted pound", out, "385.8")
     has("meet bests: the kilo figure", out, "175.0 kg")
     balanced("meet bests", out)
 
     row = {"meet_id": "m1", "date_s": "Nov 23, 2024", "total_kg": 412.5, "dots": 266.72,
-           "bodyweight_kg": 92.1, "lift": "squat", "attempt_no": 1,
-           "weight_kg": 155.0, "made": True}
+           "bodyweight_kg": 92.1, "event_name": "Squat", "event_no": 1, "attempt_no": 1,
+           "unit": "kg", "value": 155.0, "made": True, "placing": None, "points": None}
     out = render(tpl.MEET_LIST, rows_of(row))
     has("meet list: the total", out, "412.5")
     has("meet list: the DOTS", out, "266.7")
     lacks("meet list: DOTS to one place", out, "266.72")
     has("meet list: the attempt", out, "155.0")
+    has("meet list: the event is named as the platform named it", out, "Squat")
     balanced("meet list", out)
+
+    # A show, not a meet: three units in one card, and a placing where the total was.
+    # `value` carried in a `weight_kg` column would have made every one of these an
+    # em dash - the same mark an attempt nobody recorded gets.
+    show = {"meet_id": "s1", "date_s": "Jun 13, 2026", "total_kg": None, "dots": None,
+            "bodyweight_kg": None, "placing": 3, "points": 41.5}
+    out = render(tpl.MEET_LIST, rows_of(
+        {**show, "event_name": "Log Press", "event_no": 1, "attempt_no": 1,
+         "unit": "kg", "value": 100.0, "made": True},
+        {**show, "event_name": "Yoke Carry", "event_no": 2, "attempt_no": 1,
+         "unit": "seconds", "value": 12.9, "made": True},
+        {**show, "event_name": "Sandbag over Bar", "event_no": 3, "attempt_no": 1,
+         "unit": "reps", "value": 5.0, "made": True}))
+    has("meet list: a placing stands in for the total", out, "3rd")
+    has("meet list: and the points beside it", out, "41.5")
+    lacks("meet list: a points meet is not scolded for having no total", out,
+          "no total recorded")
+    has("meet list: a timed event says seconds", out, "12.9s")
+    has("meet list: a rep event says reps", out, "5.0 reps")
+    has("meet list: a weight event is still a bare number", out, "100.0")
+    lacks("meet list: no em dash on a real result", out, "&mdash;")
+    balanced("meet list (a show)", out)
 
     # The same meet with no DOTS and no bodyweight on it: the line drops those clauses
     # rather than printing 0 and 0.0 between the separators.
@@ -1344,8 +1429,8 @@ def section_meet_lists() -> None:
     no_confident_zero("MEET_LIST (partial)", out)
     balanced("meet list (partial)", out)
 
-    # A missed attempt with no weight recorded is a dash, not a zero.
-    out = render(tpl.MEET_LIST, rows_of({**row, "weight_kg": None, "made": False}))
+    # A missed attempt with no value recorded is a dash, not a zero.
+    out = render(tpl.MEET_LIST, rows_of({**row, "value": None, "made": False}))
     has("meet list: a missing attempt weight is a dash", out, "&mdash;")
     no_confident_zero("MEET_LIST (no attempt weight)", out)
 
@@ -1357,8 +1442,12 @@ def section_moat() -> None:
     has("moat: in the evidence line", out, "of your best in the last 90 days")
     # The claim itself is in the brand-bar tagline and in this card's own evidence line;
     # a third copy opened the provenance 40px under the tagline, in the same words. What
-    # the provenance owes the reader is the REASON, which is said nowhere else.
-    has("moat: provenance says why", out, "sees everything as light")
+    # the reader is owed is the REASON, which is said nowhere else - and it is now said
+    # at the foot of the page rather than on the card, where three of these paragraphs
+    # side by side put 125 words of mechanism on the first screen.
+    has("moat: the method says why", tpl.SIGNAL_METHOD, "sees everything as light")
+    lacks("moat: and the card does not", out, "sees everything as light")
+    has("moat: the card still names its scope", out, "main lifts only")
     lacks("moat: and does not repeat the tagline a third time", out,
           "Heavy means heavy for you now")
     # And the thin-history state tells the lifter what to do about the picker.
@@ -1842,7 +1931,18 @@ def section_projection() -> None:
 
     out = render(T, rows_of(*PROJ_PAST))
     balanced("projection no current", out)
-    has("projection no current: says so", out, "No projected total yet")
+    has("projection no current: says so", out, "No projection yet")
+
+    # A sport scored on points. The card has to refuse the whole question rather than
+    # print a percentage of a total that does not exist.
+    out = render(T, rows_of({**PROJ_NOW, "scoring": "points", "discipline": "strongman"}))
+    has("projection points: names the reason", out, "no total to project")
+    has("projection points: names the sport", out, "strongman")
+    has("projection points: sends the reader somewhere with an answer", out,
+        "event readiness")
+    lacks("projection points: no percentage of projection", out, "% of projection")
+    lacks("projection points: no expected platform total", out, "realistic platform total")
+    balanced("projection points", out)
 
     out = render(T, [])
     has("projection empty", out, "No signal rows came back")
@@ -2109,6 +2209,58 @@ def section_coach_wording() -> None:
     check("coach: the module is back in the no-coach build", tpl.HAS_COACH is False)
 
 
+def section_disciplines() -> None:
+    """The queries that carry the discipline model, asserted as queries.
+
+    Every branch these queries feed is covered by a rendered assertion above, and all
+    of those assertions pass a fixture straight into the template - so a query that
+    stops asking the question renders the same card off the same fixture and nothing
+    fails. Three mutations proved it: dropping `scoring IS NOT NULL` from the union,
+    dropping the kg guard from the platform bests, and sorting the meets list back onto
+    attempt order all survived a 1,600-assertion suite untouched.
+
+    A card and the query behind it are one mechanism. This is the half of it that lives
+    in a string.
+    """
+    total = bd.Q["total"]
+    # A points meet has no total_lb on any of its documents, so under `total_lb IS NOT
+    # NULL` alone not one of its rows reached the panel - and the card could not have
+    # known the sport had changed, because the evidence never arrived.
+    check("total: the union admits a meet with no total",
+          "scoring IS NOT NULL" in total,
+          "a points meet reaches this panel on no other clause")
+    check("total: and reduces the scoring to a number the card can read",
+          'CASE(scoring == "points", 1, 0)' in total and "pts = MAX(p)" in total)
+
+    bests = bd.Q["meet_bests"]
+    # weight_lb is null on a timed or a rep event by design. Without the guard a yoke
+    # run came back as a platform best with no weight and drew an empty bar.
+    check("meet bests: weight events only", 'unit == "kg"' in bests,
+          "a timed event would be ranked as a lift with no weight")
+
+    lst = bd.Q["meet_list"]
+    check("meet list: sorted in running order", "event_no ASC" in lst,
+          "the list orders a show by the order it was contested")
+    check("meet list: carries the unit with the value",
+          "unit" in bd._keep_columns(lst) and "value" in bd._keep_columns(lst))
+
+    cards = bd.Q["meet_cards"]
+    check("meet cards: knows how the meets in range were scored", "pts = MAX(p)" in cards)
+    check("meet cards: and can rank a show", "best_place = MIN(placing)" in cards
+          and "best_points = MAX(points)" in cards)
+
+    proj = bd.Q["sig_projection"]
+    keep = bd._keep_columns(proj)
+    check("sig_projection: the card is told how the sport is scored",
+          bd._projected("scoring", keep) and bd._projected("discipline", keep))
+
+    # The one that started this. A running order written as a CASE over three lift
+    # names put every event of every other sport in third place together.
+    for name, q in bd.Q.items():
+        check(f"{name}: no hardcoded competition lift in the query",
+              'lift == "squat"' not in q and 'lift == "bench"' not in q,
+              "the three lifts are powerlifting's, not every lifter's")
+
 def section_switcher_round_two() -> None:
     """The findings from the Sept 6 Hevy-switcher walk, each one held down by a check.
 
@@ -2132,7 +2284,11 @@ def section_switcher_round_two() -> None:
 
     # --- the two readings of one week name their own axis -------------------------
     heavy = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
-    has("round two: intensity points at the other reading", heavy,
+    # Overview's half of this moved to the method panel with the rest of its mechanism;
+    # Program's stayed on the card, because Program carries ONE signal card and a
+    # paragraph on it is not a wall. Both halves still have to exist somewhere, or the
+    # two rankings read as the app contradicting itself.
+    has("round two: intensity points at the other reading", tpl.SIGNAL_METHOD,
         "Program ranks the same week on work, not weight")
     loading = render(tpl.SIGNAL_PROGRAM, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
                                                  load_row(inol=0.99, week_end="2026-08-23")))
@@ -2220,15 +2376,43 @@ def section_switcher_round_two() -> None:
     for card in (tpl.SIGNAL_INTENSITY, tpl.SIGNAL_LOAD, tpl.SIGNAL_DRIFT):
         prov = re.search(r'<div class="prov">(.*?)</div>', card, re.S)
         row += len(re.sub(r"<[^>]+>", " ", prov.group(1)).split()) if prov else 0
-    check("round two: the Overview row's method text is under 130 words", row <= 130,
-          f"{row} words across three cards")
-    # Cut, not deleted. The reason each number is defensible is still on the card.
-    has("round two: intensity still says why the window is trailing", tpl.SIGNAL_INTENSITY,
-        "sees everything as light")
-    has("round two: load still says what the flag is not", tpl.SIGNAL_LOAD,
+    # 30, not 130. 130 was the cap for a method paragraph living on each card; those
+    # moved whole to SIGNAL_METHOD, and what is left on the card is one line of scope.
+    # A cap that a scope line cannot approach is the point - it fails the moment anyone
+    # starts writing mechanism back onto the first screen.
+    check("round two: the Overview row's cards state scope only, under 30 words",
+          row <= 30, f"{row} words across three cards")
+
+    # Moved, not deleted, and moved WHOLE. Every method still exists, in one place, and
+    # the card cannot restate it: two copies of one explanation is how they drift apart,
+    # and the drifted copy is the one nobody re-reads.
+    for label, method, card in (
+            ("intensity", tpl.METHOD_INTENSITY, tpl.SIGNAL_INTENSITY),
+            ("load", tpl.METHOD_LOAD, tpl.SIGNAL_LOAD),
+            ("drift", tpl.METHOD_DRIFT, tpl.SIGNAL_DRIFT)):
+        check(f"round two: the {label} method is in the method panel",
+              method in tpl.SIGNAL_METHOD)
+        # A whole sentence of it, not a stray word: "main lifts only" is a scope line
+        # and belongs on the card.
+        for sentence in [x.strip() for x in method.split(". ") if len(x.split()) >= 8]:
+            check(f"round two: the {label} card does not restate its method",
+                  sentence not in card, sentence[:60])
+
+    # The two the method panel does not cover keep theirs on the card: those pages carry
+    # one signal card each, and one paragraph is not a wall.
+    has("round two: load still says what the flag is not", tpl.SIGNAL_METHOD,
         "a flag, not a prediction")
     has("round two: block still says what heavy means", tpl.SIGNAL_BLOCK,
         "80% or more of your best estimate")
+
+    # The method panel is the reason the cards can be short, so it has to be reachable
+    # and it has to name which card each block explains. Three questions, three methods.
+    for question in ("How heavy was this week", "Am I ramping", "What am I neglecting"):
+        has(f"method panel: names {question!r}", tpl.SIGNAL_METHOD, question)
+    # And it carries no computed number - it takes no query, so no Liquid runs in it and
+    # a figure written here could only ever be a build-time constant.
+    check("method panel: no Liquid, because no query is attached",
+          "{%" not in tpl.SIGNAL_METHOD and "{{" not in tpl.SIGNAL_METHOD)
     # And never behind something the panel cannot operate.
     for card in (tpl.SIGNAL_INTENSITY, tpl.SIGNAL_LOAD, tpl.SIGNAL_DRIFT):
         check("round two: no disclosure the panel cannot open",
@@ -2372,6 +2556,7 @@ def main() -> None:
     section_projection()
     section_tags()
     section_switcher_round_two()
+    section_disciplines()
 
     total = PASSED + len(FAILED)
     if FAILED:

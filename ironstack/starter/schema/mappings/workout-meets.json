@@ -22,7 +22,25 @@
       "date": {
         "type": "date"
       },
+      "discipline": {
+        "type": "keyword"
+      },
       "dots": {
+        "type": "float"
+      },
+      "event_name": {
+        "type": "keyword"
+      },
+      "event_no": {
+        "type": "integer"
+      },
+      "event_placing": {
+        "type": "integer"
+      },
+      "event_points": {
+        "type": "float"
+      },
+      "event_result": {
         "type": "float"
       },
       "exercise": {
@@ -62,10 +80,25 @@
           }
         }
       },
+      "placing": {
+        "type": "integer"
+      },
+      "points": {
+        "type": "float"
+      },
+      "scoring": {
+        "type": "keyword"
+      },
       "total_kg": {
         "type": "float"
       },
       "total_lb": {
+        "type": "float"
+      },
+      "unit": {
+        "type": "keyword"
+      },
+      "value": {
         "type": "float"
       },
       "weight_kg": {

@@ -2,13 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/missionbuilt/ironstack/schema/meet.schema.json",
   "title": "Ironstack Meet Record",
-  "description": "One competition. kg is the source of truth; lb is derived by the indexer. Each attempt becomes one workout-meets document.",
+  "description": "One competition, in any discipline. A meet is a list of EVENTS; each event has a unit and a list of attempts. Powerlifting's squat/bench/deadlift is one shape of that, and the older `attempts` form is still accepted and normalised into events on ingest. kg is the source of truth for weight events; lb is derived by the indexer. Each attempt becomes one workout-meets document.",
   "type": "object",
-  "required": [
-    "meet_id",
-    "date",
-    "attempts"
-  ],
+  "required": ["meet_id", "date"],
   "additionalProperties": false,
   "properties": {
     "meet_id": {
@@ -16,86 +12,115 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[a-z0-9-]+)?$",
       "description": "Defaults to the date."
     },
-    "date": {
+    "date": { "type": "string", "format": "date" },
+    "name": { "type": "string" },
+    "federation": { "type": "string" },
+    "discipline": {
       "type": "string",
-      "format": "date"
+      "description": "powerlifting, strongman, weightlifting, or whatever you call yours. Free text: it labels the record and picks nothing by itself. `scoring` is the field that changes behaviour.",
+      "default": "powerlifting"
     },
-    "name": {
-      "type": "string"
+    "scoring": {
+      "enum": ["total", "points"],
+      "default": "total",
+      "description": "How the competition was scored. `total` sums your best made weight attempt on every event - powerlifting, weightlifting - and a projected total is a meaningful thing to compute. `points` scores each event on placing and sums the points, as strongman does: there is no total, and Ironstack will not invent one. This is the only field that changes what the dashboards compute."
     },
-    "federation": {
-      "type": "string"
-    },
-    "bodyweight_kg": {
-      "type": "number",
-      "minimum": 0,
-      "description": "Weigh-in."
-    },
+    "bodyweight_kg": { "type": "number", "minimum": 0, "description": "Weigh-in." },
     "total_kg": {
       "type": "number",
       "minimum": 0,
-      "description": "Official total. Computed from best made attempts when omitted."
+      "description": "Official total. Computed from best made weight attempts when omitted, and only meaningful when scoring is `total`."
     },
     "dots": {
       "type": "number",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Scores a summed total against bodyweight. Meaningless without a total, so it is ignored when scoring is `points`."
     },
-    "notes": {
-      "type": "string"
+    "points": { "type": "number", "description": "Total competition points, for a points discipline." },
+    "placing": { "type": "integer", "minimum": 1, "description": "Where you finished." },
+    "notes": { "type": "string" },
+
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The events of the competition, in running order. Use this OR the legacy `attempts` list, not both.",
+      "items": {
+        "type": "object",
+        "required": ["name", "attempts"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The event as the competition called it: Squat, Log Press, Yoke 60ft, Sandbag over bar."
+          },
+          "unit": {
+            "enum": ["kg", "seconds", "reps", "m"],
+            "default": "kg",
+            "description": "What the attempt measures, and which direction is better. kg and reps and m: more is better. seconds: less is better, and only a completed run counts."
+          },
+          "lift_name": {
+            "type": "string",
+            "description": "How this event is spelled in your workout logs, so the meet can reach its training history. Resolved through config/exercises.json. Omit it when you do not train the event under a logged name - a medley has no training analogue and does not need a fake one. Given and unresolvable is a hard error: a claimed link that goes nowhere is worse than no link."
+          },
+          "attempts": {
+            "type": "array",
+            "minItems": 1,
+            "description": "One entry for a single-run event; one per bar for a rising-bar event.",
+            "items": {
+              "type": "object",
+              "required": ["attempt_no", "value", "made"],
+              "additionalProperties": false,
+              "properties": {
+                "attempt_no": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "value": { "type": "number", "minimum": 0, "description": "In the event's unit." },
+                "made": { "type": "boolean", "description": "For a timed or rep event: did you complete the run." },
+                "notes": { "type": "string" }
+              }
+            }
+          },
+          "result": {
+            "type": "number",
+            "description": "The official result for the event. Computed from the attempts when omitted: the best made value, or the lowest for a seconds event."
+          },
+          "points": { "type": "number" },
+          "placing": { "type": "integer", "minimum": 1 },
+          "notes": { "type": "string" }
+        }
+      }
     },
+
     "attempts": {
       "type": "array",
       "minItems": 1,
+      "description": "LEGACY powerlifting shape, still fully supported. Normalised into three kg events on ingest, so a file written before events existed indexes identically to one written after.",
       "items": {
         "type": "object",
-        "required": [
-          "lift",
-          "attempt_no",
-          "weight_kg",
-          "made"
-        ],
+        "required": ["lift", "attempt_no", "weight_kg", "made"],
         "additionalProperties": false,
         "properties": {
-          "lift": {
-            "enum": [
-              "squat",
-              "bench",
-              "deadlift"
-            ]
-          },
-          "attempt_no": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 4
-          },
-          "weight_kg": {
-            "type": "number",
-            "minimum": 0
-          },
-          "made": {
-            "type": "boolean"
-          },
-          "notes": {
-            "type": "string"
-          }
+          "lift": { "enum": ["squat", "bench", "deadlift"] },
+          "attempt_no": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "weight_kg": { "type": "number", "minimum": 0 },
+          "made": { "type": "boolean" },
+          "notes": { "type": "string" }
         }
       }
     },
     "lift_names": {
       "type": "object",
       "additionalProperties": false,
-      "description": "How each competition lift is named in your workout logs (defaults: Competition Squat / Competition Bench Press / Competition Deadlift). Lets a meet's best lift drill into its training history.",
+      "description": "LEGACY. How each competition lift is named in your workout logs. The events form carries this per event as `lift_name`.",
       "properties": {
-        "squat": {
-          "type": "string"
-        },
-        "bench": {
-          "type": "string"
-        },
-        "deadlift": {
-          "type": "string"
-        }
+        "squat": { "type": "string" },
+        "bench": { "type": "string" },
+        "deadlift": { "type": "string" }
       }
     }
-  }
+  },
+
+  "anyOf": [
+    { "required": ["events"] },
+    { "required": ["attempts"] }
+  ],
+  "not": { "required": ["events", "attempts"] }
 }

@@ -32,6 +32,7 @@
     "ingest/shorthand.py",
     "ingest/suggest.py",
     "ingest/test_ceiling.py",
+    "ingest/test_index_meets.py",
     "ingest/test_index_workouts.py",
     "ingest/test_setup_indices.py",
     "ingest/test_shorthand.py",

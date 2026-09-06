@@ -361,6 +361,23 @@ def num(expr: str, dp: int = 0) -> str:
     )
 
 
+def ordinal(expr: str) -> str:
+    """The English ordinal suffix for `expr`, as a Liquid fragment.
+
+    A placing is one of the few numbers on this app a reader hears out loud, so "21th"
+    is not a rounding detail - it is the whole card looking careless. The teens are the
+    exception every naive version gets wrong: 11, 12 and 13 take "th" even though their
+    last digits say otherwise, and they are exactly the range a mid-pack finish lands
+    in. Two places print a placing and both call this, because the first version of it
+    was written twice and only one copy would ever have been fixed.
+    """
+    return ("{%- assign _o = " + expr + " | plus: 0 -%}"
+            "{%- assign _t = _o | modulo: 100 -%}{%- assign _d = _o | modulo: 10 -%}"
+            "{%- if _t >= 11 and _t <= 13 -%}th"
+            "{%- elsif _d == 1 -%}st{%- elsif _d == 2 -%}nd{%- elsif _d == 3 -%}rd"
+            "{%- else -%}th{%- endif -%}")
+
+
 def numr(expr: str, dp: int = 0) -> str:
     """`expr` rounded, or NOTHING AT ALL when it is nil. No thousands grouping.
 
@@ -429,13 +446,14 @@ MAX(total_lb) - the reader's own meet best. Until 2026-09-05 that number was a b
 constant carrying the author's last meet total, so a stranger's Overview asserted his
 record as theirs. A custom-content panel's query can read data, so it reads it.
 {%- endcomment -%}
-{%- assign total = 0 -%}{%- assign best = 0 -%}{%- assign lifts = 0 -%}{%- assign meet_max = 0 -%}
+{%- assign total = 0 -%}{%- assign best = 0 -%}{%- assign lifts = 0 -%}{%- assign meet_max = 0 -%}{%- assign pts = 0 -%}
 {%- comment -%} The query asks for 90 days and the picker is ANDed on top. At "Last 30
 days" the number was 843 under a label still promising 90; the label now reports the
 window it actually got. {%- endcomment -%}
 {%- assign now_s = "now" | date: "%s" | plus: $TZ_OFF -%}{%- assign oldest_s = 0 -%}
 {%- for r in rows -%}
 {%- if r['meet_lb'].value -%}{%- assign _m = r['meet_lb'].value | plus: 0 -%}{%- if _m > meet_max -%}{%- assign meet_max = _m -%}{%- endif -%}{%- endif -%}
+{%- if r['pts'].value -%}{%- assign _p = r['pts'].value | plus: 0 -%}{%- if _p > pts -%}{%- assign pts = _p -%}{%- endif -%}{%- endif -%}
 {%- if r['fam'].value -%}
 {%- assign lifts = lifts | plus: 1 -%}
 {%- assign _v = r['e1'].value | round -%}{%- assign total = total | plus: _v -%}
@@ -445,14 +463,30 @@ window it actually got. {%- endcomment -%}
 {%- endfor -%}
 {%- assign span_d = 90 -%}{%- if oldest_s > 0 -%}{%- assign span_d = now_s | minus: oldest_s | divided_by: 86400 | floor -%}{%- endif -%}
 {% if lifts == 0 %}<div class="eyebrow">Projected total</div>""" + empty("No main-lift work in this window") + """{% else %}
+{%- comment -%} Two sports, two questions. A meet scored on a TOTAL adds your lifts up,
+so the hero is the sum and every lift under it is a component of one number. A meet
+scored on POINTS ranks you event by event and adds the placings, so there is no total
+to project - and a summed hero on that page would be a number no scoring table has ever
+recognised, printed in the largest type on the app. The lift rows are the same rows
+either way; what changes is whether they add up to anything. `pts` comes off the meets
+half of the query, so the card follows the record rather than a setting.
+{%- endcomment -%}
+{% if pts > 0 %}
+<div class="eyebrow">Event readiness</div>
+<div class="hero" style="margin-top:7px">{{ lifts }}<span style="font-size:20px;color:$DIM;margin-left:6px">of your events</span></div>
+<div class="sub" style="margin-top:3px">{% if span_d < 60 %}have a recent estimate, from the last <span class="v">{{ span_d }}</span> days. The card reads 90; widen the time picker for the real number{% else %}have an estimate from the last 90 days of main-lift work{% endif %}</div>
+{% else %}
 <div class="eyebrow">Projected total</div>
 <div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">$U_WEIGHT</span></div>
 <div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days of main-lift work. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days of main-lift work{% endif %}</div>
+{% endif %}
 <div style="margin-top:12px">
 {% for r in rows %}{% if r['fam'].value %}<div class="liftrow"><span class="lname">{{ r['fam'].value | escape }}</span><span class="lval">""" + num("r['e1'].value") + """</span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['e1'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span></div>{% endif %}{% endfor %}
 </div>
 <div class="rule" style="margin-top:12px;padding-top:8px"><span class="sub">
-{%- if meet_max > 0 -%}
+{%- if pts > 0 -%}
+Your last meet was scored on points per event, so these do not add up to a total and this card does not pretend they do. Each lift is worth reading against its own best.
+{%- elsif meet_max > 0 -%}
 {%- assign pct = total | times: 100 | divided_by: meet_max | round -%}{%- assign togo = meet_max | minus: total | round -%}
 {%- comment -%} "your meet best" was a claim the query cannot support. The meets half of
 the union carries no date bound of its own, so MAX(total_lb) is the best meet the TIME
@@ -652,12 +686,25 @@ MEET_CARDS = page(tok("""
 record: at two years this read "1 competitions logged, 100% success" against a real
 2 and 83%. The tiles now say what they count. {%- endcomment -%}
 <div class="card"><div class="top"><div class="eyebrow">Meets</div><div class="value">{{ rows[0]['meets'].value }}</div></div><div class="sub">in the page's range</div></div>
+{%- comment -%} A meet scored on points has no total and no DOTS, and the two tiles
+that print them would read "Not logged" forever - which says the lifter forgot to write
+something down, when in fact their sport does not produce it. The tiles change question
+instead: best placing and best points score, off the record. {%- endcomment -%}
+{%- assign pts = rows[0]['pts'].value | plus: 0 -%}
+{% if pts > 0 %}
+<div class="card"><div class="top"><div class="eyebrow">Best placing</div>{% if rows[0]['best_place'].value %}<div class="value" style="color:$BLOOD">{{ rows[0]['best_place'].value }}<small>""" + ordinal("rows[0]['best_place'].value") + """</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['best_place'].value %}best finish in the page's range{% else %}no placing on any meet in range{% endif %}</div></div>
+{% else %}
 <div class="card"><div class="top"><div class="eyebrow">Best total</div>{% if rows[0]['total_kg'].value %}<div class="value" style="color:$BLOOD">""" + numr("rows[0]['total_kg'].value", 1) + """<small>$U_MASS_ALT</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['total_lb'].value %}""" + num("rows[0]['total_lb'].value") + """&nbsp;$U_WEIGHT{% else %}no total on any meet in range{% endif %}</div></div>
+{% endif %}
 {%- comment -%} DOTS needs a bodyweight and a sex to compute, and the indexer leaves it
 ABSENT rather than assuming one. `nil | round: 2` is 0, so the tile read "BEST DOTS 0"
 for every lifter who had not configured a sex - a score, in a unit, that no one scored.
 {%- endcomment -%}
+{% if pts > 0 %}
+<div class="card"><div class="top"><div class="eyebrow">Best points</div>{% if rows[0]['best_points'].value %}<div class="value">""" + numr("rows[0]['best_points'].value", 1) + """</div>{% else %}<div class="empty">Not scored</div>{% endif %}</div><div class="sub">{% if rows[0]['best_points'].value %}across those meets{% else %}no points on any meet in range{% endif %}</div></div>
+{% else %}
 <div class="card"><div class="top"><div class="eyebrow">Best DOTS</div>{% if rows[0]['dots'].value %}<div class="value">""" + numr("rows[0]['dots'].value", 1) + """</div>{% else %}<div class="empty">Not scored</div>{% endif %}</div><div class="sub">{% if rows[0]['dots'].value %}across those meets{% else %}DOTS needs a bodyweight and a sex on the meet{% endif %}</div></div>
+{% endif %}
 <div class="card"><div class="top"><div class="eyebrow">Attempts made</div>{%- assign att = rows[0]['attempts'].value | plus: 0 -%}{% if att > 0 %}<div class="value">{{ rows[0]['made'].value }}<small>of {{ rows[0]['attempts'].value }}</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if att > 0 %}{{ rows[0]['made'].value | times: 100 | divided_by: att | round }}% made in range{% else %}no attempts logged{% endif %}</div></div>
 {% endif %}
 </div>"""))
@@ -665,9 +712,9 @@ for every lifter who had not configured a sex - a score, in a unit, that no one 
 MEET_BESTS = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Best lifts</div>""" + empty("No meets logged") + """{% else %}
 {%- assign best = rows[0]['lb'].value | plus: 0 -%}
-<div class="eyebrow">Best lifts on the platform</div>
+<div class="eyebrow">Best lifts on the platform <span class="faint">&middot; weight events only</span></div>
 <div style="margin-top:10px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['lift'].value | escape }}</span><span class="lval">""" + num("r['lb'].value") + """<small style="font-size:11px;color:$FAINT;margin-left:4px">$U_WEIGHT</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{% if r['kg'].value %}""" + numr("r['kg'].value", 1) + """ $U_MASS_ALT{% endif %}</span></div>{% endfor %}
+{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['event_name'].value | escape }}</span><span class="lval">""" + num("r['lb'].value") + """<small style="font-size:11px;color:$FAINT;margin-left:4px">$U_WEIGHT</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{% if r['kg'].value %}""" + numr("r['kg'].value", 1) + """ $U_MASS_ALT{% endif %}</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 MEET_LIST = page(tok("""
@@ -675,9 +722,17 @@ MEET_LIST = page(tok("""
 {% if rows.size == 0 %}<div style="margin-top:10px">""" + empty("No meets logged") + """</div>{% else %}
 <div class="row" style="margin-top:10px;height:auto;gap:0">
 {% assign cur = "" %}{% for r in rows %}{% if r['meet_id'].value != cur %}{% unless forloop.first %}</div></div>{% endunless %}{% assign cur = r['meet_id'].value %}{% assign curlift = "" %}
-<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value | escape }}</div><div class="sub">{% if r['total_kg'].value %}<span class="v">""" + numr("r['total_kg'].value", 1) + """</span> $U_MASS_ALT total{% else %}<span class="faint">no total recorded</span>{% endif %}{% if r['dots'].value %} &middot; <span class="v">""" + numr("r['dots'].value", 1) + """</span> DOTS{% endif %}{% if r['bodyweight_kg'].value %} &middot; """ + numr("r['bodyweight_kg'].value", 1) + """ $U_MASS_ALT bw{% endif %}</div></div><div class="grid3" style="margin-top:10px">{% endif %}
-{% if r['lift'].value != curlift %}{% assign curlift = r['lift'].value %}{% endif %}
-<div><div class="eyebrow" style="letter-spacing:.1em">{{ r['lift'].value | escape }} {{ r['attempt_no'].value }}</div><span class="chip {% if r['made'].value %}made{% else %}miss{% endif %}">{% if r['weight_kg'].value %}""" + numr("r['weight_kg'].value", 1) + """{% else %}&mdash;{% endif %}</span></div>
+<div class="card"><div class="top"><div class="value" style="font-size:20px">{{ r['date_s'].value | escape }}</div><div class="sub">{%- comment -%} A meet with no total is not always a meet with something missing. A
+show scored on points has no total by definition, and "no total recorded" read as a
+reproach on every one of them. Where there is a placing or a points score, those are
+the meet's result and they are what the line reports. {%- endcomment -%}{% if r['total_kg'].value %}<span class="v">""" + numr("r['total_kg'].value", 1) + """</span> $U_MASS_ALT total{% elsif r['placing'].value %}<span class="v">{{ r['placing'].value }}""" + ordinal("r['placing'].value") + """</span> place{% elsif r['points'].value %}<span class="v">""" + numr("r['points'].value", 1) + """</span> points{% else %}<span class="faint">no total recorded</span>{% endif %}{% if r['points'].value and r['placing'].value %} &middot; <span class="v">""" + numr("r['points'].value", 1) + """</span> points{% endif %}{% if r['dots'].value %} &middot; <span class="v">""" + numr("r['dots'].value", 1) + """</span> DOTS{% endif %}{% if r['bodyweight_kg'].value %} &middot; """ + numr("r['bodyweight_kg'].value", 1) + """ $U_MASS_ALT bw{% endif %}</div></div><div class="grid3" style="margin-top:10px">{% endif %}
+{% if r['event_name'].value != curlift %}{% assign curlift = r['event_name'].value %}{% endif %}
+{%- comment -%} The chip carried weight_kg, which is null on every event that is not
+measured in kilograms - so a 12.9-second yoke run and a 5-rep sandbag ladder both
+rendered as an em dash, indistinguishable from an attempt nobody wrote down. It prints
+`value` in the event's own unit instead, and names the unit, because 12.9 and 12.9 kg
+are not the same fact. {%- endcomment -%}
+<div><div class="eyebrow" style="letter-spacing:.1em">{{ r['event_name'].value | escape }} {{ r['attempt_no'].value }}</div><span class="chip {% if r['made'].value %}made{% else %}miss{% endif %}">{% if r['value'].value %}""" + numr("r['value'].value", 1) + """{% assign u = r['unit'].value %}{% if u == "seconds" %}s{% elsif u == "reps" %} reps{% elsif u == "m" %} m{% endif %}{% else %}&mdash;{% endif %}</span></div>
 {% if forloop.last %}</div></div>{% endif %}{% endfor %}
 </div>{% endif %}"""))
 
@@ -885,23 +940,53 @@ partial week's bar reads short under a sentence saying it is ahead. {%- endcomme
 {%- endif -%}
 """
 
+# The three Overview cards state their SCOPE and nothing else.
+#
+# Provenance is what makes a number defensible instead of decorative, and it has never
+# been optional. But the three cards ran side by side above the fold, and a ~40-word
+# method paragraph on each put 125 words of mechanism on the first screen of the page
+# whose entire job is three sentences. The earlier pass halved that text in place -
+# because probe_disclosure.py had proved a custom content panel takes NO pointer input
+# at all and there was nowhere to fold it to. Halving something that should not be on
+# the card still leaves it on the card.
+#
+# The panel being inert does not mean the text has to live on the card. It means it has
+# to live in a DIFFERENT PANEL. So each card keeps the one clause a reader needs to
+# judge the number at a glance - what window, what population - and the mechanism moves
+# whole to SIGNAL_METHOD at the bottom of the page. Nothing is deleted and nothing is
+# hidden: it is one scroll down, in full, in one place where the three can be read
+# against each other.
+#
+# METHOD_* is the single copy of each. A card and its method are one explanation, and
+# the way that goes wrong is two copies drifting apart, so the card cannot restate it -
+# verify_liquid fails any card carrying a sentence from these.
+SCOPE_INTENSITY = "main lifts only &middot; ranked against your last 13 weeks"
+SCOPE_LOAD = "tonnage &middot; 7 days against the trailing 28"
+SCOPE_DRIFT = "working sets, whole log, last 365 days &middot; not this page"
+
+# The moat is already said twice on this page - in the brand-bar tagline above the nav
+# and in this card's own evidence line. What is left for the method to carry is the part
+# neither of those says: WHY the trailing window is the right one, and why the card one
+# click away can rank the same week differently.
+METHOD_INTENSITY = (
+    "Every logging app measures a set against an all-time PR, so a lifter back from a "
+    "layoff sees everything as light. This one measures against your best in the last "
+    "90 days. Main lifts only. Program ranks the same week on work, not weight, so a "
+    "week can come out heavy here and easy there - that disagreement is a finding, not "
+    "a fault.")
+METHOD_LOAD = (
+    "Acute:chronic is a flag, not a prediction. Load is tonnage, so a week you did not "
+    "train reads as zero and the ratio moves on a rest day. Precedent reads only the "
+    "weeks this card was handed.")
+METHOD_DRIFT = (
+    "Normal is that group's own average gap, measured across the stretch it has "
+    "actually been trained; a group is flagged past twice it. Fewer than 6 sessions is "
+    "not ranked. This card reads the whole log and ignores the time picker.")
+
 SIGNAL_INTENSITY = signal(
     "How heavy was this week",
     _INTENSITY_BODY,
-    # The moat is said twice on this page already - in the brand-bar tagline above the
-    # nav ("Heavy means heavy for you now. Intensity is measured against your best in
-    # the last 90 days, not an all-time max") and in this card's own evidence line
-    # ("of your best in the last 90 days"). It opened here a third time, word for word,
-    # 40px under the tagline. What is left is the part neither of those says: WHY the
-    # trailing window is the right one.
-    "Every logging app measures a set against an all-time PR, so a lifter back from a "
-    "layoff sees everything as light. Main lifts only. "
-    # The two cards rank the same week and can disagree, because weight and work are
-    # different questions - a week of heavy singles is heavy here and easy there. Said
-    # out loud on both sides: printed in one voice, one click apart, the disagreement
-    # read as the app contradicting itself rather than as the finding it is.
-    "Program ranks the same week on work, not weight, so a week can come out heavy here "
-    "and easy there.",
+    SCOPE_INTENSITY,
     "See History &#9656; where the reps live",
 )
 
@@ -1035,9 +1120,7 @@ _LOAD_BODY = _LOAD_BODY.replace("__WINDOW__", _LOAD_WINDOW)
 SIGNAL_LOAD = signal(
     "Am I ramping",
     _LOAD_BODY,
-    "Acute:chronic is a flag, not a prediction. Load is tonnage, so a week you did not "
-    "train reads as zero and the ratio moves on a rest day. Precedent reads only the "
-    "weeks this card was handed.",
+    SCOPE_LOAD,
     "See History &#9656; acute vs chronic",
 )
 
@@ -1145,11 +1228,39 @@ measure, before its normal gap means anything. None of your <b>{{ groups }}</b> 
 SIGNAL_DRIFT = signal(
     "What am I neglecting",
     _DRIFT_BODY,
-    "Working sets over the last 365 days, from the whole log, not this page. "
-    "Normal is that group's own average gap, measured across the stretch it has actually "
-    "been trained; a group is flagged past twice it. Fewer than 6 sessions is not ranked.",
+    SCOPE_DRIFT,
     "See Session &#9656; every set",
 )
+
+
+# The method behind the three cards above, in one panel at the foot of the page.
+#
+# Laid out in three columns on a 48-column panel so each one sits under the card it
+# explains. That is the whole reason it is one panel and not three: read side by side,
+# the three windows are visibly different - 13 weeks, 28 days, 365 days - which is the
+# fact that makes two cards ranking the same week differently comprehensible instead of
+# alarming. Split across three panels nobody would ever compare them.
+#
+# No query, so no Liquid runs here (see custom()): this is plain text and must stay
+# plain text. It carries no number, which is also why it can be - every figure on this
+# page is computed from the reader's own log by the cards above.
+SIGNAL_METHOD = page(tok("""<style>
+.mth{font-family:$MONO;font-size:11px;line-height:1.65;color:$DIM}
+.mth .hd{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}
+.mth .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}
+.mth .q{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:$BLOOD;margin-bottom:6px}
+.mth p{margin:0}
+</style>
+<div class="mth">
+<div class="hd">How the three verdicts above are measured</div>
+<div class="cols">
+<div><div class="q">How heavy was this week</div><p>__M_INTENSITY__</p></div>
+<div><div class="q">Am I ramping</div><p>__M_LOAD__</p></div>
+<div><div class="q">What am I neglecting</div><p>__M_DRIFT__</p></div>
+</div>
+</div>""".replace("__M_INTENSITY__", METHOD_INTENSITY)
+     .replace("__M_LOAD__", METHOD_LOAD)
+     .replace("__M_DRIFT__", METHOD_DRIFT)))
 
 
 # --- 4. lift trajectory (Lift page) ----------------------------------------
@@ -1631,10 +1742,25 @@ this card ignores the time picker, but not the filter bar.</div>
   {%- if r['cycle_role'].value == "current" -%}{%- assign now = r -%}{%- endif -%}
 {%- endfor -%}
 {%- if now == nil -%}
-<div class="none">No projected total yet. It needs a recent estimate on all three
-competition lifts.</div>
+<div class="none">No projection yet. It needs a recent estimate on the lifts you
+compete in &mdash; the ones marked as competition lifts in your exercise list.</div>
 {%- else -%}
 {%- assign peers = now['peers'].value | plus: 0 -%}
+{%- comment -%} A sport scored on points per event has no total, so this card has no
+question to ask: it cannot tell you what your projected total has been worth on the
+platform, because neither half of that sentence exists. Saying so, and naming the card
+that DOES have an answer, beats printing a percentage of nothing. The scoring comes off
+the meet record - the next meet on the calendar if there is one, the last one otherwise.
+{%- endcomment -%}
+{%- if now['scoring'].value == "points" -%}
+<div class="verdict b-light">Scored on points, so there is no total to project.</div>
+<div class="ev">Your {{ now['discipline'].value | default: "next meet" | escape }} is
+ranked event by event and the placings are added, not the weights. A projected total
+would be a number no scoring table recognises, so this card does not compute one.
+Readiness on this record is per event.</div>
+<div class="base">see Overview &#9656; event readiness</div>
+<div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
+{%- else -%}
 {%- comment -%} peer_pct and expected_lb are absent, not zero, under three peer meets:
 a ratio off one or two of them is whichever day went best, not a calibration. The card
 has to tell those two silences apart - no meet has a projection behind it at all, versus
@@ -1670,6 +1796,7 @@ the platform is singles at a commanded pace</div>
 {%- endif -%}
 <div class="base">from the whole log, indexed {{ rows[0]['computed_through'].value | escape }}</div>
 {%- endif -%}
+{%- endif -%}
 """
     return (raw
             .replace("__P_PROJ__", numr("r['projected_total_lb'].value"))
@@ -1684,9 +1811,9 @@ _PROJECTION_BODY = _projection_body()
 SIGNAL_PROJECTION = signal(
     "What is this projection worth",
     _PROJECTION_BODY,
-    "The sum of your best estimate on each competition lift inside a 90-day window. For "
-    "each meet on record it is the projection as it stood walking in, not a number "
-    "computed afterwards. Under three meets the card declines to rank.",
+    "The sum of your best estimate on each competition lift inside a 90-day window, "
+    "where the sport adds them up. For each meet on record it is the projection as it "
+    "stood walking in, not one computed afterwards. Under three meets it declines to rank.",
     "See Overview &#9656; projected total",
 )
 

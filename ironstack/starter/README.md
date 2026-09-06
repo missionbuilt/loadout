@@ -103,6 +103,15 @@ point at a canonical name (`Competition Squat` -> `Comp Squat`), and a name that
 entry is a hard error, not a warning — a renamed lift silently dropping out of the
 muscle-group and ratio metrics is the failure this prevents.
 
+`competition: true` is what marks the platform version of a lift, as opposed to a
+variant of it — Comp Bench, not Extra Wide Bench Press. It is doing more work than the
+flag name suggests: **the lifts you compete in are the lifts your taxonomy says you
+compete in**, so that flag is what the projected total is summed from, what the taper's
+intensity line is restricted to, and what a meet best is allowed to set a reference on.
+It used to be the tuple `("squat", "bench", "deadlift")` written into `ingest/derive.py`,
+which made Ironstack a powerlifting tool by accident. Mark your own competition lifts —
+a snatch and a clean and jerk, a log press and a deadlift — and the analysis follows.
+
 When you log a name it does not know, `ingest/suggest.py` ranks the closest canonical
 names and offers them. Accepting one writes an alias into `config/exercises.json`;
 nothing is ever guessed for you. `ingest/build_exercise_taxonomy.py --check` fails if any
