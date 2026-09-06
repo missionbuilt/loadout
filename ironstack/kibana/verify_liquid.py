@@ -1545,6 +1545,97 @@ def section_contrast() -> None:
     check("contrast: brand tagline is not FAINT", faint not in tpl.brand_bar("X", "y").split(".tagline")[1].split("}")[0])
 
 
+# ---------------------------------------------------------------- type system
+#
+# The Sept 6 design review (claude/ironstack-design-review-2026-09-06.md) took the type
+# system down to six steps, three families and three colours of text, and these are the
+# rules that keep it there. Each is a sentence from the review:
+#
+#   * nothing renders under 11px
+#   * capitals live in the label tier and on a name, nowhere else
+#   * oxblood is a mark, never text
+#
+# They read every string in templates.py plus a rendered brand bar, AFTER tok(), so an
+# inline style on a card is held to the same rule as BASE_CSS. A selector that needs
+# capitals is added to UPPERCASE_ALLOWED on purpose, with the tier it belongs to.
+
+UPPERCASE_ALLOWED = (
+    ".eyebrow", ".sig .q", ".mth .hd", ".mth .q", ".ask .where",   # Label 11
+    ".hero", ".title", ".value", ".word", ".section", ".lname",      # Display / Title / wordmark
+    ".ex .name", ".warm .nm",                                        # an exercise's name
+)
+CSS_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+CSS_RULE = re.compile(r"([^{}]+)\{([^{}]*)\}")
+FONT_SIZE_PX = re.compile(r"font-size:\s*(\d+(?:\.\d+)?)px")
+# `color:` as a declaration of its own: not text-decoration-color, not border-color.
+TEXT_COLOUR = re.compile(r"(?<![\w-])color:\s*([^;}\"']+)")
+INLINE_STYLE = re.compile(r'style="([^"]*)"')
+
+
+def _styled_sources():
+    """(name, text) for everything that carries CSS. The shared sheets are yielded once
+    under their own names and stripped out of every card that embeds them, so a fault in
+    BASE_CSS is reported once rather than thirty times, and a card is held only to what
+    it adds: its own <style> block and its inline styles. The brand bar is rendered once
+    so its f-string braces are real braces."""
+    shared = (("BASE_CSS", tpl.BASE_CSS), ("SIGNAL_CSS", tpl.SIGNAL_CSS))
+    yield from shared
+    for name, value in _templates():
+        if name in dict(shared):
+            continue
+        for _, sheet in shared:
+            value = value.replace(sheet, "")
+        if "<style>" in value or 'style="' in value:
+            yield name, value
+    yield "brand_bar", tpl.brand_bar("X", "y")
+
+
+def _rules(text):
+    """(selector, declarations) for every rule in every <style> block, comments stripped."""
+    for block in re.findall(r"<style>(.*?)</style>", text, re.DOTALL):
+        for sel, decl in CSS_RULE.findall(CSS_COMMENT.sub("", block)):
+            yield sel.strip(), decl
+
+
+def section_type_system() -> None:
+    blood = tpl.BLOOD.lower()
+    text_colours = {tpl.CHALK.lower(), tpl.DIM.lower(), tpl.STEEL.lower()}
+    for name, text in _styled_sources():
+        rules = list(_rules(text))
+        # 1. the floor
+        small = sorted({float(px) for px in FONT_SIZE_PX.findall(text) if float(px) < 11})
+        check(f"type: {name} renders nothing under 11px", not small,
+              f"font-size {small}; the floor is 11px, the review retired 9 and 10")
+        # 2. capitals
+        caps = [sel for sel, decl in rules
+                if "text-transform:uppercase" in decl.replace(" ", "")
+                and not any(a in sel for a in UPPERCASE_ALLOWED)]
+        check(f"type: {name} sets capitals only on a label or a name", not caps,
+              f"{caps}; add to UPPERCASE_ALLOWED if it is one of those")
+        # 3. oxblood is a mark
+        red = [sel for sel, decl in rules
+               if any(c.strip().lower() == blood for c in TEXT_COLOUR.findall(decl))]
+        red += [style for style in INLINE_STYLE.findall(text)
+                if any(c.strip().lower() == blood for c in TEXT_COLOUR.findall(style))]
+        check(f"type: {name} never sets text in oxblood", not red,
+              f"{red}; $BLOOD is 2.5:1 on this ground and is a mark, not a colour of text")
+        # 4. three colours of text, by token, so a fourth cannot arrive as a hex literal
+        declared = [decl for _, decl in rules] + INLINE_STYLE.findall(text)
+        other = sorted({c.strip().lower() for decl in declared for c in TEXT_COLOUR.findall(decl)
+                        if c.strip().lower().startswith("#") and c.strip().lower() not in text_colours})
+        check(f"type: {name} text is CHALK, DIM or STEEL", not other, f"{other}")
+    # 5. a gauge earns oxblood through the verdict's max band and nothing else. The rule is
+    # `.sig .verdict.b-max ~ .gauge i`, a sibling selector, so it only fires when the
+    # verdict is drawn BEFORE the gauge inside the same .sig. A body that moved the gauge
+    # above its verdict would silently lose the mark.
+    check("type: SIGNAL_CSS lights a gauge only from the max band",
+          ".sig .verdict.b-max ~ .gauge i{background:" + tpl.BLOOD in tpl.SIGNAL_CSS
+          and "background:" + tpl.BLOOD not in tpl.SIGNAL_CSS.split(".sig .gauge i{")[1].split("}")[0])
+    for name, value in _templates():
+        if 'class="gauge"' in value:
+            check(f"type: {name} draws its verdict before its gauge",
+                  value.find('class="verdict') != -1 and value.find('class="verdict') < value.find('class="gauge"'))
+
 def section_cold_start() -> None:
     """Week one through week twelve — the state that decides whether anyone stays.
 
@@ -2591,6 +2682,7 @@ def main() -> None:
     section_meet_lists()
     section_moat()
     section_contrast()
+    section_type_system()
     section_orphans()
     section_lift()
     section_unit_spacing()

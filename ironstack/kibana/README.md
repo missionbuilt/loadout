@@ -365,6 +365,31 @@ Iron Log: charcoal ground, warm chalk foregrounds, and oxblood `#a8211a` for exa
 thing per dashboard. Split series use Kibana's built-in gray palette. Titles are short and
 uppercase. No em-dashes in UI strings.
 
+The custom panels follow the type system from the Sept 6 design review (Workouts project,
+`ironstack-design-review-2026-09-06`), and `verify_liquid.py` `section_type_system` holds
+them to it:
+
+- **Six steps, one job each.** Display 40 (`.hero`, hero numbers, one per page), Title 28
+  (`.title`, `.value`), Verdict 22 (`.sig .verdict`, sentence case, chalk), Body 14
+  (Merriweather: `.prose`, `.sig .ev`, the method panel), Data 13 (mono: set rows, tables),
+  Label 11 (mono caps: `.eyebrow`, `.sig .q`, one per card). Display and Title are
+  `clamp()`ed to the panel width so a phone-wide card wraps instead of clipping. Nothing
+  renders under 11px.
+- **Three colours of text:** CHALK, DIM, STEEL. STEEL (5.0:1) is the floor. FAINT is for
+  rules and BLOOD_DIM for the miss border; neither styles text.
+- **Oxblood is a mark, never text:** the wordmark square, the strike through a missed
+  attempt, the square after a max-band verdict and RPE, and a gauge fill only when its
+  verdict is in the max band (`.sig .verdict.b-max ~ .gauge i`). Gauges are DIM otherwise.
+- **Capitals live on a label or a name.** `UPPERCASE_ALLOWED` in `verify_liquid.py` is the
+  list; a new selector that needs them is added there on purpose.
+- **Warm-up sets are smaller, not fainter.** `.set.prep` is STEEL at 13px, no opacity.
+
+The three families are declared and not yet embedded: a custom content panel fetches
+nothing, so until `probe_fonts.py` answers whether a base64 `@font-face` renders, what the
+reader sees is the fallback stack (Arial Narrow, Menlo, Georgia on a Mac). The ground is
+the same shape of question: `probe_ground.py` will say whether a transparent body shows
+Kibana's panel behind it, which would end the warm-card-on-navy split on every page.
+
 The block timeline used to carry its own three-colour phase ramp, because it was drawn as
 three FILTERED metric columns — one each for `hypertrophy`, `strength` and `peaking`, the
 literals compiled into the saved object. But `program.phase` is free text the lifter types

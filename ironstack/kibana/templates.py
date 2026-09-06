@@ -146,19 +146,27 @@ def tok(s: str) -> str:
 BASE_CSS = tok("""<style>
 *{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}
 html,body{height:100%}
-body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased}
+/* Six type steps, three families, three colours of text. Display 40 / Title 28 / Verdict 22
+   (SIGNAL_CSS) / Body 14 / Data 13 / Label 11. Nothing renders under 11px. Capitals live in
+   the label tier and on a name; verify_liquid.py lints both. Oxblood is a mark, never text.
+   The Sept 6 design review is the source: claude/ironstack-design-review-2026-09-06.md. */
+body{background:$BG;color:$CHALK;font-family:$SERIF;font-size:14px;line-height:1.55;padding:14px 18px;overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:$RULE}::-webkit-scrollbar-track{background:transparent}
-.eyebrow{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;white-space:nowrap}
-.eyebrow.blood{color:$BLOOD}
+/* Label 11. One per card. */
+.eyebrow{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;white-space:nowrap}
 .eyebrow.dim{color:$DIM}
-.hero{font-size:46px;font-weight:700;line-height:1;letter-spacing:-.015em;text-transform:uppercase;white-space:nowrap;font-variant-numeric:tabular-nums}
-.hero.blood{color:$BLOOD}
-.value{font-size:32px;font-weight:600;line-height:1.05;text-transform:uppercase;white-space:nowrap}
-.value small{font-size:15px;font-weight:500;color:$DIM;letter-spacing:.04em;margin-left:5px}
-.sub{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.03em;line-height:1.55}
+/* Display 40. Scales with the panel, so a phone-width card wraps rather than clips. */
+.hero{font-family:$DISPLAY;font-size:clamp(30px,9vw,40px);font-weight:700;line-height:1;letter-spacing:-.015em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.hero .u{font-size:16px;font-weight:500;color:$DIM;margin-left:6px;letter-spacing:.02em;text-transform:none}
+/* Title 28. Page, lift and session names; the tile values. */
+.title,.value{font-family:$DISPLAY;font-size:clamp(22px,6vw,28px);font-weight:600;line-height:1;letter-spacing:-.005em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.value small{font-size:13px;font-weight:500;color:$DIM;letter-spacing:.04em;margin-left:5px;text-transform:none}
+/* Data 13 and the scope line at 12. */
+.sub{font-family:$MONO;font-size:12px;color:$DIM;line-height:1.6}
 .faint{color:$STEEL}
 .mono{font-family:$MONO}
-.prose{font-family:$SERIF;font-size:14px;line-height:1.6;color:$DIM}
+/* Body 14. */
+.prose{font-family:$SERIF;font-size:14px;line-height:1.55;color:$DIM}
 .rule{border-top:1px solid $RULE}
 .stack{display:flex;flex-direction:column;justify-content:flex-start;gap:10px;height:100%}
 .stack.spread{justify-content:space-between;gap:0}
@@ -166,59 +174,58 @@ body{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:14px 18px;overflow
 .card{flex:1;min-width:0;padding:0 18px;border-left:1px solid $RULE;display:flex;flex-direction:column;justify-content:flex-start;gap:5px}
 .card:first-child{padding-left:0;border-left:0}
 .card .top{display:flex;flex-direction:column;gap:5px}
-.chip{display:inline-block;font-family:$MONO;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:$DIM;border:1px solid $RULE;padding:1px 6px;margin:0 4px 2px 0;white-space:nowrap}
+.chip{display:inline-block;font-family:$MONO;font-size:11px;letter-spacing:.04em;color:$DIM;border:1px solid $RULE;padding:1px 6px;margin:0 4px 2px 0;white-space:nowrap}
 .chip.made{color:$CHALK;border-color:$STEEL}
-/* A miss used to be $FAINT with a 1px strike: at 9px on this ground the line is
-   invisible and a missed third attempt read the same as a made one. The strike stays,
-   in oxblood and twice the weight, and the box border carries it too. */
+/* A miss keeps its strike in oxblood at twice the weight; the box border carries it too. */
 .chip.miss{color:$STEEL;border-color:$BLOOD_DIM;text-decoration:line-through;text-decoration-color:$BLOOD;text-decoration-thickness:2px}
-.chip.blood{color:$BLOOD;border-color:$BLOOD_DIM}
+/* A gain is marked by its border, not its text. */
+.chip.blood{color:$CHALK;border-color:$BLOOD}
 .bar{height:2px;background:$RULE;position:relative;margin-top:8px}
-.bar i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:$DIM;display:block}
 .bar.dim i{background:$DIM}
-.empty{color:$STEEL;font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.empty{color:$STEEL;font-family:$MONO;font-size:12px;letter-spacing:.02em}
 .list{display:flex;flex-direction:column}
 .item{display:flex;align-items:baseline;gap:12px;padding:7px 0;border-top:1px solid $RULE;font-family:$MONO;font-size:13px}
 .item:first-child{border-top:0}
-.item .when{color:$STEEL;font-size:11px;letter-spacing:.06em;text-transform:uppercase;min-width:72px}
+.item .when{color:$STEEL;font-size:12px;min-width:72px}
 .item .txt{color:$CHALK;flex:1;min-width:0}
 .item .num{color:$DIM;white-space:nowrap;font-variant-numeric:tabular-nums}
-.set{display:flex;align-items:baseline;gap:9px;font-family:$MONO;font-size:14px;padding:4px 0;font-variant-numeric:tabular-nums}
-.set .n{color:$FAINT;font-size:10px;min-width:14px;font-weight:400}
-.set .w{color:$CHALK;min-width:62px;text-align:right;font-size:17px;font-weight:600;letter-spacing:-.01em}
-.set .x{color:$FAINT;font-size:11px}
-.set .r{color:$CHALK;min-width:30px;font-size:15px}
+/* The set row: number, weight, x reps, @ RPE, note. Warm-ups are smaller, not fainter. */
+.set{display:flex;align-items:baseline;gap:9px;font-family:$MONO;font-size:13px;padding:4px 0;font-variant-numeric:tabular-nums}
+.set .n{color:$STEEL;font-size:11px;min-width:14px;font-weight:400}
+.set .w{color:$CHALK;min-width:56px;text-align:right;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.set .x{color:$DIM;font-size:12px}
+.set .r{color:$CHALK;min-width:30px;font-size:13px}
 .set .rpe{font-size:13px;letter-spacing:.02em}
-.set .rpe.lo{color:$FAINT}
+.set .rpe.lo{color:$STEEL}
 .set .rpe.mid{color:$DIM}
 .set .rpe.hi{color:$CHALK;font-weight:600}
-.set .rpe.max{color:$BLOOD;font-weight:700}
+.set .rpe.max{color:$CHALK;font-weight:700}
+.set .rpe.max::after{content:"";display:inline-block;width:6px;height:6px;background:$BLOOD;margin-left:6px;vertical-align:middle}
 .set .note{color:$STEEL;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.set.prep{opacity:.55}
-.set.prep .w{font-size:14px;font-weight:400;color:$DIM}
-.set.prep .r{color:$DIM;font-size:13px}
+.set.prep .w{font-size:13px;font-weight:400;color:$STEEL}
+.set.prep .x,.set.prep .r{color:$STEEL}
 .ex{margin-bottom:14px}
-.ex .name{font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;line-height:1.3;padding-bottom:3px;border-bottom:1px solid $RULE;margin-bottom:3px}
-.ex .name .cat{font-family:$MONO;font-size:9px;letter-spacing:.16em;color:$FAINT;margin-left:8px;font-weight:500}
+.ex .name{font-family:$DISPLAY;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;line-height:1.3;padding-bottom:3px;border-bottom:1px solid $RULE;margin-bottom:3px}
+.ex .name .cat{font-family:$MONO;font-size:11px;letter-spacing:.14em;color:$STEEL;margin-left:8px;font-weight:500}
 .cols{column-count:2;column-gap:36px}
 .liftrow{display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid $RULE}
 .liftrow:first-child{border-top:0}
 .lname{font-family:$MONO;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:$DIM;min-width:76px}
-.lval{font-size:21px;font-weight:600;color:$CHALK;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+.lval{font-family:$DISPLAY;font-size:22px;font-weight:600;color:$CHALK;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
 .lbar{flex:1;min-width:24px;height:3px;background:$RULE;position:relative}
-.lbar i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
-.lkg{font-family:$MONO;font-size:11px;color:$STEEL;min-width:62px;text-align:right}
+.lbar i{position:absolute;left:0;top:0;bottom:0;background:$DIM;display:block}
+.lkg{font-family:$MONO;font-size:12px;color:$STEEL;min-width:62px;text-align:right}
 .warm{font-family:$MONO;font-size:12px;line-height:1.9;color:$DIM;margin-top:5px}
 .warm .nm{color:$CHALK;text-transform:uppercase;letter-spacing:.04em;font-size:11px;margin-right:5px}
-.warm .qty{color:$FAINT;margin-right:7px}
-.warm .sep{color:$RULE;margin-right:9px}
+.warm .qty{color:$STEEL;margin-right:7px}
+.warm .sep{color:$STEEL;margin-right:9px}
 .cols .ex{break-inside:avoid}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px}
 .k{color:$STEEL}
 .v{color:$CHALK}
 .hdr{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-.hdr .title{font-size:30px;font-weight:700;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
-.hdr .meta{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.05em;text-transform:uppercase}
+.hdr .meta{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.02em}
 .hdr .meta b{color:$CHALK;font-weight:500}
 .dot{display:inline-block;width:7px;height:7px;background:$BLOOD;margin:0 8px;vertical-align:middle}
 svg{display:block}
@@ -243,14 +250,15 @@ def brand_bar(section: str, tagline: str) -> str:
    implies, and any centring or space-between put the wordmark below the fold.
    Plain block flow starts at the top of the document and cannot be pushed down. */
 body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px;overflow:hidden;-webkit-font-smoothing:antialiased}}
-.eyebrow{{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.24em;text-transform:uppercase;color:$BLOOD;margin-bottom:6px}}
+/* Label 11 in STEEL. Oxblood text is 2.5:1 on this ground; the square beside the wordmark is the mark. */
+.eyebrow{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}}
 .bar{{display:flex;align-items:baseline;justify-content:space-between;gap:16px}}
 .left{{display:flex;align-items:baseline;gap:10px}}
 .word{{font-size:22px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.1}}
 .sq{{display:inline-block;width:11px;height:11px;background:$BLOOD;transform:translateY(-1px)}}
 .vr{{width:1px;height:22px;background:$RULE;transform:translateY(4px);margin:0 6px}}
 .section{{font-family:$MONO;font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$DIM}}
-.tagline{{font-family:$MONO;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:$DIM;text-align:right;max-width:60%;line-height:1.55}}
+.tagline{{font-family:$MONO;font-size:12px;color:$DIM;text-align:right;max-width:60%;line-height:1.55}}
 </style>
 <div class="eyebrow">&#9646;&#9646;&#9646;&nbsp;&nbsp;A Mission Built training system&nbsp;&nbsp;&#9646;&#9646;&#9646;</div>
 <div class="bar"><div class="left"><span class="word">Iron</span><span class="sq"></span><span class="word">Stack</span><span class="vr"></span><span class="section">{section}</span></div><div class="tagline">{tagline}</div></div>""")
@@ -265,9 +273,9 @@ body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px;overflo
 # It is deliberately not a fourth verdict: no eyebrow, no hero, one line, dim.
 
 COACH_PROMPT = page(tok("""<style>
-.ask{font-family:$MONO;font-size:12px;letter-spacing:.04em;color:$DIM;line-height:1.6}
-.ask b{color:$CHALK;font-weight:600}
-.ask .where{color:$STEEL;text-transform:uppercase;font-size:10px;letter-spacing:.14em}
+.ask{font-family:$SERIF;font-size:14px;color:$DIM;line-height:1.55}
+.ask b{color:$CHALK;font-weight:700}
+.ask .where{font-family:$MONO;color:$STEEL;text-transform:uppercase;font-size:11px;letter-spacing:.14em}
 </style>
 <div class="ask">Disagree with a verdict, or want the reasoning behind one?
 <b>Ask the coach.</b> It is the only thing here that has read your notes.
@@ -293,8 +301,8 @@ COACH_PROMPT = page(tok("""<style>
 # says how many reps carry a zone in EVERY case, which is what makes the stacked chart
 # above it readable as a share of something rather than as a share of everything.
 ZONE_COVERAGE = page(tok("""<style>
-.zc{font-family:$MONO;font-size:11px;letter-spacing:.03em;color:$DIM;line-height:1.7}
-.zc b{color:$CHALK;font-weight:600}
+.zc{font-family:$SERIF;font-size:14px;color:$DIM;line-height:1.55}
+.zc b{font-family:$MONO;font-size:13px;color:$CHALK;font-weight:500}
 </style>
 <div class="zc">
 {%- if rows.size == 0 -%}
@@ -473,11 +481,11 @@ half of the query, so the card follows the record rather than a setting.
 {%- endcomment -%}
 {% if pts > 0 %}
 <div class="eyebrow">Event readiness</div>
-<div class="hero" style="margin-top:7px">{{ lifts }}<span style="font-size:20px;color:$DIM;margin-left:6px">of your events</span></div>
+<div class="hero" style="margin-top:7px">{{ lifts }}<span class="u">of your events</span></div>
 <div class="sub" style="margin-top:3px">{% if span_d < 60 %}have a recent estimate, from the last <span class="v">{{ span_d }}</span> days. The card reads 90; widen the time picker for the real number{% else %}have an estimate from the last 90 days of main-lift work{% endif %}</div>
 {% else %}
 <div class="eyebrow">Projected total</div>
-<div class="hero" style="margin-top:7px">""" + num("total") + """<span style="font-size:20px;color:$DIM;margin-left:6px">$U_WEIGHT</span></div>
+<div class="hero" style="margin-top:7px">""" + num("total") + """<span class="u">$U_WEIGHT</span></div>
 <div class="sub" style="margin-top:3px">{% if span_d < 60 %}best of the last <span class="v">{{ span_d }}</span> days of main-lift work. The card reads 90; widen the time picker for the real number{% else %}best of the last 90 days of main-lift work{% endif %}</div>
 {% endif %}
 <div style="margin-top:12px">
@@ -583,11 +591,11 @@ look at. Distinct rather than a row count: one session is many rows. {%- endcomm
 """ + rpe_class("rows[0]['rpe'].value") + """
 <div class="eyebrow">Top set</div>
 <div style="margin-top:7px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-<span class="hero">""" + num("rows[0]['weight_lb'].value") + """<span style="font-size:20px;color:$DIM;margin-left:6px">$U_WEIGHT</span></span>
-{% if rows[0]['reps'].value %}<span class="hero" style="font-size:26px;color:$DIM">&times;&nbsp;""" + numr("rows[0]['reps'].value") + """</span>{% endif %}
-{% if rows[0]['rpe'].value %}<span class="set" style="padding:0"><span class="rpe {{ rc }}" style="font-size:21px">@&nbsp;{{ rows[0]['rpe'].value | round: 1 }}</span></span>{% endif %}
+<span class="hero">""" + num("rows[0]['weight_lb'].value") + """<span class="u">$U_WEIGHT</span></span>
+{% if rows[0]['reps'].value %}<span class="hero" style="font-size:24px;color:$DIM">&times;&nbsp;""" + numr("rows[0]['reps'].value") + """</span>{% endif %}
+{% if rows[0]['rpe'].value %}<span class="set" style="padding:0"><span class="rpe {{ rc }}" style="font-size:20px">@&nbsp;{{ rows[0]['rpe'].value | round: 1 }}</span></span>{% endif %}
 </div>
-<div class="value" style="font-size:17px;margin-top:7px;white-space:normal">{{ rows[0]['exercise.name'].value | escape }}</div>
+<div class="value" style="font-size:16px;margin-top:7px">{{ rows[0]['exercise.name'].value | escape }}</div>
 {% if pw != "" or aw != "" or sessions_seen > 1 %}<div class="rule" style="margin-top:10px;padding-top:8px">
 {% if pw != "" %}{%- assign delta = rows[0]['weight_lb'].value | minus: pw -%}
 <span class="sub"><span class="faint">last {{ pr | round }}-rep set</span>&nbsp; <span class="v">""" + num("pw") + """&nbsp;&times;&nbsp;{{ pr | round }}</span>{% if prpe %} <span class="faint">@&nbsp;{{ prpe | round: 1 }}</span>{% endif %} <span class="faint">&middot; {{ pd | escape }}</span></span>
@@ -658,13 +666,13 @@ WRAP_CARD = page(tok("""
 LIFT_HEADER = page(tok("""
 {% if rows.size == 0 %}<div class="eyebrow">Lift</div>""" + empty("Open a lift from any dashboard") + """
 {% elsif rows.size > 1 %}<div class="eyebrow">Lift</div>
-<div class="hdr" style="margin-top:8px"><span class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1;color:$DIM">No lift chosen</span></div>
+<div class="hdr" style="margin-top:8px"><span class="title" style="color:$DIM">No lift chosen</span></div>
 <div class="sub" style="margin-top:8px">This page is one exercise over time, and nothing has told it which one.
 Everything below is drawn from every lift in the range, so read it as a total and not as a lift.<br>
 <span class="faint">Click a lift in Overview's projected-total chart, or a point on this page's e1RM line, to land here on one lift.</span></div>
 {% else %}
 <div class="row">
-<div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title" style="font-size:30px;font-weight:700;text-transform:uppercase;line-height:1">{{ rows[0]['name'].value | escape }}</div></div>
+<div class="card" style="flex:1"><div class="top"><div class="eyebrow">Lift</div><div class="title">{{ rows[0]['name'].value | escape }}</div></div>
 <div class="sub">{{ rows[0]['sessions'].value }} session{% if rows[0]['sessions'].value != 1 %}s{% endif %} &middot; {{ rows[0]['n'].value }} working sets &middot; last {{ rows[0]['last_s'].value | escape }}</div>
 <div class="sub">best e1RM&nbsp;""" + num("rows[0]['e1'].value") + """&nbsp;$U_WEIGHT &middot; best top set&nbsp;""" + num("rows[0]['top'].value") + """&nbsp;$U_WEIGHT{% if rows[0]['rpe'].value %} &middot; avg RPE """ + numr("rows[0]['rpe'].value", 1) + """{% endif %}</div></div>
 </div>{% endif %}"""))
@@ -697,9 +705,9 @@ that print them would read "Not logged" forever - which says the lifter forgot t
 something down, when in fact their sport does not produce it. The tiles change question
 instead: best placing and best points score, off the record. {%- endcomment -%}
 {% if pts > 0 %}
-<div class="card"><div class="top"><div class="eyebrow">Best placing</div>{% if rows[0]['best_place'].value %}<div class="value" style="color:$BLOOD">{{ rows[0]['best_place'].value }}<small>""" + ordinal("rows[0]['best_place'].value") + """</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['best_place'].value %}best finish in the page's range{% else %}no placing on any meet in range{% endif %}</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Best placing</div>{% if rows[0]['best_place'].value %}<div class="value">{{ rows[0]['best_place'].value }}<small>""" + ordinal("rows[0]['best_place'].value") + """</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['best_place'].value %}best finish in the page's range{% else %}no placing on any meet in range{% endif %}</div></div>
 {% else %}
-<div class="card"><div class="top"><div class="eyebrow">Best total</div>{% if rows[0]['total_kg'].value %}<div class="value" style="color:$BLOOD">""" + numr("rows[0]['total_kg'].value", 1) + """<small>$U_MASS_ALT</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['total_lb'].value %}""" + num("rows[0]['total_lb'].value") + """&nbsp;$U_WEIGHT{% else %}no total on any meet in range{% endif %}</div></div>
+<div class="card"><div class="top"><div class="eyebrow">Best total</div>{% if rows[0]['total_kg'].value %}<div class="value">""" + numr("rows[0]['total_kg'].value", 1) + """<small>$U_MASS_ALT</small></div>{% else %}<div class="empty">Not logged</div>{% endif %}</div><div class="sub">{% if rows[0]['total_lb'].value %}""" + num("rows[0]['total_lb'].value") + """&nbsp;$U_WEIGHT{% else %}no total on any meet in range{% endif %}</div></div>
 {% endif %}
 {%- comment -%} DOTS needs a bodyweight and a sex to compute, and the indexer leaves it
 ABSENT rather than assuming one. `nil | round: 2` is 0, so the tile read "BEST DOTS 0"
@@ -719,7 +727,7 @@ MEET_BESTS = page(tok("""
 {%- assign best = rows[0]['lb'].value | plus: 0 -%}
 <div class="eyebrow">Best lifts on the platform <span class="faint">&middot; weight events only</span></div>
 <div style="margin-top:10px">
-{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['event_name'].value | escape }}</span><span class="lval">""" + num("r['lb'].value") + """<small style="font-size:11px;color:$FAINT;margin-left:4px">$U_WEIGHT</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{% if r['kg'].value %}""" + numr("r['kg'].value", 1) + """ $U_MASS_ALT{% endif %}</span></div>{% endfor %}
+{% for r in rows %}<div class="liftrow"><span class="lname">{{ r['event_name'].value | escape }}</span><span class="lval">""" + num("r['lb'].value") + """<small style="font-size:11px;color:$STEEL;margin-left:4px">$U_WEIGHT</small></span><span class="lbar"><i style="width:{% if best > 0 %}{{ r['lb'].value | times: 100 | divided_by: best | round }}{% else %}0{% endif %}%"></i></span><span class="lkg">{% if r['kg'].value %}""" + numr("r['kg'].value", 1) + """ $U_MASS_ALT{% endif %}</span></div>{% endfor %}
 </div>{% endif %}"""))
 
 MEET_LIST = page(tok("""
@@ -772,8 +780,10 @@ SIGNAL_CSS = tok("""<style>
    always the height Kibana implies, and anything that pushes to the bottom opened a
    ~100px hole between a number and its caption on the Session cards. */
 .sig{display:block}
-.sig .q{font-family:$MONO;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;line-height:1.45}
-.sig .verdict{font-size:20px;font-weight:600;line-height:1.25;letter-spacing:-.005em;margin-top:9px;color:$CHALK}
+/* Label 11: the question. */
+.sig .q{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;line-height:1.45}
+/* Verdict 22: the answer, in chalk. A band changes weight, never colour. */
+.sig .verdict{font-family:$DISPLAY;font-size:22px;font-weight:600;line-height:1.2;letter-spacing:-.005em;margin-top:8px;color:$CHALK}
 .sig .verdict.b-light{color:$DIM;font-weight:500}
 .sig .verdict.b-normal{color:$CHALK;font-weight:600}
 .sig .verdict.b-heavy{color:$CHALK;font-weight:700}
@@ -783,17 +793,21 @@ SIGNAL_CSS = tok("""<style>
    text in the app to read, and the only page whose verdict did not look like the
    other six. The red signal survives as a mark rather than as type. */
 .sig .verdict.b-max::after{content:"";display:inline-block;width:8px;height:8px;background:$BLOOD;margin-left:10px;vertical-align:middle}
-.sig .ev{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.02em;line-height:1.6;margin-top:9px;font-variant-numeric:tabular-nums}
-.sig .ev b{color:$CHALK;font-weight:600}
-/* The baseline tick is what makes the bar an argument instead of a decoration. */
+/* Body 14: the evidence. Numbers inline in mono chalk so they stay tabular. */
+.sig .ev{font-family:$SERIF;font-size:14px;color:$DIM;line-height:1.5;margin-top:8px;max-width:52ch}
+.sig .ev b{font-family:$MONO;font-size:13px;color:$CHALK;font-weight:500;font-variant-numeric:tabular-nums}
+/* The baseline tick is what makes the bar an argument instead of a decoration.
+   The fill is DIM; it earns oxblood only when the card is in its max band. */
 .sig .gauge{height:3px;background:$RULE;position:relative;margin:10px 0 6px}
-.sig .gauge i{position:absolute;left:0;top:0;bottom:0;background:$BLOOD;display:block}
+.sig .gauge i{position:absolute;left:0;top:0;bottom:0;background:$DIM;display:block}
+.sig .verdict.b-max ~ .gauge i{background:$BLOOD}
 .sig .gauge u{position:absolute;top:-4px;bottom:-4px;width:1px;background:$STEEL;display:block}
-.sig .base{font-family:$MONO;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:$STEEL}
-.sig .also{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.02em;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
-.sig .prov{font-family:$MONO;font-size:11px;line-height:1.6;color:$DIM;letter-spacing:.02em;margin-top:12px;padding-top:9px;border-top:1px solid $RULE}
-.sig .see{font-family:$MONO;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-top:8px}
-.sig .none{font-family:$MONO;font-size:12px;color:$DIM;letter-spacing:.03em;margin-top:10px;line-height:1.55}
+/* Scope 12 in STEEL: baseline, provenance, pointer. Sentence case; the label is the only capitals. */
+.sig .base{font-family:$MONO;font-size:12px;color:$STEEL;line-height:1.6}
+.sig .also{font-family:$MONO;font-size:12px;color:$DIM;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
+.sig .prov{font-family:$MONO;font-size:12px;line-height:1.6;color:$STEEL;margin-top:12px;padding-top:9px;border-top:1px solid $RULE}
+.sig .see{font-family:$MONO;font-size:12px;color:$STEEL;margin-top:8px}
+.sig .none{font-family:$SERIF;font-size:14px;color:$DIM;margin-top:10px;line-height:1.55}
 </style>""")
 
 
@@ -1262,10 +1276,10 @@ SIGNAL_DRIFT = signal(
 # plain text. It carries no number, which is also why it can be - every figure on this
 # page is computed from the reader's own log by the cards above.
 SIGNAL_METHOD = page(tok("""<style>
-.mth{font-family:$MONO;font-size:11px;line-height:1.65;color:$DIM}
-.mth .hd{font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}
+.mth{font-family:$SERIF;font-size:14px;line-height:1.55;color:$DIM}
+.mth .hd{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}
 .mth .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}
-.mth .q{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:$BLOOD;margin-bottom:6px}
+.mth .q{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}
 .mth p{margin:0}
 </style>
 <div class="mth">
