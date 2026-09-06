@@ -249,10 +249,25 @@ DOTS_COEFF = {
 }
 
 
-def dots(bodyweight_kg: float, total_kg: float, sex: str = "male") -> float | None:
+def dots(bodyweight_kg: float, total_kg: float, sex: str | None) -> float | None:
+    """DOTS for a total at a bodyweight. `sex` selects the coefficient set - required.
+
+    It used to default to "male", and derive.py never passed one, so every DOTS this
+    repo computed was a male score. The two coefficient sets are not close: at 60 kg
+    bodyweight the female curve scores ~30% higher than the male one for the same
+    total, and at 90 kg ~20%. A female adopter's `dots` - and the projection card, the
+    Meets card and everything else built on it - would have been wrong by that much,
+    with nothing on the page or in the logs to say so.
+
+    So there is no default, and an unset or unrecognised `sex` returns None rather than
+    a number. A missing score is a visible gap; a guessed one is not.
+    """
     if not bodyweight_kg or not total_kg:
         return None
-    a, b, c, d, e = DOTS_COEFF[sex]
+    coefficients = DOTS_COEFF.get(sex)
+    if coefficients is None:
+        return None
+    a, b, c, d, e = coefficients
     x = bodyweight_kg
     denominator = a + b * x + c * x**2 + d * x**3 + e * x**4
     if denominator <= 0:
@@ -305,18 +320,43 @@ def acwr_band(value: float | None) -> str | None:
     return _band(value, ACWR_BANDS)
 
 
-def monotony(daily_loads: list[float]) -> float | None:
+# Foster's monotony is a statement about how a week's work is DISTRIBUTED, so there has
+# to be a distribution. With one training day the answer is arithmetic about six zeros
+# and one number - it always comes out low, it always means "you trained once", and it
+# is reported in the same column, on the same scale, as a real week. Two days is barely
+# better. Three is the fewest that can be even, uneven or clustered, so it is the fewest
+# that can be described.
+MONOTONY_MIN_TRAINING_DAYS = 3
+
+
+def monotony(daily_loads: list[float], training_days: int | None = None) -> float | None:
     """Foster's training monotony: mean daily load / SD of daily load.
 
     Rest days count as zeros — that is the point of the metric. A week where
     every day looks the same scores high, which is the pattern that precedes
     stagnation.
 
+    None below MONOTONY_MIN_TRAINING_DAYS days with load in them: see the note above.
+    An absent score is what "there is not enough of a week here to describe" looks like,
+    and strain() carries the absence through rather than inventing a product.
+
+    `training_days` is how many of those days were TRAINED, when the caller knows. It is
+    a separate question from how many carried load: a bodyweight-only session is a
+    training day that contributes a zero to the distribution, and counting non-zero loads
+    calls it a rest day. This module has only the load series, so it can count non-zero
+    loads and nothing else; derive.rollup_docs() knows which days had a session and
+    passes the number, so one definition of "training day" reaches every metric on the
+    row. Unset, the behaviour is what it was.
+
     A day that has not happened yet is not a rest day, and this function cannot tell
     the difference. Callers pass only the ELAPSED days of a week in progress; see the
     clamp in derive.rollup_docs(), which measured 1.09 padded against 1.31 real.
     """
     if len(daily_loads) < 2:
+        return None
+    if training_days is None:
+        training_days = sum(1 for load in daily_loads if load)
+    if training_days < MONOTONY_MIN_TRAINING_DAYS:
         return None
     spread = statistics.pstdev(daily_loads)
     if spread == 0:

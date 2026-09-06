@@ -6,7 +6,7 @@ two noisy sawtooth charts and no verdict. This probe returns the exact rows the 
 would read, for all three competition lifts, plus the coverage stats that decide whether
 a rank-based or a delta-based sentence is honest.
 
-    cd ~/Projects/ironstack-log && source .env
+    cd /path/to/your-workout-log && set -a && source .env && set +a
     python ~/Projects/loadout/ironstack/kibana/probe_lift.py
 
 Paste the whole output back into the session.
@@ -25,7 +25,7 @@ import requests
 ENDPOINT = os.environ.get("ES_ENDPOINT", "").strip().rstrip("/")
 API_KEY = os.environ.get("ES_API_KEY", "").strip()
 if not ENDPOINT or not API_KEY:
-    sys.exit("error: ES_ENDPOINT and ES_API_KEY must be set. `cd ~/Projects/ironstack-log && source .env`")
+    sys.exit("error: ES_ENDPOINT and ES_API_KEY must be set. `cd /path/to/your-workout-log && set -a && source .env && set +a`")
 
 HEADERS = {"Authorization": f"ApiKey {API_KEY}", "Content-Type": "application/json"}
 LIFTS = ["comp-deadlift", "comp-bench", "comp-squat"]

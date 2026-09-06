@@ -27,6 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import derive
+import index_workouts
 import render_md
 import shorthand
 import suggest
@@ -39,9 +40,17 @@ WORKOUTS_DIR = REPO_ROOT / "workouts"
 
 
 def previous_session(before: str):
-    """The most recent session JSON dated before `before`."""
+    """The most recent session JSON dated before `before`.
+
+    Walks the corpus through index_workouts.log_paths(), not a glob of its own. This
+    used to be glob("*/*.json") while the indexer walked rglob("*.json") - the exact
+    second-walk drift already removed from verify_index.py. The two agreed only for as
+    long as every log happened to sit at exactly depth 2, and the consequence here is
+    not a count: `program: next` counts the day and week forward from whatever this
+    returns, so a log the walk cannot see silently restarts the program a day early.
+    """
     best = None
-    for path in WORKOUTS_DIR.glob("*/*.json"):
+    for path in index_workouts.log_paths():
         stem = path.stem[:10]
         if stem < before and (best is None or stem > best[0]):
             best = (stem, path)
@@ -93,6 +102,24 @@ def missing_metadata(session: dict, required: list) -> list:
         if value in (None, "", {}, []):
             gaps.append(REQUIRED_LABELS.get(field, field))
     return gaps
+
+
+def unregistered_equipment(doc: dict) -> list:
+    """`@ids` in the session that config/equipment.json has never heard of.
+
+    shorthand.equipment_item() accepts an unknown id as its own name, on purpose - an
+    unregistered rack in a hotel gym is a real fact and not worth refusing a log over.
+    What it must not be is silent: an id that is a typo of a registered one becomes a
+    second equipment item, and every equipment panel then splits that bar's history
+    across the two spellings with nothing anywhere reporting a problem.
+    """
+    known = shorthand.load_equipment()
+    unknown = []
+    for exercise in doc.get("exercises", []):
+        for item in exercise.get("equipment_items", []) or []:
+            if item["id"] not in known and item["id"] not in unknown:
+                unknown.append(item["id"])
+    return unknown
 
 
 def add_weather(doc: dict) -> str:
@@ -234,8 +261,24 @@ def main(argv: list) -> int:
                 print("Nothing was written.", file=sys.stderr)
                 return 5
 
-    errors = sorted(Draft202012Validator(json.loads(SCHEMA_PATH.read_text())).iter_errors(doc),
-                    key=lambda e: e.path)
+    # format_checker, for the same reason the indexers pass one: without it Draft 2020-12
+    # treats "format": "date" as an annotation, so a malformed date is written to disk
+    # here and only surfaces later as a bare ValueError with no filename attached.
+    validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()),
+                                     format_checker=Draft202012Validator.FORMAT_CHECKER)
+    # Equipment ids, before the write, for the same reason exercise names are checked
+    # here: this is the last moment the person who typed it is still in the room.
+    strays = unregistered_equipment(doc)
+    if strays:
+        print(f"unregistered equipment: {', '.join(repr(s) for s in strays)}",
+              file=sys.stderr)
+        print("Add it to config/equipment.json, or fix the id. Left as it is, each one "
+              "becomes its own equipment item in the analytics.", file=sys.stderr)
+        if opts.strict:
+            print("Nothing was written.", file=sys.stderr)
+            return 7
+
+    errors = sorted(validator.iter_errors(doc), key=lambda e: e.path)
     if errors:
         for error in errors:
             print(f"schema: {'/'.join(str(p) for p in error.path)}: {error.message}", file=sys.stderr)

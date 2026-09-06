@@ -1814,16 +1814,7 @@
     "unilateral": false
   },
   "SL Glute Bridge": {
-    "pattern": "hip-extension",
-    "muscles_primary": [
-      "glutes"
-    ],
-    "muscles_secondary": [
-      "hamstrings"
-    ],
-    "lift_family": null,
-    "competition": false,
-    "unilateral": true
+    "alias_of": "Single-leg Glute Bridge"
   },
   "SL Hip Thrust": {
     "pattern": "hip-extension",

@@ -23,7 +23,7 @@ The coach link also carries ?q= so clicking it answers the second unknown — wh
 Agent Builder accepts a pre-filled question in the URL.
 
     cd ~/Projects/loadout
-    source ~/Projects/ironstack-log/.env
+    set -a; source /path/to/your-workout-log/.env; set +a
     python3 ironstack/kibana/probe_links.py            # create + import
     python3 ironstack/kibana/probe_links.py --clean    # remove it
 
@@ -70,7 +70,7 @@ if D "works", the test is measuring something else.</div>
 def env(name: str) -> str:
     value = os.environ.get(name, "").strip().rstrip("/")
     if not value:
-        sys.exit(f"error: {name} is not set. `source ~/Projects/ironstack-log/.env`")
+        sys.exit(f"error: {name} is not set. `set -a; source /path/to/your-workout-log/.env; set +a`")
     return value
 
 

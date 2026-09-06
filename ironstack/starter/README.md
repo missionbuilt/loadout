@@ -181,8 +181,17 @@ once, in `sync-manifest.json`, with the reason for every file that is deliberate
 shared. `sync_check.py` reads that list and compares two checkouts:
 
 ```bash
-python sync_check.py --instance .          # from inside a copy of the template
+# from your instance repo, against a checkout of the public template
+python /path/to/loadout/ironstack/starter/sync_check.py \
+    --instance . \
+    --starter /path/to/loadout/ironstack/starter
 ```
+
+It compares two different checkouts and refuses to run if you point both at the same
+one. That refusal matters: `--starter` defaults to the folder the script lives in, so
+`--instance .` run from inside your own repo would have compared it against itself and
+then reported your workout logs as having "leaked" into the template, with instructions
+to copy them into a public repo. Give it both paths.
 
 The Loadout's own instance runs this in CI, so a fix that lands there and never reaches
 here fails while someone is still holding the change. If you have customized the

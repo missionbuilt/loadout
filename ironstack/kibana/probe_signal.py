@@ -5,7 +5,7 @@ Runs the ES|QL the three verdict cards will use, plus the distribution stats
 needed to pick band thresholds from Mike's own history rather than inventing
 them. Writes nothing, indexes nothing, touches no saved object.
 
-    cd ~/Projects/ironstack-log && source .env
+    cd /path/to/your-workout-log && set -a && source .env && set +a
     python ~/Projects/loadout/ironstack/kibana/probe_signal.py
 
 Paste the whole output back into the session.
@@ -22,7 +22,7 @@ import requests
 ENDPOINT = os.environ.get("ES_ENDPOINT", "").strip().rstrip("/")
 API_KEY = os.environ.get("ES_API_KEY", "").strip()
 if not ENDPOINT or not API_KEY:
-    sys.exit("error: ES_ENDPOINT and ES_API_KEY must be set. `cd ~/Projects/ironstack-log && source .env`")
+    sys.exit("error: ES_ENDPOINT and ES_API_KEY must be set. `cd /path/to/your-workout-log && set -a && source .env && set +a`")
 
 HEADERS = {"Authorization": f"ApiKey {API_KEY}", "Content-Type": "application/json"}
 

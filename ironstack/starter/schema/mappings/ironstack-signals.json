@@ -17,74 +17,17 @@
     "dynamic": "strict",
     "date_detection": false,
     "properties": {
-      "signal": {
-        "type": "keyword"
-      },
-      "computed_through": {
-        "type": "keyword"
-      },
-      "window_days": {
-        "type": "integer"
-      },
-      "muscle": {
-        "type": "keyword"
-      },
-      "sessions": {
-        "type": "integer"
-      },
-      "last_trained": {
-        "type": "keyword"
-      },
-      "first_trained": {
-        "type": "keyword"
-      },
-      "cadence_days": {
-        "type": "double"
-      },
-      "iso_week": {
-        "type": "keyword"
-      },
-      "week_end": {
-        "type": "keyword"
-      },
-      "month_s": {
-        "type": "keyword"
-      },
-      "heavy": {
-        "type": "integer"
-      },
-      "tot": {
-        "type": "integer"
-      },
-      "weeks_available": {
-        "type": "integer"
-      },
-      "heavy_per_training_day": {
-        "type": "double"
-      },
       "acwr": {
         "type": "double"
       },
       "acwr_band": {
         "type": "keyword"
       },
-      "monotony": {
-        "type": "double"
-      },
-      "chronic_days_trained": {
-        "type": "integer"
+      "acwr_gloss": {
+        "type": "keyword"
       },
       "acwr_off_layoff": {
         "type": "boolean"
-      },
-      "cycle": {
-        "type": "keyword"
-      },
-      "cycle_label": {
-        "type": "keyword"
-      },
-      "meet_date": {
-        "type": "keyword"
       },
       "attempts_made": {
         "type": "integer"
@@ -92,95 +35,59 @@
       "attempts_total": {
         "type": "integer"
       },
-      "meet_total_lb": {
-        "type": "double"
-      },
-      "weeks_out": {
-        "type": "integer"
-      },
-      "training_days": {
-        "type": "integer"
-      },
-      "tonnage_lb": {
-        "type": "double"
-      },
       "avg_working_rpe": {
         "type": "double"
       },
-      "top_pct": {
+      "block": {
+        "type": "keyword"
+      },
+      "block_role": {
+        "type": "keyword"
+      },
+      "cadence_days": {
         "type": "double"
       },
-      "projected_total_lb": {
-        "type": "double"
+      "chronic_days_trained": {
+        "type": "integer"
       },
-      "cum_weeks": {
+      "computed_through": {
+        "type": "keyword"
+      },
+      "cum_heavy": {
         "type": "integer"
       },
       "cum_tonnage_lb": {
         "type": "double"
       },
-      "cum_heavy": {
+      "cum_weeks": {
         "type": "integer"
+      },
+      "cycle": {
+        "type": "keyword"
+      },
+      "cycle_label": {
+        "type": "keyword"
       },
       "cycle_role": {
         "type": "keyword"
       },
-      "week_state": {
+      "expected_lb": {
+        "type": "double"
+      },
+      "first_trained": {
         "type": "keyword"
       },
-      "block": {
-        "type": "keyword"
-      },
-      "ordinal": {
-        "type": "integer"
-      },
-      "block_role": {
-        "type": "keyword"
-      },
-      "main_reps": {
+      "heavy": {
         "type": "integer"
       },
       "heavy_per_session": {
         "type": "double"
       },
-      "share_pct": {
+      "heavy_per_training_day": {
         "type": "double"
-      },
-      "tonnage_per_session": {
-        "type": "double"
-      },
-      "rankable": {
-        "type": "boolean"
-      },
-      "peers": {
-        "type": "integer"
-      },
-      "peer_heavy_per_session": {
-        "type": "double"
-      },
-      "peer_heavy_per_session_full": {
-        "type": "double"
-      },
-      "peer_window_sessions": {
-        "type": "integer"
-      },
-      "peer_share_pct": {
-        "type": "double"
-      },
-      "peer_tonnage_per_session": {
-        "type": "double"
-      },
-      "peer_from": {
-        "type": "keyword"
-      },
-      "peer_to": {
-        "type": "keyword"
       },
       "inol_hardest": {
         "type": "double"
-      },
-      "inol_hardest_lift": {
-        "type": "keyword"
       },
       "inol_hardest_band": {
         "type": "keyword"
@@ -188,41 +95,140 @@
       "inol_hardest_gloss": {
         "type": "keyword"
       },
-      "acwr_gloss": {
+      "inol_hardest_lift": {
         "type": "keyword"
       },
-      "tag": {
+      "iso_week": {
         "type": "keyword"
       },
-      "total": {
+      "last_trained": {
+        "type": "keyword"
+      },
+      "layoff_min_training_days": {
         "type": "integer"
       },
-      "recent": {
+      "load_window_end": {
+        "type": "keyword"
+      },
+      "main_reps": {
         "type": "integer"
       },
-      "prior": {
-        "type": "integer"
+      "meet_date": {
+        "type": "keyword"
       },
-      "notes_total": {
-        "type": "integer"
+      "meet_total_lb": {
+        "type": "double"
+      },
+      "monotony": {
+        "type": "double"
+      },
+      "month_s": {
+        "type": "keyword"
+      },
+      "muscle": {
+        "type": "keyword"
       },
       "notes_from": {
-        "type": "keyword"
-      },
-      "notes_to": {
         "type": "keyword"
       },
       "notes_span_days": {
         "type": "integer"
       },
-      "platformed_pct": {
+      "notes_to": {
+        "type": "keyword"
+      },
+      "notes_total": {
+        "type": "integer"
+      },
+      "ordinal": {
+        "type": "integer"
+      },
+      "peer_from": {
+        "type": "keyword"
+      },
+      "peer_heavy_per_session": {
+        "type": "double"
+      },
+      "peer_heavy_per_session_full": {
         "type": "double"
       },
       "peer_pct": {
         "type": "double"
       },
-      "expected_lb": {
+      "peer_share_pct": {
         "type": "double"
+      },
+      "peer_to": {
+        "type": "keyword"
+      },
+      "peer_tonnage_per_session": {
+        "type": "double"
+      },
+      "peer_window_sessions": {
+        "type": "integer"
+      },
+      "peers": {
+        "type": "integer"
+      },
+      "platformed_pct": {
+        "type": "double"
+      },
+      "prior": {
+        "type": "integer"
+      },
+      "projected_total_lb": {
+        "type": "double"
+      },
+      "rankable": {
+        "type": "boolean"
+      },
+      "recent": {
+        "type": "integer"
+      },
+      "sessions": {
+        "type": "integer"
+      },
+      "share_pct": {
+        "type": "double"
+      },
+      "signal": {
+        "type": "keyword"
+      },
+      "tag": {
+        "type": "keyword"
+      },
+      "tonnage_lb": {
+        "type": "double"
+      },
+      "tonnage_per_session": {
+        "type": "double"
+      },
+      "top_pct": {
+        "type": "double"
+      },
+      "tot": {
+        "type": "integer"
+      },
+      "total": {
+        "type": "integer"
+      },
+      "training_days": {
+        "type": "integer"
+      },
+      "week_end": {
+        "type": "keyword"
+      },
+      "week_state": {
+        "type": "keyword"
+      },
+      "weeks_available": {
+        "type": "integer"
+      },
+      "weeks_out": {
+        "type": "integer"
+      },
+      "window_days": {
+        "type": "integer"
       }
     }
   }

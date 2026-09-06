@@ -5,6 +5,11 @@
     export ES_API_KEY=...          # never paste a key into a chat; set it in your shell
     python kibana/import.py        # imports kibana/dashboards.ndjson, overwriting by id
 
+Refuses an artifact with no ASK THE COACH or no projected-total reference line unless
+--no-coach / --no-meet-max says so, and prints which of the two the file contains and
+when it was built. The build has the same guards; this one is here because the build
+refusing is not the same as the import not happening.
+
 Uses the saved objects import API with overwrite=true, so re-importing after
 `build_dashboards.py` is safe: the fixed ids mean drilldowns and bookmarks
 keep working. Works on Elastic Cloud Serverless and self-managed Kibana.
@@ -18,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -47,11 +53,56 @@ def env_secret(name: str) -> str:
     return value
 
 
+def features(raw: str) -> tuple[bool, bool]:
+    """What the artifact on disk actually contains, read from the artifact.
+
+    Not from the environment. The environment is what the BUILD reads, and the two are
+    only the same when the build succeeded - which is exactly the case that failed on
+    2026-09-06: `build_dashboards.py` refused for an unset IRONSTACK_MEET_MAX_LB, wrote
+    nothing, and the `import.py` on the next line of the same paste imported the stale
+    file underneath it. Two commands, one intention, and only the first one had a guard.
+    """
+    # Not "is there a reference line anywhere" - the first version of this test said
+    # yes on the public artifact, because History's ACWR chart carries a BASELINE line of
+    # its own. The projected-total title is the one string build_dashboards.py writes
+    # only when IRONSTACK_MEET_MAX_LB is set, so it is the thing to look for.
+    return ("ASK THE COACH" in raw, "AGAINST YOUR MEET BEST" in raw)
+
+
 def main() -> None:
     kibana = env_url("KIBANA_URL")
     api_key = env_secret("ES_API_KEY")
     if not NDJSON.exists():
         sys.exit(f"error: {NDJSON} not found. Run kibana/build_dashboards.py first.")
+
+    raw = NDJSON.read_text()
+    has_coach, has_ref = features(raw)
+    stamp = datetime.fromtimestamp(NDJSON.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+    print(f"importing {NDJSON.name} (built {stamp}): ASK THE COACH "
+          + ("on" if has_coach else "OFF")
+          + " | projected-total reference line " + ("on" if has_ref else "OFF"))
+
+    # The same refusal shape as the build, one step later, because this is the step that
+    # actually reaches the lifter. Both opt-outs stay legitimate - the committed artifact
+    # is the public one and importing it deliberately is a real thing to want.
+    missing = []
+    if not has_coach and "--no-coach" not in sys.argv[1:]:
+        missing.append(("ASK THE COACH", "ASK THE COACH",
+                        "--no-coach", "IRONSTACK_COACH_URL"))
+    if not has_ref and "--no-meet-max" not in sys.argv[1:]:
+        missing.append(("reference line on the projected-total chart",
+                        "the projected-total reference line",
+                        "--no-meet-max", "IRONSTACK_MEET_MAX_LB"))
+    if missing:
+        lines = [f"error: {NDJSON.name} has no "
+                 + " and no ".join(m[0] for m in missing) + ", so importing it"]
+        lines.append("       would take " + ("them" if len(missing) > 1 else "it")
+                     + " off every dashboard in this deployment.")
+        for _short, long, flag, var in missing:
+            lines.append(f"       Set {var} and re-run build_dashboards.py, or pass {flag}")
+            lines.append(f"       here if importing without {long} is what you meant.")
+        lines.append("       Nothing was imported.")
+        sys.exit("\n".join(lines))
 
     resp = requests.post(
         f"{kibana}/api/saved_objects/_import",

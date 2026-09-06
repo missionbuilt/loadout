@@ -13,6 +13,9 @@ index_workouts.py / index_meets.py with deterministic ids:
     python ingest/setup_indices.py --recreate workout-sessions
     python ingest/index_workouts.py
 
+Naming the indices is required. `--recreate --all` is how you say "every one of them",
+and there is no shorter spelling: it deletes seven indices.
+
 Semantic search (ELSER via semantic_text) is optional by design:
   ES_SEMANTIC=auto  (default) try semantic mappings, fall back to plain
   ES_SEMANTIC=on    require semantic mappings, fail loudly if unsupported
@@ -170,6 +173,43 @@ def main() -> None:
                  f"script has no other use for an index name.\n"
                  f"       Run it with no arguments to update every mapping, or with "
                  f"--recreate {' '.join(named)} to rebuild those.")
+    # `--recreate` alone deleted all seven indices and rebuilt them, with no names, no
+    # prompt and no summary of what was about to go. It is the most destructive thing in
+    # the repo and it was also the shortest thing to type - one dropped index name away
+    # from the command the docstring shows. Everything is rebuildable from workouts/ and
+    # meets/, but rebuilding is a full reindex of 643 logs, and if the repo is not the
+    # thing you meant to rebuild from it is not rebuildable at all. So the whole-cluster
+    # case has to be asked for by name.
+    if recreate_all and not named and "--all" not in argv:
+        sys.exit(f"error: --recreate with no index names would delete and rebuild all "
+                 f"{len(INDICES)} indices:\n"
+                 f"         {', '.join(INDICES)}\n"
+                 f"       Name the ones you mean:\n"
+                 f"         python ingest/setup_indices.py --recreate workout-sets\n"
+                 f"       or say so explicitly:\n"
+                 f"         python ingest/setup_indices.py --recreate --all\n"
+                 f"       Either way, follow it with index_workouts.py and "
+                 f"index_meets.py: a recreated index is an empty one until you do.")
+
+    unknown_flags = [a for a in argv if a.startswith("--") and a not in ("--recreate", "--all")]
+    if unknown_flags:
+        sys.exit(f"error: unknown option(s): {', '.join(unknown_flags)}\n"
+                 f"       This script takes --recreate and --all.")
+    # `--all` has exactly one meaning: "yes, --recreate really did mean all of them".
+    # On its own it was accepted, changed nothing about what the run did, and the run
+    # then printed "ok" for all seven indices - so somebody who meant
+    # `--recreate --all` and dropped the `--recreate` got a plain mapping update
+    # reported in the same words as the rebuild they asked for, and went away believing
+    # the indices had been rebuilt. Nothing destructive happened, which is precisely why
+    # it was invisible. A flag that cannot affect this run is an error, not a no-op.
+    if "--all" in argv and not recreate_all:
+        sys.exit(f"error: --all only means anything with --recreate, and this run has "
+                 f"no --recreate in it.\n"
+                 f"       It would have updated every mapping in place and reported "
+                 f"success, which is not what --all asks for.\n"
+                 f"       To rebuild all {len(INDICES)} indices:\n"
+                 f"         python ingest/setup_indices.py --recreate --all\n"
+                 f"       To update every mapping in place, pass no arguments at all.")
 
     endpoint = env_url("ES_ENDPOINT")
     # Never rstrip("/") an API key: "/" is in the base64 alphabet, so a key ending in

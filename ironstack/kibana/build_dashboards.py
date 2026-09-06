@@ -32,21 +32,38 @@ OUT = Path(__file__).resolve().parent / "dashboards.ndjson"
 
 # --------------------------------------------------------------------------- Iron Log
 
-CHALK = "#ebe5d8"
-CHALK_DIM = "#a8a094"
-CHALK_FAINT = "#5a564f"
-STEEL = "#7a7873"
-RULE = "#2a2622"
-PANEL = "#1f1c19"
-BLOOD = "#a8211a"  # one accent per dashboard, never two unrelated things
+# One palette, imported. This file used to carry its own copy of six tokens, four of
+# which nothing read - and the fifth, STEEL, DISAGREED with templates.STEEL: #7a7873 here
+# against #8f8b84 there. Only the templates copy is contrast-checked (verify_liquid's
+# section_contrast asserts 4.5:1 on both grounds), so the copy nobody checked was the
+# darker one, and any Lens panel that had reached for it would have shipped text at 3.9:1
+# past a suite that believed it was checking the colour.
+CHALK = tpl.CHALK
+CHALK_DIM = tpl.DIM
+BLOOD = tpl.BLOOD  # one accent per dashboard, never two unrelated things
 
-PHASES = [  # order is the training arc, and the tones are a luminance ramp along it
-    # The previous three (#5a564f / #a8a094 / #7a7873) were all mid-greys: the legend
-    # promised a split you could not see on the bars.
-    ("hypertrophy", "Hypertrophy", "#4a463f"),
-    ("strength", "Strength", "#8f8a80"),
-    ("peaking", "Peaking", "#e4ddce"),
-]
+# There is no PHASES constant any more, and that is the point.
+#
+# It used to be [hypertrophy, strength, peaking] with a luminance ramp along it, and
+# block_timeline() turned it into three FILTERED metric columns - one per phase, each a
+# literal `program.phase: "hypertrophy"` compiled into the saved object. But program.phase
+# is free text: it is whatever the lifter types in their own shorthand. A lifter running
+# base / accumulation / realization matched none of the three, so both block timelines
+# drew nothing, under a legend naming three phases they had never used - and one of those
+# two charts is Overview's only door into the Session page. The vocabulary of one author's
+# programming was compiled into a public artifact exactly the way his meet total and his
+# log's start month were.
+#
+# Lens CAN split on the field here, so it does: one metric, split by a terms bucket on
+# program.phase, with missingBucket and otherBucket both on so a session with a blank
+# phase or a twenty-first phase name still draws a bar and still opens. The legend is
+# then whatever the lifter actually wrote, and there is no cold start to design because
+# there is no state where the chart is empty but the log is not.
+#
+# What that costs is the fixed colour ramp: a split series takes a Lens palette, and a
+# palette cannot know which of a stranger's phase names is the heavy one. "gray" is the
+# same neutral ramp the Overview e1RM stack already uses for its lift split. Colour that
+# means something is worth less than a chart that has the reader's own data on it.
 
 # The Overview chart's oxblood reference line and its title. A Lens reference line is a
 # static number baked into a saved object and a panel title is a string, so neither can
@@ -108,6 +125,10 @@ MIGRATION = {"coreMigrationVersion": "8.8.0"}
 
 FMT_INT = {"id": "number", "params": {"decimals": 0}}
 FMT_1 = {"id": "number", "params": {"decimals": 1}}
+# INOL is banded at 2 / 3 / 4 and the verdict card prints it to two places. At one
+# place the evidence table under the card rounded 0.75 to 0.7, so a reader checking
+# the card against its own table got a different number back.
+FMT_2 = {"id": "number", "params": {"decimals": 2}}
 
 
 def _col(label, op, dtype, scale, field=None, bucketed=False, params=None, **extra):
@@ -126,10 +147,8 @@ def _col(label, op, dtype, scale, field=None, bucketed=False, params=None, **ext
     return col
 
 
-def count(label="COUNT", filt=None, fmt=None):
+def count(label="COUNT", fmt=None):
     c = _col(label, "count", "number", "ratio", "___records___", params={"emptyAsNull": True})
-    if filt:
-        c["filter"] = {"query": filt, "language": "kuery"}
     if fmt:
         c["params"]["format"] = fmt
     return c
@@ -145,7 +164,7 @@ def metric(op, field, label, filt=None, fmt=None):
 
 
 
-def last(field, label, dtype="string", sort="date", fmt=None, arrays=False):
+def last(field, label, dtype="string", sort="date", fmt=None):
     """Last value by `sort`.
 
     An absent value renders as the literal string "(null)" in a Lens datatable and there
@@ -161,19 +180,29 @@ def last(field, label, dtype="string", sort="date", fmt=None, arrays=False):
     and show the value where it is actually present.
     """
     scale = "ratio" if dtype == "number" else "ordinal"
-    c = _col(label, "last_value", dtype, scale, field, params={"sortField": sort, "showArrayValues": arrays})
+    c = _col(label, "last_value", dtype, scale, field, params={"sortField": sort, "showArrayValues": False})
     if fmt:
         c["params"]["format"] = fmt
     return c
 
 
-def terms(field, label, size=10, dtype="string", order="alphabetical", direction="asc", by_col=None):
+def terms(field, label, size=10, dtype="string", direction="asc", by_col=None,
+          missing=False, other=False):
+    """A terms bucket. `missing` and `other` decide what happens to the rows it does not name.
+
+    Both default to off, which is right for an x axis: a bar labelled "(missing value)"
+    on a chart of sessions is noise. They exist for a SPLIT over a field the lifter fills
+    in themselves, where off is not a display choice but a filter - a session whose
+    program.phase is blank, or whose phase fell outside the top N, is dropped from the
+    chart entirely. The block timeline is Overview's only door into the Session page, so
+    a session it cannot colour still has to appear on it.
+    """
     order_by = {"type": "column", "columnId": by_col} if by_col else {"type": "alphabetical", "fallback": True}
     return _col(
         label, "terms", dtype, "ordinal", field, bucketed=True,
         params={
             "size": size, "orderBy": order_by, "orderDirection": direction,
-            "otherBucket": False, "missingBucket": False, "parentFormat": {"id": "terms"},
+            "otherBucket": other, "missingBucket": missing, "parentFormat": {"id": "terms"},
             "include": [], "exclude": [], "includeIsRegex": False, "excludeIsRegex": False,
         },
     )
@@ -187,16 +216,6 @@ def date_hist(field, label="DATE", interval="auto"):
 def static(value, label):
     return _col(label, "static_value", "number", "ratio", bucketed=False,
                 params={"value": str(value)}, isStaticValue=True, references=[])
-
-
-def phase_columns(op, field, fmt=FMT_INT):
-    """One metric column per phase (filtered), so phase colors are fixed via yConfig."""
-    cols, colors = {}, {}
-    for key, label, color in PHASES:
-        cid = f"phase-{key}"
-        cols[cid] = metric(op, field, label.upper(), filt=f'program.phase: "{key}"', fmt=fmt)
-        colors[cid] = color
-    return cols, colors
 
 
 # --------------------------------------------------------------------------- layers
@@ -299,11 +318,11 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
     return lens(id_, title, "lnsXY", vis, layers, query=query)
 
 
-def table(id_, title, dv, columns, sort=None, direction="asc", hidden=(), query="", page=20,
+def table(id_, title, dv, columns, sort=None, direction="asc", query="", page=20,
           row_height="single"):
     vis = {
         "layerId": "l", "layerType": "data",
-        "columns": [{"columnId": c, "alignment": "left", **({"hidden": True} if c in hidden else {})} for c in columns],
+        "columns": [{"columnId": c, "alignment": "left"} for c in columns],
         "rowHeight": row_height, "headerRowHeight": "single",
         "paging": {"size": page, "enabled": True},
     }
@@ -396,7 +415,23 @@ def windowed(query: str, since: str = "now-1y") -> str:
     return f"{query} and {clause}" if query else clause
 
 
-NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mindset"]
+# Six, not seven. `lift` is a DRILLDOWN DESTINATION and nothing else, which is what its
+# own description has always said ("Arrives filtered on lift_slug", "Click a lift anywhere
+# to land here"), and the nav strip was contradicting it by offering an unfiltered door.
+#
+# The page deliberately carries no lift_slug control - a control and a drilldown on the
+# same field empty the page - so an arrival with no filter narrows nothing: li-header
+# named one lift, li-signal followed whichever lift the newest session used, and li-e1rm,
+# li-zones and li-sets drew every lift in the range, with the "your best in this range"
+# reference line sitting at the global max. A stranger clicking LIFT got a header saying
+# COMP DEADLIFT over charts of everything they had ever lifted.
+#
+# Closing the door is the fix; it does not make the page unreachable, because every path
+# that is SUPPOSED to reach it (Overview's projected-total stack, and any lift on any
+# chart) carries a lift_slug and still does. A bookmark or a back button can still land
+# there cold, so li-header and li-signal say so when they do - see LIFT_HEADER and
+# SIGNAL_LIFT in templates.py, and Q["lift_header"]'s LIMIT 2, which is how they know.
+NAV_ORDER = ["overview", "program", "session", "history", "meets", "mindset"]
 
 # Custom panels cannot navigate (no <a href>, no scripts in the sandbox), so a Links
 # panel is the only door. It was once three grouped panels, spaced, to show hierarchy in
@@ -420,7 +455,11 @@ NAV_ORDER = ["overview", "program", "session", "lift", "history", "meets", "mind
 # The URL is deployment-specific, like ES_ENDPOINT, so it comes from the environment
 # rather than the repo: a starter user's Kibana is not this one. Unset, the panel is
 # simply not built and the nav takes the full width.
-COACH_URL = os.environ.get("IRONSTACK_COACH_URL", "").strip()
+# Read once, in templates, because the CARDS need the same answer this file does: three
+# strings on Mindset pointed at "the coach" in a build that has none. templates applies
+# the same --check neutralisation at import time, which is when the card strings are
+# baked, so the two cannot drift.
+COACH_URL = tpl.COACH_URL
 
 # The hosts a committed dashboards.ndjson is allowed to point at. Everything else is
 # somebody's real deployment. One sat in this public repo, seven times over, from the
@@ -494,11 +533,11 @@ def coach_link(current: str) -> Inline:
     })
 
 
-def links(current: str, group: str = "all", keys: list[str] | None = None) -> Inline:
+def links(current: str) -> Inline:
     """Kibana Links panel: the app nav. Carries neither filters nor time — each page is
     entered on its own terms."""
     items, refs = [], []
-    for key in (keys or NAV_ORDER):
+    for key in NAV_ORDER:
         link_id = uid("nav", current, key)
         items.append({"type": "dashboardLink", "label": key.upper() if key != current else f"[ {key.upper()} ]",
                       # use_time_range stays False on purpose. Every dashboard sets its
@@ -517,7 +556,9 @@ def links(current: str, group: str = "all", keys: list[str] | None = None) -> In
                       "options": {"open_in_new_tab": False, "use_time_range": False, "use_filters": False},
                       "destinationRefName": f"link_{link_id}_dashboard"})
         refs.append({"name": f"link_{link_id}_dashboard", "type": "dashboard", "id": DASH[key]})
-    return Inline(f"nav-{current}-{group}", "links", {"title": "", "layout": "horizontal", "links": items,
+    # The key keeps its "-all" tail: it feeds uid(), and changing it would renumber
+    # every nav panel in the artifact for no reader-visible gain.
+    return Inline(f"nav-{current}-all", "links", {"title": "", "layout": "horizontal", "links": items,
                                                       "hidePanelTitles": True}, refs)
 
 
@@ -525,7 +566,12 @@ class Dashboard:
     """Collects panels row by row on Kibana's 48-column grid, in the dashboard format this
     Kibana writes itself (typeMigrationVersion 10.3.0): by-reference panels are `vis` /
     `legacy_vis` / `map` with a `{panelIndex}:savedObjectRef` reference; by-value panels carry
-    their config inline; drilldowns live in `embeddableConfig.drilldowns`."""
+    their config inline; drilldowns live in `enhancements.dynamicActions.events`.
+
+    NOT `embeddableConfig.drilldowns`. That was this repo's own invention, embeddableConfig
+    is a free-form blob so Kibana stored all ten of them and read none, and check() now
+    fails the build over that exact key - which this docstring went on recommending for a
+    day after the fix landed."""
 
     PANEL_TYPE = {"lens": "vis", "visualization": "legacy_vis", "map": "map"}
 
@@ -649,6 +695,13 @@ class Dashboard:
             panels = {}
             for order, control in enumerate(self.controls):
                 dv, field, label = control[0], control[1], control[2]
+                if dv not in DV:
+                    # A named error, not a KeyError two frames down. The README used to
+                    # promise check() caught this; check() never got the chance, because
+                    # the build died here first with a bare traceback.
+                    sys.exit(f"error: the {label} control on {self.key} asks for data "
+                             f"view {dv!r},\n       which is not built. Add it to DV or "
+                             "point the control at one that is.\n       Nothing was written.")
                 default = list(control[3]) if len(control) > 3 else []
                 cid = uid(self.id, "control", field)
                 # Single select. Two lifts checked at once fed one blended verdict to the
@@ -699,10 +752,19 @@ Q = {
     "session_tiles": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP duration_min, streak_day, avg_working_rpe, totals.*, days_to_meet',
     "top_set": ('FROM workout-sets '
                 '| WHERE set_type == "working" AND weight_lb > 0 AND (rep_unit IS NULL OR rep_unit == "reps") '
-                '| SORT @timestamp DESC, weight_lb DESC, reps DESC '
+                # main_rank, not a WHERE: a session with no main-lift work still needs a top set.
+                # Sorted on weight alone the hero was whatever was heaviest that day, which on
+                # 2026-05-13 was a 300 lb calf raise standing over a session of squats. The
+                # timestamp stays the primary key so the historical scan below is unaffected.
+                '| EVAL main_rank = CASE(exercise.category == "main", 0, 1) '
+                '| SORT @timestamp DESC, main_rank ASC, weight_lb DESC, reps DESC '
                 '| LIMIT 900 '
                 '| EVAL date_s = DATE_FORMAT("MMM d", date) '
-                '| KEEP session_id, date_s, lift_slug, exercise.name, weight_lb, reps, rpe'),
+                # est_e1rm and its confidence: the card compares two sets at different rep
+                # counts and e1RM is the only thing that makes them comparable. Projected
+                # rather than recomputed in Liquid - the model is an RPE lookup table.
+                '| KEEP session_id, date_s, lift_slug, exercise.name, weight_lb, reps, rpe, '
+                'est_e1rm, e1rm_confidence'),
     "conditions": 'FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP environment.*, time_of_day',
     "performance": 'FROM workout-sets | SORT @timestamp DESC, seq ASC | LIMIT 500 | EVAL gear_s = MV_CONCAT(gear, " / ") | KEEP session_id, set_number, exercise.name, exercise.category, set_type, load_type, weight_lb, reps, rep_unit, distance_ft, rpe, gear_s, notes',
     # WHERE phase != "watch": WRAP_CARD renders watch items in its own block, so
@@ -714,9 +776,26 @@ Q = {
     # COMPETITION DEADLIFT for one lift and COMP BENCH for another while both pages
     # claimed to be the same kind of page. Aliases already resolve onto one canonical,
     # so the name now matches the slug rather than the keystrokes.
-    "lift_header": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date), name = MAX(lift_name) BY lift_slug | SORT last_day DESC | LIMIT 1 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
+    # LIMIT 2, not 1, and the second row is never rendered. It is how the header knows
+    # whether this page was entered on a lift: with a lift_slug filter exactly one group
+    # comes back, without one at least two do (for any lifter who trains more than a
+    # single competition lift), and a custom-content panel has no other way to see the
+    # filter bar. LIMIT 1 threw that away and the cold start was unwritable.
+    "lift_header": 'FROM workout-sets | WHERE set_type == "working" AND is_competition_lift == true | EVAL e1c = CASE(e1rm_confidence == "low", 0.0, est_e1rm) | STATS e1 = MAX(e1c), top = MAX(weight_lb), rpe = AVG(rpe), n = COUNT(*), sessions = COUNT_DISTINCT(session_id), last_day = MAX(date), name = MAX(lift_name) BY lift_slug | SORT last_day DESC | LIMIT 2 | EVAL last_s = DATE_FORMAT("MMM d, yyyy", last_day)',
     "meet_cards": 'FROM workout-meets | EVAL m = CASE(made, 1, 0) | STATS meets = COUNT_DISTINCT(meet_id), total_kg = MAX(total_kg), total_lb = MAX(total_lb), dots = MAX(dots), made = SUM(m), attempts = COUNT(*)',
     "meet_list": 'FROM workout-meets | EVAL lift_no = CASE(lift == "squat", 1, lift == "bench", 2, 3), date_s = DATE_FORMAT("MMM d, yyyy", date) | SORT date DESC, lift_no ASC, attempt_no ASC | LIMIT 300 | KEEP meet_id, date_s, total_kg, dots, bodyweight_kg, lift, attempt_no, weight_kg, made',
+    # The coverage line under each intensity-zone chart. `zoned` carries the set's reps
+    # when it has a zone and 0.0 when it does not, so the two sums are directly
+    # comparable and the card can say "n of m" without a second query.
+    "zone_cov_main": ('FROM workout-sets '
+                      '| WHERE set_type == "working" AND exercise.category == "main" '
+                      '| EVAL zoned = CASE(prilepin_zone IS NOT NULL, reps, 0.0) '
+                      '| STATS zr = SUM(zoned), tr = SUM(reps) | KEEP zr, tr'),
+    # The Lift page charts every working set of the lift it was entered on, not just
+    # the main-lift ones, so its coverage line has to count the same population.
+    "zone_cov_lift": ('FROM workout-sets | WHERE set_type == "working" '
+                      '| EVAL zoned = CASE(prilepin_zone IS NOT NULL, reps, 0.0) '
+                      '| STATS zr = SUM(zoned), tr = SUM(reps) | KEEP zr, tr'),
     "recent_notes": 'FROM workout-notes | SORT @timestamp DESC, order ASC | LIMIT 12 | EVAL date_s = DATE_FORMAT("MMM d", date), tags_s = MV_CONCAT(tags, "|") | KEEP date_s, phase, exercise.name, text, tags_s',
     # Signal cards. NOTE: `first` and `last` are reserved words in ES|QL — an alias
     # named either fails with "no viable alternative at input". That is what broke
@@ -740,21 +819,50 @@ Q = {
     # Still reachable: a filter. A KQL query on a field this index does not have matches
     # nothing and empties the card, so the zero-row state names that possibility instead of
     # claiming there is no data.
+    # training_days and heavy_per_training_day are not decoration: an open week has
+    # fewer days in it than the weeks it is ranked against, and the card ranks the rate
+    # while week_state is in-progress. They were emitted by derive.py and left out of
+    # this KEEP for a day, which left the card ranking raw counts with a "still open"
+    # caption underneath - a note where a correction was needed.
     "sig_intensity": ('FROM ironstack-signals | WHERE signal == "intensity" '
                       '| SORT week_end DESC | LIMIT 13 '
                       '| KEEP iso_week, week_end, week_state, weeks_available, '
-                      'heavy, tot, computed_through'),
+                      'training_days, heavy_per_training_day, heavy, tot, '
+                      'computed_through'),
     # acwr_off_layoff and chronic_days_trained are read by the comeback branch in
     # templates._LOAD_BODY. They were not in this KEEP, so `off` was always nil, the
     # branch could not fire, and eight tests in verify_liquid passed over the gap because
     # their fixture invented both columns. That class of bug is now linted in check().
+    #
+    # layoff_min_training_days is the bar chronic_days_trained is judged against, and it
+    # is the lifter's own rather than a constant, so the card could not name it while it
+    # lived only in derive.py. It is on the load row now, so the sentence that said
+    # "Only N of the last 28 days" without saying under what finally can.
+    #
+    # load_window_end and week_end are BOTH projected, and the card is only interesting
+    # because they differ: week_end is the last day trained, load_window_end is the day
+    # the 7- and 28-day windows were measured back from (the week's own end, or today
+    # while it is open). That gap is why the ratio moves on a rest day, and until derive
+    # carried the second one onto this row the card could only state it as a rule.
+    # keyword, not date, on both: ironstack-signals deliberately carries no date-typed
+    # field, because that is what stops the dashboard time picker re-scoping a verdict.
+    # So they arrive as strings and are compared as strings, which is exact for ISO dates
+    # and needs no parsing in a template.
     "sig_load": ('FROM ironstack-signals | WHERE signal == "load" '
                  '| SORT week_end DESC | LIMIT 200 '
-                 '| KEEP iso_week, week_end, month_s, acwr, acwr_band, monotony, '
-                 'acwr_off_layoff, chronic_days_trained, computed_through'),
+                 '| KEEP iso_week, week_end, load_window_end, month_s, acwr, acwr_band, '
+                 'monotony, acwr_off_layoff, chronic_days_trained, '
+                 'layoff_min_training_days, computed_through'),
+    # `rankable` is the INDEXER's answer to "can this group's gap be read", and the card
+    # honours it rather than re-deriving one - the same rule weeks_available established
+    # on the intensity card. It is projected now because a drift row can arrive with no
+    # cadence_days at all, and "no cadence" and "cadence too unstable to rank" are the
+    # same verdict from the card's side but only the indexer can tell them apart. Absent,
+    # the card falls back to its own test, so an older index still reads correctly.
     "sig_drift": ('FROM ironstack-signals | WHERE signal == "drift" '
                   '| SORT last_trained ASC | LIMIT 40 '
-                  '| KEEP muscle, sessions, last_trained, cadence_days, computed_through'),
+                  '| KEEP muscle, sessions, last_trained, cadence_days, rankable, '
+                  'computed_through'),
     # SORT cycle DESC so the newest meets win the LIMIT rather than the oldest, and
     # weeks_out DESC so a cycle's rows arrive furthest-out first - the card reads the
     # last closed row it sees as the most recent week and depends on that order.
@@ -825,29 +933,27 @@ FROM_CLAUSE = re.compile(r"\bFROM\s+([A-Za-z0-9_,.*-]+)")
 
 # ---------------------------------------------------------------- timezone
 #
-# Every DATE_FORMAT here used to format in UTC, so a session logged at 8pm on Sunday in
-# Denver printed as Monday on every card that named a date. ES|QL's DATE_FORMAT takes no
-# timezone parameter - the only lever either engine offers is shifting the instant before
-# it is formatted - which is why IRONSTACK_TZ is a fixed offset and not an IANA zone.
-# templates.tz_offset_seconds owns the parsing; Liquid's own "now" arithmetic is shifted
-# by the same number through the $TZ_OFF token.
+# IRONSTACK_TZ shifts Liquid's "now" arithmetic, through the $TZ_OFF token, and NOTHING
+# ELSE. In particular it must never touch a DATE_FORMAT in a query here.
 #
-# Applied here, once, over the whole of Q rather than at each of the eight call sites: a
-# ninth DATE_FORMAT written next month is covered without anyone remembering to.
+# It briefly did, and the reasoning was wrong in a way worth writing down. The premise
+# was "a session logged at 8pm Sunday in Denver prints as Monday", which is a real bug
+# about instants - but every DATE_FORMAT below formats a CALENDAR DATE, never an
+# instant: `date`, `program.meet_date`, `MAX(date)`. Those are the lifter's own typed
+# YYYY-MM-DD, indexed at midnight UTC, and already correct. Subtracting an offset from
+# midnight moves them to the previous day, so a session logged 2026-09-05 rendered
+# "Fri Sep 4" for every user west of Greenwich - and rendered correctly east of it,
+# because midnight plus five and a half hours is still the same day. Silently right in
+# India, silently wrong in Denver, in the feature the README tells you to configure.
+#
+# `@timestamp` is the field that IS an instant, and index_workouts.timestamp_for already
+# writes it with the session's own offset. It is never formatted here, which is why
+# there was never anything to fix. check() enforces both halves of that: no DATE_FORMAT
+# may name @timestamp, and none may carry a seconds shift.
 
-DATE_FORMAT_CALL = re.compile(r'DATE_FORMAT\("([^"]+)",\s*([A-Za-z0-9_.@]+)\)')
-
-
-def with_timezone(query: str) -> str:
-    if tpl.TZ_OFFSET_SEC == 0:
-        return query
-    sign = "+" if tpl.TZ_OFFSET_SEC > 0 else "-"
-    secs = abs(tpl.TZ_OFFSET_SEC)
-    return DATE_FORMAT_CALL.sub(
-        lambda m: f'DATE_FORMAT("{m.group(1)}", {m.group(2)} {sign} {secs} seconds)', query)
-
-
-Q = {k: with_timezone(v) for k, v in Q.items()}
+DATE_FORMAT_CALL = re.compile(r'DATE_FORMAT\("([^"]+)",\s*([A-Za-z0-9_.@]+)\s*\)')
+DATE_FORMAT_ARG = re.compile(r'DATE_FORMAT\("[^"]+",\s*([A-Za-z0-9_.@]+)')
+DATE_FORMAT_SHIFTED = re.compile(r'DATE_FORMAT\("[^"]+",\s*[A-Za-z0-9_.@]+\s*[+-]\s*\d+\s*second')
 
 
 # --------------------------------------------------------------------------- shared Lens panels
@@ -878,10 +984,30 @@ LIFT_URL = (
 
 
 def block_timeline(id_, title="BLOCK TIMELINE", query=""):
-    cols, colors = phase_columns("sum", "totals.tonnage_lb")
-    columns = {"x": terms("session_id", "SESSION", size=300), **cols}
-    return xy(id_, title, "bar_stacked", "sessions", columns, "x", list(cols), colors=colors,
-              query=query)
+    """Every session as a bar, coloured by whatever the lifter calls the phase.
+
+    The split is the field, not a fixed column set - see the note where PHASES used to
+    be. size=20 with otherBucket on is belt and braces: twenty distinct phase names is
+    already more vocabulary than a program has, and anything past it lands in Other
+    rather than falling off the chart and taking the drilldown with it.
+
+    The drilldown is unaffected by the split. SESSION_URL reads {{event.value}}, which
+    is the FIRST point of the click - the x dimension - and x is still session_id;
+    LIFT_URL's comment records the same ordering from the other side.
+    """
+    columns = {
+        # Not larger. 1000 was tried on 2026-09-06 to fix an apparent truncation on
+        # Overview and the browser refuted it: that panel stops a year back because
+        # windowed() scopes it to now-1y, and the only thing a bigger bucket did was pull
+        # in sessions with no program.phase, which missingBucket renders as the literal
+        # "(null)" and which pushed the split to four series - moving the gray palette off
+        # the beige ramp and onto blue-grey. Reverted, and recorded so it is not tried again.
+        "x": terms("session_id", "SESSION", size=300),
+        "phase": terms("program.phase", "PHASE", size=20, missing=True, other=True),
+        "m": metric("sum", "totals.tonnage_lb", "TONNAGE", fmt=FMT_INT),
+    }
+    return xy(id_, title, "bar_stacked", "sessions", columns, "x", ["m"],
+              split="phase", palette="gray", query=query)
 
 
 def sessions_table(id_, title="SESSIONS"):
@@ -944,7 +1070,7 @@ def build() -> list[dict]:
     # row is the log, in descending order of how often it answers a question.
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
-          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=10)
+          (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=12)
     # Directly under the verdicts, and only here: repeated on all seven pages it would be
     # furniture. Built only when there is a coach to point at.
     if COACH_URL:
@@ -979,7 +1105,7 @@ def build() -> list[dict]:
               ref=(MEET_MAX_LB, "MEET BEST") if MEET_MAX_LB is not None else None,
               ref_text=False,
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
-           28, [("url", LIFT_URL, "Lift")]), h=11)
+           28, [("url", LIFT_URL, "Lift")]), h=13)
     # Streak, Latest session, Bodyweight and Sleep were cut from this page. Every one is
     # something a phone logging app shows better and shows at the gym, so here they only
     # told a lifter that Ironstack is a worse Strong. Bodyweight and Sleep also had one
@@ -996,7 +1122,7 @@ def build() -> list[dict]:
                   controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
     d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=4)
     # INOL and ACWR in words, above the table of decimals they explain.
-    d.row((custom("pr-sig", tpl.SIGNAL_PROGRAM, Q["sig_program"]), 48, []), h=10)
+    d.row((custom("pr-sig", tpl.SIGNAL_PROGRAM, Q["sig_program"]), 48, []), h=9)
 
     # One table, not two. WEEKS IN THE TRACKED PROGRAM held a single row above a panel of
     # empty space - program.week is populated on 4 sessions out of 643 - and the only
@@ -1015,12 +1141,23 @@ def build() -> list[dict]:
         "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
         "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("pr-days-table"), "EVERY DAY IN THE RANGE. CLICK ONE TO OPEN IT", S, days_cols,
+    d.row((table(L("pr-days-table"), "EVERY DAY IN THE RANGE. HOVER A DAY TO FILTER TO IT; OPEN ONE FROM THE TIMELINE ON HISTORY", S, days_cols,
                  sort="sid", direction="desc", page=25), 48, [("session", "Session")]), h=10)
+    # HARDEST LIFT and INOL are both derived from the per-set `inol`, which exists only
+    # where the set has a relative intensity - so on a log with no RPE in it they are
+    # absent on every week and last_value renders the keyword one as the literal
+    # "(null)" (see last(); there is no way to change that). The columns stay anyway:
+    # dropping them would take the loading table's whole subject away from the lifter
+    # who DOES log RPE, and the card directly above this panel - SIGNAL_PROGRAM's
+    # no-inol branch, "INOL needs a working set on a lift with history behind it" -
+    # already stands between the reader and an unexplained column of nulls. This is the
+    # one place in these pages where the honest explanation is in an adjacent panel
+    # rather than in the panel itself, and it is here because a Lens datatable cannot
+    # carry one.
     loading_cols = {
         "week": terms("iso_week", "WEEK", size=60, direction="desc"),
         "lift": last("inol_hardest_lift", "HARDEST LIFT", sort="@timestamp"),
-        "inol": last("inol_hardest", "INOL", "number", sort="@timestamp", fmt=FMT_1),
+        "inol": last("inol_hardest", "INOL", "number", sort="@timestamp", fmt=FMT_2),
         # BAND and LOAD were words restating the number beside them ("0.4  easy").
         "acwr": last("acwr", "ACWR", "number", sort="@timestamp", fmt=FMT_1),
         "ton": last("tonnage_lb", "TONNAGE", "number", sort="@timestamp", fmt=FMT_INT),
@@ -1037,7 +1174,7 @@ def build() -> list[dict]:
     nav_cols = {"sid": terms("session_id", "SESSION", size=1, direction="desc"),
                 "prev": last("prev_session_id", "PREV", sort="timestamp"),
                 "next": last("next_session_id", "NEXT", sort="timestamp")}
-    nav = table(L("se-nav"), "PREV / NEXT. CLICK TO OPEN", S, nav_cols, sort="sid", direction="desc")
+    nav = table(L("se-nav"), "PREV / NEXT. HOVER TO FILTER", S, nav_cols, sort="sid", direction="desc")
     d.row((custom("se-header", tpl.SESSION_HEADER, Q["session_header"]), 36, []),
           (nav, 12, [("url", SESSION_URL, "Open session")]), h=6)
     d.row((custom("se-top", tpl.TOP_SET_HERO, Q["top_set"]), 22, []),
@@ -1084,7 +1221,9 @@ def build() -> list[dict]:
     # TOP SET OVER TIME is gone. It plotted max(weight_lb) per session against a chart
     # plotting max(est_e1rm) per session - the same sawtooth, one lift's heaviest day
     # either way - and two charts saying one thing is how a page starts reading as a log.
-    zdist = xy(L("li-zones"), "WHERE THE REPS LAND, AGAINST YOUR BEST IN THE LAST 90 DAYS", "bar", T,
+    # The y axis is a rep count with no title on it, so a bar reaching 40,000 read as
+    # a weight. Lens draws no axis title here; the unit goes in the panel title.
+    zdist = xy(L("li-zones"), "WHERE THE REPS LAND, AGAINST YOUR BEST IN THE LAST 90 DAYS. REPS PER ZONE", "bar", T,
                {"x": terms("prilepin_zone", "ZONE", size=4),
                 "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
                "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
@@ -1092,6 +1231,11 @@ def build() -> list[dict]:
     d.row((custom("li-signal", tpl.SIGNAL_LIFT, Q["sig_lift"]), 18, []),
           (e1, 30, [("session", "Session")]), h=10)
     d.row((zdist, 48, []), h=8)
+    # Under the chart, not in its title: a title cannot read a row, and an empty zone
+    # chart with no explanation is indistinguishable from a broken one. The terms bucket
+    # above deliberately does NOT carry missing=True - a "(missing value)" bar in a
+    # distribution of zones reads as a fifth zone, which is worse than the honest gap.
+    d.row((custom("li-zone-cov", tpl.ZONE_COVERAGE, Q["zone_cov_lift"]), 48, []), h=3)
     all_cols = {
         "sid": terms("session_id", "SESSION", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
@@ -1109,7 +1253,7 @@ def build() -> list[dict]:
     # The verdict first, then the chart that shows its shape, then the log. Before this
     # the page opened on four tiles a phone already shows and the zone chart - the only
     # picture in the app of the trailing-90-day idea - was the third scroll.
-    d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=10)
+    d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=12)
     # The 4.0 in Aug 2025 is a layoff artefact (open item: suppress in derive.py). Until
     # then the title says how to read it, so the spike is not the scariest thing on the page.
     acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. ABOVE 1.5 IS A SPIKE; A SPIKE RIGHT AFTER A LAYOFF IS EXPECTED", "line", W,
@@ -1121,6 +1265,7 @@ def build() -> list[dict]:
                zone_cols, "x", list(zcols), colors=zcolors,
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
+    d.row((custom("hi-zone-cov", tpl.ZONE_COVERAGE, Q["zone_cov_main"]), 48, []), h=3)
     # The four tiles - tonnage in range, per session, sessions, avg RPE - are the four
     # Hevy shows on its home screen. Every one is still on the page, in the sessions
     # table and the timeline, for anyone who wants the number rather than the reading.
@@ -1133,40 +1278,78 @@ def build() -> list[dict]:
     objs += d.build()
 
     # ---------------------------------------------------------------- Meets
-    d = Dashboard("meets", "Ironstack. Meets", "Competition record. Click a best lift for its training history.",
-                  "The platform record. Click a best lift to see how it was trained.", time_from="now-10y")
+    d = Dashboard("meets", "Ironstack. Meets", "Competition record. Every attempt, made and missed.",
+                  # Was "Click a best lift to see how it was trained." The best-lifts panel is
+                  # custom content, which strips <a href> entirely, so nothing on it has ever
+                  # been clickable. The line the reader actually needs is the attempt legend.
+                  "The platform record, attempt by attempt. A struck-through attempt was missed.",
+                  time_from="now-10y")
     # The verdict goes above the record. The record is what the lifter already knows;
     # how this cycle compares to it is the thing only the log can say.
     d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 24, []),
-          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=10)
+          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=12)
     d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
     objs += d.build()
 
     # ---------------------------------------------------------------- Mindset
-    d = Dashboard("mindset", "Ironstack. Mindset", "Every note. Search above; semantic where ELSER is on.",
+    d = Dashboard("mindset", "Ironstack. Mindset", "Every note, tagged and in order.",
                   # "searchable" was a promise with no search box behind it: the semantic
                   # fields are reachable only through the coach.
-                  "Everything you wrote, tagged and in order. Click a note to open its session. "
-                  "To ask a question of it, ask the coach.")
+                  # The notes list is custom content and opens nothing. The tag bar beside
+                  # it is an XY chart and filters the whole page on one click, which is the
+                  # gesture worth teaching.
+                  "Everything you wrote, tagged and in order. Click a tag to filter the page. " +
+                  tpl.coach_or("To ask a question of it, ask the coach.",
+                               "A tag is a count, not a reading: what a note said stays in the note."))
     tag_cols = {"x": terms("tags", "TAG", size=25, by_col="c", direction="desc"), "c": count("NOTES")}
+    # size=25 categories in a 9-row panel is the bug that cost a whole review round.
+    # Lens does not scroll a horizontal bar chart and it does not shrink the type: it
+    # draws every bar and then prints only every OTHER axis label. Fifteen tags came
+    # back, eight labels rendered, and two passes of this review read the seven
+    # unlabelled bars as missing data - the chart was right, the reader could not tell.
+    # Sized to the categories instead: the panel has to be tall enough that every bar
+    # gets its name, because a bar nobody can name is worse than no bar.
     tags = xy(L("mi-tags"), "TAGS. CLICK TO FILTER", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
     # TAGS OVER TIME was three stacked bars under a twelve-entry legend that filled the
     # panel. The bar chart says the same thing and can be clicked.
     d.row((custom("mi-sig", tpl.SIGNAL_TAGS, Q["sig_tags"]), 48, []), h=9)
-    d.row((tags, 48, []), h=9)
+    d.row((tags, 48, []), h=15)
     d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 32, []),
           (notes_table(L("mi-notes"), "THE SESSIONS BEHIND THESE NOTES"), 16, [("session", "Session")]), h=12)
     objs += d.build()
 
-    # de-duplicate by (type, id): shared builders are called for more than one dashboard
-    seen, out = set(), []
+    # The de-duplication that made the duplicate-id check unfireable, handled
+    # deliberately this time.
+    #
+    # It ran here, before check() ever saw the list, so check() counted duplicates in an
+    # already-unique list and could not find one by construction: give every Lens the
+    # same id and `--check` printed "0 duplicate ids" while thirteen panels silently
+    # vanished from the artifact. That is the FIRST failure the README lists under how
+    # this directory has actually broken, and the guard written for it was dead.
+    #
+    # The de-dup exists for shared builders - block_timeline() and the tables are called
+    # from more than one dashboard - so it is kept, but only for its actual job: the
+    # SAME object built twice. Two DIFFERENT objects wearing one id is the bug, and it
+    # is fatal here, before anything can quietly drop one of them. check() still counts
+    # duplicates in what it is handed, as a second net over a list that should now be
+    # incapable of carrying any.
+    seen, out, collisions = {}, [], []
     for o in objs:
         key = (o["type"], o["id"])
         if key not in seen:
-            seen.add(key)
+            seen[key] = o
             out.append(o)
+        elif json.dumps(seen[key], sort_keys=True) != json.dumps(o, sort_keys=True):
+            collisions.append(f'{o["type"]} {o["id"]}')
+    if collisions:
+        sys.exit(
+            "error: two different saved objects share one id:\n"
+            + "".join(f"       {c}\n" for c in sorted(set(collisions)))
+            + "       On import the second silently overwrites the first and its panels\n"
+            "       render an error. Nothing was written."
+        )
     return out
 
 
@@ -1177,6 +1360,264 @@ def build() -> list[dict]:
 # record and never a design constant, and any such number sitting next to a unit.
 PR_DECIMAL = re.compile(r"(?<![\d.])\d{3,4}\.\d+")
 PR_WITH_UNIT = re.compile(r"(?<![\d.])\d{3,5}(?:\.\d+)?\s*(?:&nbsp;)?\s*(?:lb|LB|kg|KG|DOTS)\b")
+
+# The same class of fact, in words instead of digits. The load card closed its provenance
+# line with "so this reads back to Jan 2023" - the month THIS author's log starts, compiled
+# into a public artifact and read by every install as a statement about the reader's own
+# history. A record is a number a stranger cannot own; a month-year is a DATE a stranger
+# cannot own, and it is worse than a number because it reads as documentation rather than
+# as data. Nothing in these pages has a legitimate reason to name a calendar month at
+# build time: every real month on screen is DATE_FORMATted out of the reader's own index
+# (month_s, date_s, last_s, meet_s) or computed in Liquid from a row. So the rule is flat -
+# no month-year literal in anything that ships - and there is no allowlist to get it wrong.
+MONTH_YEAR = re.compile(
+    r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(?:19|20)\d{2}\b")
+
+# --------------------------------------------------------------------------- fields
+#
+# Nothing checked that a field EXISTS. Renaming `est_e1rm` in a Lens column, `weight_lb`
+# inside an ES|QL STATS, or the `prilepin_zone` literal in a filter all built cleanly,
+# passed every guard here, imported without complaint, and then rendered an empty or
+# errored panel in the browser - which is the exact failure mode this whole file exists
+# to make impossible. The mappings in starter/schema/ are where the field truth lives, so
+# they are the thing to check against.
+
+MAPPINGS = Path(__file__).resolve().parent.parent / "starter" / "schema" / "mappings"
+
+# ES|QL aliases and the columns Kibana adds. `___records___` is Lens's own count column
+# and names no field.
+LENS_SYNTHETIC = {"___records___"}
+
+# Words that are syntax, not fields. Function names never need listing: a function is
+# followed by "(" and the extractor skips anything that is.
+ESQL_WORDS = {
+    "and", "or", "not", "is", "null", "true", "false", "as", "by", "asc", "desc",
+    "nulls", "first", "last", "like", "rlike", "in", "metadata",
+    # duration and date-period units, which ES|QL writes bare after a number
+    "millisecond", "milliseconds", "second", "seconds", "minute", "minutes",
+    "hour", "hours", "day", "days", "week", "weeks", "month", "months",
+    "year", "years", "quarter", "quarters", "decade", "decades",
+}
+
+STRING_LITERAL = re.compile(r'"[^"]*"')
+IDENTIFIER = re.compile(r"[A-Za-z_@][A-Za-z0-9_.@]*")
+KQL_FIELD = re.compile(r'([A-Za-z_@][A-Za-z0-9_.@]*)\s*(?::|>=|<=|>|<)')
+
+
+def _flatten(props: dict, prefix: str = "") -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name, spec in props.items():
+        dotted = prefix + name
+        if "properties" in spec:
+            out.update(_flatten(spec["properties"], dotted + "."))
+        else:
+            out[dotted] = spec.get("type", "object")
+    return out
+
+
+def index_field_types() -> dict[str, dict[str, str]]:
+    """index name -> {dotted field: mapped type}.
+
+    The types are what verify_liquid's raw-render lint is built from: a keyword or a text
+    field rendered without `| escape` puts whatever was typed in the log into the card's
+    HTML, and a float rendered without `| round` prints its full float32 expansion in
+    Kibana's JavaScript Liquid ("7.130000114440918"). Those two lints used to be
+    hand-maintained ALLOWLISTS, which is the wrong polarity: a text column nobody had
+    thought to list passed.
+    """
+    if not MAPPINGS.is_dir():
+        sys.exit(f"error: no mappings at {MAPPINGS}. Field checks cannot run and a build\n"
+                 "       that cannot check its fields is the build that ships an empty "
+                 "panel.\n       Nothing was written.")
+    out = {}
+    for path in sorted(MAPPINGS.glob("*.json")):
+        mapping = json.loads(path.read_text())["mappings"]
+        out[path.stem] = _flatten(mapping.get("properties", {}))
+    missing = INDICES - set(out)
+    if missing:
+        sys.exit(f"error: no mapping file for {sorted(missing)}. Nothing was written.")
+    return out
+
+
+def index_fields() -> dict[str, set[str]]:
+    """index name -> every dotted field its mapping declares."""
+    return {index: set(fields) for index, fields in index_field_types().items()}
+
+
+def _split_top(text: str, sep: str = ",") -> list[str]:
+    """Split on `sep` at paren depth 0, so a function's own commas stay inside it."""
+    parts, depth, buf = [], 0, ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if ch == sep and depth == 0:
+            parts.append(buf)
+            buf = ""
+        else:
+            buf += ch
+    parts.append(buf)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _identifiers(expr: str) -> list[str]:
+    """Bare column references in an expression: not keywords, not function names."""
+    out = []
+    for m in IDENTIFIER.finditer(expr):
+        word = m.group(0)
+        if word.lower() in ESQL_WORDS:
+            continue
+        if expr[m.end():m.end() + 1] == "(":   # a function call, not a column
+            continue
+        out.append(word)
+    return out
+
+
+def esql_columns(query: str) -> tuple[set[str], list[tuple[str, str]], set[str]]:
+    """(indices this query reads, [(stage kind, column referenced)], names it defines).
+
+    Aliases are resolved rather than skipped: an EVAL, a STATS assignment and a RENAME
+    each DEFINE a name, and a later stage referring to one is referring to a real column.
+    Anything else has to exist in the mappings of the indices the FROM names.
+    """
+    stripped = STRING_LITERAL.sub('""', query)
+    indices: set[str] = set()
+    defined: set[str] = set()
+    refs: list[tuple[str, str]] = []
+
+    def use(kind: str, expr: str) -> None:
+        for name in _identifiers(expr):
+            if name not in defined:
+                refs.append((kind, name))
+
+    # Split on "|" only AFTER the string literals are gone: MV_CONCAT(tags, "|") writes
+    # a pipe inside a literal, and splitting first cut two queries in half.
+    for stage in stripped.split("|"):
+        stage = stage.strip()
+        head = stage.split(None, 1)[0].upper() if stage else ""
+        rest = stage[len(head):].strip()
+        if head == "FROM":
+            indices |= {i.strip() for i in rest.split(",") if i.strip()}
+        elif head in ("WHERE", "SORT", "DISSECT", "GROK"):
+            use(head.lower(), rest)
+        elif head == "EVAL":
+            for item in _split_top(rest):
+                name, sep, expr = item.partition("=")
+                if sep:
+                    use("eval", expr)
+                    defined.add(name.strip())
+                else:
+                    use("eval", item)
+        elif head == "STATS":
+            # Keywords are uppercase throughout Q by convention, which is what makes
+            # this split safe; a lowercase "by" would fold the grouping columns into the
+            # aggregation list, which mislabels them but still checks every one.
+            aggs, sep, by = rest.partition(" BY ")
+            if not sep:
+                aggs, by = rest, ""
+            for item in _split_top(aggs):
+                name, eq, expr = item.partition("=")
+                if eq:
+                    use("stats", expr)
+                    defined.add(name.strip())
+                else:
+                    use("stats", item)
+            if by:
+                use("stats-by", by)
+                for name in _identifiers(by):
+                    defined.add(name)
+            # A STATS drops every column it did not produce.
+            defined |= {n.strip().split("=")[0].strip() for n in _split_top(aggs)}
+        elif head == "RENAME":
+            for item in _split_top(rest):
+                source, _sep, target = item.partition(" AS ")
+                use("rename", source)
+                defined.add(target.strip())
+        elif head in ("KEEP", "DROP"):
+            for item in _split_top(rest):
+                # A KEEP naming a column an earlier EVAL or STATS produced is naming a
+                # real column; only the ones that have to come from the index are checked.
+                if item not in defined:
+                    refs.append((head.lower(), item))
+                defined.add(item)
+        elif head == "MV_EXPAND":
+            use("mv_expand", rest)
+    return indices, refs, defined
+
+
+def _resolves(column: str, fields: set[str]) -> bool:
+    if column in fields:
+        return True
+    if column.endswith("*"):
+        stem = column[:-1]
+        return any(f.startswith(stem) for f in fields)
+    # An object path: KEEP totals.* is a wildcard, but `totals` alone names the object.
+    return any(f.startswith(column + ".") for f in fields)
+
+
+def check_fields(objs: list[dict]) -> list[str]:
+    """Every field a panel names must exist in the index it reads it from."""
+    fields = index_fields()
+    dv_index = {dv_id: index for dv_id, index, _ in DV.values()}
+    bad: list[str] = []
+
+    for name, query in Q.items():
+        indices, refs, _ = esql_columns(query)
+        known: set[str] = set()
+        for index in indices:
+            known |= fields.get(index, set())
+        if not known:
+            continue  # an unknown index; the FROM lint above already says so
+        for kind, column in refs:
+            if not _resolves(column, known):
+                bad.append(f'Q[{name!r}] {kind} names {column!r}, which '
+                           f'{" or ".join(sorted(indices))} does not map')
+
+    def kql_fields(where: str, query: str, known: set[str]) -> None:
+        for field in KQL_FIELD.findall(STRING_LITERAL.sub('""', query or "")):
+            if field.lower() in ("and", "or", "not"):
+                continue
+            if not _resolves(field, known):
+                bad.append(f"{where} filters on {field!r}, which its index does not map")
+
+    for o in objs:
+        if o["type"] != "lens":
+            continue
+        state = o["attributes"]["state"]
+        layer_index = {}
+        for ref in o["references"]:
+            if ref["name"].startswith("indexpattern-datasource-layer-"):
+                layer = ref["name"].rsplit("-", 1)[-1]
+                layer_index[layer] = dv_index[ref["id"]]
+        for layer_id, layer in state["datasourceStates"]["formBased"]["layers"].items():
+            index = layer_index.get(layer_id)
+            known = fields.get(index, set())
+            kql_fields(f'lens {o["id"]}', state["query"]["query"], known)
+            for col_id, col in layer["columns"].items():
+                source = col.get("sourceField")
+                if source and source not in LENS_SYNTHETIC and not _resolves(source, known):
+                    bad.append(f'lens {o["id"]} column {col_id!r} reads {source!r}, '
+                               f"which {index} does not map")
+                kql_fields(f'lens {o["id"]} column {col_id!r}',
+                           (col.get("filter") or {}).get("query", ""), known)
+
+    for o in objs:
+        if o["type"] != "dashboard":
+            continue
+        group = o["attributes"].get("controlGroupInput")
+        if not group:
+            continue
+        dv_for = {r["name"]: r["id"] for r in o["references"]
+                  if r["name"].startswith("controlGroup_")}
+        for cid, panel in json.loads(group["panelsJSON"]).items():
+            field = panel["explicitInput"]["fieldName"]
+            index = dv_index[dv_for[f"controlGroup_{cid}:optionsListDataView"]]
+            if not _resolves(field, fields.get(index, set())):
+                bad.append(f'{o["id"]}: the {panel["explicitInput"]["title"]} control '
+                           f"asks for {field!r}, which {index} does not map")
+    return bad
+
 
 # Every column a Liquid template reads, and the KEEP that has to project it.
 COL_READ = re.compile(r"\['([A-Za-z0-9_.@]+)'\]\.value")
@@ -1207,6 +1648,14 @@ def _projected(column: str, keep: list[str]) -> bool:
     return False
 
 
+# The object counts kibana/README.md publishes. It said they "are checked by --check"
+# while check() only PRINTED a total, so the sentence was true of nothing: a panel added
+# or dropped moved the number in the terminal and left the number in the README behind.
+# Asserting them is what makes that sentence true, and the cost - one line to edit when a
+# panel is deliberately added - is the point rather than the price.
+EXPECTED_OBJECTS = {"index-pattern": 4, "lens": 14, "dashboard": 7}
+
+
 def note(line: str) -> None:
     """Diagnostics go to stderr. `--stdout > dashboards.ndjson` is a supported
     invocation, and a finding printed on stdout lands inside the file it is about."""
@@ -1221,6 +1670,12 @@ def check(objs: list[dict]) -> int:
     reference means a panel imports fine and then renders an error where a chart
     should be. Both were checked by hand after the Sept 4 build; now they are checked
     by the build.
+
+    The duplicate scan here is a SECOND net. build() de-duplicated by (type, id) before
+    returning, so this counted duplicates in an already-unique list and could never find
+    one; the first net now lives there, where the collision is still visible. This one
+    stays because it costs nothing and it is the check that would notice if the two ever
+    came apart again.
     """
     ids, dupes = set(), []
     for o in objs:
@@ -1242,20 +1697,47 @@ def check(objs: list[dict]) -> int:
     # And three more, each of which shipped: a private Elastic host in a public artifact,
     # somebody else's meet total rendered as the reader's, and a card reading a column its
     # own query never projected.
-    private, records, unprojected = [], [], []
+    private, records, unprojected, months = [], [], [], []
 
     def scan_record(where: str, text: str):
         for m in PR_DECIMAL.findall(text) + PR_WITH_UNIT.findall(text):
             if MEET_MAX_LB is not None and f"{MEET_MAX_LB:g}" in m:
                 continue  # the reader said this is theirs, in IRONSTACK_MEET_MAX_LB
             records.append(f"{where}: {m!r} looks like a hardcoded personal record")
+        for m in MONTH_YEAR.findall(text):
+            months.append(f"{where}: {m!r} is a hardcoded month; a date on these pages "
+                          f"has to come from the reader's own rows")
+
+    # The template SOURCE as well as the built panels, because the two are not the same
+    # set: a card written but not yet wired to a panel ships in no dashboard and would
+    # slip past a scan of the objects alone. A Liquid {% comment %} is source too - it
+    # is stripped at render but it is still in the artifact - so it is scanned like the
+    # rest rather than being the one place the rule does not reach.
+    for attr in sorted(dir(tpl)):
+        if attr.startswith("__"):
+            continue
+        text = getattr(tpl, attr)
+        if isinstance(text, str):
+            for m in MONTH_YEAR.findall(text):
+                months.append(f"templates.{attr}: {m!r} is a hardcoded month; a date on "
+                              f"these pages has to come from the reader's own rows")
 
     for o in objs:
-        if o["type"] == "lens":
-            scan_record(f'lens {o["id"]} title', o["attributes"]["title"])
+        attrs = o["attributes"]
+        # Every saved-object string a reader can see, not the three that happened to be
+        # listed. A dashboard DESCRIPTION is prose in the listing and under the title; a
+        # lens description and an index-pattern name ship the same way. All of them sat
+        # outside this scan while the comment above it claimed to catch "somebody else's
+        # meet total rendered as the reader's" - the guard was real, its reach was not,
+        # which is the same shape as the raw-render lint that could not see an assign.
+        # Verified by planting "back to Jan 2023. Best total 909.4 lb." in the History
+        # dashboard's description: check() passed it, 0 records and 0 months.
+        for field in ("title", "description", "name"):
+            if isinstance(attrs.get(field), str):
+                scan_record(f'{o["type"]} {o["id"]} {field}', attrs[field])
         if o["type"] != "dashboard":
             continue
-        for p in json.loads(o["attributes"]["panelsJSON"]):
+        for p in json.loads(attrs["panelsJSON"]):
             cfg = p.get("embeddableConfig", {})
             if "drilldowns" in cfg:
                 shape.append(f'{o["id"]}: embeddableConfig.drilldowns is the dead key; '
@@ -1266,6 +1748,7 @@ def check(objs: list[dict]) -> int:
             if cfg.get("title"):
                 scan_record(f'{o["id"]} panel title', cfg["title"])
             for link in cfg.get("links", []):
+                scan_record(f'{o["id"]} nav link label', str(link.get("label", "")))
                 opts = link.get("options", {})
                 if opts.get("use_filters") or opts.get("use_time_range"):
                     shape.append(f'{o["id"]}: nav link "{link.get("label")}" carries '
@@ -1293,6 +1776,36 @@ def check(objs: list[dict]) -> int:
                         f'{o["id"]}: a custom panel reads {column!r} but its query does '
                         f'not KEEP it')
 
+    # Every DATE_FORMAT here formats a calendar date, and a calendar date must never be
+    # shifted by a timezone offset - doing so moves it to the previous day for every
+    # user west of Greenwich. See the timezone comment above. Two halves, both checked:
+    # nothing formats @timestamp (which would need shifting), and nothing carries a
+    # shift (which would break the dates that are already right).
+    date_fmt = []
+    for name, query in Q.items():
+        for arg in DATE_FORMAT_ARG.findall(query):
+            if arg == "@timestamp":
+                date_fmt.append(
+                    f'Q[{name!r}] formats @timestamp, which is an instant: format a '
+                    f'calendar date, or shift it by the session timezone at index time')
+        if DATE_FORMAT_SHIFTED.search(query):
+            date_fmt.append(
+                f'Q[{name!r}] shifts a DATE_FORMAT argument by seconds; calendar dates '
+                f'are already the lifter\'s own day and a shift moves them backwards')
+
+    # Every field a panel names, against the mappings in starter/schema/.
+    missing_field = check_fields(objs)
+
+    counts = {}
+    for o in objs:
+        counts[o["type"]] = counts.get(o["type"], 0) + 1
+    miscount = []
+    if counts != EXPECTED_OBJECTS:
+        miscount.append(
+            f"the build holds {counts} and EXPECTED_OBJECTS says {EXPECTED_OBJECTS}; "
+            "update the constant and kibana/README.md together, or find the object "
+            "that went missing")
+
     # A FROM naming an index the pipeline does not write imports cleanly and renders an
     # error. The list is the six the indexer creates plus the one derive.py writes.
     unknown_index = []
@@ -1308,31 +1821,63 @@ def check(objs: list[dict]) -> int:
 
     for label, items in (("duplicate id", dupes), ("dangling reference", dangling),
                          ("private host", private), ("hardcoded record", records),
-                         ("unprojected column", unprojected), ("unknown index", unknown_index)):
+                         ("hardcoded month", months),
+                         ("unprojected column", unprojected), ("unknown index", unknown_index),
+                         ("date shift", date_fmt), ("missing field", missing_field),
+                         ("object count", miscount)):
         for item in items:
             note(f"  {label}: {item}")
     bad = (len(dupes) + len(dangling) + len(shape) + len(private) + len(records)
-           + len(unprojected) + len(unknown_index))
-    note(f"check: {len(objs)} objects, {len(dupes)} duplicate ids, "
+           + len(months) + len(unprojected) + len(unknown_index) + len(date_fmt)
+           + len(missing_field) + len(miscount))
+    note(f"check: {len(objs)} objects "
+          f"({', '.join(f'{n} {k}' for k, n in sorted(counts.items()))}), "
+          f"{len(dupes)} duplicate ids, "
           f"{len(dangling)} dangling references, {len(shape)} shape problems, "
           f"{len(private)} private hosts, {len(records)} hardcoded records, "
-          f"{len(unprojected)} unprojected columns, {len(unknown_index)} unknown indices")
+          f"{len(months)} hardcoded months, "
+          f"{len(unprojected)} unprojected columns, {len(unknown_index)} unknown indices, "
+          f"{len(date_fmt)} date shifts, {len(missing_field)} missing fields, "
+          f"{len(miscount)} count mismatches")
     return bad
 
 
 def main() -> None:
-    global COACH_URL, ALLOW_PRIVATE_COACH
+    global COACH_URL, ALLOW_PRIVATE_COACH, MEET_MAX_LB
     args = sys.argv[1:]
     ALLOW_PRIVATE_COACH = "--allow-private-coach" in args
     checking = "--check" in args
 
     if checking:
-        # --check compares the build against the committed artifact, and the committed
-        # artifact is the --no-coach build: the coach URL is deployment-specific, so it
-        # cannot live in a public repo (see README). Building the same way here is what
-        # makes the check runnable with IRONSTACK_COACH_URL set or unset.
+        # --check compares the build against the committed artifact, so it has to build
+        # the artifact's configuration and not the reader's. The committed file is the
+        # --no-coach build with no meet best: both are deployment-specific and cannot
+        # live in a public repo (see README).
+        #
+        # Neutralising only COACH_URL was not enough, and the failure was nasty: a
+        # reader who followed the README - set your offset, set your meet best, run the
+        # checks - got "dashboards.ndjson is not what this build produces", which says
+        # the committed artifact is stale when the only thing that differed was their
+        # own environment. A check that fails on correct configuration teaches people to
+        # ignore it.
         COACH_URL = ""
-    elif not COACH_URL and "--no-coach" not in args:
+        MEET_MAX_LB = None
+    # The opt-outs turn the feature OFF, rather than only excusing its absence. Both
+    # were written as "excuse", which made each one silently conditional on the reader's
+    # environment: with the variable exported, the flag changed nothing at all.
+    #
+    # The --no-coach line here is REDUNDANT TODAY and deliberately kept. templates.py
+    # reads the same flag at import and this module takes COACH_URL from it, so deleting
+    # this line changes no output and survives the whole suite - a mutant that survives
+    # because the invariant is enforced twice, not because it is untested. It stays as
+    # the guard for the day someone makes this module read the environment itself, which
+    # is how the bug arrived the first time. --no-meet-max has no second site and is
+    # load-bearing on its own.
+    if "--no-coach" in args:
+        COACH_URL = ""
+    if "--no-meet-max" in args:
+        MEET_MAX_LB = None
+    if not checking and not COACH_URL and "--no-coach" not in args:
         # Before the build, not after it. A note printed under a successful "wrote
         # dashboards.ndjson" is a note nobody reads, and the file it is describing has
         # already replaced the good one: seven dashboards silently lose ASK THE COACH and
@@ -1342,13 +1887,36 @@ def main() -> None:
             "error: IRONSTACK_COACH_URL is unset, so ASK THE COACH cannot be built and\n"
             "       importing the result would remove the link from all seven "
             "dashboards.\n"
-            "       Run `source ~/Projects/ironstack-log/.env` first, or pass "
-            "--no-coach\n"
+            "       Export it (it is deployment-specific, like ES_ENDPOINT - see\n"
+            "       kibana/README.md) first, or pass --no-coach\n"
             "       if dropping the link is what you meant.\n"
             "       Nothing was written."
         )
 
+    # The same guard as --no-coach, for the same reason, found the same way. The
+    # deployed Overview carried "PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM PER
+    # COMPETITION LIFT" over an area chart with no reference line on it, because the
+    # build that produced it ran without IRONSTACK_MEET_MAX_LB. The card beside it said
+    # "96% of your meet best, 909 lb" off the meets index, so the page held the number
+    # and the chart of the same number could not draw it. Two env vars unset, two of the
+    # three best things on the page gone, and nothing anywhere said so.
+    if not checking and MEET_MAX_LB is None and "--no-meet-max" not in args:
+        sys.exit(
+            "error: IRONSTACK_MEET_MAX_LB is unset, so the projected-total chart gets no\n"
+            "       reference line and no number in its title - the panel becomes a\n"
+            "       stack of weekly e1RMs with nothing to read it against.\n"
+            "       Export it (see kibana/README.md) first, or pass --no-meet-max\n"
+            "       if a chart with no yardstick is what you meant.\n"
+            "       Nothing was written."
+        )
+
     objs = build()
+    # What this build actually contains, printed before the file lands rather than after.
+    # Both features above are opt-out and both opt-outs are legitimate, so the honest
+    # thing is not to forbid them but to make the result impossible to miss.
+    note("features: ASK THE COACH " + ("on" if COACH_URL else "OFF (--no-coach)")
+         + " | projected-total reference line "
+         + (f"on at {MEET_MAX_LB:g} lb" if MEET_MAX_LB is not None else "OFF (--no-meet-max)"))
     # Above the --stdout branch, not below it. It sat below, so
     # `build_dashboards.py --stdout > dashboards.ndjson` wrote the file having run no
     # guard at all - the one invocation that most needed them.

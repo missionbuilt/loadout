@@ -29,9 +29,13 @@ either repo and git has never seen it; these assertions were written fresh.
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 try:
     from liquid import Environment
@@ -39,6 +43,17 @@ except ImportError:
     sys.exit("error: pip install python-liquid")
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+# The suite tests the templates, not the reader's clock. IRONSTACK_TZ shifts Liquid's
+# "now" arithmetic, so the drift and days-to-meet fixtures are written against UTC and a
+# reader who set their own offset would see them fail for a reason that is not a bug.
+# Set before the imports because $TZ_OFF is substituted at import.
+os.environ["IRONSTACK_TZ"] = "UTC"
+# Same reasoning for the coach. templates bakes the Mindset strings at import from
+# IRONSTACK_COACH_URL, so a reader who has one exported would see the no-coach
+# assertions fail for a reason that is not a bug. The other branch is exercised
+# deliberately, by section_coach_wording(), which reloads templates with it set.
+os.environ["IRONSTACK_COACH_URL"] = ""
+
 import build_dashboards as bd  # noqa: E402
 import templates as tpl  # noqa: E402
 
@@ -132,6 +147,44 @@ def section_helpers() -> None:
     check("num decimal", n(1234.56, 1) == "1,234.6", f"got {n(1234.56, 1)!r}")
     check("num decimal under 1000", n(6.26, 1) == "6.3", f"got {n(6.26, 1)!r}")
 
+    # A negative used to be grouped as though the minus sign were a digit: num(-123) came
+    # out "-,123". Cards subtract (a delta against the last set, a gap against a peer),
+    # so this is reachable, and it renders as a different number rather than as a glitch.
+    for value, want in [(-1, "-1"), (-42, "-42"), (-123, "-123"), (-1234, "-1,234"),
+                        (-14145, "-14,145"), (-1234567, "-1,234,567"),
+                        (-123456789, "-123,456,789")]:
+        check(f"num({value})", n(value) == want, f"got {n(value)!r}, want {want!r}")
+    check("num(-1234.56, 1)", n(-1234.56, 1) == "-1,234.6", f"got {n(-1234.56, 1)!r}")
+
+    # The docstring's ceiling is nine DIGITS. Past it the number is emitted ungrouped
+    # rather than mis-grouped: no separator reads as a long number, a comma in the wrong
+    # place reads as a different one. The sign no longer eats a digit of that budget.
+    check("num above the ceiling is ungrouped, not wrong",
+          n(1234567890) == "1234567890", f"got {n(1234567890)!r}")
+    check("num(-1234567890) keeps its sign",
+          n(-1234567890) == "-1234567890", f"got {n(-1234567890)!r}")
+
+    def r(value, dp=0):
+        return render(tpl.numr("rows[0]['v'].value", dp), rows_of({"v": value}))
+
+    # numr: num()'s nil gate, no grouping. `nil | round` is 0 in both engines, which is
+    # what put "AVG WORKING RPE 0" on every session of a lifter who logs no RPE.
+    check("numr(nil) renders nothing", r(None) == "", f"got {r(None)!r}")
+    check("numr(nil, 1) renders nothing", r(None, 1) == "", f"got {r(None, 1)!r}")
+    check("numr(0) still prints", r(0) == "0", f"got {r(0)!r}")
+    check("numr(0.0, 2) still prints", r(0.0, 2) == "0.0", f"got {r(0.0, 2)!r}")
+    check("numr rounds", r(6.26, 1) == "6.3", f"got {r(6.26, 1)!r}")
+    check("numr(266.7239, 2)", r(266.7239, 2) == "266.72", f"got {r(266.7239, 2)!r}")
+    check("numr does not group", r(14145) == "14145", f"got {r(14145)!r}")
+    check("numr keeps a sign", r(-123) == "-123", f"got {r(-123)!r}")
+    # And it does not inherit num()'s whitespace trap: num() opens `{%-` and closes
+    # `-%}`, which eats the space on either side of it and has needed a lint on both
+    # ends since. numr's tags do not strip.
+    spaced = render("avg RPE " + tpl.numr("rows[0]['v'].value", 1) + " done",
+                    rows_of({"v": 8.15}))
+    check("numr does not eat the space before it", spaced == "avg RPE 8.2 done",
+          f"got {spaced!r}")
+
     def rc(value):
         return render(tpl.rpe_class("rows[0]['r'].value") + "{{ rc }}", rows_of({"r": value}))
 
@@ -143,6 +196,37 @@ def section_helpers() -> None:
 # ============================================================ 2. every template
 
 COL = re.compile(r"\[' ?([A-Za-z0-9_.@]+) ?'\]")
+
+# A zero standing in an element whose whole job is to carry a number: `<b>0</b>`, or a
+# `.value` / `.hero` holding nothing but 0, 0.0 or 0.00.
+#
+# `nil | round` is 0 in both engines, and a bare `| round` was doing the rounding on ten
+# live sites - so a lifter who never logs an RPE read "AVG WORKING RPE 0" on every
+# session and "avg RPE 0" on every lift, a log with no meet in it read "Best total 0 kg",
+# and the projection card said "Apr 2024 projected 0 and you totalled 0". Every one of
+# those is a measurement asserted about a thing that was never measured, which is the one
+# thing this app says it will not do.
+#
+# The all-nil render below is exactly the state that produces them, so the assertion goes
+# there. num() and numr() both render nothing at all for nil and both still print a REAL
+# zero, which is why this can be a flat prohibition rather than a judgement call.
+CONFIDENT_ZERO = re.compile(
+    r'<b\b[^>]*>\s*(0(?:\.0{1,2})?)\s*<'
+    r'|<[a-z]+\b[^>]*class="[^"]*\b(?:value|hero)\b[^"]*"[^>]*>\s*(0(?:\.0{1,2})?)\s*<'
+)
+
+
+# The one structural exemption, and it is not an allowlist of column names. A `.none`
+# block IS the card declining to rule - "needs 4 earlier weeks, you have 0" - so a number
+# inside one is a count of what the card has, never a measurement it is asserting. Every
+# other element is the card making a claim.
+NONE_BLOCK = re.compile(r'<div class="none">.*?</div>', re.S)
+
+
+def no_confident_zero(name: str, out: str) -> None:
+    hits = ["".join(m) for m in CONFIDENT_ZERO.findall(NONE_BLOCK.sub("", out))]
+    check(f"{name}: no confident zero in a value, hero or <b>", not hits,
+          f"{len(hits)} zero(s) standing in for absence: {hits[:4]}")
 
 
 def section_all_templates() -> None:
@@ -185,6 +269,7 @@ def section_all_templates() -> None:
         balanced(f"{name} (nil row)", out)
         # A card that has no value to show must not assert one.
         lacks(f"{name}: no bare nil leaked", out, "nil")
+        no_confident_zero(name, out)
 
     check("found templates to check", seen >= 15, f"only saw {seen}")
 
@@ -222,11 +307,18 @@ def section_intensity() -> None:
     has("intensity: thin history counts what it has", out, "You have <b>2</b>")
     lacks("intensity: thin history does not rank", out, "Heavier than 2")
 
-    # weeks_available is the indexer's count of closed weeks with main-lift work. The
-    # query is LIMIT 13, so counting returned rows told a lifter with forty weeks behind
-    # them that the log was thin.
-    out = render(t, rows_of(week(5, 57, available=31), week(0, 30), week(1, 40)))
-    has("intensity: thin history uses weeks_available", out, "You have <b>31</b>")
+    # weeks_available is the indexer's count of closed weeks carrying main-lift work,
+    # denormalised onto every row. Counting the rows this query got back instead counts
+    # the week in progress and the weeks with no main-lift work in them, which is how a
+    # lifter with ten usable weeks was told they had thirteen.
+    #
+    # 12, not 31. derive.INTENSITY_WEEKS is 13 and weeks_available is counted over those
+    # thirteen rows with the open week excluded, so 12 is its ceiling; the old fixture
+    # asserted on 31, a number the indexer cannot produce, and a fixture the pipeline
+    # cannot feed proves nothing about the card.
+    out = render(t, rows_of(week(5, 57, available=12), week(0, 30), week(1, 40)))
+    has("intensity: thin history uses weeks_available", out, "You have <b>12</b>")
+    check("intensity: the fixture is inside the indexer's ceiling", 12 <= 13 - 1)
     lacks("intensity: thin history does not count rows", out, "You have <b>2</b>")
 
     out = render(t, rows_of(*REAL_WEEKS))
@@ -303,10 +395,20 @@ def section_intensity() -> None:
 def section_load() -> None:
     t = tpl.SIGNAL_LOAD
 
-    def wk(acwr, band, month, mono=0.8, trained=16, off=False):
-        return {"iso_week": "2026-W00", "month_s": month, "acwr": acwr,
-                "acwr_band": band, "monotony": mono,
-                "chronic_days_trained": trained, "acwr_off_layoff": off}
+    # week_end is the last day TRAINED; load_window_end is what the 7- and 28-day windows
+    # were measured back from. The defaults differ on purpose - a week that ended on a
+    # rest day is the ordinary case and the one the card exists to explain.
+    def wk(acwr, band, month, mono=0.8, trained=16, off=False, lmin=9,
+           wend="2026-09-04", lwe="2026-09-06"):
+        row = {"iso_week": "2026-W00", "month_s": month, "acwr": acwr,
+               "acwr_band": band, "monotony": mono, "week_end": wend,
+               "chronic_days_trained": trained, "acwr_off_layoff": off}
+        # None on either is an index written before derive carried the field onto the row.
+        if lmin is not None:
+            row["layoff_min_training_days"] = lmin
+        if lwe is not None:
+            row["load_window_end"] = lwe
+        return row
 
     fixture_is_real("sig_load", wk(1.0, "steady", "Sep 2026"))
 
@@ -340,11 +442,36 @@ def section_load() -> None:
     band("load: rising band", out, "b-heavy")
     balanced("load (real)", out)
 
+    # monotony and strain are absent on a week below the minimum training days. The card
+    # reads monotony and must drop the sentence rather than print "Monotony 0" - a zero
+    # here is a measurement (perfectly even load), not an absence, and the two must not
+    # render the same. strain has no consumer in these pages at all.
+    out = render(t, rows_of(wk(1.37, "rising", "Sep 2026", mono=None),
+                            wk(1.0, "steady", "Aug 2026")))
+    has("load: no monotony still gives a verdict", out, "Ramping.")
+    lacks("load: no monotony prints no zero", out, "Monotony 0")
+    # "Monotony" alone also appears in the provenance line, which is a definition and
+    # not a reading; the evidence sentence is the one that has to go.
+    lacks("load: no monotony prints no sentence", out, "<br>Monotony")
+    balanced("load (no monotony)", out)
+    check("load: strain is read by nothing", "strain" not in tpl.SIGNAL_LOAD,
+          "the load card reads strain, which can be absent")
+
     out = render(t, rows_of(wk(1.81, "spike", "Sep 2026"), wk(0.9, "steady", "Aug 2026")))
     has("load: spike verdict", out, "Sharp jump in load.")
     band("load: spike band", out, "b-max")
-    has("load: no precedent", out, "No earlier week in your whole log in this band.")
+    # It says how far back it actually looked, and it does not claim the whole log:
+    # Q["sig_load"] is LIMIT 200 with the time picker ANDed onto it.
+    has("load: no precedent", out, "Nothing else in this band in the <b>1</b> earlier")
+    has("load: no precedent names its reach", out, "back to <b>Aug 2026</b>")
+    lacks("load: no precedent claims no more than it saw", out, "your whole log")
     lacks("load: precedent is not range-scoped", out, "in this range")
+
+    # One row and nothing behind it: there is no reach to name, so it does not name one.
+    lone = render(t, rows_of(wk(1.81, "spike", "Sep 2026")))
+    has("load: lone week", lone, "No earlier week to compare this one against yet.")
+    lacks("load: lone week counts nothing", lone, "<b>0</b> earlier")
+    balanced("load (lone week)", lone)
 
     # A ratio off a layoff. Three blank weeks make chronic equal acute, so 4.0 arrives
     # before a single hard set - the card must not call that a spike and tell a lifter
@@ -354,6 +481,63 @@ def section_load() -> None:
     has("load: comeback is not a spike", out, "Coming back.")
     has("load: comeback shows the base it has", out, "<b>4</b> of the last 28 days")
     has("load: comeback says the ratio is arithmetic", out, "arithmetic rather than a spike")
+    # The bar the count is being judged against. "Only 4 of 28" with nothing to be low
+    # against is a judgment the reader cannot check, and the threshold is this lifter's
+    # own - derive measures it from their history - so it cannot be a constant in copy.
+    has("load: comeback names the bar", out, "under the <b>9</b> this ratio needs")
+
+    # An index written before derive carried the threshold onto the load row still has to
+    # render, and it has to decline rather than print a bar of zero. Both directions,
+    # because a guard that only fires one way is the shape of bug this file keeps finding.
+    old_index = render(t, rows_of(wk(4.0, "spike", "Sep 2026", trained=4, off=True, lmin=None),
+                                  wk(1.0, "steady", "Aug 2026", lmin=None)))
+    has("load: comeback without the bar still rules", old_index, "Coming back.")
+    has("load: comeback without the bar keeps the count", old_index, "<b>4</b> of the last 28 days")
+    lacks("load: comeback without the bar names none", old_index, "this ratio needs")
+    lacks("load: comeback without the bar prints no zero", old_index, "under the <b>0</b>")
+    no_confident_zero("load (comeback, no threshold on the row)", old_index)
+    balanced("load (comeback, no threshold on the row)", old_index)
+
+    # The windows end on the week's anchor, not on the last day trained, which is why a
+    # rest day moves the ratio. That used to be stated as a RULE in provenance because
+    # derive did not carry load_window_end onto the load row; it does now, so the card
+    # names the two dates and the provenance sentence is gone. These four assertions are
+    # the same tripwire pointed the other way.
+    check("load: the card reads the window end", "load_window_end" in tpl.SIGNAL_LOAD,
+          "the window end is projected but no template reads it")
+    lacks("load: the stand-in rule is gone", tpl.SIGNAL_LOAD, "measured back from the week")
+
+    # 1. The dates differ - the ordinary case, and the whole reason to print them.
+    has("load: names the window end", out, "Measured to 2026-09-06")
+    has("load: names the last day trained", out, "you last trained 2026-09-04")
+
+    # 2. The week ended ON a training day. One date, said once: "measured to Sep 6; you
+    # last trained Sep 6" is a distinction with nothing on either side of it.
+    same = render(t, rows_of(wk(1.37, "rising", "Sep 2026", 1.09, wend="2026-09-06"),
+                             wk(1.0, "steady", "Aug 2026")))
+    has("load: same day says it once", same, "Measured to 2026-09-06, the last day you trained.")
+    lacks("load: same day does not repeat the date", same, "you last trained 2026-09-06")
+    balanced("load (window end is the last day trained)", same)
+
+    # 3. An index written before the field existed renders and declines - no blank, no nil,
+    # no dangling "Measured to".
+    older = render(t, rows_of(wk(1.37, "rising", "Sep 2026", 1.09, lwe=None),
+                              wk(1.0, "steady", "Aug 2026", lwe=None)))
+    has("load: without the window end it still rules", older, "Ramping.")
+    lacks("load: without the window end it names none", older, "Measured to")
+    no_confident_zero("load (no window end on the row)", older)
+    balanced("load (no window end on the row)", older)
+
+    # 4. The comeback branch makes the same implicit claim ("the last 28 days") and gets
+    # the same line, from the same string - one fragment, substituted into both.
+    comeback = render(t, rows_of(wk(4.0, "spike", "Sep 2026", trained=4, off=True),
+                                 wk(1.0, "steady", "Aug 2026")))
+    has("load: the comeback branch names the window too", comeback,
+        "Measured to 2026-09-06; you last trained 2026-09-04.")
+    check("load: the window line is written once", tpl._LOAD_WINDOW.count("Measured to") == 1,
+          "the fragment says it more than once")
+    check("load: no placeholder survives substitution", "__WINDOW__" not in tpl.SIGNAL_LOAD,
+          "__WINDOW__ reached the built card")
     lacks("load: comeback drops the spike wording", out, "Sharp jump in load")
     lacks("load: comeback drops the percentage claim", out, "above")
     # "the last two times you were here" is scoped to a band this branch declines to claim.
@@ -399,7 +583,12 @@ def section_drift() -> None:
     # time, so last_trained is a plain keyword date and cadence arrives precomputed rather
     # than being derived as 365/n in the template.
     def group(name, days_ago, sessions, cadence=None):
-        stamp = (now - timedelta(days=days_ago, hours=12)).strftime("%Y-%m-%d")
+        # now.date() minus N days, NOT now minus N days and a half. last_trained is a
+        # calendar date, the card floors (now - midnight of it) / 86400, and the half-day
+        # offset pushed the stamp back an extra day whenever the suite ran before noon
+        # UTC - so "Calves: 17 days." was 17 in the afternoon and 18 in the morning and
+        # three assertions failed on the clock rather than on the code.
+        stamp = (now.date() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
         return {"muscle": name, "last_trained": stamp, "sessions": sessions,
                 "cadence_days": round(365 / sessions, 2) if cadence is None else cadence,
                 "computed_through": now.strftime("%Y-%m-%d")}
@@ -417,7 +606,7 @@ def section_drift() -> None:
 
     # Groups trained fewer than six times a year have no meaningful cadence.
     out = render(t, rows_of(group("grip", 200, 5), group("core", 180, 3)))
-    has("drift: nothing rankable", out, "needs 6 sessions in a year")
+    has("drift: nothing rankable", out, "needs six sessions in the year")
     has("drift: nothing rankable counts groups", out, "None of your <b>2</b>")
     balanced("drift (unrankable)", out)
 
@@ -459,6 +648,33 @@ def section_drift() -> None:
           "a row with no cadence was ranked anyway")
     balanced("drift (no cadence)", out)
 
+    # A zero cadence and an ABSENT one are different rows off the wire and have to be the
+    # same verdict here. `| plus: 0` turns nil into 0, which is what makes them meet; that
+    # is worth an assertion rather than a comment, because a rewrite that drops the
+    # `| plus: 0` breaks only the absent case and every existing test uses the zero.
+    gone = group("calves", 17, 58)
+    gone.pop("cadence_days")
+    out = render(t, rows_of(gone, group("chest", 1, 120)))
+    check("drift: an absent cadence reads like a zero one", "Calves" not in out,
+          "a row with no cadence_days at all was ranked")
+    balanced("drift (cadence absent)", out)
+
+    # rankable is the indexer's veto, and it is only a veto. A row it marks false is not
+    # ranked even when the card's own test would have passed it; a row that never carries
+    # the field at all is judged the old way, which is every other assertion in this
+    # section. Both directions, because a guard that only fires one way is the shape of
+    # bug this file keeps finding.
+    fixture_is_real("sig_drift", {**group("calves", 17, 58), "rankable": False})
+    vetoed = {**group("calves", 17, 58), "rankable": False}
+    out = render(t, rows_of(vetoed, group("chest", 1, 120)))
+    check("drift: rankable false is honoured", "Calves" not in out,
+          "a group the indexer refused to rank was ranked anyway")
+    balanced("drift (vetoed)", out)
+    ok = {**group("calves", 17, 58), "rankable": True}
+    out = render(t, rows_of(ok, group("chest", 1, 120)))
+    has("drift: rankable true still ranks", out, "Calves: 17 days.")
+    balanced("drift (rankable true)", out)
+
     # And the freshness stamp, because staleness is the failure mode this index has.
     out = render(t, rows_of(group("calves", 17, 58), group("chest", 1, 120)))
     has("drift: says when it was computed", out, "from the whole log, indexed")
@@ -474,79 +690,284 @@ def section_drift() -> None:
     balanced("drift (two)", out)
 
 
-# Fields mapped float in schema/mappings, plus the ES|QL aliases the templates give
-# them. Rendering one of these raw prints the full float32 expansion in Kibana's
-# JavaScript Liquid — "7.130000114440918 avg RPE" — while python-liquid renders it
-# clean, so no amount of local rendering catches it. Only a source check does.
-FLOAT_COLUMNS = {
-    "duration_min", "environment.temp_f", "environment.humidity_pct",
-    "metrics.bodyweight_lb", "metrics.sleep_hrs", "totals.tonnage_lb",
-    "avg_working_rpe", "inol_total", "fatigue_index", "density_lb_per_min", "load_au",
-    "weight_lb", "weight_each_lb", "reps", "rpe", "est_e1rm", "volume_lb",
-    "intensity_pct", "inol", "work_ftlb", "tut_sec", "distance_ft",
-    "weight_kg", "total_kg", "total_lb", "dots", "bodyweight_kg", "bodyweight_lb",
-    "acwr", "monotony", "strain", "load_7d", "load_28d", "projected_total_lb",
-    "inol_hardest", "tonnage_lb", "cum_tonnage_lb", "top_pct",
-    "heavy_per_session", "peer_heavy_per_session", "share_pct", "peer_share_pct",
-    "tonnage_per_session", "peer_tonnage_per_session", "platformed_pct",
-    "peer_pct", "expected_lb",
-    # ES|QL aliases
-    "e1", "lb", "kg", "avg", "ton", "top", "v", "cad",
+def section_zone_coverage() -> None:
+    """The line under both intensity-zone charts, in every state its data has.
+
+    The state that matters is zr == 0: with the self-referenced fallback gone from
+    derive.py, a lifter who logs no RPE has no prilepin_zone on any set, and BOTH zone
+    charts come back empty. An empty Lens panel cannot explain itself, so this card has
+    to - and it has to do it without printing a zero, which in this project is the same
+    lie as printing a number that was never measured.
+    """
+    t = tpl.ZONE_COVERAGE
+    for qname in ("zone_cov_main", "zone_cov_lift"):
+        fixture_is_real(qname, {"zr": 120.0, "tr": 400.0})
+
+    # The change landing under this build: no RPE anywhere, so no set carries a zone.
+    out = render(t, rows_of({"zr": None, "tr": 412.0}))
+    balanced("zone coverage (none zoned)", out)
+    has("zone coverage: names the population", out, "<b>412</b> working reps")
+    has("zone coverage: says the chart is empty for a reason", out,
+        "which is why the\nchart above is empty")
+    has("zone coverage: says what a zone needs", out, "logged\nRPE")
+    lacks("zone coverage: no confident zero", out, "<b>0</b>")
+    no_confident_zero("zone coverage (none zoned)", out)
+
+    # Partly zoned: the stacked chart above is a share OF SOMETHING, and this says of what.
+    out = render(t, rows_of({"zr": 120.0, "tr": 400.0}))
+    balanced("zone coverage (partial)", out)
+    has("zone coverage: n of m", out, "<b>120</b> of <b>400</b> working reps")
+    has("zone coverage: says what the chart drops", out, "does not count them")
+
+    # Fully zoned: it still says something, so this branch is not a state only the
+    # author's own log ever reaches.
+    out = render(t, rows_of({"zr": 400.0, "tr": 400.0}))
+    balanced("zone coverage (all zoned)", out)
+    has("zone coverage: all of them", out, "All <b>400</b> working reps")
+    lacks("zone coverage: does not lecture when there is nothing to explain", out, "Put an RPE")
+
+    # Nothing in range at all, and a query that returned no row: two different sentences,
+    # neither of them a zero.
+    out = render(t, rows_of({"zr": None, "tr": None}))
+    balanced("zone coverage (no reps)", out)
+    has("zone coverage: no reps", out, "No working reps in this range")
+    out = render(t, [])
+    balanced("zone coverage (no rows)", out)
+    has("zone coverage: no rows", out, "No working sets came back")
+
+
+# ---------------------------------------------------------------- raw renders
+#
+# What is safe to render RAW, built from the mappings rather than from a list somebody
+# remembered to add to.
+#
+# This replaces two allowlists - FLOAT_COLUMNS and TEXT_COLUMNS - which were the wrong
+# polarity in the same way: they named the columns that must be filtered, so a column
+# nobody had listed passed by default. Confirmed with `exercise.emphasis`, a real text
+# field on workout-sets: it was absent from TEXT_COLUMNS, so a template rendering it raw
+# passed the suite while putting whatever was typed in the log into the card's HTML.
+#
+# Inverted, the default is the safe one. A column read in an output tag has to be:
+#
+#   * mapped as an EXACT numeric (or a boolean), which prints the same in both engines,
+#     and may then be rendered raw; or
+#   * mapped as a FLOAT, which must carry `round` - Kibana's Liquid is JavaScript, where
+#     every number is a double, so a raw float32 prints "7.130000114440918" while
+#     python-liquid renders it clean and no amount of local rendering catches it; or
+#   * anything else - keyword, text, date, geo - which must carry `escape`. The panel
+#     sandbox strips <a> and <script>, so the live blast radius is layout rather than
+#     script execution, but a note containing "<div" silently swallows the rest of its
+#     card.
+#
+# ES|QL aliases are not in any mapping, so they are declared here, by hand, with the type
+# of the expression that produces them. That table is checked against the queries in both
+# directions below: an alias the queries define and this table does not name is a failure,
+# and so is a name here that no query defines.
+
+EXACT_TYPES = {"integer", "long", "short", "byte", "boolean"}
+FLOAT_TYPES = {"float", "double", "half_float", "scaled_float"}
+
+ALIAS_TYPES = {
+    "attempts": "integer",      # COUNT(*) over meet attempts
+    "date_s": "keyword",        # DATE_FORMAT
+    "e1": "float",              # MAX(est_e1rm)
+    "e1c": "float",             # CASE over est_e1rm
+    "fam": "keyword",           # lift_family
+    "first_d": "date",          # MIN(date)
+    "gear_s": "keyword",        # MV_CONCAT(gear)
+    "item": "text",             # watch_items, MV_EXPANDed
+    "kg": "float",              # MAX(weight_kg)
+    "last_day": "date",         # MAX(date)
+    "last_s": "keyword",        # DATE_FORMAT
+    "lb": "float",              # MAX(weight_lb)
+    "lift_no": "integer",       # CASE, a sort key
+    "m": "integer",             # CASE(made, 1, 0)
+    "main_rank": "integer",     # CASE(exercise.category == "main", 0, 1), a sort key
+    "meet_lb": "float",         # MAX(total_lb)
+    "meet_s": "keyword",        # DATE_FORMAT
+    "meets": "integer",         # COUNT_DISTINCT(meet_id)
+    "n": "integer",             # COUNT(*)
+    "sess_d": "date",           # MAX(date)
+    "tags_s": "keyword",        # MV_CONCAT(tags)
+    "top": "float",             # MAX(weight_lb)
+    "tr": "float",              # SUM(reps)
+    "watch_s": "text",          # MV_CONCAT(watch_items)
+    "wd": "integer",            # program.week * 100 + program.day
+    "wd_max": "integer",        # MAX(wd)
+    "when_s": "keyword",        # DATE_FORMAT
+    "zoned": "float",           # CASE over reps
+    "zr": "float",              # SUM(zoned)
 }
 
-RAW_RENDER = re.compile(r"\{\{\s*[A-Za-z0-9_\[\]'.]*\['([^']+)'\]\.value\s*\}\}")
+
+def _column_types() -> dict[str, set[str]]:
+    """Every column a template can read -> the set of types it can arrive as.
+
+    A name can be mapped in more than one index with more than one type (`reps` is a
+    float on workout-sets and an integer on workout-weekly) and can also be an alias that
+    shadows a field (`made` is a boolean on workout-meets and SUM(m), an integer, in
+    Q["meet_cards"]). The strictest rule that applies wins, so the union is what is kept.
+    """
+    out: dict[str, set[str]] = {}
+    for fields in bd.index_field_types().values():
+        for name, kind in fields.items():
+            out.setdefault(name, set()).add(kind)
+    for name, kind in ALIAS_TYPES.items():
+        out.setdefault(name, set()).add(kind)
+    return out
 
 
-def section_float_leaks() -> None:
-    for name in dir(tpl):
-        if name.startswith("__"):
-            continue
-        value = getattr(tpl, name)
-        if not isinstance(value, str) or "{{" not in value:
-            continue
-        for col in RAW_RENDER.findall(value):
-            check(f"{name}: {col} is not rendered raw", col not in FLOAT_COLUMNS,
-                  "float field needs | round, | round: 1 or num()")
-
-
-# Columns carrying text a human typed, or a keyword the indexer copied out of one. A
-# raw render of any of these puts whatever was in the log straight into the card's HTML.
-# The panel sandbox strips <a> and <script>, so the live blast radius is layout rather
-# than script execution - but a note containing "<div" silently breaks the card it is on,
-# and the suite never saw it because until 2026-09-05 the only value it ever fed a text
-# column was nil. Same shape as FLOAT_COLUMNS above: a source check, because the bug is
-# invisible in a render that happens to use clean data.
-TEXT_COLUMNS = {
-    "item", "text", "notes", "gear_s", "gear_notes", "wrap_up", "tags_s", "watch_s",
-    "exercise.name", "exercise.category", "location.name", "environment.conditions",
-    "environment.wind", "environment.setting", "program.name", "program.block",
-    "program.phase", "session_id", "prev_session_id", "next_session_id", "start_time",
-    "time_of_day", "set_type", "phase", "lift", "lift_slug", "lift_name", "name", "fam",
-    "muscle", "block", "block_role", "cycle", "cycle_label", "cycle_role", "week_state",
-    "iso_week", "tag", "acwr_band", "acwr_gloss", "inol_hardest_band",
-    "inol_hardest_lift", "inol_hardest_gloss", "meet_id",
-    "date_s", "meet_s", "last_s", "when_s", "month_s", "notes_from", "computed_through",
-    "last_trained", "first_trained", "peer_from", "peer_to", "week_end",
-}
+COLUMN_TYPES = _column_types()
 
 OUTPUT_TAG = re.compile(r"\{\{(?P<body>[^{}]*)\}\}")
-COL_IN_TAG = re.compile(r"\['([^']+)'\]\.value")
+COL_IN_TAG = re.compile(r"\[' ?([A-Za-z0-9_.@]+) ?'\]\.value")
+ANY_COL_READ = re.compile(r"\[' ?([A-Za-z0-9_.@]+) ?'\]\.value")
+# num() rounds inside an {% assign %}, so its column never appears in an output tag.
+# It is still a filter applied to a column and still has to be applied to a number.
+NUM_ASSIGN = re.compile(r"\{%- assign _n = (?P<body>[^{}]*?) -%\}")
+
+# --- the assign-then-render path -------------------------------------------
+#
+# Everything above judges an output tag by the column name written INSIDE it, so it only
+# ever saw the direct path: `{{ r['rpe'].value | round: 1 }}`. A column that reaches the
+# page through a variable - `{% assign prpe = r['rpe'].value %}` and then `{{ prpe }}` -
+# carries no column name at the render site, so the guard scored it as plain text and
+# passed it. That is how an unrounded float32 RPE ("8.100000381469727") shipped to the
+# Session page past a lint whose whole job is that one failure, and it is the same class
+# of hole as the allowlists this file replaced: the guard was real, its coverage was not.
+#
+# So assignments are traced. Walking each template once in source order, a variable
+# assigned from a column read - or from another traced variable - inherits that column's
+# mapped type, and every later `{{ var }}` is judged as a render of that column. The
+# variable's claim ends when a filter in the assign LAUNDERS it: `round`, `ceil`, `floor`
+# and `size` all yield a number that prints identically in Kibana's JavaScript engine and
+# in python-liquid; `escape` yields markup-safe text; `date` yields a strftime string,
+# which cannot carry anything a lifter typed. Arithmetic does NOT launder - `| plus: 0`
+# on a float32 leaves a float32 - which is the case that catches a rate assigned from a
+# double and printed bare.
+#
+# Lexical order is the whole model, and it is sound here because every template is one
+# flat string in which the assign precedes the render. It is not a Liquid interpreter: a
+# `{{ var }}` written textually ABOVE the assign that fills it inside a `for` body would
+# be judged against the wrong assignment. Nothing in templates.py is written that way,
+# and the failure direction of that mistake is a false positive, not a silent pass.
+COMMENT_BLOCK = re.compile(r"\{%-?\s*comment\s*-?%\}.*?\{%-?\s*endcomment\s*-?%\}", re.S)
+ASSIGN_TAG = re.compile(
+    r"\{%-?\s*assign\s+(?P<var>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<body>.*?)\s*-?%\}", re.S)
+TAG_STREAM = re.compile(r"\{%-?\s*assign\s+.*?-?%\}|\{\{[^{}]*\}\}", re.S)
+BARE_VAR = re.compile(r"^\s*(?P<var>[A-Za-z_][A-Za-z0-9_]*)\s*(?:\|.*)?$", re.S)
+WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+LAUNDERING = re.compile(r"\|\s*(?:round|ceil|floor|size|escape|date)\b")
 
 
-def section_escaping() -> None:
+def _assign_source(body: str, traced: dict) -> tuple | None:
+    """The column an `{% assign %}` body carries, if it carries one.
+
+    A traced variable counts wherever it appears in the body, not only at the head of
+    the filter chain: `{% assign months = months | append: m %}` takes its content from
+    `m`, and following only the leading name would let a column launder itself by being
+    passed as a filter ARGUMENT. First match in source order wins, which is the head
+    when there is one.
+    """
+    col = COL_IN_TAG.search(body)
+    if col:
+        return (col.group(1), COLUMN_TYPES.get(col.group(1), set()))
+    for m in WORD.finditer(body):
+        if m.group(0) in traced:
+            return traced[m.group(0)]
+    return None
+
+
+def _templates():
     for name in dir(tpl):
         if name.startswith("__"):
             continue
         value = getattr(tpl, name)
-        if not isinstance(value, str) or "{{" not in value:
+        if isinstance(value, str):
+            yield name, value
+
+
+def section_alias_table() -> None:
+    """The alias table is closed against the queries, in both directions."""
+    mapped = set(COLUMN_TYPES) - set(ALIAS_TYPES)
+    for fields in bd.index_field_types().values():
+        mapped |= set(fields)
+    defined = set()
+    for query in bd.Q.values():
+        _, _, names = bd.esql_columns(query)
+        defined |= {n for n in names if "*" not in n}
+    undeclared = sorted(n for n in defined if n not in mapped and n not in ALIAS_TYPES)
+    check("aliases: every ES|QL alias has a declared type", not undeclared,
+          f"{undeclared} - declare it in ALIAS_TYPES or the raw-render lint cannot judge it")
+    stale = sorted(n for n in ALIAS_TYPES if n not in defined)
+    check("aliases: no declared type outlives its query", not stale,
+          f"{stale} - no query defines these any more")
+
+
+def section_raw_renders() -> None:
+    """No column may be rendered without the filter its mapped type requires."""
+    for name, value in _templates():
+        if "{{" not in value and "{%" not in value:
             continue
-        for m in OUTPUT_TAG.finditer(value):
-            body = m.group("body")
+        for column in sorted(set(ANY_COL_READ.findall(value))):
+            check(f"{name}: {column!r} is a column something maps",
+                  column in COLUMN_TYPES,
+                  "not in any mapping and not a declared ES|QL alias")
+
+        def verdict(where: str, body: str, column: str, kinds: set[str], via: str = "") -> None:
+            if kinds & FLOAT_TYPES:
+                check(f"{name}: {column} is rounded{via}", "round" in body,
+                      f"a float rendered without | round expands in Kibana's engine: {where}")
+            elif kinds <= EXACT_TYPES:
+                pass  # an integer or a boolean prints the same in both engines
+            else:
+                check(f"{name}: {column} is escaped{via}", "escape" in body,
+                      f"a {'/'.join(sorted(kinds))} column rendered raw: {where}")
+
+        def judge(where: str, body: str) -> None:
             cols = COL_IN_TAG.findall(body)
-            if not cols or cols[0] not in TEXT_COLUMNS:
+            if not cols:
+                return
+            column = cols[0]
+            kinds = COLUMN_TYPES.get(column)
+            if not kinds:
+                return  # already reported above
+            verdict(where, body, column, kinds)
+
+        for m in OUTPUT_TAG.finditer(value):
+            judge("{{" + m.group("body") + "}}", m.group("body"))
+        for m in NUM_ASSIGN.finditer(value):
+            judge("num(" + m.group("body") + ")", m.group("body"))
+
+        # The same judgement, one hop further back: `{% assign x = col %}` then `{{ x }}`.
+        traced: dict[str, tuple[str, set[str]]] = {}
+        for m in TAG_STREAM.finditer(COMMENT_BLOCK.sub("", value)):
+            tag = m.group(0)
+            a = ASSIGN_TAG.fullmatch(tag)
+            if a:
+                var, body = a.group("var"), a.group("body")
+                source = _assign_source(body, traced)
+                if source and not LAUNDERING.search(body):
+                    traced[var] = source
+                else:
+                    # Reassigned to a literal, or laundered by a filter. Either way the
+                    # variable stops standing for the column, and leaving the old claim
+                    # in place would be a false positive on the next render of it.
+                    traced.pop(var, None)
                 continue
-            check(f"{name}: {cols[0]} is escaped", "escape" in body,
-                  f"text column rendered raw: {{{{{body}}}}}")
+            body = tag[2:-2]
+            if COL_IN_TAG.search(body):
+                continue  # a direct read; judge() already saw it
+            bare = BARE_VAR.match(body)
+            if not bare:
+                continue
+            source = traced.get(bare.group("var"))
+            if not source:
+                continue
+            column, kinds = source
+            if not kinds:
+                continue
+            verdict(tag, body, column, kinds, via=f" through {bare.group('var')}")
 
 
 def section_escaping_renders() -> None:
@@ -604,6 +1025,31 @@ def section_escaping_renders() -> None:
          "next_session_id": "2026-09-05"}))
     balanced("escaping: a location and a program name", out)
     has("escaping: the location is escaped", out, "&lt;div onclick")
+
+    # Program tracking is newer than the log: 639 of 643 sessions carry no week or day.
+    # Printed unconditionally the hero read "HYPERTROPHY - WEEK - DAY OF" on every one of
+    # them, in the largest type on the page. Found by drilling into 2026-05-13 from the
+    # History timeline; three rounds of review had only ever opened the latest session.
+    out = render(tpl.SESSION_HEADER, rows_of(
+        {"program.name": "JuggernautAI", "program.block": "hypertrophy",
+         "program.week": None, "program.day": None, "program.total_days": None,
+         "date_s": "May 13", "start_time": "13:57", "time_of_day": "midday",
+         "location.name": "Garage", "location.travel": False,
+         "prev_session_id": "2026-05-11", "next_session_id": "2026-05-15"}))
+    balanced("session header (no program week)", out)
+    has("session header: the block still carries the line", out, "hypertrophy")
+    lacks("session header: no dangling week label", out, "week </span>")
+    lacks("session header: no dangling day label", out, "day  of")
+    lacks("session header: no empty 'day of'", out, "day </span>")
+
+    out = render(tpl.SESSION_HEADER, rows_of(
+        {"program.name": "JuggernautAI", "program.block": "strength",
+         "program.week": 21, "program.day": 4, "program.total_days": 4,
+         "date_s": "Sep 4", "start_time": "06:00", "time_of_day": "morning",
+         "location.name": "Garage", "location.travel": False,
+         "prev_session_id": "2026-09-03", "next_session_id": None}))
+    has("session header: a tracked week still prints", out, "week 21")
+    has("session header: and its day", out, "day 4 of 4")
 
     out = render(tpl.CONDITIONS_CARD, rows_of(
         {"environment.temp_f": 71, "environment.humidity_pct": 40,
@@ -710,9 +1156,14 @@ def section_lift() -> None:
     has("lift: close to best", out, "Close to your best.")
     band("lift: close band", out, "b-heavy")
 
-    # Another lift's sessions must not leak into the ranking. With the control cleared
-    # the query returns every lift, so the card follows rows[0]'s slug and ignores the
-    # rest — bench at 900 here would otherwise blow the peak apart.
+    # More than one lift in the rows means nothing filtered this page to a lift, and
+    # the card must say so rather than rule.
+    #
+    # This used to assert the opposite: that the card "follows rows[0]'s slug and ignores
+    # the rest", which is a verdict about deadlifts printed on a page whose header names
+    # one lift and whose three charts below draw every lift there is. Silently picking a
+    # lift is the bug, not the behaviour. The nav no longer offers Lift as a door (see
+    # NAV_ORDER), but a bookmark and a back button still land here cold.
     mixed = []
     for i, v in enumerate(DEADLIFT):
         mixed.append({"session_id": f"d{i}", "lift_slug": "comp-deadlift",
@@ -720,9 +1171,18 @@ def section_lift() -> None:
         mixed.append({"session_id": f"b{i}", "lift_slug": "comp-bench",
                       "when_s": "Jul 2026", "e1": 900.0})
     out = render(t, rows_of(*mixed))
-    has("lift: ignores other lifts", out, "your best <b>383</b> lb")
-    lacks("lift: no cross-lift gap", out, "60% under your best.")
+    has("lift: unfiltered says no lift is chosen", out, "No lift chosen.")
+    has("lift: unfiltered counts the lifts it got", out, "<b>2</b> came back")
+    has("lift: unfiltered says where to click", out, "Overview's projected-total chart")
+    lacks("lift: it does not send you round every chart", out, "any lift on any chart")
+    lacks("lift: unfiltered does not rank", out, "under your best.")
+    lacks("lift: unfiltered claims no best", out, "At your best.")
     balanced("lift (mixed)", out)
+
+    # One slug, many sessions: the ordinary filtered arrival still rules.
+    out = render(t, rows_of(*lift_rows(DEADLIFT)))
+    has("lift: one slug still ranks", out, "your best <b>383</b> lb")
+    lacks("lift: one slug is not a cold start", out, "No lift chosen.")
 
     # Exactly five sessions: there is no earlier five to compare against, so the
     # direction line must be absent rather than dividing by zero.
@@ -773,8 +1233,17 @@ def section_total_card() -> None:
     out = render(t, rows_of(*(lifts + [meet(909.4)])))
     has("total: full window label", out, "best of the last 90 days")
     has("total: sum", out, "872")
-    has("total: the meet best is the reader's own", out, "909.4")
-    has("total: the comparison", out, "of your meet best")
+    # The reader's own number, rounded like every other pound in the app - the kg->lb
+    # conversion is where the decimal came from, not from anything anyone measured.
+    has("total: the meet best is the reader's own", out, "909")
+    lacks("total: and it is not carried to a decimal", out, "909.4")
+    has("total: the comparison", out, "of your best meet total in this range")
+    # The meets half of the union carries no date bound of its own, so MAX(total_lb) is
+    # whatever the picker admits. The card says which, the same way it does for the
+    # 90-day window two lines above it.
+    has("total: the meet best names its scope", out, "in this range")
+    has("total: and says the picker reaches it", out, "widen it if an older meet was bigger")
+    lacks("total: no unqualified 'your meet best'", out, "% of your meet best")
     has("total: what is left to go", out, "37")
     lacks("total: no widen hint at full window", out, "widen the time picker")
     # The meet row carries no lift family and must not be drawn as a fourth lift.
@@ -782,11 +1251,26 @@ def section_total_card() -> None:
     check("total: the meet row is not a lift row", rowcount == 3, f"{rowcount} lift rows")
     balanced("total (full)", out)
 
+    # The branch where the projection has passed the platform best - the best news this
+    # card can carry - had no test at all until 2026-09-06, which is how a mutant that
+    # put the decimal back on that side of the if survived a 1500-assertion suite. Found
+    # by mutating both halves of the same line and noticing only one of them died.
+    ahead = [lift("deadlift", 400.0, 88), lift("squat", 300.0, 80), lift("bench", 250.0, 85)]
+    out = render(t, rows_of(*(ahead + [meet(909.4)])))
+    has("total ahead: the sum", out, "950")
+    has("total ahead: the comparison still names its scope", out,
+        "of your best meet total in this range")
+    has("total ahead: whole pounds here too", out, "909")
+    lacks("total ahead: and no decimal", out, "909.4")
+    lacks("total ahead: nothing left to go", out, "to go")
+    balanced("total (ahead of the platform best)", out)
+
     # No meet on record: the card says so rather than showing a percentage of nothing.
     out = render(t, rows_of(*lifts))
     has("total: still names the projection", out, "872")
-    has("total: no meet says so", out, "No meet on the record yet")
-    lacks("total: no percentage of nothing", out, "of your meet best")
+    has("total: no meet says so", out, "No meet in this range")
+    has("total: no meet says how to widen", out, "widen the time picker past the last one")
+    lacks("total: no percentage of nothing", out, "of your best meet total")
     lacks("total: nothing to go", out, "to go")
     balanced("total (no meet)", out)
 
@@ -821,6 +1305,49 @@ def section_meet_cards() -> None:
     has("meets: success says what it counts", out, "100% made in range")
     lacks("meets: no 'logged' claim", out, "competitions logged")
     lacks("meets: no 'all meets' claim", out, "all meets")
+
+
+def section_meet_lists() -> None:
+    """The two meet panels that render a kilo figure per row.
+
+    Both were a bare `| round: 1` / `| round: 2` on a column that is absent whenever the
+    meet was logged without it - and DOTS is absent for every lifter who has not
+    configured a sex, which is the change landing in the indexer alongside this.
+    """
+    out = render(tpl.MEET_BESTS, rows_of({"lift": "squat", "lb": None, "kg": None}))
+    balanced("meet bests (no numbers)", out)
+    no_confident_zero("MEET_BESTS (absent)", out)
+
+    out = render(tpl.MEET_BESTS, rows_of({"lift": "squat", "lb": 385.8, "kg": 175.0},
+                                         {"lift": "deadlift", "lb": 407.9, "kg": 185.0}))
+    has("meet bests: the pounds figure", out, "386")
+    lacks("meet bests: no decimal on a converted pound", out, "385.8")
+    has("meet bests: the kilo figure", out, "175.0 kg")
+    balanced("meet bests", out)
+
+    row = {"meet_id": "m1", "date_s": "Nov 23, 2024", "total_kg": 412.5, "dots": 266.72,
+           "bodyweight_kg": 92.1, "lift": "squat", "attempt_no": 1,
+           "weight_kg": 155.0, "made": True}
+    out = render(tpl.MEET_LIST, rows_of(row))
+    has("meet list: the total", out, "412.5")
+    has("meet list: the DOTS", out, "266.7")
+    lacks("meet list: DOTS to one place", out, "266.72")
+    has("meet list: the attempt", out, "155.0")
+    balanced("meet list", out)
+
+    # The same meet with no DOTS and no bodyweight on it: the line drops those clauses
+    # rather than printing 0 and 0.0 between the separators.
+    out = render(tpl.MEET_LIST, rows_of({**row, "dots": None, "bodyweight_kg": None}))
+    has("meet list: the total survives", out, "412.5")
+    lacks("meet list: no DOTS said", out, "DOTS")
+    lacks("meet list: no bodyweight said", out, " bw")
+    no_confident_zero("MEET_LIST (partial)", out)
+    balanced("meet list (partial)", out)
+
+    # A missed attempt with no weight recorded is a dash, not a zero.
+    out = render(tpl.MEET_LIST, rows_of({**row, "weight_kg": None, "made": False}))
+    has("meet list: a missing attempt weight is a dash", out, "&mdash;")
+    no_confident_zero("MEET_LIST (no attempt weight)", out)
 
 
 def section_moat() -> None:
@@ -899,7 +1426,7 @@ def section_cold_start() -> None:
              "last_trained": (now - timedelta(days=5, hours=12)).strftime("%Y-%m-%d")}
             for m in ("chest", "quads", "lats")]
     out = render(tpl.SIGNAL_DRIFT, rows_of(*thin))
-    has("cold drift: names the threshold", out, "6 sessions in a year")
+    has("cold drift: names the threshold", out, "six sessions in the year")
     has("cold drift: counts groups seen", out, "None of your <b>3</b>")
     balanced("cold drift", out)
 
@@ -962,10 +1489,17 @@ def section_taper() -> None:
     balanced("taper open week", out)
     has("taper open: names the week", out, "Week 8 of the run-in, still open")
     has("taper open: days so far", out, "<b>4</b>&nbsp;training days in")
-    has("taper open: tonnage so far", out, "53,915")
+    # Per training day on BOTH sides. The totals - 53,915 across four days beside
+    # 75,340 across three - were printed under a sentence declining to compare them,
+    # which is an invitation to do the division yourself off the wrong pair. 53915/4
+    # and 75340/3 are the two numbers a reader can actually put next to each other.
+    has("taper open: its own day rate", out, "13,479")
+    has("taper open: the yardstick's day rate", out, "25,113")
+    lacks("taper open: not the raw open total", out, "53,915")
+    lacks("taper open: nor the raw finished total", out, "75,340")
     has("taper open: its own RPE", out, "6.9")
-    has("taper open: the yardstick's finished week", out, "75,340")
-    has("taper open: names the yardstick", out, "Nov 2024 closed the same week")
+    has("taper open: names the yardstick", out, "Nov 2024's same week ran")
+    has("taper open: says why it is a rate", out, "not comparable on the")
     has("taper open: declines to rank", out, "nothing is ranked until the week closes")
     # The whole point of the branch: no percentage, no gauge, no verdict class.
     lacks("taper open: no ratio", out, "% of Nov 2024")
@@ -1323,7 +1857,20 @@ def section_tags() -> None:
     has("tags too new: names the start", out, "<b>2026-09-01</b>")
     has("tags too new: the corpus", out, "<b>31</b> of them across <b>4</b> days")
     has("tags too new: still shows what it has", out, "watch 12")
+    has("tags too new: it says what the number is", out, "in the last 28 days")
     lacks("tags too new: no claim about a trend", out, "You have written")
+
+    # The rows arrive ranked by `recent` and the line used to print `total`, so the order
+    # and the numbers were different quantities standing next to each other: the card's
+    # second place was somewhere the tag chart below it never puts anything. Given a
+    # corpus where the two diverge, the line has to follow the ranking it was handed.
+    split = [tag_row("watch", 40, 12), tag_row("motivation", 5, 4),
+             tag_row("experiment", 30, 3)]
+    out = render(T, rows_of(*split))
+    has("tags: the line prints what the rows were ranked on", out, "watch 12")
+    has("tags: second place too", out, "motivation 4")
+    lacks("tags: not the whole-log count it did not rank on", out, "watch 40")
+    lacks("tags: nor for the rest", out, "experiment 30")
 
     # Once the notes are wide enough the same card ranks, with no rebuild.
     wide = [tag_row("grip", 9, 5, prior=1, span=60, notes=210),
@@ -1343,7 +1890,347 @@ def section_tags() -> None:
 
     out = render(T, [])
     balanced("tags empty", out)
-    has("tags empty: names the cause", out, "No tagged notes yet")
+    has("tags empty: names the cause", out, "No tagged notes came back")
+    # Every other card's empty state names the filter bar. This one did not, so any KQL
+    # turned a card with 31 notes behind it into a statement about the log.
+    has("tags empty: names the filter bar too", out, "not the filter bar")
+
+
+# ============================================================ the Session top set
+
+def top_set_row(sid, weight, reps, rpe=8.0, slug="comp-deadlift", when="Sep 5",
+                name="Competition Deadlift", e1rm=None, conf="high"):
+    return {"session_id": sid, "date_s": when, "lift_slug": slug, "exercise.name": name,
+            "weight_lb": weight, "reps": reps, "rpe": rpe,
+            "est_e1rm": e1rm, "e1rm_confidence": conf}
+
+
+def section_top_set() -> None:
+    """The card had NO section here, and section_all_templates only ever fed it nil.
+
+    Which is how it shipped claiming "first time on record for this lift" on every
+    drilldown arrival. TOP_SET_HERO finds the previous same-rep set by scanning `rows`
+    for a different session_id; the Session page is filtered to ONE session_id, which is
+    how all seven drilldowns land there, so the comparison branch was dead exactly where
+    the page is used and a false statement stood in for silence.
+    """
+    t = tpl.TOP_SET_HERO
+    fixture_is_real("top_set", top_set_row("2026-09-05", 405, 3))
+
+    out = render(t, [])
+    has("top set: no rows", out, "No working sets logged")
+    balanced("top set (no rows)", out)
+
+    # The drilldown arrival: one session, which is every arrival this page has.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3),
+                            top_set_row("2026-09-05", 385, 5)))
+    has("top set: still shows the set", out, "405")
+    lacks("top set: one session claims no first", out, "first time on record")
+    lacks("top set: one session claims no comparison", out, "last 3-rep set")
+    check("top set: nothing to say draws no rule", 'class="rule"' not in out,
+          "an empty hairline under the hero")
+    balanced("top set (one session)", out)
+
+    # Two sessions, same lift, same reps: the comparison the card was written for.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3),
+                            top_set_row("2026-08-29", 385, 3, when="Aug 29")))
+    has("top set: compares the last same-rep set", out, "last 3-rep set")
+    has("top set: names the weight", out, "385")
+    has("top set: names the delta", out, "+20 lb")
+    lacks("top set: a comparison is not a first", out, "first time on record")
+    balanced("top set (two sessions)", out)
+
+    # Two sessions at different rep counts. e1RM is what makes them comparable and the
+    # card used to decline: "different reps, not compared", printed over the one question
+    # a lifter opens a session to ask. The estimate is read off the row, never recomputed.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3, e1rm=447.0),
+                            top_set_row("2026-08-29", 385, 5, when="Aug 29", e1rm=430.0)))
+    has("top set: different reps compare on e1RM", out, "e1RM")
+    has("top set: it shows the move", out, "430")
+    has("top set: and where it landed", out, "447")
+    has("top set: and the delta", out, "+17")
+    lacks("top set: no refusal when it can compare", out, "not compared")
+    lacks("top set: different reps is not a first", out, "first time on record")
+
+    # No estimate on either set: the card says that, rather than saying nothing or
+    # printing a delta off a nil. This is the branch the old copy was right about.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3),
+                            top_set_row("2026-08-29", 385, 5, when="Aug 29")))
+    has("top set: no estimate says so", out, "neither set carries an estimate")
+    lacks("top set: no estimate invents no delta", out, "e1RM</span>")
+
+    # A low-confidence estimate is one the indexer has already said not to trust, and a
+    # comparison drawn on it is worse than no comparison.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3, e1rm=447.0),
+                            top_set_row("2026-08-29", 385, 12, when="Aug 29",
+                                        e1rm=520.0, conf="low")))
+    has("top set: a low-confidence estimate is not compared", out,
+        "neither set carries an estimate")
+    lacks("top set: and its number is not printed", out, "520")
+
+    # Two sessions, and this lift appears in only one of them. NOW the claim is earned.
+    out = render(t, rows_of(top_set_row("2026-09-05", 405, 3),
+                            top_set_row("2026-08-29", 225, 5, slug="comp-bench",
+                                        name="Competition Bench", when="Aug 29")))
+    has("top set: a real first is still claimed", out, "first time on record")
+    balanced("top set (real first)", out)
+
+
+# ============================================================ days to meet
+
+def section_days_to_meet() -> None:
+    """A meet_date is config. The day after the meet it goes negative and keeps going.
+
+    `{% if days %}` is truthy for a negative in Liquid, so the Overview hero read "-658"
+    and the Program header read "-658 days out" until somebody edited the program block.
+    """
+    today = datetime.now(timezone.utc).date()
+
+    def days_row(meet_offset):
+        meet = (today + timedelta(days=meet_offset)).isoformat() if meet_offset is not None else None
+        return {"program.meet_date": meet, "program.name": "Meet prep",
+                "program.block": "peaking", "program.phase": "peaking",
+                "program.week": 3, "program.day": 2, "program.total_days": 4,
+                "date_s": "Sep 5", "meet_s": "Sat Nov 8, 2026",
+                "days_to_meet": meet_offset}
+
+    # PROGRAM_HEADER reads one column Q["days"] does not project; it comes from
+    # Q["program_header"], which has no KEEP to check a fixture against.
+    def header_row(meet_offset):
+        return {**days_row(meet_offset), "n": 12}
+
+    fixture_is_real("days", days_row(60))
+
+    out = render(tpl.DAYS_TO_MEET_CARD, rows_of(days_row(60)))
+    has("days: a meet ahead counts down", out, '<div class="hero" style="margin-top:8px">60</div>')
+    lacks("days: ahead is not in the past", out, "was")
+    balanced("days (ahead)", out)
+
+    out = render(tpl.DAYS_TO_MEET_CARD, rows_of(days_row(-658)))
+    lacks("days: a passed meet does not count backwards", out, "-658")
+    lacks("days: a passed meet draws no hero", out, 'class="hero"')
+    has("days: a passed meet says when it was", out, "That meet was 658 days ago")
+    balanced("days (passed)", out)
+
+    out = render(tpl.DAYS_TO_MEET_CARD, rows_of(days_row(-1)))
+    has("days: yesterday is singular", out, "That meet was 1 day ago")
+
+    out = render(tpl.DAYS_TO_MEET_CARD, rows_of(days_row(0)))
+    has("days: meet day is zero, not the past", out, '<div class="hero" style="margin-top:8px">0</div>')
+
+    out = render(tpl.DAYS_TO_MEET_CARD, rows_of(days_row(None)))
+    has("days: no meet still says so", out, "No meet on the calendar")
+    balanced("days (none)", out)
+
+    out = render(tpl.PROGRAM_HEADER, rows_of(header_row(60)))
+    has("days: the program header counts down", out, '<span class="v">60</span> days out')
+
+    out = render(tpl.PROGRAM_HEADER, rows_of(header_row(-658)))
+    lacks("days: the program header does not read -658", out, "-658")
+    lacks("days: the program header is not 'days out'", out, "days out")
+    has("days: the program header says it has passed", out, "was <span class=\"v\">658</span> days ago")
+    balanced("days (header, passed)", out)
+
+
+# ============================================================ Lift, entered cold
+
+def section_lift_cold() -> None:
+    """Lift is a drilldown destination and carries no lift_slug control, so nothing but
+    an incoming filter narrows it. The nav used to offer it as an unfiltered door."""
+    check("lift: the nav no longer offers an unfiltered door", "lift" not in bd.NAV_ORDER,
+          f"NAV_ORDER is {bd.NAV_ORDER}")
+    check("lift: it is still a drilldown destination", "lift" in bd.DASH)
+    check("lift: the header query can see more than one lift",
+          "LIMIT 2" in bd.Q["lift_header"],
+          "LIMIT 1 gives the header no way to know the page was entered cold")
+
+    def header_row(name):
+        return {"name": name, "sessions": 40, "n": 180, "last_s": "Sep 5, 2026",
+                "e1": 420.0, "top": 405.0, "rpe": 8.1}
+
+    out = render(tpl.LIFT_HEADER, rows_of(header_row("Competition Deadlift")))
+    has("lift header: one lift names it", out, "Competition Deadlift")
+    lacks("lift header: one lift is not a cold start", out, "No lift chosen")
+    balanced("lift header (filtered)", out)
+
+    out = render(tpl.LIFT_HEADER, rows_of(header_row("Competition Deadlift"),
+                                          header_row("Competition Bench")))
+    has("lift header: two lifts is a cold start", out, "No lift chosen")
+    has("lift header: it says what is below is everything", out, "read it as a total and not as a lift")
+    has("lift header: it says where to click", out, "Overview's projected-total chart")
+    lacks("lift header: it does not send you round every chart", out, "any lift on any chart")
+    lacks("lift header: a cold start names no lift", out, "Competition Deadlift")
+    balanced("lift header (cold)", out)
+
+    out = render(tpl.LIFT_HEADER, [])
+    has("lift header: no rows still says so", out, "Open a lift from any dashboard")
+
+
+# ============================================================ the coach, or no coach
+
+def section_coach_wording() -> None:
+    """Nothing on an imported page explains what "the coach" is unless there IS one.
+
+    COACH_PROMPT and the ASK THE COACH panel are gated on IRONSTACK_COACH_URL. Three
+    strings on Mindset were not: the dashboard tagline, SIGNAL_TAGS' provenance line and
+    its pointer, all sending the reader to something the no-coach build does not contain.
+    """
+    import importlib
+
+    check("coach: the suite runs in the no-coach build", tpl.HAS_COACH is False)
+    lacks("coach: the tag provenance does not point at one", tpl.SIGNAL_TAGS,
+          "goes to the coach")
+    lacks("coach: the tag pointer does not either", tpl.SIGNAL_TAGS,
+          "Ask the coach")
+    has("coach: it says what it cannot answer instead", tpl.SIGNAL_TAGS,
+        "is not answered anywhere in these dashboards")
+    build = (__import__("pathlib").Path(__file__).resolve().parent / "build_dashboards.py").read_text()
+    check("coach: the Mindset tagline is behind the same switch",
+          'tpl.coach_or("To ask a question of it, ask the coach."' in build,
+          "the tagline is unconditional again")
+
+    # The other branch, rendered rather than reasoned about.
+    os.environ["IRONSTACK_COACH_URL"] = "https://kibana.example.com/app/agent_builder"
+    try:
+        with_coach = importlib.reload(tpl)
+        check("coach: set, the build knows it", with_coach.HAS_COACH is True)
+        has("coach: set, the provenance points at it", with_coach.SIGNAL_TAGS,
+            "goes to the coach")
+        has("coach: set, the pointer points at it", with_coach.SIGNAL_TAGS,
+            "Ask the coach to read the notes themselves")
+    finally:
+        os.environ["IRONSTACK_COACH_URL"] = ""
+        importlib.reload(tpl)
+    check("coach: the module is back in the no-coach build", tpl.HAS_COACH is False)
+
+
+def section_switcher_round_two() -> None:
+    """The findings from the Sept 6 Hevy-switcher walk, each one held down by a check.
+
+    Every assertion here was watched to fail against the build that produced them: the
+    verdict headline in oxblood, the four panels instructing a click they could not
+    honour, and the two cards ranking the same week in one voice with nothing saying
+    they were ranking different things.
+    """
+    # --- one verdict style across seven pages -------------------------------------
+    # b-max was the only headline drawn in oxblood: ~2.5:1 on this ground, on the single
+    # sentence History exists to say. The red signal survives as a mark, not as type.
+    rule = tpl.SIGNAL_CSS[tpl.SIGNAL_CSS.find(".sig .verdict.b-max{"):]
+    rule = rule[:rule.find("}")]
+    check("round two: the max verdict is not styled in oxblood",
+          tpl.BLOOD not in rule and "$BLOOD" not in rule, rule)
+    check("round two: the max verdict is chalk like the other five",
+          tpl.CHALK in rule, rule)
+    check("round two: oxblood survives as a mark",
+          ".sig .verdict.b-max::after" in tpl.SIGNAL_CSS and
+          tpl.BLOOD in tpl.SIGNAL_CSS.split(".sig .verdict.b-max::after")[1][:200])
+
+    # --- the two readings of one week name their own axis -------------------------
+    heavy = render(tpl.SIGNAL_INTENSITY, rows_of(*REAL_WEEKS))
+    has("round two: intensity says it ranks weight", heavy, "ranks the week on weight")
+    has("round two: and points at the other reading", heavy, "Program ranks the same week on work")
+    loading = render(tpl.SIGNAL_PROGRAM, rows_of(load_row(), load_row(inol=0.40, week_end="2026-08-30"),
+                                                 load_row(inol=0.99, week_end="2026-08-23")))
+    has("round two: program says it ranks work", loading, "ranks the week on work")
+    has("round two: and points back at Overview", loading, "Overview ranks the same week on weight")
+    # "Harder than 4 of your last 12 weeks" beside "Heavier than 10 of your last 12
+    # weeks" read as one scale disagreeing with itself. The rank now says what it ranks.
+    has("round two: the program rank names its unit", loading, "More work on that lift than")
+    lacks("round two: and no longer borrows the intensity card's word", loading, "Harder than <b>")
+
+    # --- no panel instructs a click it cannot honour ------------------------------
+    # A Lens datatable does not surface a drilldown and a custom content panel strips
+    # <a href>. Four panels told the reader to click anyway; two XY charts really do
+    # open something and keep their copy.
+    objs = bd.build()
+    blob = json.dumps(objs)
+    # The general rule, not the four instances: a datatable cannot open anything, so no
+    # datatable title may tell a reader to click. XY charts can and two of them do, which
+    # is why this is scoped to the panel type rather than to the word.
+    for o in objs:
+        if o.get("type") != "lens":
+            continue
+        raw = json.dumps(o)
+        if "lnsDatatable" not in raw:
+            continue
+        title = o["attributes"].get("title", "")
+        check(f"round two: the datatable {o['id']} does not promise a click",
+              "CLICK" not in title.upper(), title)
+    # The two panels that really do open something keep their copy.
+    check("round two: the tag chart keeps the click that works",
+          "TAGS. CLICK TO FILTER" in blob)
+    check("round two: the history timeline keeps its door",
+          "EVERY SESSION IN THE RANGE. CLICK ONE TO OPEN IT" in blob)
+    # And the two custom-content panels that strip <a href> stop pointing at themselves.
+    for phrase in ("Click a best lift", "Click a note to open"):
+        check(f"round two: nothing says {phrase!r}", phrase not in blob)
+    check("round two: Meets carries the attempt legend instead",
+          "struck-through attempt was missed" in blob)
+    check("round two: Mindset no longer offers a search it does not have",
+          "Search above" not in blob)
+
+    # --- the projected-total card rounds like the rest of the app ------------------
+    out = render(tpl.TOTAL_CARD, rows_of(
+        {"fam": "deadlift", "e1c": 361.0, "when_s": "Sep 2026", "meet_lb": None},
+        {"fam": "squat", "e1c": 283.0, "when_s": "Sep 2026", "meet_lb": None},
+        {"fam": "bench", "e1c": 228.0, "when_s": "Sep 2026", "meet_lb": None},
+        {"fam": None, "e1c": None, "when_s": "Nov 2024", "meet_lb": 909.4}))
+    has("round two: the meet best is whole pounds here too", out, "909")
+    lacks("round two: no decimal on the converted total", out, "909.4")
+
+    # --- the timeline split stays at three series ----------------------------------
+    # size=1000 was tried and reverted: it pulled in sessions with no program.phase, and
+    # missingBucket renders those as the literal "(null)". Held down so the next person
+    # reaching for a bigger bucket has to read why first.
+    tl = [o for o in objs if o["id"] == "ironstack-lens-hi-timeline"][0]
+    raw = json.dumps(tl)
+    check("round two: the timeline bucket is not enlarged", '"size": 300' in raw, raw[:200])
+
+    # --- an opt-out flag turns the feature off, whatever the environment says ------
+    #
+    # Both flags were written as an EXCUSE for an absent variable rather than as an
+    # instruction, so each was consulted only where the variable was already empty:
+    # `--no-coach` with a coach URL exported built the coach anyway and printed
+    # "ASK THE COACH on" while doing it. Found trying to restore the public artifact
+    # from a shell that had the real URL in it - the private-host lint refused the
+    # build, which is one guard catching another guard lying.
+    #
+    # A subprocess, because templates.py reads the environment and sys.argv at import
+    # and this module has already imported it once. --stdout so nothing is written.
+    env = {**os.environ,
+           "IRONSTACK_COACH_URL": "https://example.invalid/coach",
+           "IRONSTACK_MEET_MAX_LB": "909"}
+    run = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "build_dashboards.py"),
+         "--no-coach", "--no-meet-max", "--stdout"],
+        capture_output=True, text=True, env=env)
+    check("round two: --no-coach with a URL exported still builds", run.returncode == 0,
+          run.stderr[-400:])
+    check("round two: --no-coach really removes the coach",
+          "ASK THE COACH" not in run.stdout)
+    check("round two: --no-coach removes the host it would have pointed at",
+          "example.invalid" not in run.stdout)
+    check("round two: --no-meet-max really removes the reference line",
+          "AGAINST YOUR MEET BEST" not in run.stdout)
+    check("round two: and the build says which two it left out",
+          "ASK THE COACH OFF" in run.stderr and "reference line OFF" in run.stderr,
+          run.stderr[:200])
+    # Not just the panel: the STRINGS. templates.py bakes the coach wording in at import
+    # off its own reading of the environment, so the flag has to reach it there too. The
+    # two sites cover for each other on the panel - clear it in either place and no
+    # coach link is built - which means the panel alone cannot tell whether templates
+    # got the message. The Mindset copy can: it is the page whose no-coach wording was
+    # the original 2026-09-05 bug, a tagline pointing at something the build did not
+    # contain.
+    check("round two: --no-coach reaches the templates, not just the panel",
+          "stays in the note" in run.stdout, "Mindset still uses the with-coach wording")
+    check("round two: and no page invites the reader to a coach that is not there",
+          "ask the coach" not in run.stdout.lower())
+
+    # --- the card and its own evidence table print the same number ----------------
+    check("round two: INOL is banded to two places in the table too",
+          any(o["id"] == "ironstack-lens-pr-loading"
+              and '"decimals": 2' in json.dumps(o) for o in objs))
 
 
 def section_units_and_timezone() -> None:
@@ -1383,41 +2270,45 @@ def section_units_and_timezone() -> None:
         check("tz: a named zone is refused", True)
         check("tz: and says why", "DATE_FORMAT" in str(exc), str(exc))
 
-    # The offset reaches both engines: Liquid through $TZ_OFF, ES|QL through
-    # build_dashboards.with_timezone.
+    # The offset reaches Liquid's "now" arithmetic, and nothing else. It used to be
+    # applied to ES|QL as well, which moved every calendar date to the previous day for
+    # any negative offset. These three assertions are the shape of that bug, pinned so
+    # it cannot come back by someone re-reading DATE_FORMAT and assuming an instant.
     check("tz: $TZ_OFF reaches the days-to-meet arithmetic",
           "$TZ_OFF" in tpl.DAYS_TO_MEET)
-    check("tz: UTC leaves ES|QL untouched",
-          bd.with_timezone('EVAL d = DATE_FORMAT("MMM d", date)')
-          == 'EVAL d = DATE_FORMAT("MMM d", date)')
-    # Not a live-cluster assertion, just that the shift is emitted where TZ is set.
-    shifted = bd.DATE_FORMAT_CALL.sub(
-        lambda m: f'DATE_FORMAT("{m.group(1)}", {m.group(2)} - 25200 seconds)',
-        'EVAL d = DATE_FORMAT("MMM d", date)')
-    check("tz: a non-UTC offset shifts the instant",
-          shifted == 'EVAL d = DATE_FORMAT("MMM d", date - 25200 seconds)', shifted)
-
-    # Every DATE_FORMAT in Q has to be reachable by that rewrite, or a card keeps
-    # printing UTC while everything around it moved.
+    instants = [n for n, q in bd.Q.items()
+                if "@timestamp" in bd.DATE_FORMAT_ARG.findall(q)]
+    check("tz: no query formats @timestamp", not instants, instants)
+    shifts = [n for n, q in bd.Q.items() if bd.DATE_FORMAT_SHIFTED.search(q)]
+    check("tz: no query shifts a DATE_FORMAT argument", not shifts, shifts)
+    # Every DATE_FORMAT argument has to be a field the mappings type as a plain date
+    # (never a time), because that is the premise the two checks above rest on.
+    dated = {"date", "last_day", "sess_d", "program.meet_date", "meet_date",
+             "first_d", "last_d", "week_end", "last_trained"}
     for name, query in bd.Q.items():
-        raw = query.count("DATE_FORMAT(")
-        seen = len(bd.DATE_FORMAT_CALL.findall(query))
-        check(f"tz: every DATE_FORMAT in Q[{name!r}] is rewritable", raw == seen,
-              f"{seen} of {raw} matched")
+        for arg in bd.DATE_FORMAT_ARG.findall(query):
+            base = arg.split(".")[-1] if arg.startswith("program.") else arg
+            check(f"tz: Q[{name!r}] formats a calendar date, not an instant",
+                  arg in dated or base in dated, arg)
 
 
 def main() -> None:
+    section_top_set()
+    section_days_to_meet()
+    section_lift_cold()
+    section_coach_wording()
     section_cold_start()
     section_total_card()
     section_meet_cards()
+    section_meet_lists()
     section_moat()
     section_contrast()
     section_orphans()
     section_lift()
     section_unit_spacing()
     section_unit_spacing_before()
-    section_float_leaks()
-    section_escaping()
+    section_alias_table()
+    section_raw_renders()
     section_escaping_renders()
     section_units_and_timezone()
     section_helpers()
@@ -1425,11 +2316,13 @@ def main() -> None:
     section_intensity()
     section_load()
     section_drift()
+    section_zone_coverage()
     section_taper()
     section_program()
     section_block()
     section_projection()
     section_tags()
+    section_switcher_round_two()
 
     total = PASSED + len(FAILED)
     if FAILED:

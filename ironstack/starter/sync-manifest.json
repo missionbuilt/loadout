@@ -11,14 +11,13 @@
     "",
     "A redaction rule names the line by a substring that contains none of the private value - the point of the exercise is that this file is public, so the thing being removed must not be written down in it. `contains` selects the matching lines, `of` is how many lines are expected to match, `nth` picks which one (1-based, default 1), and `public` is the whole replacement line. When `of` no longer holds, the check fails as stale rather than guessing: the upstream file changed around the redaction and a person has to decide whether the public line changes too."
   ],
-
   "upstream": {
     "public_repo": "missionbuilt/loadout",
     "starter_path": "ironstack/starter",
     "instance_note": "The private instance has this template's layout at its own repo root: ingest/, schema/, config/, docs/."
   },
-
   "verbatim": [
+    "config/exercises.json",
     "ingest/build_exercise_taxonomy.py",
     "ingest/ceiling.py",
     "ingest/derive.py",
@@ -33,11 +32,12 @@
     "ingest/shorthand.py",
     "ingest/suggest.py",
     "ingest/test_ceiling.py",
+    "ingest/test_index_workouts.py",
+    "ingest/test_setup_indices.py",
     "ingest/test_shorthand.py",
     "ingest/test_suggest.py",
+    "ingest/test_verify_index.py",
     "ingest/verify_index.py",
-    "schema/workout.schema.json",
-    "schema/meet.schema.json",
     "schema/mappings/ironstack-signals.json",
     "schema/mappings/workout-daily.json",
     "schema/mappings/workout-meets.json",
@@ -45,9 +45,9 @@
     "schema/mappings/workout-sessions.json",
     "schema/mappings/workout-sets.json",
     "schema/mappings/workout-weekly.json",
-    "config/exercises.json"
+    "schema/meet.schema.json",
+    "schema/workout.schema.json"
   ],
-
   "redacted": {
     "ingest/test_metrics.py": {
       "why": "The DOTS cases were golden tests against the author's own two meets. The arithmetic is what matters, not whose bodyweight it ran on, so the template checks the same coefficients against a lifter who does not exist.",
@@ -60,28 +60,27 @@
         {
           "contains": "print(\"DOTS",
           "of": 1,
-          "public": "print(\"DOTS — golden tests against the published coefficients\")"
+          "public": "print(\"DOTS \u2014 golden tests against the published coefficients\")"
         },
         {
           "contains": "m.dots(",
           "nth": 1,
-          "of": 4,
-          "public": "check(\"100.0 kg bw, 500.0 kg total\", m.dots(100.0, 500.0), 307.76)"
+          "of": 8,
+          "public": "check(\"100.0 kg bw, 500.0 kg total\", m.dots(100.0, 500.0, \"male\"), 307.76)"
         },
         {
           "contains": "m.dots(",
           "nth": 2,
-          "of": 4,
-          "public": "check(\"75.0 kg bw, 400.0 kg total\", m.dots(75.0, 400.0), 286.97)"
+          "of": 8,
+          "public": "check(\"75.0 kg bw, 400.0 kg total\", m.dots(75.0, 400.0, \"male\"), 286.97)"
         },
         {
           "contains": "no bodyweight -> no score",
           "of": 1,
-          "public": "check(\"no bodyweight -> no score\", m.dots(0, 500.0), None)"
+          "public": "check(\"no bodyweight -> no score\", m.dots(0, 500.0, \"male\"), None)"
         }
       ]
     },
-
     "ingest/test_derive.py": {
       "why": "Two of the synthetic projection fixtures were built from the author's real meet totals. Nothing in the test asserts on those numbers, so the template uses round ones.",
       "lines": [
@@ -99,7 +98,6 @@
         }
       ]
     },
-
     "ingest/weather.py": {
       "why": "The usage example in the docstring is the author's home coordinates, and this is the script that sends them to a third party. The template uses the same fictional location as ironstack/examples/.",
       "lines": [
@@ -110,7 +108,6 @@
         }
       ]
     },
-
     "docs/shorthand.md": {
       "why": "Same coordinates in the command list, and two equipment ids that exist only in the author's config/equipment.json. An example that names gear the shipped registry does not have teaches the wrong thing.",
       "lines": [
@@ -127,7 +124,6 @@
       ]
     }
   },
-
   "never_copy": {
     "_comment": "Present in the private instance and deliberately absent here: the author's own data, his credentials, and one-off imports. `paths` is the human list. `must_be_absent` and `must_match_nothing` are the machine half - sync_check.py fails if any of them turns up in the template, because a leak is the one drift that cannot be fixed by copying harder.",
     "paths": [
@@ -155,10 +151,17 @@
       "workouts/**/*.json",
       "workouts/**/*.iron",
       "workouts/**/*.md",
-      "meets/*.json"
+      "meets/*.json",
+      "config/*.jsonl"
     ]
   },
-
+  "must_be_listed": {
+    "_comment": "Folders where every file must appear on exactly one list above - shared, redacted, or deliberately private. Without this, the check compares only the files it was told about, so a NEW module in the instance's ingest/ is reported 'in sync' by virtue of being mentioned nowhere: the pipeline grows a file, the template never gets it, and nothing says so. These are the two folders that are wholly pipeline - ingest/ and schema/ - where 'not mentioned' can never be the right answer. config/ is not here: it mixes shared taxonomy with per-instance settings and per-instance private logs, so a new file there needs a person, not a rule.",
+    "patterns": [
+      "ingest/*.py",
+      "schema/**/*.json"
+    ]
+  },
   "starter_only": {
     "_comment": "The template's own files. Generic on purpose, so they must not be overwritten from the instance and must not be checked against it.",
     "paths": [

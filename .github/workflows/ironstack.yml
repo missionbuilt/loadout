@@ -46,11 +46,14 @@ jobs:
       - name: Starter unit tests
         working-directory: ironstack/starter
         run: |
-          python ingest/test_metrics.py
-          python ingest/test_shorthand.py
-          python ingest/test_suggest.py
-          python ingest/test_derive.py
-          python ingest/test_ceiling.py
+          shopt -s nullglob
+          files=(ingest/test_*.py)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no ingest/test_*.py found - the template lost its tests"
+            exit 1
+          fi
+          for f in "${files[@]}"; do echo "--- $f"; python "$f"; done
+        shell: bash
 
       # ironstack/examples/ is three files describing one session: the shorthand a
       # person writes, the JSON the pipeline derives from it, and the markdown. The

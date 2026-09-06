@@ -18,8 +18,9 @@ import json
 import shutil
 import sys
 import tempfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -51,7 +52,7 @@ def strip_nones(value):
     return value
 
 
-def session(day, sid, tonnage=10000.0, block=None, rpe=7.0, **zones):
+def session(day, sid, tonnage=10000.0, block=None, rpe=7.0, bodyweight=None, **zones):
     doc = {
         "date": day,
         "session_id": sid,
@@ -60,7 +61,19 @@ def session(day, sid, tonnage=10000.0, block=None, rpe=7.0, **zones):
         "avg_working_rpe": rpe,
         "program": {"block": block} if block else {},
     }
+    if bodyweight is not None:
+        doc["metrics"] = {"bodyweight_lb": bodyweight}
     return ("workout-sessions", sid, doc)
+
+
+def e1rm_set(day, sid, slug, value):
+    """A working set carrying an estimate, which is all rollup_docs reads them for."""
+    return ("workout-sets", f"{sid}:{slug}", {
+        "date": day, "session_id": sid, "set_type": "working", "rep_unit": "reps",
+        "reps": 1, "est_e1rm": value, "e1rm_confidence": m.CONF_HIGH,
+        "lift_slug": slug, "muscles_primary": [],
+        "exercise": {"name": "Comp Squat", "category": "main"},
+    })
 
 
 def working_set(day, sid, n=0, muscles=(), family=None, pct=None):
@@ -93,8 +106,9 @@ def weekly_by_week(rollups):
 class fake_meets:
     """Repoint derive at a meets/ and a defaults.json written for one test."""
 
-    def __init__(self, meets, planned=None):
+    def __init__(self, meets, planned=None, lifter=None, timezone=None):
         self.meets, self.planned = meets, planned
+        self.lifter, self.timezone = lifter, timezone
 
     def __enter__(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -105,14 +119,22 @@ class fake_meets:
         for meet in self.meets:
             (meets_dir / f"{meet['date']}.json").write_text(json.dumps(meet))
         defaults = self.tmp / "defaults.json"
-        defaults.write_text(json.dumps(
-            {"program": {"meet_date": self.planned}} if self.planned else {"program": {}}))
-        self.saved = (d.MEETS_DIR, d.DEFAULTS_PATH)
+        config = {"program": {"meet_date": self.planned} if self.planned else {}}
+        if self.lifter is not None:
+            config["lifter"] = self.lifter
+        if self.timezone is not None:
+            config["session"] = {"timezone": self.timezone}
+        defaults.write_text(json.dumps(config))
+        self.saved = (d.MEETS_DIR, d.DEFAULTS_PATH, d._lifter)
         d.MEETS_DIR, d.DEFAULTS_PATH = meets_dir, defaults
+        # lifter() caches, and these cases are the only thing that ever repoints
+        # DEFAULTS_PATH. Clearing it on the way in and restoring on the way out keeps
+        # the fixture's config from leaking into the next case, in either direction.
+        d._lifter = None
         return self
 
     def __exit__(self, *exc):
-        d.MEETS_DIR, d.DEFAULTS_PATH = self.saved
+        d.MEETS_DIR, d.DEFAULTS_PATH, d._lifter = self.saved
         shutil.rmtree(self.tmp, ignore_errors=True)
         return False
 
@@ -174,11 +196,32 @@ check("no training days -> no rate rather than a divide by zero",
 
 print("\nMonotony and strain: un-elapsed days are not rest days")
 w36 = weekly["2026-W36"]
-elapsed = m.monotony([10000.0, 12000.0, 0.0])                     # Mon, Tue, today
-padded = m.monotony([10000.0, 12000.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # the old window
-check("the in-progress week is measured over the 3 elapsed days", w36["monotony"], elapsed)
-check("which is not what padding it to seven said", w36["monotony"] == padded, False)
-check("strain follows the clamped monotony", w36["strain"], m.strain(w36["tonnage_lb"], elapsed))
+# Two training days is below metrics.MONOTONY_MIN_TRAINING_DAYS, so this week gets no
+# monotony at all - Foster's number is a statement about a distribution and two points
+# are not one. It used to report 0.63 here, in the same column and on the same scale as
+# a real week.
+check("two training days is not a week to describe", w36["monotony"], None)
+check("and with no monotony there is no strain either", w36["strain"], None)
+
+# The elapsed-days clamp itself, on a week that does clear that floor: Mon/Tue/Wed
+# trained, Thursday not yet happened.
+elapsed = m.monotony([10000.0, 12000.0, 8000.0, 0.0])
+padded = m.monotony([10000.0, 12000.0, 8000.0, 0.0, 0.0, 0.0, 0.0])
+check("padding the unfinished week to seven is a different number", elapsed == padded, False)
+check("and the padded one always reads calmer than the week really was",
+      padded < elapsed, True)
+
+# ...and the clamp reaches the rollup, not just the formula. A four-day corpus whose
+# in-progress week has three training days in it.
+FOUR_DAYS = [session("2026-08-31", "t1", 10000.0, lt70=20),
+             session("2026-09-01", "t2", 12000.0, lt70=20),
+             session("2026-09-02", "t3", 8000.0, lt70=20)]
+with fake_meets([]):
+    thursday = weekly_by_week(d.rollup_docs(FOUR_DAYS, today=date(2026, 9, 3)))
+check("the in-progress week is measured over its elapsed days only",
+      thursday["2026-W36"]["monotony"], elapsed)
+check("strain follows the clamped monotony",
+      thursday["2026-W36"]["strain"], m.strain(thursday["2026-W36"]["tonnage_lb"], elapsed))
 
 # The whole point of the clamp is that it is a no-op on a week that has ended.
 with fake_meets([]):
@@ -401,6 +444,598 @@ check("three meets clears it", now["peers"], 3)
 check("and a figure ships", "expected_lb" in now, True)
 check("spanning both ends of the evidence", (now["peer_from"], now["peer_to"]),
       ("2024-04-06", "2025-11-15"))
+
+
+# ------------------------------------------------- no lookahead in the reference
+#
+# The invariant this whole module exists for, and until now the only one with no test.
+# build_reference() snapshots the running best STRICTLY BEFORE each session. Fold the
+# session in first instead - one line moved - and every set is measured against a max
+# that includes its own session, and hoisting the snapshot out of the loop measures
+# every set against a PR set months in the FUTURE. Either mutation changes 1,055 of the
+# corpus's 12,949 sets and inverts a headline verdict, and all five test files passed.
+#
+# set_fields() reaches index_workouts.slugify through derive.lift_slug, so this section
+# (unlike the rest of the file) needs the indexer importable. It reads config/exercises.json
+# for the two real lift names below; nothing else here touches the repo.
+
+print("\nNo lookahead: a later PR cannot reach back into an earlier session")
+
+
+def lift_log(day, sid, name, sets):
+    return (day, sid, {"session": {"date": day, "session_id": sid},
+                       "exercises": [{"name": name, "category": "main",
+                                      "sets": [{"set_number": n, "reps": r,
+                                                "weight_lb": w, "rpe": rpe,
+                                                "set_type": "working"}
+                                               for n, (w, r, rpe) in enumerate(sets, 1)]}]})
+
+
+LIFT = "Comp Squat"
+SLUG = "comp-squat"
+# Two sessions. The second is a PR by any measure: more weight, fewer reps, higher RPE.
+# The first has two sets of its own, so a reference that folded the session into itself
+# would be caught here too and not only by the later one.
+EARLY = lift_log("2026-01-05", "early", LIFT, [(300.0, 5, 7.0), (315.0, 5, 8.0)])
+LATE = lift_log("2026-01-12", "late", LIFT, [(405.0, 3, 9.0)])
+
+alone = d.build_reference([EARLY])
+both = d.build_reference([EARLY, LATE])
+
+check("with no history, the early session has no reference at all",
+      alone.best_before("early", SLUG), None)
+check("...and adding a later PR does not give it one",
+      both.best_before("early", SLUG), None)
+check("the later session is measured against the earlier one's best",
+      both.best_before("late", SLUG),
+      (m.e1rm(315.0, 5, 8.0)["value"], "recent"))
+check("not against its own, which is higher",
+      both.best_before("late", SLUG)[0] < m.e1rm(405.0, 3, 9.0)["value"], True)
+
+
+def early_fields(reference):
+    exercise = EARLY[2]["exercises"][0]
+    return [d.set_fields(exercise, s, "early", reference) for s in exercise["sets"]]
+
+
+before, after = early_fields(alone), early_fields(both)
+check("the early session's intensity_pct is unchanged by the later PR",
+      [f.get("intensity_pct") for f in after], [f.get("intensity_pct") for f in before])
+check("and so is its intensity_ref",
+      [f.get("intensity_ref") for f in after], [f.get("intensity_ref") for f in before])
+# Said absolutely, not only relatively: "self" is what "there was nothing before this"
+# looks like on the row, and it is the value both mutations replace.
+check("both early sets are measured against themselves",
+      [f["intensity_ref"] for f in after], ["self", "self"])
+check("the first early set is measured against its own estimate, not the session's best",
+      after[0]["intensity_pct"],
+      m.relative_intensity(300.0, m.e1rm(300.0, 5, 7.0)["value"]))
+# The test is not vacuous: the later session IS measured, and against the earlier best.
+late_exercise = LATE[2]["exercises"][0]
+late_fields = d.set_fields(late_exercise, late_exercise["sets"][0], "late", both)
+check("the later session does get a reference, and it is the earlier session's",
+      (late_fields["intensity_ref"], late_fields["intensity_pct"]),
+      ("recent", m.relative_intensity(405.0, m.e1rm(315.0, 5, 8.0)["value"])))
+
+
+# ------------------------------------------- intensity needs something to measure
+
+print("\nAn intensity with no RPE and no reference is not an intensity")
+
+# The set is the FIRST of its lift in the corpus, so build_reference has nothing to
+# measure it against, and it carries no RPE, so e1rm() falls back to Epley. Measuring
+# such a set against its own Epley estimate is weight * 100 / (weight * (1 + reps/30)),
+# in which the weight cancels: what comes out is a function of the rep count alone.
+check("that arithmetic really is independent of the load",
+      m.relative_intensity(225.0, m.e1rm(225.0, 5, None)["value"])
+      == m.relative_intensity(315.0, m.e1rm(315.0, 5, None)["value"]), True)
+check("and a warm-up triple scored the same as a top single",
+      m.relative_intensity(135.0, m.e1rm(135.0, 3, None)["value"])
+      == m.relative_intensity(315.0, m.e1rm(315.0, 3, None)["value"]), True)
+check("which put both of them in Prilepin's 90+ zone",
+      m.prilepin_zone(m.relative_intensity(315.0, m.e1rm(315.0, 3, None)["value"])), "90+")
+
+NORPE = lift_log("2026-01-05", "norpe", LIFT,
+                 [(225.0, 5, None), (315.0, 5, None), (315.0, 3, None)])
+norpe_ref = d.build_reference([NORPE])
+norpe_ex = NORPE[2]["exercises"][0]
+norpe_fields = [d.set_fields(norpe_ex, s, "norpe", norpe_ref) for s in norpe_ex["sets"]]
+
+check("the estimate itself still ships - Epley is rough, but it estimates something",
+      [f.get("e1rm_method") for f in norpe_fields], ["epley"] * 3)
+check("with a value that does depend on the weight",
+      len({f["est_e1rm"] for f in norpe_fields}), 3)
+check("no intensity_pct", [f.get("intensity_pct") for f in norpe_fields], [None] * 3)
+check("no intensity_ref", [f.get("intensity_ref") for f in norpe_fields], [None] * 3)
+check("no prilepin_zone", [f.get("prilepin_zone") for f in norpe_fields], [None] * 3)
+check("no inol", [f.get("inol") for f in norpe_fields], [None] * 3)
+
+# Both halves of the condition matter, so both are pinned. An RPE with no reference is
+# still measured against itself - that is what the RPE said about the set - and a
+# reference with no RPE is still measured, against the reference.
+WITH_RPE = lift_log("2026-01-05", "rpe", LIFT, [(315.0, 3, 9.0)])
+rpe_ex = WITH_RPE[2]["exercises"][0]
+rpe_fields = d.set_fields(rpe_ex, rpe_ex["sets"][0], "rpe", d.build_reference([WITH_RPE]))
+check("an RPE with no reference is still measured against itself",
+      rpe_fields["intensity_ref"], "self")
+# Self-referenced with an RPE, the percentage IS the RPE table's percentage for that
+# rep count - which is a statement about the set, unlike the reps-only constant.
+check("and the percentage is the one the RPE table gives", rpe_fields["intensity_pct"],
+      m.pct_from_rpe(3, 9.0))
+check("with the zone that follows from it", rpe_fields["prilepin_zone"], "80-89")
+
+PRIOR = lift_log("2026-01-05", "prior", LIFT, [(405.0, 3, 9.0)])
+NO_RPE_LATER = lift_log("2026-01-12", "later", LIFT, [(315.0, 5, None)])
+later_ref = d.build_reference([PRIOR, NO_RPE_LATER])
+later_ex = NO_RPE_LATER[2]["exercises"][0]
+later_fields = d.set_fields(later_ex, later_ex["sets"][0], "later", later_ref)
+check("a reference with no RPE is still measured, against the reference",
+      later_fields["intensity_ref"], "recent")
+check("and the number is the real one",
+      later_fields["intensity_pct"],
+      m.relative_intensity(315.0, m.e1rm(405.0, 3, 9.0)["value"]))
+check("which is nothing like the rep-count constant it used to be",
+      later_fields["intensity_pct"] == 85.7, False)
+
+# The rows built from those sets carry the absence through rather than inventing a zone.
+norpe_sets = [("workout-sets", f"norpe:{i}", {
+    "date": "2026-01-05", "session_id": "norpe", "set_type": "working",
+    "rep_unit": "reps", "reps": 5, "muscles_primary": [],
+    "exercise": {"name": LIFT, "category": "main"}, **f})
+    for i, f in enumerate(norpe_fields)]
+zoned = d.session_fields([doc for _i, _id, doc in norpe_sets],
+                         {"date": "2026-01-05"}, {"tonnage_lb": 1000.0}, None)
+check("a session of them counts no Prilepin reps at all",
+      set(zoned["prilepin_reps"].values()), {0})
+check("and has no INOL total", zoned["inol_total"], None)
+
+
+# --------------------------------------------- the layoff threshold, as a number
+
+print("\nlayoff_min_training_days: half the lifter's own cadence")
+
+check("half a four-a-week cadence is the 8 the old constant hardcoded",
+      d.layoff_min_training_days([16] * 5), 8)
+# The whole point of deriving it. A twice-a-week lifter has at most 8 training days in
+# any 28-day window, so a constant 8 flagged every window they will ever log and the
+# Load card's comeback branch was permanently taken.
+check("a twice-a-week lifter gets 4, not 8", d.layoff_min_training_days([8] * 5), 4)
+check("so their ordinary weeks are not comebacks", 8 < d.layoff_min_training_days([8] * 5), False)
+
+# Median, not mean. One unusually dense window in a sparse history drags a mean up and
+# starts flagging ordinary weeks; the median is what survives it, which is the point,
+# because the windows being detected are exactly the outliers.
+check("one huge window does not move the median",
+      d.layoff_min_training_days([4, 4, 4, 4, 40]), 2)
+check("...and the mean would have said 6",
+      int(sum([4, 4, 4, 4, 40]) / 5 * d.LAYOFF_FRACTION + 0.5), 6)
+
+# Half of an odd median is a .5, and round() is banker's rounding: 13 -> 6.5 -> 6 but
+# 15 -> 7.5 -> 8, so the threshold moved in different directions for two neighbouring
+# cadences depending only on which side of the float landed even.
+check("a median of 13 gives 7, not 6", d.layoff_min_training_days([13]), 7)
+check("a median of 15 gives 8", d.layoff_min_training_days([15]), 8)
+check("and the two round the same way", d.layoff_min_training_days([13]) * 15,
+      d.layoff_min_training_days([15]) * 13 + 1)
+
+# The floor guards an UNKNOWN cadence.
+check("no history at all falls back to the floor",
+      d.layoff_min_training_days([]), d.LAYOFF_FLOOR)
+check("and the floor is 2, so a single week back after a layoff can still fire",
+      d.LAYOFF_FLOOR, 2)
+check("a thin but real cadence gets the floor rather than 0 or 1",
+      d.layoff_min_training_days([1, 1, 1]), 2)
+# A measured zero is a measurement, and it was the one answer this could not hear.
+# Read as "no data" it fell through to the floor, which every one of that lifter's
+# windows is below, so every week was flagged and the card read "Coming back." forever.
+check("a measured median of zero is not the absence of data",
+      d.layoff_min_training_days([0, 0, 0, 0, 0]), 0)
+check("so no window of that history is ever below it",
+      0 < d.layoff_min_training_days([0, 0, 0, 0, 0]), False)
+check("while an empty list still is an absence",
+      d.layoff_min_training_days([]) == d.layoff_min_training_days([0, 0, 0]), False)
+check("config can still override the whole derivation", d.CHRONIC_DAYS, 28)
+
+print("\nThe 28-day window is 28 days, inclusive of its own end")
+END = date(2026, 3, 2)
+check("the end day itself counts", d._training_days_in_window({END}, END), 1)
+check("27 days back is inside the window",
+      d._training_days_in_window({END - timedelta(days=27)}, END), 1)
+check("28 days back is outside it",
+      d._training_days_in_window({END - timedelta(days=28)}, END), 0)
+check("and so is tomorrow",
+      d._training_days_in_window({END + timedelta(days=1)}, END), 0)
+check("the whole window, counted",
+      d._training_days_in_window({END - timedelta(days=n) for n in range(40)}, END), 28)
+
+
+# --------------------------------------- one definition of a training day
+
+print("\nA bodyweight-only session is a training day, not a rest day")
+
+# Mon/Wed/Fri for nine weeks, with every Wednesday a bodyweight-only session: a real
+# session, zero tonnage. It used to be a training day by `training_days` and a rest day
+# by chronic_days_trained and by monotony's minimum-days guard, on the same document.
+BW_MONDAY = date(2026, 7, 6)
+BODYWEIGHT = []
+for w in range(9):
+    for off, tonnage in ((0, 10000.0), (2, 0.0), (4, 8000.0)):
+        day = (BW_MONDAY + timedelta(days=7 * w + off)).isoformat()
+        BODYWEIGHT.append(session(day, f"bw{w}-{off}", tonnage, lt70=10))
+BW_TODAY = date(2026, 9, 6)
+with fake_meets([]):
+    bw_weekly = weekly_by_week(d.rollup_docs(BODYWEIGHT, today=BW_TODAY))
+last_bw = bw_weekly["2026-W36"]
+check("three sessions a week", last_bw["training_days"], 3)
+check("the 28-day window counts twelve of them, not eight",
+      last_bw["chronic_days_trained"], 12)
+check("which is training_days x 4, the same definition on both fields",
+      last_bw["chronic_days_trained"], last_bw["training_days"] * 4)
+check("the bodyweight day is still honestly a zero in the LOAD series",
+      last_bw["tonnage_lb"], 18000.0)
+check("and the week has enough training days to describe a distribution",
+      last_bw["monotony"] is not None, True)
+check("which it did not when the zero-tonnage day was read as rest",
+      m.monotony([10000.0, 0.0, 0.0, 0.0, 8000.0, 0.0, 0.0]), None)
+
+
+# ------------------------------------------ the load window is the week's window
+
+print("\nload_7d is the week's seven days, not seven days back from its last session")
+
+# W35 trained Mon/Wed/Fri, W36 trained Monday only. Anchored on the last training day,
+# W36's acute window is Aug 25 - Aug 31, which is mostly W35: it reported 27,000 lb of
+# "7-day load" on a row whose own tonnage is 7,000, under an ISO-week label.
+ANCHORED = [session("2026-08-24", "n1", 10000.0, lt70=10),
+            session("2026-08-26", "n2", 10000.0, lt70=10),
+            session("2026-08-28", "n3", 10000.0, lt70=10),
+            session("2026-08-31", "n4", 7000.0, lt70=10)]
+SUNDAY = date(2026, 9, 6)
+with fake_meets([]):
+    anchored = weekly_by_week(d.rollup_docs(ANCHORED, today=SUNDAY))
+w36 = anchored["2026-W36"]
+check("the window ends on the week's Sunday", w36["load_window_end"], "2026-09-06")
+check("week_end is still the last day TRAINED, which is a different question",
+      w36["week_end"], "2026-08-31")
+check("load_7d is the week's own load", w36["load_7d"], 7000.0)
+check("which is what the row says it moved", w36["load_7d"], w36["tonnage_lb"])
+check("and not the previous week's, reached back into",
+      w36["load_7d"] == 27000.0, False)
+check("the closed week behind it is measured over its own seven days",
+      anchored["2026-W35"]["load_7d"], 30000.0)
+check("consecutive weeks' windows abut rather than overlap",
+      (date.fromisoformat(w36["load_window_end"])
+       - date.fromisoformat(anchored["2026-W35"]["load_window_end"])).days, 7)
+# The week in progress has not reached its Sunday, and a window running into the future
+# would be seven days of which three have not happened.
+with fake_meets([]):
+    midweek = weekly_by_week(d.rollup_docs(ANCHORED, today=date(2026, 9, 2)))
+check("a week in progress is anchored on today instead",
+      midweek["2026-W36"]["load_window_end"], "2026-09-02")
+check("and never past it",
+      midweek["2026-W36"]["load_window_end"] <= "2026-09-02", True)
+
+
+# ------------------------------------- the threshold cannot see the future
+
+print("\nThe layoff threshold is the history behind each week, not the whole corpus")
+
+# Twelve sparse weeks (two sessions a week) followed by twelve dense ones (six). The
+# whole-corpus median sits between the two cadences, so a single threshold computed
+# once judges the sparse half against training the lifter had not done yet - and lets
+# a 2024 week's flag change in 2026 because of a 2026 training block.
+SPARSE_MONDAY = date(2026, 1, 5)
+LOOKAHEAD = []
+for w in range(24):
+    offsets = (0, 3) if w < 12 else (0, 1, 2, 3, 4, 5)
+    for off in offsets:
+        day = (SPARSE_MONDAY + timedelta(days=7 * w + off)).isoformat()
+        LOOKAHEAD.append(session(day, f"la{w}-{off}", 10000.0, lt70=10))
+
+LOOK_TODAY = SPARSE_MONDAY + timedelta(days=7 * 24 - 1)
+EARLY_WEEK = "2026-W11"          # inside the sparse half, past the 28-day warm-up
+truncated = [s for s in LOOKAHEAD if s[2]["date"] <= "2026-03-15"]
+with fake_meets([]):
+    full = weekly_by_week(d.rollup_docs(LOOKAHEAD, today=LOOK_TODAY))
+    part = weekly_by_week(d.rollup_docs(truncated, today=date(2026, 3, 15)))
+check("an early week's threshold is on the row at all",
+      full[EARLY_WEEK]["layoff_min_training_days"] is not None, True)
+check("and it is the same whether or not the later weeks exist",
+      full[EARLY_WEEK]["layoff_min_training_days"],
+      part[EARLY_WEEK]["layoff_min_training_days"])
+check("...which is not vacuous: the later weeks do move the threshold",
+      full[EARLY_WEEK]["layoff_min_training_days"]
+      == full["2026-W24"]["layoff_min_training_days"], False)
+check("the sparse half is judged against the sparse cadence",
+      full[EARLY_WEEK]["layoff_min_training_days"], 4)
+check("and the dense half against the dense one",
+      full["2026-W24"]["layoff_min_training_days"], 8)
+check("the flag on an early week is not moved by later training",
+      full[EARLY_WEEK]["acwr_off_layoff"], part[EARLY_WEEK]["acwr_off_layoff"])
+check("every judged week carries the number it was judged against",
+      all(w.get("layoff_min_training_days") is not None
+          for w in full.values() if w["acwr"] is not None), True)
+check("and weeks with no 28-day base carry neither",
+      full["2026-W02"].get("layoff_min_training_days"), None)
+
+
+print("\nThe layoff flag is strictly below the threshold, not at it")
+
+# The threshold is pinned by config so the boundary case can be constructed at all.
+# Three sessions a week gives a 28-day window of 12; four gives 16.
+BOUNDARY = []
+for w in range(10):
+    for off in (0, 2, 4):
+        BOUNDARY.append(session((date(2026, 1, 5) + timedelta(days=7 * w + off)).isoformat(),
+                                f"b{w}-{off}", 10000.0, lt70=10))
+with fake_meets([], lifter={"layoff_min_training_days": 12}):
+    at = weekly_by_week(d.rollup_docs(BOUNDARY, today=date(2026, 3, 15)))
+with fake_meets([], lifter={"layoff_min_training_days": 13}):
+    below = weekly_by_week(d.rollup_docs(BOUNDARY, today=date(2026, 3, 15)))
+LAST = "2026-W10"
+check("the window carries exactly twelve training days",
+      at[LAST]["chronic_days_trained"], 12)
+check("at the threshold is not below it", at[LAST]["acwr_off_layoff"], False)
+check("and the row says what it was judged against",
+      at[LAST]["layoff_min_training_days"], 12)
+check("one under the threshold is", below[LAST]["acwr_off_layoff"], True)
+
+
+# --------------------------------------------------- heavy means 80% and above
+
+print("\nHeavy is the 80-89 zone as well as 90+")
+
+MAIN_ONLY = {"prilepin_reps": {"lt70": 100, "z70_79": 50, "z80_89": 10, "z90plus": 3},
+             "totals": {"tonnage_lb": 10000.0}}
+check("_heavy_reps counts both heavy zones", d._heavy_reps([MAIN_ONLY]), 13)
+check("not the top zone alone", d._heavy_reps([MAIN_ONLY]) == 3, False)
+check("_run_stats agrees, over the same slice",
+      d._run_stats([MAIN_ONLY])["heavy_per_session"], 13.0)
+check("and its share is over all main-lift reps", d._run_stats([MAIN_ONLY])["share_pct"], 8.0)
+
+# ...and the two rows a card reads it off.
+HEAVY_CORPUS = [session(day, f"h-{day}", 10000.0, block="strength", z80_89=10)
+                for day in span("2026-05-04", 5)]
+HEAVY_TODAY = date(2026, 5, 10)
+with fake_meets([]):
+    heavy_rows = signals_by_id(HEAVY_CORPUS,
+                               d.rollup_docs(HEAVY_CORPUS, today=HEAVY_TODAY), HEAVY_TODAY)
+check("the block row's heavy count is 80-89 work", heavy_rows["block:0"]["heavy"], 50)
+check("and its rate", heavy_rows["block:0"]["heavy_per_session"], 10.0)
+check("the intensity row's too", heavy_rows["intensity:2026-W19"]["heavy"], 50)
+check("a week of nothing but 80-89 work is not a week with no heavy work",
+      heavy_rows["intensity:2026-W19"]["heavy"] == 0, False)
+
+
+print("\nPrilepin's zones are main-lift work only")
+ZONED_SETS = [
+    {"set_type": "working", "rep_unit": "reps", "reps": 3, "prilepin_zone": "90+",
+     "exercise": {"name": "Comp Squat", "category": "main"}},
+    {"set_type": "working", "rep_unit": "reps", "reps": 20, "prilepin_zone": "90+",
+     "exercise": {"name": "Cable Curl", "category": "accessory"}},
+    {"set_type": "working", "rep_unit": "seconds", "reps": 60, "prilepin_zone": "90+",
+     "exercise": {"name": "Plank", "category": "main"}},
+]
+zoned = d.session_fields(ZONED_SETS, {"date": "2026-01-05"}, {"tonnage_lb": 1000.0}, None)
+# An accessory is measured against its own reference, so a lateral raise at 100% of its
+# own best would swamp the zone counts a squat's top single belongs in.
+check("the accessory's 20 reps do not join the squat's 3",
+      zoned["prilepin_reps"]["z90plus"], 3)
+check("nor does a seconds-based hold", sum(zoned["prilepin_reps"].values()), 3)
+
+
+print("\nISO weeks use the ISO year, not the calendar year")
+# The two disagree for up to three days either side of New Year, and a row keyed
+# "2027-W53" sorts after every real 2027 week and merges with nothing.
+check("New Year's Day 2027 is the last ISO week of 2026",
+      d._iso_week(date(2027, 1, 1)), "2026-W53")
+check("and December 29 2025 is the first of 2026",
+      d._iso_week(date(2025, 12, 29)), "2026-W01")
+check("January 1 2026 is in that same week", d._iso_week(date(2026, 1, 1)), "2026-W01")
+check("so the two dates land on one row",
+      d._iso_week(date(2025, 12, 29)) == d._iso_week(date(2026, 1, 1)), True)
+
+
+print("\nA block stops being current when it stops being trained")
+RECENT_BLOCK = [session(day, f"cur-{day}", 10000.0, block="strength", z80_89=10)
+                for day in span("2026-05-04", 5)]
+with fake_meets([]):
+    fresh = signals_by_id(RECENT_BLOCK,
+                          d.rollup_docs(RECENT_BLOCK, today=date(2026, 5, 10)),
+                          date(2026, 5, 10))
+    stale = signals_by_id(RECENT_BLOCK,
+                          d.rollup_docs(RECENT_BLOCK, today=date(2026, 9, 1)),
+                          date(2026, 9, 1))
+check("the window is 28 days", d.BLOCK_CURRENT_DAYS, 28)
+check("a block trained this week is the block you are in",
+      fresh["block:0"]["block_role"], "current")
+check("one abandoned in the spring is not",
+      stale["block:0"]["block_role"], "past")
+check("even though it is still ordinal 0", stale["block:0"]["ordinal"], 0)
+with fake_meets([]):
+    edge = signals_by_id(RECENT_BLOCK,
+                         d.rollup_docs(RECENT_BLOCK, today=date(2026, 5, 8) + timedelta(days=28)),
+                         date(2026, 5, 8) + timedelta(days=28))
+check("28 days after the last session is still current",
+      edge["block:0"]["block_role"], "current")
+
+
+print("\nWeekly DOTS uses the configured sex, and never a default")
+DOTS_CORPUS = []
+for i, day in enumerate(span("2026-05-04", 5)):
+    DOTS_CORPUS.append(session(day, f"dt{i}", 10000.0, lt70=10, bodyweight=200.0))
+    for slug, value in (("comp-squat", 500.0), ("comp-bench", 300.0),
+                        ("comp-deadlift", 600.0)):
+        DOTS_CORPUS.append(e1rm_set(day, f"dt{i}", slug, value))
+DOTS_TODAY = date(2026, 5, 10)
+
+
+def weekly_dots(sex):
+    with fake_meets([], lifter=({"sex": sex} if sex else {})):
+        return weekly_by_week(d.rollup_docs(DOTS_CORPUS, today=DOTS_TODAY))["2026-W19"]
+
+
+male, female, unset = weekly_dots("male"), weekly_dots("female"), weekly_dots(None)
+check("the projection is the three competition lifts",
+      male["projected_total_lb"], 1400.0)
+check("a male lifter gets the male score", male["dots"],
+      m.dots(m.lb_to_kg(200.0), m.lb_to_kg(1400.0), "male"))
+check("a female lifter gets the female one", female["dots"],
+      m.dots(m.lb_to_kg(200.0), m.lb_to_kg(1400.0), "female"))
+# The two coefficient sets are 20-30% apart, which is the size of the error a hardcoded
+# "male" put on a female adopter's Meets card with nothing on the page to say so.
+check("and they are not the same number", male["dots"] == female["dots"], False)
+check("no sex configured means no score at all, not a male one",
+      unset.get("dots"), None)
+check("...while the projection it would have scored is still there",
+      unset["projected_total_lb"], 1400.0)
+
+
+print("\nA date-keyed rollup sits on the day it is about, in the lifter's own zone")
+NZ = "Pacific/Auckland"
+check("local noon, not UTC noon", d.rollup_timestamp(date(2026, 9, 4), NZ),
+      "2026-09-04T12:00:00+12:00")
+check("no zone configured falls back to the old UTC noon",
+      d.rollup_timestamp(date(2026, 9, 4), None), "2026-09-04T12:00:00Z")
+check("and so does an unreadable one, rather than raising a second time",
+      d.rollup_timestamp(date(2026, 9, 4), "Mars/Olympus_Mons"),
+      "2026-09-04T12:00:00Z")
+# The failure, stated as what a reader at UTC+12 sees.
+_utc_noon = datetime.fromisoformat("2026-09-04T12:00:00+00:00")
+_local = datetime.fromisoformat(d.rollup_timestamp(date(2026, 9, 4), NZ))
+check("UTC noon lands on the NEXT local day there",
+      _utc_noon.astimezone(ZoneInfo(NZ)).date().isoformat(), "2026-09-05")
+check("local noon lands on the day the row is about",
+      _local.astimezone(ZoneInfo(NZ)).date().isoformat(), "2026-09-04")
+check("and stays a day's width from either midnight, so no DST shift crosses it",
+      _local.astimezone(ZoneInfo(NZ)).hour, 12)
+with fake_meets([], timezone=NZ):
+    stamped = d.rollup_docs(THREE_WEEKS, today=WEDNESDAY)
+check("the daily rows are stamped with it",
+      [doc["@timestamp"] for index, _id, doc in stamped
+       if index == "workout-daily" and _id == "2026-08-17"],
+      ["2026-08-17T12:00:00+12:00"])
+check("and the weekly rows too",
+      [doc["@timestamp"] for index, _id, doc in stamped
+       if index == "workout-weekly" and _id == "2026-W34"],
+      ["2026-08-21T12:00:00+12:00"])
+
+
+print("\nAn unknown exercise name is fatal, and says which log it is in")
+try:
+    d.classify("Comp Squatt")
+    unknown = None
+except d.UnknownExercise as exc:
+    unknown = str(exc)
+check("a misspelt lift raises rather than classifying to nothing",
+      unknown is not None, True)
+check("and the message suggests what it probably was",
+      "Comp Squat" in (unknown or ""), True)
+check("with the fix as well as the guess",
+      "config/exercises.json" in (unknown or ""), True)
+check("a real name still classifies", d.classify(LIFT)["canonical"], LIFT)
+
+BAD_LOG = lift_log("2026-01-05", "bad-session", "Comp Squatt", [(300.0, 5, 8.0)])
+try:
+    d.build_reference([BAD_LOG])
+    raised_in = None
+except d.UnknownExercise as exc:
+    raised_in = exc.session_id
+check("build_reference names the session holding it", raised_in, "bad-session")
+
+
+print("\nDrift: a muscle trained once has no cadence to report")
+ONCE_TODAY = date(2026, 9, 5)
+once = [session("2026-08-01", "o1", 10000.0, lt70=10),
+        working_set("2026-08-01", "o1", 0, muscles=("calves",)),
+        session("2026-08-15", "o2", 10000.0, lt70=10),
+        working_set("2026-08-15", "o2", 1, muscles=("hamstrings",)),
+        session("2026-08-29", "o3", 10000.0, lt70=10),
+        working_set("2026-08-29", "o3", 2, muscles=("hamstrings",))]
+with fake_meets([]):
+    once_rows = signals_by_id(once, d.rollup_docs(once, today=ONCE_TODAY), ONCE_TODAY)
+calves, hams = once_rows["drift:calves"], once_rows["drift:hamstrings"]
+check("one session is one session", calves["sessions"], 1)
+# span / 1 is how long ago that session was, wearing a cadence's units. The card had
+# this guard; the row did not, which is the split this index exists to remove.
+check("and gets no cadence_days", calves["cadence_days"], None)
+check("the row says so in a field, so a card that forgot to check still declines",
+      calves["rankable"], False)
+check("the row still ships, with its date", calves["last_trained"], "2026-08-01")
+check("two sessions is one observed gap, which is a cadence", hams["sessions"], 2)
+check("and it is reported", hams["cadence_days"], 11.0)
+check("and marked rankable", hams["rankable"], True)
+
+
+print("\nThe taper cumulative never counts the week in progress")
+TAPER_TODAY = date(2026, 9, 2)
+taper_corpus = weekly_training("2026-08-03", 5, offsets=(0, 2, 4))
+with fake_meets([], planned="2026-09-05"):
+    rows = {sid: doc for _i, sid, doc in
+            d.signal_docs(taper_corpus, d.rollup_docs(taper_corpus, today=TAPER_TODAY),
+                          today=TAPER_TODAY)
+            if doc["signal"] == "taper"}
+open_row = rows["taper:2026-09-05:1"]
+check("the meet week is the week in progress", open_row["week_state"], "in-progress")
+check("it has four closed weeks behind it", open_row["cum_weeks"], 4)
+check("and the cumulative is those four, at 30,000 lb each",
+      open_row["cum_tonnage_lb"], 120000.0)
+check("its own partial week is not in the total",
+      open_row["cum_tonnage_lb"] == 120000.0 + open_row["tonnage_lb"], False)
+# The row a week earlier: its own week is closed, so it counts three behind it and not
+# itself either.
+check("nor is any row's own week in its own cumulative",
+      rows["taper:2026-09-05:2"]["cum_weeks"], 3)
+
+# _preceding_cumulative refuses the week in progress on its own, tested directly.
+# _taper_rows never asks it to: it skips any Monday later than today, so the eight
+# weeks behind a row are all strictly before the in-progress week and the guard cannot
+# fire from there - removing it moves not one row of the 643-log corpus. That makes it
+# untestable through the rows, and it is not untestable through the function, which is
+# where the promise in its docstring ("the week in progress never contributes") lives
+# and where a future caller with a meet-week Monday in hand will land.
+PARTIAL = {"2026-W36": {"tonnage_lb": 99999.0,
+                        "prilepin_reps": {"z80_89": 5, "z90plus": 5}},
+           "2026-W35": {"tonnage_lb": 30000.0,
+                        "prilepin_reps": {"z80_89": 2, "z90plus": 1}}}
+future_monday = d._preceding_cumulative(date(2026, 10, 5), PARTIAL, "2026-01-05",
+                                        "2026-W36", date(2026, 9, 2))
+check("a window spanning the week in progress does not count it",
+      future_monday, (30000.0, 3, 3))
+check("...and it is that week's numbers that are missing, not a rounding",
+      future_monday[0] == 99999.0 + 30000.0, False)
+# The same call with that week closed instead: it counts, so the guard is what excluded
+# it rather than the window's edges.
+closed = d._preceding_cumulative(date(2026, 10, 5), PARTIAL, "2026-01-05",
+                                 "2026-W01", date(2026, 9, 2))
+check("a CLOSED week in the same window does count",
+      closed, (129999.0, 13, 4))
+
+
+print("\nThe intensity reference window is 90 days")
+check("the constant", d.REFERENCE_WINDOW_DAYS, 90)
+STALE = lift_log("2025-01-05", "stale", LIFT, [(405.0, 3, 9.0)])
+FRESH = lift_log("2025-12-05", "fresh", LIFT, [(315.0, 5, 8.0)])
+NOW = lift_log("2026-01-05", "now", LIFT, [(225.0, 5, 8.0)])
+stale_only = d.build_reference([STALE, NOW])
+check("a best a year old is carried, and marked stale",
+      stale_only.best_before("now", SLUG)[1], "all-time")
+with_fresh = d.build_reference([STALE, FRESH, NOW])
+check("a best inside the window is preferred, and marked recent",
+      with_fresh.best_before("now", SLUG)[1], "recent")
+check("and it is the recent one even though the old one is heavier",
+      with_fresh.best_before("now", SLUG)[0], m.e1rm(315.0, 5, 8.0)["value"])
+check("the old best really is the bigger number",
+      m.e1rm(405.0, 3, 9.0)["value"] > m.e1rm(315.0, 5, 8.0)["value"], True)
+# The boundary, in days rather than by eye.
+EDGE = lift_log((date(2026, 1, 5) - timedelta(days=d.REFERENCE_WINDOW_DAYS)).isoformat(),
+                "edge", LIFT, [(405.0, 3, 9.0)])
+check("a best exactly REFERENCE_WINDOW_DAYS old is still recent",
+      d.build_reference([EDGE, NOW]).best_before("now", SLUG)[1], "recent")
+OVER = lift_log((date(2026, 1, 5) - timedelta(days=d.REFERENCE_WINDOW_DAYS + 1)).isoformat(),
+                "over", LIFT, [(405.0, 3, 9.0)])
+check("one day older is not",
+      d.build_reference([OVER, NOW]).best_before("now", SLUG)[1], "all-time")
 
 
 # ----------------------------------------------------------------- _median

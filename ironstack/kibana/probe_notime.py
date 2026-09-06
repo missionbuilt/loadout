@@ -16,7 +16,7 @@ custom-content cards side by side: one reading the scratch index, one reading
 workout-sessions as the control. Narrow the picker and watch which one changes.
 
     cd ~/Projects/loadout
-    source ~/Projects/ironstack-log/.env
+    set -a; source /path/to/your-workout-log/.env; set +a
     python3 ironstack/kibana/probe_notime.py            # create + import
     python3 ironstack/kibana/probe_notime.py --clean    # delete both, leave no trace
 
@@ -55,7 +55,7 @@ body{background:#171513;color:#ebe5d8;font-family:'JetBrains Mono',ui-monospace,
 def env(name: str) -> str:
     value = os.environ.get(name, "").strip().rstrip("/")
     if not value:
-        sys.exit(f"error: {name} is not set. `source ~/Projects/ironstack-log/.env`")
+        sys.exit(f"error: {name} is not set. `set -a; source /path/to/your-workout-log/.env; set +a`")
     return value
 
 

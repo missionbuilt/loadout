@@ -91,7 +91,16 @@ def load_equipment() -> dict:
 
 
 def equipment_item(item_id: str) -> dict:
-    """`@texas-db` -> the stored record. Unknown ids keep the id as the name."""
+    """`@texas-db` -> the stored record. Unknown ids keep the id as the name.
+
+    Deliberately lenient, and deliberately NOT the hard error an unknown exercise name
+    gets: the registry is a convenience, a rack you used once on holiday is a real fact
+    about the session, and refusing to write the log over it would be worse than the
+    gap. But silence is not the right answer either - a typo'd id becomes its own
+    equipment item and quietly splits that bar's history in two. log.py checks the ids
+    against the registry while the person is still sitting there (see
+    unregistered_equipment), warns, and fails under --strict.
+    """
     entry = load_equipment().get(item_id)
     if entry is None:
         return {"id": item_id, "name": item_id}

@@ -134,6 +134,12 @@
       "chronic_days_trained": {
         "type": "integer"
       },
+      "layoff_min_training_days": {
+        "type": "integer"
+      },
+      "load_window_end": {
+        "type": "keyword"
+      },
       "acwr_off_layoff": {
         "type": "boolean"
       }

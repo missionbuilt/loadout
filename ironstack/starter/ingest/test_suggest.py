@@ -64,7 +64,13 @@ print("\nEvery alias the taxonomy already has is offered")
 # press is a bench and a fly is not. Naming that miss here is the point: this list
 # is the evidence that would justify a semantic index, and it stays honest only if
 # a NEW miss fails the run rather than being absorbed into a softer assertion.
-KNOWN_NOT_FIRST = {"Incline DB Press"}
+#
+# "SL Glute Bridge" is the same ceiling seen from the abbreviation side: it shares every
+# word it has with "Glute Bridge", which wins on ratio, while the true canonical
+# "Single-leg Glute Bridge" is second. difflib does not know "SL" expands to "single-leg".
+# It IS offered - which is the claim that has to hold - and the person picking from five
+# names will pick right.
+KNOWN_NOT_FIRST = {"Incline DB Press", "SL Glute Bridge"}
 
 not_first = []
 for alias, entry in sorted(RAW.items()):

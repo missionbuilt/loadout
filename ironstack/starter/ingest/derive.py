@@ -35,6 +35,46 @@ DEFAULTS_PATH = REPO / "config" / "defaults.json"
 _taxonomy: dict | None = None
 
 
+# --------------------------------------------------------------------- lifter
+
+_lifter: dict | None = None
+
+
+def lifter() -> dict:
+    """The `lifter` block of config/defaults.json: facts about the person, not the log.
+
+    Today that is `sex`, which DOTS needs and which nothing in a workout log can supply.
+    Read here rather than passed down from the indexer because it is configuration, and
+    cached because rollup_docs asks for it once per week of history.
+    """
+    global _lifter
+    if _lifter is None:
+        try:
+            _lifter = json.loads(DEFAULTS_PATH.read_text()).get("lifter") or {}
+        except (OSError, ValueError):
+            _lifter = {}
+    return _lifter
+
+
+def lifter_sex() -> str | None:
+    """"male" / "female" from config, or None - never a guess.
+
+    An unrecognised value is a typo in a config file, and the consequence (no DOTS
+    anywhere) is quiet enough that it needs saying out loud. It is a warning rather than
+    a stop because the rest of the pipeline is unaffected and refusing to index a whole
+    corpus over one config line would be the worse failure.
+    """
+    value = lifter().get("sex")
+    if value is None or value in metrics.DOTS_COEFF:
+        return value
+    import sys
+
+    print(f"warning: config/defaults.json has lifter.sex = {value!r}, which is not one "
+          f"of {', '.join(sorted(metrics.DOTS_COEFF))}. No DOTS will be computed.",
+          file=sys.stderr)
+    return None
+
+
 # ------------------------------------------------------------------- taxonomy
 
 def load_taxonomy() -> dict:
@@ -54,7 +94,15 @@ def load_taxonomy() -> dict:
 
 
 class UnknownExercise(ValueError):
-    """Raised when a log names an exercise the taxonomy has never seen."""
+    """Raised when a log names an exercise the taxonomy has never seen.
+
+    `session_id` is filled in by whoever was holding the log when it was raised.
+    classify() is called from four call sites and none of them is the log itself, so
+    without this the message can say what the name probably was but not which of 643
+    files to open it in.
+    """
+
+    session_id: str | None = None
 
 
 def classify(name: str) -> dict:
@@ -173,7 +221,17 @@ def build_reference(logs: list[tuple[str, str, dict]]) -> Reference:
             else:
                 snapshot[slug] = (max(v for _, v in entries), "all-time")
         bests[session_id] = snapshot              # strictly before this session
-        for slug, value in best_working_e1rm(log).items():
+        # Snapshot FIRST, then fold this session in. Moving these two lines past each
+        # other measures every set against a max that includes the session's own PR -
+        # a lookahead. test_derive.py pins it.
+        try:
+            session_bests = best_working_e1rm(log)
+        except UnknownExercise as exc:
+            # This is where an unknown name is raised first - before explode() ever runs -
+            # so this is where the log holding it has to be attached to the error.
+            exc.session_id = session_id
+            raise
+        for slug, value in session_bests.items():
             history.setdefault(slug, []).append((day, value))
 
     meet_history = _meet_maxes()
@@ -228,11 +286,35 @@ def set_fields(exercise: dict, s: dict, session_id: str,
     # one from the last REFERENCE_WINDOW_DAYS. With no history for this lift yet,
     # the set is measured against its own estimate — which is what the RPE said
     # about it, and is marked as such.
+    #
+    # "which is what the RPE said about it" is the whole justification, and it only
+    # holds when there IS an RPE. Without one, e1rm() falls back to Epley, and
+    # measuring a set against its own Epley estimate is
+    #
+    #     weight * 100 / (weight * (1 + reps / 30))
+    #
+    # in which the weight cancels. What comes out is a function of the rep count and
+    # nothing else: 225x5, 275x5 and 315x5 all read 85.7%, and a 135x3 warm-up and a
+    # 315x3 top single both read 90.9% and both land in Prilepin's 90+ zone. Heavy
+    # reps, INOL, the intensity card and the block card are all computed on that.
+    #
+    # So a number that is arithmetically independent of the weight lifted is not an
+    # intensity, and is not written. est_e1rm still is - Epley off a no-RPE set is a
+    # rough estimate, but it is an estimate OF something. intensity_pct,
+    # intensity_ref, prilepin_zone and inol are simply absent, which is what "there
+    # is no reference for this lift yet and no RPE to stand in for one" looks like.
+    # Every consumer already treats them as optional: session_fields() skips a set
+    # with no zone and no inol, rollup_docs() sums what it is given, _taper_rows()
+    # skips a set with no intensity_pct, and strip_nones() drops the fields before
+    # they are ever indexed.
+    #
+    # This corpus is immune - all 12,352 working weighted rep sets carry an RPE - so
+    # this changes no row here. It is the first thing a new adopter without RPEs hits.
     prior = reference.best_before(session_id, slug) if reference else None
     if prior:
         fields["intensity_pct"] = metrics.relative_intensity(weight, prior[0])
         fields["intensity_ref"] = prior[1]
-    elif estimate:
+    elif estimate and s.get("rpe") is not None:
         fields["intensity_pct"] = metrics.relative_intensity(weight, estimate["value"])
         fields["intensity_ref"] = "self"
 
@@ -308,13 +390,165 @@ def session_fields(set_docs: list[dict], session: dict, totals: dict,
 
 ACUTE_DAYS = 7
 CHRONIC_DAYS = 28
-# Below this many training days inside the 28-day window, the acute:chronic ratio stops
-# describing a spike and starts describing a return. Three blank weeks and one week back
-# gives chronic == acute, so the ratio is 4.0 by arithmetic - a real number, and a
-# meaningless one. Mike trains roughly four days a week, so a normal 28-day window carries
-# ~16; eight is half of that and well clear of a taper.
-LAYOFF_MIN_TRAINING_DAYS = 8
+# Below some number of training days inside the 28-day window, the acute:chronic ratio
+# stops describing a spike and starts describing a return. Three blank weeks and one week
+# back gives chronic == acute, so the ratio is 4.0 by arithmetic - a real number, and a
+# meaningless one.
+#
+# That number used to be the constant 8, and its own comment said where 8 came from:
+# "Mike trains roughly four days a week, so a normal 28-day window carries ~16; eight is
+# half of that". Half of ONE lifter's cadence. Somebody training twice a week has at most
+# 8 training days in any 28-day window and usually fewer, so the flag was on in every
+# window they will ever log: the Load card's comeback branch is permanently taken and the
+# card never says anything else, for as long as they use it. A constant calibrated to one
+# person is a bug in a template.
+#
+# So the ratio that was implicit in 8 is what is kept, and the cadence it is a ratio OF is
+# measured from the lifter: the median training days across their own 28-day windows.
+#
+# This comment used to say "Mike's median is ~16 and this reproduces 8 exactly". Measured
+# over the corpus it does not: across the 174 week ends that have a full 28-day base
+# behind them the median is 14, so the threshold is 7, not 8. That is not a rounding
+# detail - it is the whole difference at 2025-W23, whose 28-day window carries exactly 7
+# training days. Under the old constant 8 that week was flagged "off layoff" (7 < 8);
+# under the measured threshold it is not (7 < 7 is false), which is the right answer: a
+# week at half the lifter's own cadence is a light week, not a comeback.
+#
+# A 2x/week lifter gets a threshold of 4 rather than 8, and their ordinary weeks stop
+# being read as a comeback, which is what the derivation was for.
+LAYOFF_FRACTION = 0.5
+# Never below this, however sparse the history: at 1 the flag could never fire, and a
+# single week back after a real layoff is exactly what it is for.
+LAYOFF_FLOOR = 2
 COMP_FAMILIES = ("squat", "bench", "deadlift")
+
+
+# A TRAINING DAY is a calendar day the lifter logged a session on. Not "a day with
+# tonnage on it", which is what this used to mean.
+#
+# There were two definitions on one document. `training_days` on the weekly row counted
+# days with a session; this function, `chronic_days_trained`, and monotony's own
+# minimum-days guard all counted days with `tonnage_lb > 0`. A bodyweight-only session -
+# chins, dips, sled, a bodyweight circuit - has zero tonnage, so it was a training day by
+# the first measure and a rest day by the other three: it counted toward `training_days`
+# and toward `heavy_per_training_day`, and simultaneously pushed the 28-day window closer
+# to the "coming back from a layoff" flag and was dropped from monotony's distribution.
+#
+# The session is the fact being counted, so the session is the definition. Tonnage stays
+# what it is - the LOAD series, where a bodyweight day is honestly a zero, because Foster's
+# monotony is about how load is distributed and that day carried none. What tonnage no
+# longer decides is whether the day was training.
+def _training_days_in_window(trained: set, end: date) -> int:
+    """Days trained in the 28 days ending on `end`. One definition, every caller."""
+    return sum(1 for d in trained
+               if end - timedelta(days=CHRONIC_DAYS - 1) <= d <= end)
+
+
+def layoff_min_training_days(observed: list[int]) -> int:
+    """How few training days in a 28-day window means "coming back" for THIS lifter.
+
+    `observed` is that count for every week end with a full 28-day base behind it. The
+    median is the lifter's ordinary cadence - robust to the layoffs in the series, which
+    is the point, since those are the windows being detected. Half of it is the threshold,
+    which is the ratio the old constant 8 encoded for a four-day-a-week lifter.
+
+    config/defaults.json may override it outright with lifter.layoff_min_training_days,
+    for someone whose history is too short or too irregular to measure.
+    """
+    configured = lifter().get("layoff_min_training_days")
+    if configured is not None:
+        return max(1, int(configured))
+    typical = _median([float(v) for v in observed]) if observed else None
+    # `is None`, not falsiness. A median of 0.0 is a MEASUREMENT, and it was the one
+    # answer this function could not hear. It is what a lifter whose sessions carry no
+    # tonnage measures - the whole of a bodyweight-only history reads 0 under the old
+    # "days with load" definition of a training day - and what a sporadic six-weeks-on,
+    # twenty-off history reads alongside it. Read as "no data" it fell through to
+    # LAYOFF_FLOOR = 2, which every one of their windows is below, so their weeks were
+    # flagged "off layoff" wholesale and the Load card read "Coming back." forever:
+    # exactly the permanently-taken comeback branch the derived threshold was written to
+    # remove, arriving through the guard instead of through the constant.
+    #
+    # (_training_days_in_window now counts SESSIONS rather than days with tonnage, so
+    # rollup_docs no longer produces a zero median from a bodyweight-only history. This
+    # is still the honest reading of the argument, and this function is public and
+    # config-overridable.)
+    if typical is None:
+        return LAYOFF_FLOOR
+    # int(x + 0.5), not round(). round() is banker's rounding: a median of 13 gives
+    # 6.5 and rounds DOWN to 6, and a median of 15 gives 7.5 and rounds UP to 8, so
+    # the threshold moves in different directions for two neighbouring cadences. Half
+    # of the median, rounded up at the half, is the rule this is meant to encode; say
+    # it rather than inherit whichever way the float lands.
+    threshold = int(typical * LAYOFF_FRACTION + 0.5)
+    # The floor guards an UNKNOWN cadence, not a measured one. `is None` above is only
+    # half the fix: with `max(LAYOFF_FLOOR, ...)` applied unconditionally, a measured
+    # median of 0 still comes out as 2 and every window still reads as a comeback. A
+    # lifter whose typical 28-day window carries no training has no ordinary cadence for
+    # a week to be half of, so the flag does not apply to them and says so with a
+    # threshold of 0, rather than applying to all of them.
+    return max(LAYOFF_FLOOR, threshold) if typical else threshold
+
+
+def local_timezone() -> str | None:
+    """The lifter's own IANA zone, from config/defaults.json `session.timezone`.
+
+    The same value every session log inherits, so the rollups are stamped in the zone
+    the sessions themselves are.
+    """
+    try:
+        return (json.loads(DEFAULTS_PATH.read_text()).get("session") or {}).get("timezone")
+    except (OSError, ValueError):
+        return None
+
+
+def rollup_timestamp(day: date, tz_name: str | None) -> str:
+    """The instant a date-keyed rollup row sits at: local noon on that date.
+
+    These rows are keyed by a DATE, not by a moment - a daily row is "everything logged
+    on 2026-09-04" - so the only job of @timestamp is to put the row on that day in the
+    reader's calendar. It was hardcoded to `T12:00:00Z`, which does that for anyone
+    within twelve hours of UTC and not for anyone else: at UTC+13 noon UTC is 01:00 the
+    NEXT local day, so every daily row landed a day late and every weekly row with it.
+
+    Noon in the lifter's own zone is the middle of the day the row is about, whatever
+    that zone is, and it stays a day's width away from either midnight so no DST shift
+    can push it across a date boundary. With no zone configured - or an unknown one -
+    the old `T12:00:00Z` is the fallback, which is the best that can be done without
+    knowing where the lifter is.
+    """
+    if tz_name:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            return datetime(day.year, day.month, day.day, 12, 0,
+                            tzinfo=ZoneInfo(tz_name)).isoformat()
+        except (ZoneInfoNotFoundError, ValueError, OSError):
+            # index_workouts.resolve_timezone() already refuses to index a session with
+            # an unreadable zone and names the file; by the time a rollup is built the
+            # value has been through that. Falling back rather than raising a second
+            # time here keeps one message for one typo.
+            pass
+    return f"{day.isoformat()}T12:00:00Z"
+
+
+def _week_anchor(week_days: list[str], today: date) -> date:
+    """The day a week's 7- and 28-day load windows are measured back FROM.
+
+    The week's Sunday, or today for the week still in progress - never `week_days[-1]`,
+    the last day that happened to be trained. Anchoring on the last training day meant
+    `load_7d` on a row labelled 2026-W30 was the seven days ending on that week's last
+    session, so a week whose last session was a Wednesday reported a window running back
+    into the previous week: 53 of this corpus's 178 rows had an acute window overlapping
+    the previous row's, and the Load card printed "7-day load X% above your 4-week
+    average" under an ISO-week label for a window that was mostly a different week.
+
+    Clamped below at the week's own Monday so a session logged one day ahead of the
+    runner (see FUTURE_TOLERANCE_DAYS) cannot anchor a week on a day before it started.
+    """
+    last = date.fromisoformat(week_days[-1])
+    monday = last - timedelta(days=last.weekday())
+    return max(monday, min(monday + timedelta(days=6), today))
 
 
 def _iso_week(day: date) -> str:
@@ -392,11 +626,19 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         calendar[cursor] = by_day.get(cursor.isoformat(), {}).get("tonnage_lb", 0.0)
         cursor += timedelta(days=1)
 
+    # The days that were TRAINED, which is not the same set as the days with tonnage on
+    # them - see _training_days_in_window. `days` is every date a session was logged on.
+    trained = {date.fromisoformat(day_str) for day_str in days}
+
     # Every bodyweight the repo knows about, sessions and meets alike.
     bodyweight_series = sorted(
         [(d, by_day[d]["bodyweight_lb"]) for d in days if by_day[d]["bodyweight_lb"]]
         + meet_bodyweights()
     )
+
+    # Once for the run, not once per week: lifter_sex() warns when it is misspelled.
+    sex = lifter_sex()
+    tz_name = local_timezone()
 
     out: list[tuple[str, str, dict]] = []
 
@@ -404,7 +646,7 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         day = by_day[day_str]
         as_date = date.fromisoformat(day_str)
         doc = {
-            "@timestamp": f"{day_str}T12:00:00Z",
+            "@timestamp": rollup_timestamp(as_date, tz_name),
             "date": day_str,
             "weekday": as_date.strftime("%A"),
             "iso_week": _iso_week(as_date),
@@ -431,6 +673,35 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
     for day_str in days:
         weeks.setdefault(_iso_week(date.fromisoformat(day_str)), []).append(day_str)
 
+    # Where each week's load windows are measured from, and how many days were trained
+    # in the 28 ending there. Only weeks with a full 28-day base behind them - the same
+    # weeks the flag is ever applied to, and the same condition that gates ACWR itself.
+    week_anchor = {week: _week_anchor(week_days, today)
+                   for week, week_days in weeks.items()}
+    observed = {week: _training_days_in_window(trained, anchor)
+                for week, anchor in week_anchor.items()
+                if (anchor - first).days >= CHRONIC_DAYS}
+
+    # The layoff threshold, measured from this lifter's own history rather than taken
+    # from a constant calibrated to somebody else's - and measured from the history that
+    # EXISTED AT EACH WEEK END, not from the whole corpus.
+    #
+    # It used to be one median over every qualifying week in the repo, including weeks
+    # after the one being flagged, so a 2024 week's acwr_off_layoff could flip in 2026
+    # because of training done in between. That is the same lookahead build_reference()
+    # is built around not doing and test_derive.py pins for e1RM: the honest answer is
+    # the one that could have been given at the time. Walking the week ends in order and
+    # taking the median of what is behind each one costs 178 medians of at most 178
+    # values on this corpus - nothing worth trading a lookahead for.
+    #
+    # The number each week was judged against goes onto the row, so the flag is auditable
+    # from the document rather than only reproducible by re-running this function.
+    layoff_min_by_week: dict[str, int] = {}
+    running: list[int] = []
+    for _anchor, week in sorted((a, w) for w, a in week_anchor.items() if w in observed):
+        running.append(observed[week])
+        layoff_min_by_week[week] = layoff_min_training_days(running)
+
     e1rm_history: dict[str, list[tuple[date, float]]] = {}
     for day_str, slots in best_by_day.items():
         for slug, value in slots.items():
@@ -444,16 +715,22 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         tonnage = round(sum(m["tonnage_lb"] for m in members), 1)
         rpes = [r for m in members for r in m["rpes"]]
 
-        acute = sum(v for d, v in calendar.items() if end - timedelta(days=ACUTE_DAYS - 1) <= d <= end)
-        chronic = sum(v for d, v in calendar.items() if end - timedelta(days=CHRONIC_DAYS - 1) <= d <= end)
+        # Measured back from the week's own Sunday (today, for the week in progress),
+        # never from `end` - the last day of the week that happened to be trained. See
+        # _week_anchor.
+        anchor = week_anchor[week]
+        acute = sum(v for d, v in calendar.items()
+                    if anchor - timedelta(days=ACUTE_DAYS - 1) <= d <= anchor)
+        chronic = sum(v for d, v in calendar.items()
+                      if anchor - timedelta(days=CHRONIC_DAYS - 1) <= d <= anchor)
         # ACWR only means something once there is a 28-day base to compare against.
-        ratio = metrics.acwr(acute, chronic) if (end - first).days >= CHRONIC_DAYS else None
+        ratio = metrics.acwr(acute, chronic) if (anchor - first).days >= CHRONIC_DAYS else None
         # ...and once that base has training in it. The length guard above only asks
         # whether 28 days have elapsed, not whether they were trained.
-        chronic_days_trained = sum(
-            1 for d, v in calendar.items()
-            if end - timedelta(days=CHRONIC_DAYS - 1) <= d <= end and v > 0)
-        off_layoff = ratio is not None and chronic_days_trained < LAYOFF_MIN_TRAINING_DAYS
+        chronic_days_trained = _training_days_in_window(trained, anchor)
+        layoff_min = layoff_min_by_week.get(week)
+        off_layoff = (ratio is not None and layoff_min is not None
+                      and chronic_days_trained < layoff_min)
 
         # Days that have not happened yet are not rest days. Monotony is mean daily load
         # over its SD, so padding an unfinished week out to seven with zeros pulls the
@@ -463,7 +740,11 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         # today, so (today - start).days + 1 is already >= 7 and the clamp is a no-op.
         elapsed = max(1, min(7, (today - start).days + 1))
         week_loads = [calendar.get(start + timedelta(days=i), 0.0) for i in range(elapsed)]
-        mono = metrics.monotony(week_loads)
+        # The distribution is still tonnage - a bodyweight day carried no load and is
+        # honestly a zero in it - but whether there are enough TRAINING DAYS to describe
+        # a distribution at all is the one definition above, not "days with tonnage".
+        mono = metrics.monotony(week_loads, training_days=sum(
+            1 for i in range(elapsed) if start + timedelta(days=i) in trained))
         week_state = "in-progress" if week == _iso_week(today) else "closed"
 
         zones = {k: sum(m["prilepin_reps"][k] for m in members) for k in ZONE_FIELD.values()}
@@ -507,7 +788,10 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
             if recent:
                 comp_best[family] = max(comp_best[family], max(recent))
         projected = round(sum(comp_best.values()), 1) if all(comp_best.values()) else None
-        score = (metrics.dots(metrics.lb_to_kg(bodyweight), metrics.lb_to_kg(projected))
+        # No sex in config means no DOTS on the row, rather than a male score for
+        # whoever is reading. See metrics.dots().
+        score = (metrics.dots(metrics.lb_to_kg(bodyweight), metrics.lb_to_kg(projected),
+                              sex)
                  if projected and bodyweight else None)
 
         inol_total = round(sum(lifts.values()), 4) if lifts else None
@@ -515,10 +799,16 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
         # week is the number worth banding; the total is context, not a verdict.
         hardest = max(lifts.items(), key=lambda kv: kv[1]) if lifts else None
         out.append(("workout-weekly", week, {
-            "@timestamp": f"{end.isoformat()}T12:00:00Z",
+            "@timestamp": rollup_timestamp(end, tz_name),
             "iso_week": week,
             "week_start": start.isoformat(),
             "week_end": end.isoformat(),
+            # The day load_7d / load_28d / chronic_days_trained were measured back from:
+            # this week's Sunday, or today while it is still in progress. week_end stays
+            # the last day TRAINED, which is what every other consumer of it means.
+            "load_window_end": anchor.isoformat(),
+            # Days with a session in them. The one definition - see
+            # _training_days_in_window, which counts the same thing over 28 days.
             "training_days": len(week_days),
             # Monotony, strain and every total below cover only the days that have
             # happened when this is "in-progress". Consumers mark it provisional.
@@ -545,6 +835,10 @@ def rollup_docs(docs: list[tuple[str, str, dict]],
             "acwr_band": metrics.acwr_band(ratio),
             "acwr_gloss": metrics.acwr_gloss(ratio),
             "chronic_days_trained": chronic_days_trained,
+            # The threshold this week was judged against, as it stood at this week end.
+            # On the row because a flag whose threshold moves with the corpus is not
+            # auditable from the document otherwise.
+            "layoff_min_training_days": layoff_min,
             "acwr_off_layoff": off_layoff,
             "monotony": mono,
             "strain": metrics.strain(tonnage, mono),
@@ -591,6 +885,10 @@ MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
 
 SIGNAL_INDEX = "ironstack-signals"
 DRIFT_WINDOW_DAYS = 365
+# The fewest sessions from which an average gap is a gap at all. One session gives
+# span / 1, which is how long ago it was; two give one observed interval, which is thin
+# but is at least an interval between two trainings.
+DRIFT_MIN_SESSIONS = 2
 INTENSITY_WEEKS = 13
 LOAD_WEEKS = 200
 
@@ -789,6 +1087,13 @@ def _taper_rows(docs: list[tuple[str, str, dict]], weekly: list[dict],
 # bounded by how many blocks a lifter has trained - 29 after four years - so there is
 # nothing to save by truncating and a verdict to lose.
 BLOCK_MIN_SESSIONS = 4
+# How long the most recent block stays "current". Past this, the run in progress is not in
+# progress: it is the last block the lifter did. Without this, ordinal 0 was "current" by
+# position alone, so somebody who stopped training a year ago still opened the Program card
+# to a confident verdict about the block they are "in" - the one they abandoned last spring.
+# 28 days is the same window the load metrics use for "recent" and comfortably longer than
+# any deload or holiday inside a block.
+BLOCK_CURRENT_DAYS = 28
 TAG_WINDOW_DAYS = 28
 TAG_TOP_N = 25
 # Two meets, both from 2024, is not a base rate - it is two numbers and a median that
@@ -817,6 +1122,31 @@ def _heavy_reps(sessions: list[dict]) -> int:
         zones = s.get("prilepin_reps") or {}
         heavy += (zones.get("z80_89") or 0) + (zones.get("z90plus") or 0)
     return heavy
+
+
+def _run_stats(sessions: list[dict]) -> dict:
+    """The three block numbers over a slice, so a peer window uses one definition.
+
+    Every peer number has to be measured over the same span as the block it is being
+    compared against. Only heavy_per_session was, once - share_pct and
+    tonnage_per_session stayed full-block medians while the card had already started
+    saying "through the first six sessions of". The card was reading 12.05% where the
+    honest windowed answer is 8.8%, under wording that claimed the window. One function
+    now, called for both sides, so the two cannot drift apart again.
+    """
+    heavy = main_reps = 0
+    for s in sessions:
+        for zone, n in (s.get("prilepin_reps") or {}).items():
+            main_reps += n or 0
+            if zone in ("z80_89", "z90plus"):
+                heavy += n or 0
+    tonnage = sum((s.get("totals") or {}).get("tonnage_lb") or 0 for s in sessions)
+    n = len(sessions)
+    return {
+        "heavy_per_session": round(heavy / n, 2) if n else None,
+        "share_pct": round(heavy * 100 / main_reps, 1) if main_reps else None,
+        "tonnage_per_session": round(tonnage / n, 1) if n else None,
+    }
 
 
 def _block_runs(sessions: list[dict]) -> list[dict]:
@@ -856,7 +1186,9 @@ def _block_rows(docs, today, stamp):
             # ordinal 0 is the run in progress. Not a date, because "which block am I in"
             # is answered by position in the log, not by the viewer's clock.
             "ordinal": ordinal,
-            "block_role": "current" if ordinal == 0 else "past",
+            "block_role": ("current" if ordinal == 0 and
+                           (today - date.fromisoformat(last)).days <= BLOCK_CURRENT_DAYS
+                           else "past"),
             "first_trained": first,
             "last_trained": last,
             "sessions": n,
@@ -897,18 +1229,20 @@ def _block_rows(docs, today, stamp):
                 # length, so the card can say "through the same six sessions".
                 window = len(members)
                 doc["peer_window_sessions"] = window
+                windowed = [_run_stats(m[:window]) for _d, m in peers]
                 doc["peer_heavy_per_session"] = _median(
-                    [round(_heavy_reps(m[:window]) / min(window, len(m)), 2)
-                     for _d, m in peers])
+                    [w["heavy_per_session"] for w in windowed
+                     if w["heavy_per_session"] is not None])
+                doc["peer_share_pct"] = _median(
+                    [w["share_pct"] for w in windowed if w["share_pct"] is not None])
+                doc["peer_tonnage_per_session"] = _median(
+                    [w["tonnage_per_session"] for w in windowed
+                     if w["tonnage_per_session"] is not None])
                 # The full-block median stays, under its own name. Nothing that already
                 # reads a number called peer_heavy_per_session silently changes meaning
                 # to mean something else; it changes to the number it should have been.
                 doc["peer_heavy_per_session_full"] = _median(
                     [d["heavy_per_session"] for d, _m in peers])
-                doc["peer_share_pct"] = _median(
-                    [d["share_pct"] for d, _m in peers if d["share_pct"] is not None])
-                doc["peer_tonnage_per_session"] = _median(
-                    [d["tonnage_per_session"] for d, _m in peers])
                 doc["peer_from"] = min(d["first_trained"] for d, _m in peers)
         out.append((SIGNAL_INDEX, f"block:{ordinal}", doc))
     return out
@@ -1050,8 +1384,12 @@ def signal_docs(docs: list[tuple[str, str, dict]],
         # average gap against an observed ~20, so the card needed 104 days of silence
         # before it would flag a group trained weekly. Clamped at the cutoff so a group
         # with history older than the window is still measured over the window.
+        # No max(cutoff, ...) here: `first` is only ever set from a document that
+        # already passed the `< cutoff` filter above, so it cannot be older than the
+        # cutoff and the clamp could never fire. It read as a guard, which is worse
+        # than no guard - it is a claim that the filter above might not hold.
         first_trained = date.fromisoformat(g["first"])
-        span = (today - max(cutoff, first_trained)).days + 1
+        span = (today - first_trained).days + 1
         out.append((SIGNAL_INDEX, f"drift:{muscle}", {
             "signal": "drift",
             "computed_through": stamp,
@@ -1063,7 +1401,15 @@ def signal_docs(docs: list[tuple[str, str, dict]],
             "last_trained": g["last"],
             "first_trained": g["first"],
             # The group's average gap across its own span. The card flags past twice it.
-            "cadence_days": round(span / n, 2) if n and span > 0 else None,
+            # Withheld below DRIFT_MIN_SESSIONS: one session gives span / 1 = the whole
+            # span, which is not a gap between anything - it is the age of the single
+            # session, wearing a cadence's units. The card had this guard; the row did
+            # not, and a guard that lives only in the Liquid is the split this index
+            # exists to remove. `rankable` says the same thing in a field, so a card
+            # that has not been taught to check `sessions` still declines.
+            "cadence_days": (round(span / n, 2)
+                             if n >= DRIFT_MIN_SESSIONS and span > 0 else None),
+            "rankable": n >= DRIFT_MIN_SESSIONS,
         }))
 
     # ---- intensity and load: the weekly rollups this same pass just built
@@ -1138,6 +1484,18 @@ def signal_docs(docs: list[tuple[str, str, dict]],
             "acwr_band": week.get("acwr_band"),
             "monotony": week.get("monotony"),
             "chronic_days_trained": week.get("chronic_days_trained"),
+            # The threshold the flag beside it was judged against, as it stood at that
+            # week end. The card branches on acwr_off_layoff; without this it cannot say
+            # what the flag was measured against, and neither can anyone reading the row.
+            "layoff_min_training_days": week.get("layoff_min_training_days"),
+            # The day the 7- and 28-day windows were measured back from. It is the
+            # week's own end, or today while the week is still open - deliberately not
+            # week_end, which is the last day TRAINED. The two differ on any week that
+            # did not end on a training day, which is 53 of 178 here, and a card that
+            # shows a ratio beside an ISO week label has no other way to say which
+            # stretch the ratio covers. keyword, not date: this index carries no
+            # date-typed field, which is the whole reason the picker cannot re-scope it.
+            "load_window_end": week.get("load_window_end"),
             "acwr_off_layoff": week.get("acwr_off_layoff"),
             "inol_hardest": week.get("inol_hardest"),
             "inol_hardest_lift": week.get("inol_hardest_lift"),

@@ -126,12 +126,9 @@
               "minimum": 1
             },
             "phase": {
-              "enum": [
-                "hypertrophy",
-                "strength",
-                "peaking"
-              ],
-              "description": "Training phase this session belongs to. Drives phase coloring in the dashboards."
+              "type": "string",
+              "minLength": 1,
+              "description": "Training phase this session belongs to, in whatever words the program uses. hypertrophy, strength and peaking are the common arc and the ones the docs use, but nothing in the pipeline branches on the value: it is a label to group and compare by, and a block is only ever compared against earlier blocks of the same name. It was an enum of those three, which meant a lifter running base / accumulation / realization could not validate a single session."
             },
             "week": {
               "type": "integer",

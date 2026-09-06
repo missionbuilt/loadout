@@ -36,13 +36,28 @@ jobs:
         run: pip install -r ingest/requirements.txt
 
       # These need no cluster and no data, so they run first and fail fastest.
+      # Globbed, not listed. The moment a test is most likely to be written is the
+      # moment this file is least likely to be on anyone's mind: the instance repo
+      # globs, and this one did not, so the regression test guarding the document id
+      # scheme - the one outage this project has actually had - was written, landed,
+      # and never ran for anybody who adopted the template. The zero-match guard is
+      # there because a green "Unit tests" step that ran nothing is the failure this
+      # whole job exists to make impossible.
       - name: Unit tests
+        shell: bash
         run: |
-          python ingest/test_metrics.py
-          python ingest/test_shorthand.py
-          python ingest/test_suggest.py
-          python ingest/test_derive.py
-          python ingest/test_ceiling.py
+          shopt -s nullglob
+          found=0
+          for t in ingest/test_*.py; do
+            echo "--- $t"
+            python "$t"
+            found=$((found + 1))
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::no ingest/test_*.py found"
+            exit 1
+          fi
+          echo "ran $found test file(s)"
 
       - name: Validate workout logs
         run: python ingest/index_workouts.py --validate
