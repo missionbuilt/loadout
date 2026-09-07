@@ -1,0 +1,126 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;width:640px;padding:8px"><style>
+*{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}
+html,body{height:100%}
+/* Six type steps, three families, three colours of text. Display 40 / Title 28 / Verdict 22
+   (SIGNAL_CSS) / Body 14 / Data 13 / Label 11. Nothing renders under 11px. Capitals live in
+   the label tier and on a name; verify_liquid.py lints both. Oxblood is a mark, never text.
+   The Sept 6 design review is the source: claude/ironstack-design-review-2026-09-06.md. */
+body{background:#171513;color:#ebe5d8;font-family:'Merriweather',Georgia,'Times New Roman',serif;font-size:14px;line-height:1.55;padding:14px 18px;overflow-x:hidden;overflow-y:auto;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:#2a2622}::-webkit-scrollbar-track{background:transparent}
+/* Label 11. One per card. */
+.eyebrow{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#8f8b84;white-space:nowrap}
+.eyebrow.dim{color:#a8a094}
+/* Display 40. Scales with the panel, so a phone-width card wraps rather than clips. */
+.hero{font-family:'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;font-size:clamp(30px,9vw,40px);font-weight:700;line-height:1;letter-spacing:-.015em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.hero .u{font-size:16px;font-weight:500;color:#a8a094;margin-left:6px;letter-spacing:.02em;text-transform:none}
+/* Title 28. Page, lift and session names; the tile values. */
+.title,.value{font-family:'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;font-size:clamp(22px,6vw,28px);font-weight:600;line-height:1;letter-spacing:-.005em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.value small{font-size:13px;font-weight:500;color:#a8a094;letter-spacing:.04em;margin-left:5px;text-transform:none}
+/* Data 13 and the scope line at 12. */
+.sub{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#a8a094;line-height:1.6}
+.faint{color:#8f8b84}
+.mono{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+/* Body 14. */
+.prose{font-family:'Merriweather',Georgia,'Times New Roman',serif;font-size:14px;line-height:1.55;color:#a8a094}
+.rule{border-top:1px solid #2a2622}
+.stack{display:flex;flex-direction:column;justify-content:flex-start;gap:10px;height:100%}
+.stack.spread{justify-content:space-between;gap:0}
+.row{display:flex;gap:0;align-items:flex-start}
+.card{flex:1;min-width:0;padding:0 18px;border-left:1px solid #2a2622;display:flex;flex-direction:column;justify-content:flex-start;gap:5px}
+.card:first-child{padding-left:0;border-left:0}
+.card .top{display:flex;flex-direction:column;gap:5px}
+.chip{display:inline-block;font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.04em;color:#a8a094;border:1px solid #2a2622;padding:1px 6px;margin:0 4px 2px 0;white-space:nowrap}
+.chip.made{color:#ebe5d8;border-color:#8f8b84}
+/* A miss keeps its strike in oxblood at twice the weight; the box border carries it too. */
+.chip.miss{color:#8f8b84;border-color:#a8211a_DIM;text-decoration:line-through;text-decoration-color:#a8211a;text-decoration-thickness:2px}
+/* A gain is marked by its border, not its text. */
+.chip.blood{color:#ebe5d8;border-color:#a8211a}
+.bar{height:2px;background:#2a2622;position:relative;margin-top:8px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#a8a094;display:block}
+.bar.dim i{background:#a8a094}
+.empty{color:#8f8b84;font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;letter-spacing:.02em}
+.list{display:flex;flex-direction:column}
+.item{display:flex;align-items:baseline;gap:12px;padding:7px 0;border-top:1px solid #2a2622;font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px}
+.item:first-child{border-top:0}
+.item .when{color:#8f8b84;font-size:12px;min-width:72px}
+.item .txt{color:#ebe5d8;flex:1;min-width:0}
+.item .num{color:#a8a094;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* The set row: number, weight, x reps, @ RPE, note. Warm-ups are smaller, not fainter. */
+.set{display:flex;align-items:baseline;gap:9px;font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;padding:4px 0;font-variant-numeric:tabular-nums}
+.set .n{color:#8f8b84;font-size:11px;min-width:14px;font-weight:400}
+.set .w{color:#ebe5d8;min-width:56px;text-align:right;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.set .x{color:#a8a094;font-size:12px}
+.set .r{color:#ebe5d8;min-width:30px;font-size:13px}
+.set .rpe{font-size:13px;letter-spacing:.02em}
+.set .rpe.lo{color:#8f8b84}
+.set .rpe.mid{color:#a8a094}
+.set .rpe.hi{color:#ebe5d8;font-weight:600}
+.set .rpe.max{color:#ebe5d8;font-weight:700}
+.set .rpe.max::after{content:"";display:inline-block;width:6px;height:6px;background:#a8211a;margin-left:6px;vertical-align:middle}
+.set .note{color:#8f8b84;font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.set.prep .w{font-size:13px;font-weight:400;color:#8f8b84}
+.set.prep .x,.set.prep .r{color:#8f8b84}
+.ex{margin-bottom:14px}
+.ex .name{font-family:'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:.02em;line-height:1.3;padding-bottom:3px;border-bottom:1px solid #2a2622;margin-bottom:3px}
+.ex .name .cat{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.14em;color:#8f8b84;margin-left:8px;font-weight:500}
+.cols{column-count:2;column-gap:36px}
+.liftrow{display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid #2a2622}
+.liftrow:first-child{border-top:0}
+.lname{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a8a094;min-width:76px}
+.lval{font-family:'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;font-size:22px;font-weight:600;color:#ebe5d8;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+.lbar{flex:1;min-width:24px;height:3px;background:#2a2622;position:relative}
+.lbar i{position:absolute;left:0;top:0;bottom:0;background:#a8a094;display:block}
+.lkg{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8f8b84;min-width:62px;text-align:right}
+.warm{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;line-height:1.9;color:#a8a094;margin-top:5px}
+.warm .nm{color:#ebe5d8;text-transform:uppercase;letter-spacing:.04em;font-size:11px;margin-right:5px}
+.warm .qty{color:#8f8b84;margin-right:7px}
+.warm .sep{color:#8f8b84;margin-right:9px}
+.cols .ex{break-inside:avoid}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 8px}
+.k{color:#8f8b84}
+.v{color:#ebe5d8}
+.hdr{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.hdr .meta{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#a8a094;letter-spacing:.02em}
+.hdr .meta b{color:#ebe5d8;font-weight:500}
+.dot{display:inline-block;width:7px;height:7px;background:#a8211a;margin:0 8px;vertical-align:middle}
+svg{display:block}
+</style><style>
+/* Plain block flow, no height:100% and no margin-top:auto. The panel iframe is not
+   always the height Kibana implies, and anything that pushes to the bottom opened a
+   ~100px hole between a number and its caption on the Session cards. */
+.sig{display:block}
+/* Label 11: the question. */
+.sig .q{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:#8f8b84;line-height:1.45}
+/* A state chip beside the label or the verdict (the open-week one). Sentence case inside a caps label. */
+.sig .q .chip,.sig .verdict .chip{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:11px;font-weight:400;letter-spacing:.04em;text-transform:none;color:#a8a094;margin:0 0 0 8px;vertical-align:middle}
+/* Verdict 22: the answer, in chalk. A band changes weight, never colour. */
+.sig .verdict{font-family:'Oswald','Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;font-size:22px;font-weight:600;line-height:1.2;letter-spacing:-.005em;margin-top:8px;color:#ebe5d8}
+.sig .verdict.b-light{color:#a8a094;font-weight:500}
+.sig .verdict.b-normal{color:#ebe5d8;font-weight:600}
+.sig .verdict.b-heavy{color:#ebe5d8;font-weight:700}
+.sig .verdict.b-max{color:#ebe5d8;font-weight:700}
+/* The max band used to be the only verdict headline drawn in oxblood, which put the
+   single most important sentence on History at ~2.5:1 on this ground - the hardest
+   text in the app to read, and the only page whose verdict did not look like the
+   other six. The red signal survives as a mark rather than as type. */
+.sig .verdict.b-max::after{content:"";display:inline-block;width:8px;height:8px;background:#a8211a;margin-left:10px;vertical-align:middle}
+/* Body 14: the evidence. Numbers inline in mono chalk so they stay tabular. */
+.sig .ev{font-family:'Merriweather',Georgia,'Times New Roman',serif;font-size:14px;color:#a8a094;line-height:1.5;margin-top:8px;max-width:52ch}
+.sig .ev b{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;color:#ebe5d8;font-weight:500;font-variant-numeric:tabular-nums}
+/* The baseline tick is what makes the bar an argument instead of a decoration.
+   The fill is DIM; it earns oxblood only when the card is in its max band. */
+.sig .gauge{height:3px;background:#2a2622;position:relative;margin:10px 0 6px}
+.sig .gauge i{position:absolute;left:0;top:0;bottom:0;background:#a8a094;display:block}
+.sig .verdict.b-max ~ .gauge i{background:#a8211a}
+.sig .gauge u{position:absolute;top:-4px;bottom:-4px;width:1px;background:#8f8b84;display:block}
+/* Scope 12 in STEEL: baseline, provenance, pointer. Sentence case; the label is the only capitals. */
+.sig .base{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8f8b84;line-height:1.6}
+.sig .also{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#a8a094;line-height:1.7;margin-top:7px;font-variant-numeric:tabular-nums}
+.sig .prov{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;line-height:1.6;color:#8f8b84;margin-top:12px;padding-top:9px;border-top:1px solid #2a2622}
+.sig .see{font-family:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8f8b84;margin-top:8px}
+.sig .none{font-family:'Merriweather',Georgia,'Times New Roman',serif;font-size:14px;color:#a8a094;margin-top:10px;line-height:1.55}
+</style><div class="sig"><div class="q">What is this projection worth</div><div class="verdict b-normal">97% of projection, across 3 meets.</div>
+<div class="ev">It reads <b>872</b>&nbsp;lb today, so a realistic platform total is near
+<b>848</b>&nbsp;lb.</div>
+<div class="also">Apr 2024 <b>885</b> &rarr; <b>854</b> &middot; Nov 2024 <b>929</b> &rarr; <b>909</b></div>
+<div class="base">Projected &rarr; totalled, on the platform.</div><div class="base">Indexed 2026-09-05.</div><div class="prov">Best estimate on each competition lift in a 90-day window, as it stood walking in</div><div class="see">Overview &rsaquo; projected total</div></div></body></html>
