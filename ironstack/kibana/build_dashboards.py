@@ -1151,10 +1151,8 @@ def build() -> list[dict]:
     d.row((custom("ov-sig-intensity", tpl.SIGNAL_INTENSITY, Q["sig_intensity"]), 16, []),
           (custom("ov-sig-load", tpl.SIGNAL_LOAD, Q["sig_load"]), 16, []),
           (custom("ov-sig-drift", tpl.SIGNAL_DRIFT, Q["sig_drift"]), 16, []), h=9)
-    # Directly under the verdicts, and only here: repeated on all seven pages it would be
-    # furniture. Built only when there is a coach to point at.
-    if COACH_URL:
-        d.row((custom("ov-ask", tpl.COACH_PROMPT), 48, []), h=2)
+    # The coach line that sat here is gone (Phase 4): one iframe fewer on the first
+    # screen, and its sentence rides on the method panel's heading at the foot.
     # Watch items sit directly under the verdicts, on purpose. The drift card says
     # calves; these say grip, deadlift, lower back. Both are true — one measures volume
     # gaps, the other records what the lifter actually felt — and a lifter trusts the

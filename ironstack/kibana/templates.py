@@ -85,7 +85,7 @@ except ValueError as exc:
 
 # --------------------------------------------------------------------------- coach
 #
-# Whether there IS a coach. The ASK THE COACH panel and the COACH_PROMPT line under the
+# Whether there IS a coach. The ASK THE COACH panel and the coach tail on Overview's method panel, plus the
 # Signal row are correctly built only when IRONSTACK_COACH_URL is set; three strings on
 # Mindset were not, so the no-coach build shipped a page whose tagline, provenance line
 # and pointer all sent the reader to something the dashboards do not contain and never
@@ -320,21 +320,14 @@ body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:4px 18px 0;overfl
 
 
 
-# A verdict card is an argument, and an argument the reader cannot answer is a lecture.
-# This is the line that says the argument is answerable. It sits directly under the
-# Signal row and points at the button, because a custom content panel cannot be a link
-# itself - it renders in a sandboxed iframe with no scripts and no <a href>.
-#
-# It is deliberately not a fourth verdict: no eyebrow, no hero, one line, dim.
-
-COACH_PROMPT = page(tok("""<style>
-.ask{font-family:$SERIF;font-size:14px;color:$DIM;line-height:1.55}
-.ask b{color:$CHALK;font-weight:700}
-.ask .where{font-family:$MONO;color:$STEEL;text-transform:uppercase;font-size:11px;letter-spacing:.14em}
-</style>
-<div class="ask">Disagree with a verdict, or want the reasoning behind one?
-<b>Ask the coach.</b> It is the only thing here that has read your notes.
-&nbsp;&nbsp;<span class="where">&#9652;&nbsp;top right</span></div>"""))
+# The coach line that sat under the Signal row is gone (Phase 4 of the Sept 6 design
+# plan). It was one more iframe on the first screen of the slowest page, and it pointed
+# at a button that is in the same place on every page. The sentence that mattered - the
+# coach is the only thing here that has read your notes - is on the method panel at the
+# foot of Overview, as a tail on its heading, gated on there being a coach at all.
+COACH_TAIL = coach_or(
+    " &middot; Disagree with one? Ask the coach, top right: it is the only thing here that has read your notes.",
+    "")
 
 
 # The line under the two intensity-zone charts.
@@ -916,7 +909,7 @@ def signal(question: str, body: str, scope: str, see: str = "", method: str = ""
                + f'<div class="prov">{scope}</div>' + tail + "</div>")
 
 
-def method_panel(heading: str, items: list[tuple[str, str]]) -> str:
+def method_panel(heading: str, items: list[tuple[str, str]], tail: str = "") -> str:
     """The mechanism behind a page's verdict cards, drawn once at the foot of the page.
 
     Static: no query, no Liquid. It carries no number, because every figure on the page
@@ -926,12 +919,13 @@ def method_panel(heading: str, items: list[tuple[str, str]]) -> str:
     return page(tok(f"""<style>
 .mth{{font-family:$SERIF;font-size:14px;line-height:1.55;color:$DIM}}
 .mth .hd{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:12px}}
+.mth .hd .tail{{font-family:$SERIF;font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:$DIM}}
 .mth .cols{{display:grid;grid-template-columns:repeat({len(items)},1fr);gap:22px}}
 .mth .q{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}}
 .mth p{{margin:0}}
 </style>
 <div class="mth">
-<div class="hd">{heading}</div>
+<div class="hd">{heading}<span class="tail">{tail}</span></div>
 <div class="cols">{cols}</div>
 </div>"""))
 
@@ -1360,7 +1354,7 @@ SIGNAL_METHOD = method_panel("How the three verdicts above are measured", [
     ("How heavy was this week", METHOD_INTENSITY),
     ("Am I ramping", METHOD_LOAD),
     ("What am I neglecting", METHOD_DRIFT),
-])
+], tail=COACH_TAIL)
 
 
 # --- 4. lift trajectory (Lift page) ----------------------------------------

@@ -2474,6 +2474,7 @@ def section_coach_wording() -> None:
           "goes to the coach")
     lacks("coach: the tag pointer does not either", tpl.SIGNAL_TAGS,
           "Coach &rsaquo;")
+    lacks("coach: Overview's method panel does not point at one", tpl.SIGNAL_METHOD, "Ask the coach")
     has("coach: it says what it cannot answer instead", tpl.TAGS_METHOD,
         "is not answered anywhere in these dashboards")
     build = (__import__("pathlib").Path(__file__).resolve().parent / "build_dashboards.py").read_text()
@@ -2490,6 +2491,9 @@ def section_coach_wording() -> None:
             "goes to the coach")
         has("coach: set, the pointer points at it", with_coach.SIGNAL_TAGS,
             "Coach &rsaquo; read the notes themselves")
+        # Phase 4: the line under the Signal row became a tail on the method heading.
+        has("coach: set, Overview's method panel carries the coach tail", with_coach.SIGNAL_METHOD,
+            "Ask the coach, top right")
     finally:
         os.environ["IRONSTACK_COACH_URL"] = ""
         importlib.reload(tpl)
