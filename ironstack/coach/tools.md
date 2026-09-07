@@ -11,6 +11,9 @@ The ES|QL tools use named parameters, written `?name`. In Agent Builder these ar
 on the tool and filled from the conversation. Types: `?lift` and `?pattern` are keywords,
 `?session_id` is a keyword, and `?from` and `?to` are dates.
 
+`last` is a reserved word in ES|QL: `last = MAX(date)` fails to parse in Agent Builder, so the
+column is `last_date` everywhere here.
+
 ## The ceiling
 
 ### `lift_ceiling`
@@ -23,7 +26,7 @@ FROM workout-sets
 | WHERE lift_slug == ?lift AND set_type == "working"
     AND e1rm_confidence != "low" AND date > NOW() - 90 days
 | STATS ceiling_lb = MAX(est_e1rm), heaviest_lb = MAX(weight_lb),
-        last = MAX(date), sets = COUNT(*)
+        last_date = MAX(date), sets = COUNT(*)
 ```
 
 Zero rows means nothing qualifies in the window. Widen to the all-time best by dropping the
@@ -159,8 +162,8 @@ last-trained first.
 FROM workout-sets
 | WHERE set_type == "working" AND date > ?from
 | MV_EXPAND muscles_primary
-| STATS sets = COUNT(*), last = MAX(date) BY muscles_primary
-| SORT last ASC
+| STATS sets = COUNT(*), last_date = MAX(date) BY muscles_primary
+| SORT last_date ASC
 ```
 
 ## Prep, cues and alternatives
@@ -215,8 +218,8 @@ done.
 FROM workout-sets
 | WHERE set_type == "working" AND pattern == ?pattern AND date > NOW() - 180 days
 | STATS sets = COUNT(*), best_e1rm = MAX(est_e1rm), top_lb = MAX(weight_lb),
-        last = MAX(date) BY exercise.name, lift_slug
-| SORT last DESC
+        last_date = MAX(date) BY exercise.name, lift_slug
+| SORT last_date DESC
 | LIMIT 20
 ```
 

@@ -31,8 +31,12 @@ Kibana, Agent Builder, new agent. Name it whatever you will recognize in a URL.
 
 ### 2. Paste the prompt
 
-Everything below the rule in [SYSTEM-PROMPT.md](SYSTEM-PROMPT.md) goes in the agent's
-instructions, verbatim. The part above the rule is for you.
+The prompt lives in a skill, not in the agent's instructions. Create a skill named
+`ironstack-coach` and paste everything below the rule in [SKILL.md](SKILL.md) into its
+Instructions, verbatim; that file is [SYSTEM-PROMPT.md](SYSTEM-PROMPT.md) with a "When to
+use this skill" section in front. The agent's own instructions are one line: "You are the
+Ironstack Coach. Always apply the ironstack-coach skill for any question about training."
+Two places would drift; the skill is the one that is read.
 
 ### 3. Add the tools
 
@@ -40,6 +44,12 @@ instructions, verbatim. The part above the rule is for you.
 `workout-notes` and `workout-sessions`. Add `lift_ceiling` and `ceiling_evidence` first;
 they are what makes the load rule checkable rather than a promise in a prompt. Everything
 else is recall and trend, and the agent is useful with a subset.
+
+Attach every tool to the agent, and the five that matter most to the skill as well (a
+skill holds at most five): `lift_ceiling`, `ceiling_evidence`, `last_performance`,
+`notes_search`, `session_context`. A tool whose description states its own load rule
+(the first deployment's `logged_maxes`, "never above top_set_lb") competes with
+CEILING.md and wins often enough to matter; do not attach one.
 
 ### 4. Create the key
 
