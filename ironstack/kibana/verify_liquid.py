@@ -34,6 +34,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -48,6 +49,15 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
 # reader who set their own offset would see them fail for a reason that is not a bug.
 # Set before the imports because $TZ_OFF is substituted at import.
 os.environ["IRONSTACK_TZ"] = "UTC"
+# And the process clock itself. python-liquid's `"now"` is datetime.now(), the LOCAL
+# time of whatever machine runs this, while every date fixture below is built in UTC.
+# Between 20:00 and midnight Eastern the two disagree on what day it is, and ten
+# days-to-meet and drift checks fail by one - found 2026-09-06 at 20:02 ET, on a suite
+# that had passed an hour earlier on a UTC clock. Pin it, so the suite says the same
+# thing at every hour on every machine.
+os.environ["TZ"] = "UTC"
+if hasattr(time, "tzset"):
+    time.tzset()
 # Same reasoning for the coach. templates bakes the Mindset strings at import from
 # IRONSTACK_COACH_URL, so a reader who has one exported would see the no-coach
 # assertions fail for a reason that is not a bug. The other branch is exercised
@@ -1576,7 +1586,9 @@ def section_contrast() -> None:
         rule = src[i:src.find("}", i)]
         check(f"contrast: {cls.rstrip('{')} is not FAINT", faint not in rule and "$FAINT" not in rule,
               "text role styled with a 2.5:1 colour")
-    check("contrast: brand tagline is not FAINT", faint not in tpl.brand_bar("X", "y").split(".tagline")[1].split("}")[0])
+    # The tagline is gone (Phase 3); the credit that replaced it is the line to hold.
+    check("contrast: brand credit is not FAINT", faint not in tpl.brand_bar("X").split(".credit")[1].split("}")[0])
+    check("contrast: brand credit is not oxblood", tpl.BLOOD not in tpl.brand_bar("X").split(".credit")[1].split("}")[0])
 
 
 # ---------------------------------------------------------------- type system
@@ -1594,7 +1606,7 @@ def section_contrast() -> None:
 # capitals is added to UPPERCASE_ALLOWED on purpose, with the tier it belongs to.
 
 UPPERCASE_ALLOWED = (
-    ".eyebrow", ".sig .q", ".mth .hd", ".mth .q", ".ask .where",   # Label 11
+    ".eyebrow", ".sig .q", ".mth .hd", ".mth .q", ".ask .where", ".credit",   # Label 11
     ".hero", ".title", ".value", ".word", ".section", ".lname",      # Display / Title / wordmark
     ".ex .name", ".warm .nm",                                        # an exercise's name
 )
@@ -1694,6 +1706,66 @@ def section_word_budget() -> None:
         scope = template.split('<div class="prov">', 1)[1].split("</div>", 1)[0]
         n = len(TAG.sub(" ", scope).split())
         check(f"budget: {name} scope line is one line", n <= 18, f"{n} words")
+
+
+# ---------------------------------------------------------------- tag structure
+#
+# python-liquid is more forgiving than the engine Kibana runs. On 2026-09-06 a block-card
+# edit left an `{% if %}` with TWO `{% else %}` branches: python-liquid rendered it (the
+# first else wins, silently), the suite passed at 1895/1895, and the live History page
+# showed "Failed to render panel: duplicated else, line:135". A card that renders here
+# and not there is the one failure this suite exists to prevent, so the tag structure
+# is walked the way a strict engine walks it: one else per if/for/unless/case, every
+# block closed by its own end tag, nothing closed twice.
+LIQUID_TAG = re.compile(r"{%-?\s*(\w+)")   # not TAG: that one strips HTML for the word budget
+OPENERS = {"if": "endif", "unless": "endunless", "for": "endfor", "case": "endcase",
+           "comment": "endcomment", "capture": "endcapture", "tablerow": "endtablerow"}
+CLOSERS = {v: k for k, v in OPENERS.items()}
+
+
+def liquid_structure_errors(template: str) -> list[str]:
+    stack: list[tuple[str, int]] = []   # (opener, number of else seen)
+    errors = []
+    for m in LIQUID_TAG.finditer(template):
+        tag = m.group(1)
+        line = template.count("\n", 0, m.start()) + 1
+        if tag in OPENERS:
+            stack.append((tag, 0))
+        elif tag in CLOSERS:
+            if not stack or stack[-1][0] != CLOSERS[tag]:
+                errors.append(f"line {line}: {tag} closes nothing open"
+                              + (f" (inside {stack[-1][0]})" if stack else ""))
+                continue
+            stack.pop()
+        elif tag == "else":
+            if not stack:
+                errors.append(f"line {line}: else outside any block")
+            elif stack[-1][1]:
+                errors.append(f"line {line}: duplicated else in {stack[-1][0]}")
+            else:
+                stack[-1] = (stack[-1][0], 1)
+        elif tag in ("elsif", "when"):
+            if not stack:
+                errors.append(f"line {line}: {tag} outside any block")
+            elif stack[-1][1]:
+                errors.append(f"line {line}: {tag} after else in {stack[-1][0]}")
+    for opener, _ in stack:
+        errors.append(f"{opener} never closed")
+    return errors
+
+
+def section_tag_structure() -> None:
+    for name, value in _templates():
+        if "{%" not in value:
+            continue
+        # comments hold prose, not tags, and a "{% if" quoted inside one would confuse
+        # the walk; they are still walked as blocks, just not read.
+        errs = liquid_structure_errors(value)
+        check(f"structure: {name} would parse on a strict engine", not errs, "; ".join(errs[:3]))
+    check("structure: the walker sees a duplicated else",
+          liquid_structure_errors("{% if x %}a{% else %}b{% else %}c{% endif %}") == ["line 1: duplicated else in if"])
+    check("structure: the walker sees an unclosed if",
+          liquid_structure_errors("{% if x %}a") == ["if never closed"])
 
 
 def section_cold_start() -> None:
@@ -2534,14 +2606,16 @@ def section_switcher_round_two() -> None:
               "CLICK" not in title.upper(), title)
     # The two panels that really do open something keep their copy.
     check("round two: the tag chart keeps the click that works",
-          "TAGS. CLICK TO FILTER" in blob)
+          "Tags. Click one to filter" in blob)
     check("round two: the history timeline keeps its door",
-          "EVERY SESSION IN THE RANGE. CLICK ONE TO OPEN IT" in blob)
+          "Sessions. Click one to open it" in blob)
     # And the two custom-content panels that strip <a href> stop pointing at themselves.
     for phrase in ("Click a best lift", "Click a note to open"):
         check(f"round two: nothing says {phrase!r}", phrase not in blob)
+    # The legend moved from the brand-bar tagline (gone in Phase 3) to the record's own
+    # eyebrow, which is where a reader is looking when they meet a struck attempt.
     check("round two: Meets carries the attempt legend instead",
-          "struck-through attempt was missed" in blob)
+          "struck through = missed" in blob)
     check("round two: Mindset no longer offers a search it does not have",
           "Search above" not in blob)
 
@@ -2670,7 +2744,15 @@ def section_switcher_round_two() -> None:
     check("round two: --no-coach removes the host it would have pointed at",
           "example.invalid" not in run.stdout)
     check("round two: --no-meet-max really removes the reference line",
-          "AGAINST YOUR MEET BEST" not in run.stdout)
+          "against your meet best" not in run.stdout)
+    # import.py decides whether the artifact carries the reference line by looking for
+    # the title build_dashboards.py writes. Renaming the title in Phase 3 without telling
+    # the importer made it refuse a build that had the line. The two strings are held
+    # together here so the next rename cannot do that.
+    here = Path(__file__).resolve().parent
+    check("phase three: import.py looks for the title the build writes",
+          "against your meet best of" in (here / "import.py").read_text()
+          and "against your meet best of" in (here / "build_dashboards.py").read_text())
     check("round two: and the build says which two it left out",
           "ASK THE COACH OFF" in run.stderr and "reference line OFF" in run.stderr,
           run.stderr[:200])
@@ -2681,8 +2763,10 @@ def section_switcher_round_two() -> None:
     # got the message. The Mindset copy can: it is the page whose no-coach wording was
     # the original 2026-09-05 bug, a tagline pointing at something the build did not
     # contain.
+    # The tagline that carried this is gone (Phase 3); the no-coach wording now lives in
+    # the Mindset method panel, which is built from templates the same way.
     check("round two: --no-coach reaches the templates, not just the panel",
-          "stays in the note" in run.stdout, "Mindset still uses the with-coach wording")
+          "a count is all a tag can carry" in run.stdout, "Mindset still uses the with-coach wording")
     check("round two: and no page invites the reader to a coach that is not there",
           "ask the coach" not in run.stdout.lower())
 
@@ -2763,6 +2847,7 @@ def main() -> None:
     section_moat()
     section_contrast()
     section_type_system()
+    section_tag_structure()
     section_orphans()
     section_lift()
     section_unit_spacing()

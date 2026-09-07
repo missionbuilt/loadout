@@ -66,7 +66,10 @@ def features(raw: str) -> tuple[bool, bool]:
     # yes on the public artifact, because History's ACWR chart carries a BASELINE line of
     # its own. The projected-total title is the one string build_dashboards.py writes
     # only when IRONSTACK_MEET_MAX_LB is set, so it is the thing to look for.
-    return ("ASK THE COACH" in raw, "AGAINST YOUR MEET BEST" in raw)
+    # The title is sentence case since Phase 3 of the design plan ("Projected total by
+    # week, against your meet best of 909 lb"); the old all-caps string made this
+    # importer refuse a build that had the line. Read the title the build writes.
+    return ("ASK THE COACH" in raw, "against your meet best of" in raw)
 
 
 def main() -> None:

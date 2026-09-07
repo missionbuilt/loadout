@@ -123,7 +123,10 @@ def coach_or(with_coach: str, without: str) -> str:
 BG = "transparent"
 GROUND = "#0d1627"
 PANEL = "#1f1c19"
-RULE = "#2a2622"
+# RULE was #2a2622, a warm hairline cut for the charcoal ground. On Kibana's navy it read
+# as a brown line (Phase 1b, live). This is Kibana's own border colour in Borealis dark,
+# sampled, so a card's rules are the same hairline as the panel edge around them.
+RULE = "#2b3140"
 CHALK = "#ebe5d8"
 DIM = "#a8a094"
 FAINT = "#5a564f"
@@ -286,26 +289,34 @@ def empty(text="Not logged yet") -> str:
 
 # --------------------------------------------------------------------------- brand bar (static)
 
-def brand_bar(section: str, tagline: str) -> str:
-    """The chrome. Same on every dashboard; only the section name and tagline change."""
+def brand_bar(section: str, tagline: str = "") -> str:
+    """The chrome. One line on every dashboard: wordmark, section, and the credit.
+
+    Phase 3 of the Sept 6 design plan took this from four grid units to two. The eyebrow
+    row above the wordmark and the three-line tagline beside it are gone: the tagline
+    restated the dashboard description Kibana already shows, and the credit it carried
+    now sits on the same line as the wordmark, at the right, in place of the tagline.
+    `tagline` is accepted and ignored so the seven Dashboard() calls and the tests that
+    read their strings did not have to move in the same commit."""
     return tok(f"""<style>
 $FONT_FACES*{{box-sizing:border-box;margin:0;padding:0;border-radius:0!important;box-shadow:none!important}}
-/* No height:100%, no flex. The panel iframe is not always the height Kibana
+/* No height:100%, no flex on the body. The panel iframe is not always the height Kibana
    implies, and any centring or space-between put the wordmark below the fold.
    Plain block flow starts at the top of the document and cannot be pushed down. */
-body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:10px 18px;overflow:hidden;-webkit-font-smoothing:antialiased}}
-/* Label 11 in STEEL. Oxblood text is 2.5:1 on this ground; the square beside the wordmark is the mark. */
-.eyebrow{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;margin-bottom:6px}}
+body{{background:$BG;color:$CHALK;font-family:$DISPLAY;padding:4px 18px 0;overflow:hidden;-webkit-font-smoothing:antialiased}}
 .bar{{display:flex;align-items:baseline;justify-content:space-between;gap:16px}}
 .left{{display:flex;align-items:baseline;gap:10px}}
 .word{{font-size:22px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;line-height:1.1}}
 .sq{{display:inline-block;width:11px;height:11px;background:$BLOOD;transform:translateY(-1px)}}
 .vr{{width:1px;height:22px;background:$RULE;transform:translateY(4px);margin:0 6px}}
 .section{{font-family:$MONO;font-size:12px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$DIM}}
-.tagline{{font-family:$MONO;font-size:12px;color:$DIM;text-align:right;max-width:60%;line-height:1.55}}
+/* Label 11 in STEEL. Oxblood text is 2.5:1 on this ground; the square beside the wordmark is the mark. */
+.credit{{font-family:$MONO;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:$STEEL;white-space:nowrap}}
+/* On a phone Kibana stacks every panel to the full width, ~360px: the wordmark and
+   section fill it, and the credit would push the line past the edge. It yields. */
+@media (max-width:520px){{.credit{{display:none}}}}
 </style>
-<div class="eyebrow">&#9646;&#9646;&#9646;&nbsp;&nbsp;A Mission Built training system&nbsp;&nbsp;&#9646;&#9646;&#9646;</div>
-<div class="bar"><div class="left"><span class="word">Iron</span><span class="sq"></span><span class="word">Stack</span><span class="vr"></span><span class="section">{section}</span></div><div class="tagline">{tagline}</div></div>""")
+<div class="bar"><div class="left"><span class="word">Iron</span><span class="sq"></span><span class="word">Stack</span><span class="vr"></span><span class="section">{section}</span></div><div class="credit">A Mission Built training system</div></div>""")
 
 
 
@@ -1764,6 +1775,7 @@ or a filter on this page excludes them. This card ignores the time picker, but n
 {%- if cur == nil -%}
 <div class="none">No block in progress. Every session carries a program block; this card
 starts once one of them is the most recent.</div>
+<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- else -%}
 {%- assign name = cur['block'].value -%}
 {%- assign peers = cur['peers'].value | plus: 0 -%}
@@ -1793,8 +1805,6 @@ main-lift reps at 80% or more. Nothing of the same kind to rank it against yet.<
 <div class="base">Tick: your usual {{ name | escape }} block.</div>
 {%- endif -%}
 <div class="base">Began {{ cur['first_trained'].value | escape }}{% if peers > 0 %}, back to {{ cur['peer_from'].value | escape }}{% endif %}; indexed {{ rows[0]['computed_through'].value | escape }}.</div>
-{%- else -%}
-<div class="base">Indexed {{ rows[0]['computed_through'].value | escape }}.</div>
 {%- endif -%}
 {%- endif -%}
 """

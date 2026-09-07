@@ -41,6 +41,7 @@ OUT = Path(__file__).resolve().parent / "dashboards.ndjson"
 CHALK = tpl.CHALK
 CHALK_DIM = tpl.DIM
 BLOOD = tpl.BLOOD  # one accent per dashboard, never two unrelated things
+STEEL = tpl.STEEL  # reference lines: a dashed grey, so the accent stays with the cards
 
 # There is no PHASES constant any more, and that is the point.
 #
@@ -147,7 +148,7 @@ def _col(label, op, dtype, scale, field=None, bucketed=False, params=None, **ext
     return col
 
 
-def count(label="COUNT", fmt=None):
+def count(label="Count", fmt=None):
     c = _col(label, "count", "number", "ratio", "___records___", params={"emptyAsNull": True})
     if fmt:
         c["params"]["format"] = fmt
@@ -208,7 +209,7 @@ def terms(field, label, size=10, dtype="string", direction="asc", by_col=None,
     )
 
 
-def date_hist(field, label="DATE", interval="auto"):
+def date_hist(field, label="Date", interval="auto"):
     return _col(label, "date_histogram", "date", "interval", field, bucketed=True,
                 params={"interval": interval, "includeEmptyRows": True, "dropPartials": False})
 
@@ -274,8 +275,26 @@ XY_BASE = {
 }
 
 
+def color_mapping(terms_to_hex: dict[str, str]) -> dict:
+    """Lens colour mapping for a terms split: named values get token colours, anything
+    else loops the palette. This is the 9.x shape (`rules: [{type: "raw"}]`); 8.x used
+    `rule: {type: "matchExactly", values: [...]}`. UNVERIFIED in the browser until the
+    Phase 3 round-two walk: if the chart still paints Kibana's default blue-greys, this
+    is the first thing to look at, and the fallback is the named palette beside it."""
+    return {
+        "assignments": [
+            {"rules": [{"type": "raw", "value": term}],
+             "color": {"type": "colorCode", "colorCode": hex_}, "touched": True}
+            for term, hex_ in terms_to_hex.items()
+        ],
+        "specialAssignments": [{"rules": [{"type": "other"}], "color": {"type": "loop"}, "touched": False}],
+        "paletteId": "default",
+        "colorMode": {"type": "categorical"},
+    }
+
+
 def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, ref=None,
-       query="", legend=True, palette=None, ref_metric=None, ref_text=True):
+       query="", legend=True, palette=None, ref_metric=None, ref_text=True, mapping=None):
     """One data layer (optionally a reference-line layer). colors: accessor -> hex.
 
     `ref` is a fixed number: the meet best, an ACWR of 1.0 - a line that means the same
@@ -297,6 +316,8 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         data_layer["palette"] = palette if isinstance(palette, dict) else {"type": "palette", "name": palette}
     if split:
         data_layer["splitAccessor"] = split
+    if mapping:
+        data_layer["colorMapping"] = color_mapping(mapping)
     layers = {"l": (dv, layer(columns))}
     vis_layers = [data_layer]
     if ref or ref_metric:
@@ -309,7 +330,7 @@ def xy(id_, title, series, dv, columns, x, accessors, colors=None, split=None, r
         vis_layers.append({
             "layerId": "ref", "layerType": "referenceLine", "accessors": ["ref"],
             "yConfig": [{
-                "forAccessor": "ref", "axisMode": "left", "color": BLOOD, "lineStyle": "dashed",
+                "forAccessor": "ref", "axisMode": "left", "color": STEEL, "lineStyle": "dashed",
                 "lineWidth": 2, "iconPosition": "auto", "textVisibility": ref_text, "fill": "none",
             }],
         })
@@ -539,7 +560,9 @@ def links(current: str) -> Inline:
     items, refs = [], []
     for key in NAV_ORDER:
         link_id = uid("nav", current, key)
-        items.append({"type": "dashboardLink", "label": key.upper() if key != current else f"[ {key.upper()} ]",
+        # Sentence case, no brackets: Kibana underlines the current dashboard's link
+        # itself, and "[ OVERVIEW ]" beside that underline was two signals for one state.
+        items.append({"type": "dashboardLink", "label": key.capitalize(),
                       # use_time_range stays False on purpose. Every dashboard sets its
                       # own deliberate default (Overview 1y, Lift 2y, Meets 10y) and
                       # timeRestore cannot win against a link that carries one; visiting
@@ -587,12 +610,15 @@ class Dashboard:
         self.y = 0
         self.objects: list[dict] = []  # saved objects this dashboard owns (Lens etc.)
         # chrome: brand bar + nav
+        # Two units, not four (Phase 3 of the Sept 6 design plan): the bar is one line
+        # now, and the coach link beside it is the same height. Four units of chrome
+        # above the first verdict instead of six.
         brand = [(custom(f"brand-{key}", brand_bar(key.upper(), tagline),
                          "FROM workout-sessions | SORT @timestamp DESC | LIMIT 1 | KEEP date"),
                   38 if COACH_URL else 48, [])]
         if COACH_URL:
             brand.append((coach_link(key), 10, []))
-        self.row(*brand, h=4)
+        self.row(*brand, h=2)
         self.row((links(key), 48, []), h=2)
 
     def row(self, *items, h=8):
@@ -1019,7 +1045,7 @@ LIFT_URL = (
 )
 
 
-def block_timeline(id_, title="BLOCK TIMELINE", query=""):
+def block_timeline(id_, title="Block timeline", query=""):
     """Every session as a bar, coloured by whatever the lifter calls the phase.
 
     The split is the field, not a fixed column set - see the note where PHASES used to
@@ -1038,21 +1064,21 @@ def block_timeline(id_, title="BLOCK TIMELINE", query=""):
         # in sessions with no program.phase, which missingBucket renders as the literal
         # "(null)" and which pushed the split to four series - moving the gray palette off
         # the beige ramp and onto blue-grey. Reverted, and recorded so it is not tried again.
-        "x": terms("session_id", "SESSION", size=300),
-        "phase": terms("program.phase", "PHASE", size=20, missing=True, other=True),
-        "m": metric("sum", "totals.tonnage_lb", "TONNAGE", fmt=FMT_INT),
+        "x": terms("session_id", "Session", size=300),
+        "phase": terms("program.phase", "Phase", size=20, missing=True, other=True),
+        "m": metric("sum", "totals.tonnage_lb", "Tonnage", fmt=FMT_INT),
     }
     return xy(id_, title, "bar_stacked", "sessions", columns, "x", ["m"],
               split="phase", palette="gray", query=query)
 
 
-def sessions_table(id_, title="SESSIONS"):
+def sessions_table(id_, title="Sessions"):
     columns = {
-        "sid": terms("session_id", "SESSION", size=200, direction="desc"),
-        "block": last("program.block", "BLOCK"),
-        "loc": last("location.name", "WHERE"),
-        "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
-        "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
+        "sid": terms("session_id", "Session", size=200, direction="desc"),
+        "block": last("program.block", "Block"),
+        "loc": last("location.name", "Where"),
+        "ton": last("totals.tonnage_lb", "Tonnage", "number", fmt=FMT_INT),
+        "rpe": last("avg_working_rpe", "Avg RPE", "number", fmt=FMT_1),
     }
     return table(id_, title, "sessions", columns, sort="sid", direction="desc")
 
@@ -1071,8 +1097,8 @@ def notes_table(id_, title, size=20):
     beside it already shows the content in prose.
     """
     columns = {
-        "sid": terms("session_id", "SESSION", size=size, direction="desc"),
-        "n": count("NOTES", fmt=FMT_INT),
+        "sid": terms("session_id", "Session", size=size, direction="desc"),
+        "n": count("Notes", fmt=FMT_INT),
     }
     return table(id_, title, "notes", columns, sort="sid", direction="desc", page=50)
 
@@ -1141,10 +1167,9 @@ def build() -> list[dict]:
     # No reference line and no number in the title unless IRONSTACK_MEET_MAX_LB says
     # what it is. A Lens saved object cannot compute either from the reader's data; the
     # card to its left can, and does.
-    total_title = "PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM PER COMPETITION LIFT"
+    total_title = "Projected total by week"
     if MEET_MAX_LB is not None:
-        total_title = ("PROJECTED TOTAL, WEEK BY WEEK. STACKED e1RM AGAINST YOUR MEET "
-                       f"BEST, {MEET_MAX_LB:g} LB")
+        total_title = f"Projected total by week, against your meet best of {MEET_MAX_LB:g} lb"
     d.row((custom("ov-total", tpl.TOTAL_CARD, Q["total"]), 20, []),
           # Stacked, so the top edge is the projected total week by week and the dashed
           # line is the platform best. The old title said "e1RM" and nothing on the
@@ -1153,10 +1178,14 @@ def build() -> list[dict]:
           # trained, so the edge reads as a line and not a picket fence.
           (xy(L("ov-total-chart"), total_title,
               "area_stacked", T,
-              {"x": date_hist("date", "WEEK", "1w"), "lift": terms("lift_slug", "LIFT", size=COMP_LIFT_LIMIT),
+              {"x": date_hist("date", "Week", "1w"), "lift": terms("lift_slug", "Lift", size=COMP_LIFT_LIMIT),
                "m": metric("max", "est_e1rm", "BEST e1RM", fmt=FMT_INT)},
               "x", ["m"], split="lift", palette="gray",
-              ref=(MEET_MAX_LB, "MEET BEST") if MEET_MAX_LB is not None else None,
+              # Token colours by lift slug, the three chalks, brightest on the biggest
+              # lift. The slugs are the reader's own competition lifts, from
+              # config/exercises.json; a lift not named here loops the gray palette.
+              mapping={"comp-deadlift": CHALK, "comp-squat": CHALK_DIM, "comp-bench": STEEL},
+              ref=(MEET_MAX_LB, "Meet best") if MEET_MAX_LB is not None else None,
               ref_text=False,
               query='is_competition_lift: true and set_type: "working" and not e1rm_confidence: "low"'),
            28, [("url", LIFT_URL, "Lift")]), h=13)
@@ -1182,7 +1211,7 @@ def build() -> list[dict]:
     d = Dashboard("program", "Ironstack. Program", "Block, week, day. Pick a week, open a day.",
                   "The block, week by week. Program tracking is newer than the log, so "
                   "sessions from before it carry no week or day and do not appear above.",
-                  controls=[(S, "program.block", "BLOCK"), (S, "program.week", "WEEK")])
+                  controls=[(S, "program.block", "Block"), (S, "program.week", "Week")])
     d.row((custom("pr-header", tpl.PROGRAM_HEADER, Q["program_header"]), 48, []), h=4)
     # INOL and ACWR in words, above the table of decimals they explain.
     d.row((custom("pr-sig", tpl.SIGNAL_PROGRAM, Q["sig_program"]), 48, []), h=9)
@@ -1197,14 +1226,14 @@ def build() -> list[dict]:
     # last()), so a WEEK column would print "(null)" on 639 rows. A near-empty table
     # replaced by a near-empty column is not a cut.
     days_cols = {
-        "sid": terms("session_id", "SESSION", size=100, direction="desc"),
+        "sid": terms("session_id", "Session", size=100, direction="desc"),
         # No DATE column: session_id is the date, and a date field renders in the
         # browser timezone, showing the previous evening. No DAY column either:
         # program.day is null on everything logged before the program was tracked.
-        "ton": last("totals.tonnage_lb", "TONNAGE", "number", fmt=FMT_INT),
-        "rpe": last("avg_working_rpe", "AVG RPE", "number", fmt=FMT_1),
+        "ton": last("totals.tonnage_lb", "Tonnage", "number", fmt=FMT_INT),
+        "rpe": last("avg_working_rpe", "Avg RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("pr-days-table"), "EVERY DAY IN THE RANGE. HOVER A DAY TO FILTER TO IT; OPEN ONE FROM THE TIMELINE ON HISTORY", S, days_cols,
+    d.row((table(L("pr-days-table"), "Days in the range", S, days_cols,
                  sort="sid", direction="desc", page=25), 48, [("session", "Session")]), h=10)
     # HARDEST LIFT and INOL are both derived from the per-set `inol`, which exists only
     # where the set has a relative intensity - so on a log with no RPE in it they are
@@ -1218,14 +1247,14 @@ def build() -> list[dict]:
     # rather than in the panel itself, and it is here because a Lens datatable cannot
     # carry one.
     loading_cols = {
-        "week": terms("iso_week", "WEEK", size=60, direction="desc"),
-        "lift": last("inol_hardest_lift", "HARDEST LIFT", sort="@timestamp"),
+        "week": terms("iso_week", "Week", size=60, direction="desc"),
+        "lift": last("inol_hardest_lift", "Hardest lift", sort="@timestamp"),
         "inol": last("inol_hardest", "INOL", "number", sort="@timestamp", fmt=FMT_2),
         # BAND and LOAD were words restating the number beside them ("0.4  easy").
         "acwr": last("acwr", "ACWR", "number", sort="@timestamp", fmt=FMT_1),
-        "ton": last("tonnage_lb", "TONNAGE", "number", sort="@timestamp", fmt=FMT_INT),
+        "ton": last("tonnage_lb", "Tonnage", "number", sort="@timestamp", fmt=FMT_INT),
     }
-    d.row((table(L("pr-loading"), "WEEKLY LOADING. INOL IS PER LIFT, NOT PER WEEK", W, loading_cols,
+    d.row((table(L("pr-loading"), "Weekly loading", W, loading_cols,
                  sort="week", direction="desc", page=12), 48, []), h=10)
     # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
     # design plan): the card keeps one scope line and the method paragraph lives here,
@@ -1239,16 +1268,18 @@ def build() -> list[dict]:
                   "One session, start to finish. Click any session anywhere to land here, "
                   "or use PREV and NEXT to walk. With no session chosen this is the latest one.")
     # A Lens table of nothing but buckets renders no rows; the hidden count gives it one.
-    nav_cols = {"sid": terms("session_id", "SESSION", size=1, direction="desc"),
-                "prev": last("prev_session_id", "PREV", sort="timestamp"),
-                "next": last("next_session_id", "NEXT", sort="timestamp")}
-    nav = table(L("se-nav"), "PREV / NEXT. HOVER TO FILTER", S, nav_cols, sort="sid", direction="desc")
+    nav_cols = {"sid": terms("session_id", "Session", size=1, direction="desc"),
+                "prev": last("prev_session_id", "Prev", sort="timestamp"),
+                "next": last("next_session_id", "Next", sort="timestamp")}
+    nav = table(L("se-nav"), "Prev / next", S, nav_cols, sort="sid", direction="desc")
     d.row((custom("se-header", tpl.SESSION_HEADER, Q["session_header"]), 36, []),
           (nav, 12, [("url", SESSION_URL, "Open session")]), h=6)
     d.row((custom("se-top", tpl.TOP_SET_HERO, Q["top_set"]), 22, []),
-          (custom("se-tiles", tpl.SESSION_TILES, Q["session_tiles"]), 26, []), h=7)
-
-    d.row((custom("se-perf", tpl.PERFORMANCE_CARD, Q["performance"]), 48, []), h=15)
+          (custom("se-tiles", tpl.SESSION_TILES, Q["session_tiles"]), 26, []), h=5)
+    # 5 and 16, measured 2026-09-06 (round two): the hero row carried two units of
+    # ground under the top set at 7, and the performance card for a six-exercise
+    # session scrolled its last set off the bottom at 15.
+    d.row((custom("se-perf", tpl.PERFORMANCE_CARD, Q["performance"]), 48, []), h=16)
     d.row((custom("se-notes", tpl.NOTES_CARD, Q["notes"]), 32, []),
           (custom("se-wrap", tpl.WRAP_CARD, Q["wrap"]), 16, []), h=11)
     d.row((custom("se-cond", tpl.CONDITIONS_CARD, Q["conditions"]), 48, []), h=5)
@@ -1276,24 +1307,26 @@ def build() -> list[dict]:
                   # BLOCK stays: it filters program.block, so ANDing it with an incoming
                   # lift_slug filter asks a real question (this lift, in that block) and an
                   # empty answer to it is true rather than broken.
-                  controls=[(T, "program.block", "BLOCK")], time_from="now-2y")
-    d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=4)
-    e1_cols = {"x": terms("session_id", "SESSION", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
+                  controls=[(T, "program.block", "Block")], time_from="now-2y")
+    # 5, not 4: at 4 the second sub-line (best e1RM, best top set, avg RPE) was cut in
+    # half on the live page. Measured 2026-09-06, round two.
+    d.row((custom("li-header", tpl.LIFT_HEADER, Q["lift_header"]), 48, []), h=5)
+    e1_cols = {"x": terms("session_id", "Session", size=300), "m": metric("max", "est_e1rm", "e1RM", fmt=FMT_INT)}
     # The dashed line is this lift's best in whatever the page is showing, computed from
     # the same rows as the series. The verdict beside it says "your best 420" and before
     # this the chart had no 420 on it, so the two did not point at each other.
-    e1 = xy(L("li-e1rm"), "e1RM OVER TIME. THE LINE IS YOUR BEST IN THIS RANGE", "line", T,
-            e1_cols, "x", ["m"], colors={"m": BLOOD}, legend=False,
-            ref_metric=("max", "est_e1rm", "YOUR BEST"),
+    e1 = xy(L("li-e1rm"), "e1RM over time", "line", T,
+            e1_cols, "x", ["m"], colors={"m": CHALK}, legend=False,
+            ref_metric=("max", "est_e1rm", "Your best"),
             query='set_type: "working" and not e1rm_confidence: "low"')
     # TOP SET OVER TIME is gone. It plotted max(weight_lb) per session against a chart
     # plotting max(est_e1rm) per session - the same sawtooth, one lift's heaviest day
     # either way - and two charts saying one thing is how a page starts reading as a log.
     # The y axis is a rep count with no title on it, so a bar reaching 40,000 read as
     # a weight. Lens draws no axis title here; the unit goes in the panel title.
-    zdist = xy(L("li-zones"), "WHERE THE REPS LAND, AGAINST YOUR BEST IN THE LAST 90 DAYS. REPS PER ZONE", "bar", T,
-               {"x": terms("prilepin_zone", "ZONE", size=4),
-                "v": metric("sum", "reps", "REPS", fmt=FMT_INT)},
+    zdist = xy(L("li-zones"), "Reps by intensity zone", "bar", T,
+               {"x": terms("prilepin_zone", "Zone", size=4),
+                "v": metric("sum", "reps", "Reps", fmt=FMT_INT)},
                "x", ["v"], colors={"v": CHALK_DIM}, legend=False, query='set_type: "working"')
     # Verdict, the chart it is drawn from, then the distribution behind both, then the log.
     d.row((custom("li-signal", tpl.SIGNAL_LIFT, Q["sig_lift"]), 18, []),
@@ -1305,13 +1338,13 @@ def build() -> list[dict]:
     # distribution of zones reads as a fifth zone, which is worse than the honest gap.
     d.row((custom("li-zone-cov", tpl.ZONE_COVERAGE, Q["zone_cov_lift"]), 48, []), h=3)
     all_cols = {
-        "sid": terms("session_id", "SESSION", size=300, direction="desc"),
+        "sid": terms("session_id", "Session", size=300, direction="desc"),
         "seq": terms("seq", "#", size=200, dtype="number"),
-        "w": last("weight_lb", "LB", "number", fmt=FMT_INT),
-        "reps": last("reps", "REPS", "number"),
+        "w": last("weight_lb", "lb", "number", fmt=FMT_INT),
+        "reps": last("reps", "Reps", "number"),
         "rpe": last("rpe", "RPE", "number", fmt=FMT_1),
     }
-    d.row((table(L("li-sets"), "EVERY WORKING SET", T, all_cols, sort="sid", direction="desc",
+    d.row((table(L("li-sets"), "Every working set", T, all_cols, sort="sid", direction="desc",
                  page=50, query='set_type: "working"', row_height="auto"), 48, [("session", "Session")]), h=12)
     # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
     # design plan): the card keeps one scope line and the method paragraph lives here,
@@ -1322,19 +1355,19 @@ def build() -> list[dict]:
 
     # ---------------------------------------------------------------- History
     d = Dashboard("history", "Ironstack. History", "Sessions over any range. The time picker is the range toggle.",
-                  "Every session in the range. The time picker is the range.", controls=[(S, "program.block", "BLOCK"), (S, "program.phase", "PHASE")])
+                  "Every session in the range. The time picker is the range.", controls=[(S, "program.block", "Block"), (S, "program.phase", "Phase")])
     # The verdict first, then the chart that shows its shape, then the log. Before this
     # the page opened on four tiles a phone already shows and the zone chart - the only
     # picture in the app of the trailing-90-day idea - was the third scroll.
     d.row((custom("hi-sig", tpl.SIGNAL_BLOCK, Q["sig_block"]), 48, []), h=10)
     # The 4.0 in Aug 2025 is a layoff artefact (open item: suppress in derive.py). Until
     # then the title says how to read it, so the spike is not the scariest thing on the page.
-    acwr = xy(L("hi-acwr"), "ACUTE VS CHRONIC LOAD. ABOVE 1.5 IS A SPIKE; A SPIKE RIGHT AFTER A LAYOFF IS EXPECTED", "line", W,
-              {"x": date_hist("@timestamp", "WEEK", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
-              "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "BASELINE"))
+    acwr = xy(L("hi-acwr"), "Acute vs chronic load, 1.0 is baseline", "line", W,
+              {"x": date_hist("@timestamp", "Week", "1w"), "m": metric("max", "acwr", "ACWR", fmt=FMT_1)},
+              "x", ["m"], colors={"m": CHALK}, legend=False, ref=(1.0, "Baseline"))
     zcols, zcolors = zone_columns()
-    zone_cols = {"x": date_hist("date", "MONTH", "1M"), **zcols}
-    zones = xy(L("hi-zones"), "SHARE OF REPS BY INTENSITY ZONE. MAIN LIFTS", "bar_percentage_stacked", T,
+    zone_cols = {"x": date_hist("date", "Month", "1M"), **zcols}
+    zones = xy(L("hi-zones"), "Share of reps by zone, main lifts", "bar_percentage_stacked", T,
                zone_cols, "x", list(zcols), colors=zcolors,
                query='set_type: "working" and exercise.category: "main"')
     d.row((zones, 48, []), h=9)
@@ -1344,7 +1377,7 @@ def build() -> list[dict]:
     # table and the timeline, for anyone who wants the number rather than the reading.
     # One timeline, not two. This and the Overview panel were the same chart under two
     # titles; naming it for what it is stops the page reading as a second copy.
-    d.row((block_timeline(L("hi-timeline"), "EVERY SESSION IN THE RANGE. CLICK ONE TO OPEN IT"),
+    d.row((block_timeline(L("hi-timeline"), "Sessions. Click one to open it"),
            48, [("session", "Session")]), h=9)
     d.row((acwr, 48, []), h=8)
     d.row((sessions_table(L("hi-sessions")), 48, [("session", "Session")]), h=10)
@@ -1364,16 +1397,21 @@ def build() -> list[dict]:
                   time_from="now-10y")
     # The verdict goes above the record. The record is what the lifter already knows;
     # how this cycle compares to it is the thing only the log can say.
+    # 8 and 5, measured on 2026-09-06 after the card diet: at 10 and 6 both rows carried
+    # two units of blank ground under their last line.
     d.row((custom("me-sig-taper", tpl.SIGNAL_TAPER, Q["sig_taper"]), 24, []),
-          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=10)
-    d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=6)
+          (custom("me-sig-proj", tpl.SIGNAL_PROJECTION, Q["sig_projection"]), 24, []), h=9)
+    # 9, not 8: at 8 the projection card, which carries the three-meet line and a scope
+    # line that wraps at 24 columns, scrolled its pointer off the bottom. Round two.
+    d.row((custom("me-cards", tpl.MEET_CARDS, Q["meet_cards"]), 48, []), h=5)
     d.row((custom("me-best", tpl.MEET_BESTS, Q["meet_bests"]), 48, []), h=8)
     d.row((custom("me-list", tpl.MEET_LIST, Q["meet_list"]), 48, []), h=11)
     # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
     # design plan): the card keeps one scope line and the method paragraph lives here,
     # where it can be read in full. Height is a first guess for two columns of paragraph;
     # MEASURE it in the browser like every other custom-panel height on this page.
-    d.row((custom("me-method", tpl.MEETS_METHOD), 48, []), h=5)
+    # 6, not 5: at 5 the projection paragraph was cut at "Under" on the live page.
+    d.row((custom("me-method", tpl.MEETS_METHOD), 48, []), h=6)
     objs += d.build()
 
     # ---------------------------------------------------------------- Mindset
@@ -1386,7 +1424,7 @@ def build() -> list[dict]:
                   "Everything you wrote, tagged and in order. Click a tag to filter the page. " +
                   tpl.coach_or("To ask a question of it, ask the coach.",
                                "A tag is a count, not a reading: what a note said stays in the note."))
-    tag_cols = {"x": terms("tags", "TAG", size=25, by_col="c", direction="desc"), "c": count("NOTES")}
+    tag_cols = {"x": terms("tags", "Tag", size=25, by_col="c", direction="desc"), "c": count("Notes")}
     # size=25 categories in a 9-row panel is the bug that cost a whole review round.
     # Lens does not scroll a horizontal bar chart and it does not shrink the type: it
     # draws every bar and then prints only every OTHER axis label. Fifteen tags came
@@ -1394,13 +1432,13 @@ def build() -> list[dict]:
     # unlabelled bars as missing data - the chart was right, the reader could not tell.
     # Sized to the categories instead: the panel has to be tall enough that every bar
     # gets its name, because a bar nobody can name is worse than no bar.
-    tags = xy(L("mi-tags"), "TAGS. CLICK TO FILTER", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
+    tags = xy(L("mi-tags"), "Tags. Click one to filter", "bar_horizontal", N, tag_cols, "x", ["c"], colors={"c": CHALK_DIM}, legend=False)
     # TAGS OVER TIME was three stacked bars under a twelve-entry legend that filled the
     # panel. The bar chart says the same thing and can be clicked.
     d.row((custom("mi-sig", tpl.SIGNAL_TAGS, Q["sig_tags"]), 48, []), h=9)
     d.row((tags, 48, []), h=15)
     d.row((custom("mi-recent", tpl.RECENT_NOTES, Q["recent_notes"]), 32, []),
-          (notes_table(L("mi-notes"), "THE SESSIONS BEHIND THESE NOTES"), 16, [("session", "Session")]), h=12)
+          (notes_table(L("mi-notes"), "Sessions behind these notes"), 16, [("session", "Session")]), h=12)
     # The mechanism behind the verdict card, last on the page (Phase 2 of the Sept 6
     # design plan): the card keeps one scope line and the method paragraph lives here,
     # where it can be read in full. Height is a first guess for a one-column paragraph;
@@ -1588,7 +1626,7 @@ def esql_columns(query: str) -> tuple[set[str], list[tuple[str, str]], set[str]]
         rest = stage[len(head):].strip()
         if head == "FROM":
             indices |= {i.strip() for i in rest.split(",") if i.strip()}
-        elif head in ("WHERE", "SORT", "DISSECT", "GROK"):
+        elif head in ("Where", "SORT", "DISSECT", "GROK"):
             use(head.lower(), rest)
         elif head == "EVAL":
             for item in _split_top(rest):

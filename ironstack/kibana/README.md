@@ -389,9 +389,29 @@ parsing in a template.
 
 ## Style
 
-Iron Log: charcoal ground, warm chalk foregrounds, and oxblood `#a8211a` for exactly one
-thing per dashboard. Split series use Kibana's built-in gray palette. Titles are short and
-uppercase. No em-dashes in UI strings.
+Iron Log on Kibana's ground: the cards are transparent over the panel behind them, warm
+chalk foregrounds, and oxblood `#a8211a` for exactly one thing per dashboard. `RULE` is
+Kibana's own border colour, sampled, so a card's hairlines match the panel edge. Split
+series use the gray palette, except the projected-total chart, which maps the three
+competition lifts to the three chalks (`color_mapping()`, unverified until the Phase 3
+round-two walk). Reference lines are STEEL dashed, so the accent stays with the cards.
+
+Lens titles are two-to-four-word nouns in sentence case ("Block timeline", "Every working
+set"); column labels and controls are sentence case too. An instruction survives in a
+title only where the click works ("Sessions. Click one to open it", "Tags. Click one to
+filter"); `verify_liquid` fails a datatable title that promises a click. No em-dashes in
+UI strings.
+
+The chrome is four grid units: a one-line brand bar (wordmark, section, the Mission Built
+credit at the right) with the coach link beside it at h=2, and the nav at h=2, sentence
+case, no brackets (Kibana underlines the current page itself). The dashboard description
+carries what the tagline used to say.
+
+Legend names on the projected-total chart are still slugs (`comp-deadlift`). The split
+has to stay on `lift_slug` because the drilldown reads the split value into the Lift
+page's `lift_slug` filter, and the signals index that page's card reads carries no
+display name to filter on instead. Naming the legend means indexing `exercise.name` on
+the lift signal rows first; it is on the after-the-meet list.
 
 The custom panels follow the type system from the Sept 6 design review (Workouts project,
 `ironstack-design-review-2026-09-06`), and `verify_liquid.py` `section_type_system` holds
