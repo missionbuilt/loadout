@@ -44,7 +44,7 @@ wrap: Ended strong. #motivation
 | `id:` | `session.session_id` | Only for a second session in one day (`2026-09-04-2`) |
 | `start:` | `start_time` | `time_of_day` is derived: <11 morning, <15 midday, <21 evening, else night |
 | `duration:` | `duration_min` | Minutes |
-| `program:` | `session.program` | `block/phase w21 d4/4 meet=2026-10-24`, or just `next` |
+| `program:` | `session.program` | `block/phase w21 d4/4 meet=2026-10-24`, or just `next` — the previous session's program one day on. `same` is an extra session inside the same program day (a recovery-day arm blitz mid-week): nothing advances. How `next` counts is `cycle` in `config/defaults.json`: `weekly` (day N of a `total_days`-day training week, the week ticks over — the default) or `block` (day N of a `total_days`-day block, no weeks; past the last day it refuses and the next block starts with an explicit line). `meet_date` is optional: present, every document counts down to it; absent, nothing does |
 | `place:` / `geo:` / `travel:` | `location` | `travel` flips to true automatically away from home. How precise you name a place is `location_detail` in `config/defaults.json` — `coarse` (town or city) or `exact` (street level, for a private log) |
 | `env:` | `environment` | `78F 61% "conditions" wind="..." setting="..."` |
 | `bw:` `sleep:` | `metrics` | Bodyweight lb, sleep hours |
@@ -60,11 +60,19 @@ program name, meet date), so a normal session never types them.
 ## Exercises
 
 ```
-# Name | category | @equipment-ids | emphasis: ... | gear: a, b
+# Name | category | @equipment-ids | pace: E3:00 | emphasis: ... | gear: a, b
 ```
 
 `category` is `main`, `accessory` (default) or `prep`. Everything after the name
 is optional and order doesn't matter.
+
+### Pacing
+
+`pace: E3:00` is the interval a new set starts on — the program's "every 3:00". It
+becomes `pacing_sec: 180` on the exercise and the indexer carries it onto every set, so
+rest can be compared across sessions instead of read out of a sentence. `E3:00`, `3:00`,
+`2:30`, `180s` and `3m` all parse; anything else is an error. Leave it off when the
+exercise was rested by feel.
 
 ### Equipment
 
@@ -118,6 +126,8 @@ that phrase meaningless to search:
 | `"12 reps each leg"` | `x12/s` |
 | `"ladder: 6,5,4,3,2 + hold"` | `scheme="6,5,4,3,2 + hold"` |
 | `"4.46 mi, 92 cal, 62 rpm"` | `dist=4.46 cal=92 rpm=62` |
+| `emphasis: E3:00 pacing` | `pace: E3:00` on the header |
+| `"+10 lb weighted vest"` | `bw10x12 +@vest` — the load is a number, the vest is an id |
 
 Conditioning keys: `dist=` miles, `cal=`, `watts=` average, `peakw=`, `rpm=`, `mph=`,
 `hr=` average, `maxhr=`. An unknown `key=` is an error, so a typo can't sneak through.

@@ -32,6 +32,9 @@
           "name": {
             "type": "keyword"
           },
+          "cycle": {
+            "type": "keyword"
+          },
           "block": {
             "type": "keyword"
           },
@@ -80,6 +83,9 @@
           },
           "bar_weight_lb": {
             "type": "float"
+          },
+          "pacing_sec": {
+            "type": "integer"
           }
         }
       },

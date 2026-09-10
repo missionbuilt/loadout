@@ -161,6 +161,16 @@
     "competition": false,
     "unilateral": false
   },
+  "Band Abs": {
+    "pattern": "core-flexion",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
   "Band Pullover Dead Bugs": {
     "pattern": "core-anti-extension",
     "muscles_primary": [
@@ -178,6 +188,9 @@
     "lift_family": null,
     "competition": false,
     "unilateral": false
+  },
+  "Barbell Close-grip Bench Press": {
+    "alias_of": "Closegrip Bench"
   },
   "Barbell Curls": {
     "pattern": "elbow-flexion",
@@ -1283,6 +1296,19 @@
     "competition": false,
     "unilateral": false
   },
+  "Horizontal Pull Apart": {
+    "pattern": "horizontal-pull",
+    "muscles_primary": [
+      "chest",
+      "rear-delt"
+    ],
+    "muscles_secondary": [
+      "upper-back"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
   "Incline Bench": {
     "pattern": "incline-press",
     "muscles_primary": [
@@ -1309,6 +1335,9 @@
     "unilateral": false
   },
   "Incline DB Press": {
+    "alias_of": "DB Incline Bench"
+  },
+  "Incline Dumbbell Press (30 degrees)": {
     "alias_of": "DB Incline Bench"
   },
   "Inverted Rows": {
@@ -1345,6 +1374,20 @@
     ],
     "muscles_secondary": [
       "front-delt"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Kettlebell Swing": {
+    "pattern": "hinge",
+    "muscles_primary": [
+      "glutes",
+      "hamstrings"
+    ],
+    "muscles_secondary": [
+      "core",
+      "lower-back"
     ],
     "lift_family": null,
     "competition": false,
@@ -1444,6 +1487,21 @@
       "quads"
     ],
     "muscles_secondary": [],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Log Clean and Press": {
+    "pattern": "vertical-press",
+    "muscles_primary": [
+      "front-delt",
+      "triceps"
+    ],
+    "muscles_secondary": [
+      "upper-chest",
+      "quads",
+      "glutes"
+    ],
     "lift_family": null,
     "competition": false,
     "unilateral": false
@@ -1570,6 +1628,32 @@
     ],
     "muscles_secondary": [
       "upper-chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Med Ball Slam": {
+    "pattern": "plyometric",
+    "muscles_primary": [
+      "abs"
+    ],
+    "muscles_secondary": [
+      "front-delt",
+      "lats"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Med Ball Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "core"
     ],
     "lift_family": null,
     "competition": false,
@@ -1827,6 +1911,20 @@
     "lift_family": null,
     "competition": false,
     "unilateral": true
+  },
+  "SSB Box Squat": {
+    "pattern": "squat",
+    "muscles_primary": [
+      "quads",
+      "glutes"
+    ],
+    "muscles_secondary": [
+      "lower-back",
+      "adductors"
+    ],
+    "lift_family": "squat",
+    "competition": false,
+    "unilateral": false
   },
   "SSB Squat": {
     "pattern": "squat",
@@ -2109,6 +2207,19 @@
     "competition": false,
     "unilateral": false
   },
+  "Vertical Pull Apart": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "rear-delt",
+      "upper-back"
+    ],
+    "muscles_secondary": [
+      "chest"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
   "Weighted Situps": {
     "pattern": "core-flexion",
     "muscles_primary": [
@@ -2143,6 +2254,25 @@
     "muscles_secondary": [
       "quads",
       "glutes"
+    ],
+    "lift_family": null,
+    "competition": false,
+    "unilateral": false
+  },
+  "Barbell Overhead Press (Standing)": {
+    "alias_of": "Strict Press"
+  },
+  "Russian Twists (Medicine Ball)": {
+    "alias_of": "MB Russian Twists"
+  },
+  "Iso Pulldown": {
+    "pattern": "vertical-pull",
+    "muscles_primary": [
+      "lats"
+    ],
+    "muscles_secondary": [
+      "biceps",
+      "mid-back"
     ],
     "lift_family": null,
     "competition": false,

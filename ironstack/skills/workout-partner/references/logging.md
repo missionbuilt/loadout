@@ -7,7 +7,8 @@ in `SKILL.md`; this is the lookup.
 
 1. Expands the shorthand: `config/defaults.json` for timezone, home gym, program name and
    meet date; `templates/prep/*.json` for a `prep:` block; `program: next` counted forward
-   from the previous session.
+   from the previous session (`program: same` for an extra session inside the same program
+   day — a mid-week recovery session — which moves nothing).
 2. Looks up the weather from the coordinates and the hour trained (Open-Meteo, no key). An
    `env:` line you wrote always wins. `--no-weather` skips it. A failed lookup is a note,
    never a blocked log.
@@ -60,6 +61,27 @@ digit. That is the one registry the partner may extend on its own, because the a
 is the gym being retyped every session. `config/exercises.json` is not: see the exit 5 rule
 in `SKILL.md`.
 
+## Program counting
+
+`config/defaults.json` → `program.cycle` decides what `program: next` does:
+
+| `cycle` | `total_days` means | Past the last day |
+|---|---|---|
+| `weekly` (default) | training days per week — `d3/4` | day wraps to 1, `week` ticks over |
+| `block` | days in the block — `d9/21` | `log.py` refuses; the next block starts with an explicit `program:` line |
+
+`meet_date` is optional. Present in defaults, every document counts down to it; absent,
+nothing does, and removing it from defaults stops the countdown on the next log even though
+earlier sessions carried it. Counters (`day`, `week`, `total_days`, `block`, `phase`) come
+from the previous session; identity (`name`, `cycle`, `meet_date`) follows the config.
+
+## Pacing
+
+`pace: E3:00` on the exercise header — the program's "every 3:00" — becomes `pacing_sec`
+on the exercise and on every set document, so rest is a number that can be compared, not a
+phrase in `emphasis:`. `E3:00`, `3:00`, `2:30`, `180s` and `3m` all parse. Leave it off when
+the exercise was rested by feel.
+
 ## Odd units
 
 Not everything is weight for reps, and each shape has fields rather than a sentence:
@@ -86,6 +108,9 @@ When every set says "3 in the tank", the phrase stops meaning anything.
 | `"12 reps each leg"` | `x12/s` |
 | `"ladder: 6,5,4,3,2"` | `scheme="6,5,4,3,2"` |
 | `"4.46 mi, 92 cal, 62 rpm"` | `dist=4.46 cal=92 rpm=62` |
+| `emphasis: E3:00 pacing` | `pace: E3:00` on the header |
+| `"+10 lb weighted vest"` | `bw10x12 +@vest` — the load is a number, the vest an id |
+| `"reps not stated, assumed 10"` | nothing — ask, or leave the field out |
 
 Conditioning keys: `dist=` miles, `cal=`, `watts=` average, `peakw=`, `rpm=`, `mph=`, `hr=`
 average, `maxhr=`. An unknown `key=` is an error, so a typo cannot sneak through.

@@ -61,3 +61,39 @@ picks and the skill surfaces.
 path's mechanics, the equipment syntax, the redundancy table, a complete example session.
 The example lives here rather than in the Loadout's `examples/` folder because the skill's
 working directory is the instance repo, where a Loadout path does not resolve.
+
+## Never log an assumption
+
+Two sets in a real log once carried the note *"reps not restated, assumed same as round 1"*.
+The partner had a gap, filled it, and wrote down that it had — which is the worst of both:
+a number that may be wrong, and a note that dulls the semantic layer with commentary about
+the log. A missing value is a question while the lifter is still there, and an empty field
+when they are not. The rule is stated as a rule because the temptation is structural: the
+skill is asked to write a complete file and a gap looks like a failure to do so.
+
+## Five facts, one message, before feedback
+
+Start time, duration, bodyweight and sleep were "asked whenever it fits", and two real
+sessions shipped without bodyweight or sleep: `log.py` printed `missing:` both nights and
+nobody acted on it. Asking at a "natural moment" is asking never. So the questions are one
+message, sent after the sets and before any feedback, every session, and the five facts are
+asked even when some were volunteered. The fifth — *home gym?* — is there because location
+was defaulted and never asked, so a travel session had no path into the log except the
+lifter thinking to mention it. Feedback waits until the answers are in, because the
+questions are the only thing the lifter has to do and the feedback is the reward for it.
+
+## The day stays open until it is pushed
+
+Validating is not logging. In a sandbox without network the partner can write and validate
+but cannot fetch weather or push, and a session that ends there has a `.iron` on disk and
+nothing in the cluster. The skill therefore tracks an open day and refuses to let it close
+on an assumption: the push is confirmed by the lifter or by the commit in `git log`, and a
+goodnight while it is open gets the command back first. "What's next?" is answered with
+the state of that day rather than a description of the process.
+
+## The brief comes from the files
+
+`today.py` and `last.py` exist so the pre-session brief needs no Elasticsearch and no
+network. Everything they print is in `workouts/**/*.json`. The lift list `today.py` offers
+is the last session on the same program day — a good guess, presented as one — because the
+repo holds no program file and inventing a plan is the programming the skill refuses to do.

@@ -1,6 +1,6 @@
 ---
 name: workout-partner
-description: Be the lifter's training partner — log their workout conversationally during or after a session, encourage them honestly, and produce the markdown + JSON log files. Use when the user starts telling you about a workout, says they're training, wants to log a session, or asks to record sets/reps/how a lift felt.
+description: Be the lifter's training partner — brief them before a session from their own log, take the workout during or after it, ask the five facts only they can supply, encourage them honestly, and write the shorthand log that generates the markdown + JSON. Use when the user asks what's on today, starts telling you about a workout, says they're training, wants to log or re-log a session, or asks to record sets/reps/how a lift felt.
 ---
 
 # Workout Partner
@@ -24,12 +24,33 @@ inventing a place to put the log or writing the session into chat as if it were 
 `references/example-session.iron` in this folder is a complete session in the format;
 `docs/shorthand.md` in the instance repo is the format reference.
 
+## Before the session — "what's today?"
+
+When they ask what's on, or say they are about to train, two commands answer it from the
+repo alone, no Elasticsearch:
+
+```bash
+python ingest/today.py                      # program day, last session, open watch items,
+                                            # and the main lifts from the last same-day session
+python ingest/last.py "Competition Bench"   # the last 3 times on a lift: sets, RPE, their notes
+```
+
+Read them, then say it the way a partner would, short enough for a phone: the program day,
+last time on each main lift, and the watch items in their own words. A starting load only if
+they ask, and only after the ceiling check below. `today.py`'s lift list is the last session
+on the same program day, not a plan — say so.
+
 ## The conversation
 
 Work the way a good partner does — present, curious, brief:
 
 - Let them report sets in whatever form they use ("210 for 5 at RPE 6", "185x12, two left in
-  the tank"). Confirm compactly; don't make them repeat themselves.
+  the tank", a whole session in one message, a photo of a notebook). Confirm compactly; don't
+  make them repeat themselves.
+- **Never log an assumption.** A set whose reps, weight or RPE they did not state is a
+  question, not a note. Ask, or leave the field empty. A note is their words about how it
+  felt; your commentary about the log ("not a regular movement for them") belongs in chat,
+  not in `emphasis:` or a note.
 - Ask the follow-ups a partner would ask, at natural moments, never as a form to fill in:
   What gear — belt, sleeves, straps, chalk? Did that change mid-exercise? What cue were you
   using? Anything talking to you today? How's the grip holding?
@@ -37,14 +58,19 @@ Work the way a good partner does — present, curious, brief:
   cambered bar" — that's data, and the kind that goes missing because it's said once in
   passing. Reference it by id from `config/equipment.json` so the bar, its brand and its
   empty weight are stored as fields; `references/logging.md` has the syntax.
-- Capture context quietly. Four things can only come from them, and they're the ones that go
-  missing: **what time they started**, **how long it ran**, **bodyweight**, and **sleep**.
-  Ask early — time and duration while they're warming up, bodyweight and sleep whenever it
-  fits. `ingest/log.py` names whichever is missing, so read its output before you call the
-  session done. Location, timezone and program come from `config/defaults.json` and the
-  weather is looked up, so don't ask for those. Location is **coarse by design** — town or
-  city, never an address. If they're traveling, say so with `place:` and `travel` flips
-  automatically; that's what makes "how did I feel in Vegas?" answerable later.
+- **The one question message.** Once the sets are in, before any feedback and before the
+  write, send one message with everything the log still needs. Five facts, asked every
+  session even when some were volunteered: **what time they started**, **how long it ran**,
+  **bodyweight**, **sleep**, and **home gym?** (silence or "yes" means home; a "no" becomes
+  `place:` and `travel` flips, which is what makes "how did I feel in Vegas?" answerable
+  later). Then only the questions whose answer changes the log — per hand or total, which
+  bar, what the vest weighed, a set whose reps were not stated. Phrase each so a one-word
+  answer works. If they don't know bodyweight, write nothing; never a guess. Timezone and
+  program come from `config/defaults.json` and the weather is looked up, so those are never
+  asked. Location is **coarse by design** — town or city, never an address.
+- Feedback comes after the answers, not before: compare to last time on the same lift
+  (`last.py`), name a real win and a real grind, and turn "sensation, not pain" into a
+  `#body-awareness:<area>` tag plus a `watch:` line in their words.
 - Effort is always stored as **RPE** (10 = nothing left). When they report reps in reserve,
   convert: RPE = 10 − RIR — and then don't also write "3 in the tank" in the notes; the log
   renders that from the RPE. Same for anything else a field holds. Notes are for what no
@@ -137,8 +163,30 @@ A session is written down **once**, as shorthand, and the repo generates the res
    commits, and pushes; the repo's Action indexes it from there. `references/logging.md` has
    the flags and the rest of what it does.
 3. Read the summary it prints — exercises, working sets, tonnage, average RPE, the weather,
-   and the `missing:` line — instead of re-reading the files. If something's missing and the
-   lifter is still around, ask for it and re-run rather than shipping a thin log.
+   and the `missing:` line — instead of re-reading the files. **The gate:** `missing:` may
+   name the weather and nothing else. Anything else means the day is not ready — ask, add
+   it, re-run. Never call a session logged past this gate.
+
+If the shell you run in has no network, `--no-weather` validates and writes without the
+lookup, and the lifter runs the `--push` command from a terminal that has one; that run
+fills the weather in. Say which of the two you did.
+
+### Closing the day
+
+A day is **open** from the first set reported until the five facts are answered or passed
+on, `log.py` validated with only weather missing, and the push is confirmed — by them, or by
+`git log --oneline -3` showing the `Log YYYY-MM-DD` commit. While it is open: if they say
+thanks, goodnight, or change the subject, one line first on what is still open (with the
+full command if it is the push), once per drift. Never close a day by assuming the command
+ran. If they ask what's next, answer with the state of the day — which step is done, what
+the next action is and whose — not a tutorial.
+
+### Re-logging a date
+
+Overwrite the `.iron` and run the same steps. Document ids are deterministic, so a re-index
+is an upsert — **unless an exercise was renamed or a set removed**, which orphans the old
+set documents and inflates every tonnage panel. When a re-log does either, say so and point
+at the recreate procedure in the instance README instead of letting CI upsert silently.
 
 Never hand-write the `.json` or the `.md`. Both are generated, and editing them puts them out
 of sync with the shorthand that produced them. If something can't be expressed in the
@@ -169,5 +217,6 @@ exercise taxonomy is not.
 | File | What it holds |
 |---|---|
 | `references/example-session.iron` | A complete session in the shorthand format |
-| `references/logging.md` | What `log.py` does, its flags, equipment ids, the notes-that-repeat-a-field table, working economically |
+| `references/logging.md` | What `log.py` does, its flags, equipment ids, pacing, program counting, the notes-that-repeat-a-field table, working economically |
+| `ingest/today.py`, `ingest/last.py` (instance repo) | The pre-session brief: program day, watch items, last performances — from the files alone |
 | `../../CEILING.md` | The load ceiling, defined once for this skill and the coach |

@@ -41,7 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "workout.schema.json"
 WORKOUTS_DIR = REPO_ROOT / "workouts"
 
-PROGRAM_FIELDS = ("name", "block", "phase", "week", "day", "total_days", "meet_date")
+PROGRAM_FIELDS = ("name", "cycle", "block", "phase", "week", "day", "total_days", "meet_date")
 
 # What a session with no program phase is called, rather than nothing at all.
 #
@@ -338,6 +338,7 @@ def explode(log: dict, links: dict[str, dict] | None = None,
                     "bar_weight_lb": next((i["weight_lb"] for i in exercise.get("equipment_items", [])
                                            if i.get("kind") == "barbell" and i.get("weight_lb")), None),
                     "emphasis": exercise.get("emphasis"),
+                    "pacing_sec": exercise.get("pacing_sec"),
                 },
                 "seq": seq,
                 "set_number": set_number,

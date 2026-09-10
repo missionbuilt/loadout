@@ -24,6 +24,7 @@
     "ingest/envconf.py",
     "ingest/index_meets.py",
     "ingest/index_workouts.py",
+    "ingest/last.py",
     "ingest/log.py",
     "ingest/metrics.py",
     "ingest/render_md.py",
@@ -34,10 +35,12 @@
     "ingest/test_ceiling.py",
     "ingest/test_index_meets.py",
     "ingest/test_index_workouts.py",
+    "ingest/test_log.py",
     "ingest/test_setup_indices.py",
     "ingest/test_shorthand.py",
     "ingest/test_suggest.py",
     "ingest/test_verify_index.py",
+    "ingest/today.py",
     "ingest/verify_index.py",
     "schema/mappings/ironstack-signals.json",
     "schema/mappings/workout-daily.json",
@@ -61,7 +64,7 @@
         {
           "contains": "print(\"DOTS",
           "of": 1,
-          "public": "print(\"DOTS \u2014 golden tests against the published coefficients\")"
+          "public": "print(\"DOTS — golden tests against the published coefficients\")"
         },
         {
           "contains": "m.dots(",

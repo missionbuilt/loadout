@@ -27,7 +27,7 @@ Format (everything except a date and one set line is optional):
     watch: left-hand grip
     wrap: closed it out strong #motivation
 
-    # Competition Deadlift | main | Texas Deadlift Bar | emphasis: speed off the floor
+    # Competition Deadlift | main | Texas Deadlift Bar | pace: E3:00 | emphasis: speed off the floor
     w: 45x10 "bar only", 135x5, 225x3
     275x4 @7 +lever belt "3 in the tank" #grip
     220x12 @7 "3 in the tank" *3
@@ -39,6 +39,11 @@ Set line grammar:
     [w] WEIGHTxREPS[s|w] [@RPE] [+gear, gear] ["notes"] [#tag ...] [ft=N] [*N]
     WEIGHT is a number, or `bw` for bodyweight (optionally `bw45` for loaded
     bodyweight work). A leading `w` marks a warmup/prep set.
+
+Exercise header: `# Name | main|accessory|prep | @equipment-ids | pace: E3:00 |
+emphasis: ... | gear: a, b`. `pace:` is the interval a new set starts on - "every
+3:00" - and becomes `pacing_sec` on the exercise, a number the indexer carries onto
+every set. It was free text in `emphasis:` for a while and could not be charted.
 """
 
 from __future__ import annotations
@@ -143,6 +148,35 @@ def load_prep_template(name: str) -> list:
 def _num(text: str):
     value = float(text)
     return int(value) if value == int(value) else value
+
+
+PACE_RE = re.compile(r"^\s*E?\s*(?:(\d+)\s*:\s*(\d{1,2})|(\d+(?:\.\d+)?)\s*(s|sec|m|min)?)\s*$", re.I)
+
+
+def parse_pace(text: str) -> int:
+    """`E3:00`, `3:00`, `2:30`, `180`, `180s`, `3m` -> seconds between set starts.
+
+    The `E` is how the program writes it ("E3:00" - every three minutes) and is
+    optional. A bare number is seconds; `m`/`min` makes it minutes. Anything else
+    is an error, so a typo cannot land as a silent zero.
+    """
+    match = PACE_RE.match(text)
+    if not match:
+        raise SystemExit(f"cannot read pace {text!r}: write it like E3:00, 2:30, 180s or 3m")
+    minutes, seconds, number, unit = match.groups()
+    if minutes is not None:
+        total = int(minutes) * 60 + int(seconds)
+    else:
+        total = float(number) * (60 if unit and unit.lower().startswith("m") else 1)
+    total = int(round(total))
+    if total <= 0:
+        raise SystemExit(f"pace must be positive: {text!r}")
+    return total
+
+
+def fmt_pace(seconds: int) -> str:
+    """The inverse of parse_pace, in the program's own spelling: 180 -> E3:00."""
+    return f"E{seconds // 60}:{seconds % 60:02d}"
 
 
 # --------------------------------------------------------------------------- decode
@@ -276,6 +310,8 @@ def parse_exercise_header(line: str) -> dict:
             exercise["category"] = low
         elif low.startswith("emphasis:"):
             exercise["emphasis"] = part.split(":", 1)[1].strip()
+        elif low.startswith("pace:"):
+            exercise["pacing_sec"] = parse_pace(part.split(":", 1)[1])
         elif low.startswith("gear:"):
             exercise["gear"] = [resolve_gear(g.strip()) for g in part.split(":", 1)[1].split(",") if g.strip()]
         elif low.startswith("equipment:"):
@@ -290,7 +326,7 @@ def parse_exercise_header(line: str) -> dict:
         exercise["equipment_items"] = items
         exercise.setdefault("equipment", equipment_label(items))
     ordered = {k: exercise[k] for k in ("name", "category", "equipment", "equipment_items",
-                                        "emphasis", "gear") if k in exercise}
+                                        "pacing_sec", "emphasis", "gear") if k in exercise}
     ordered["sets"] = []
     return ordered
 
@@ -415,15 +451,13 @@ def decode(text: str, use_defaults: bool = True, filename: str = "") -> dict:
 
     # Defaults fill in what a live log leaves unsaid. A log carrying `source` is an
     # imported record of a day that is over: it gets exactly what it says, nothing more.
+    # A `_comment` key in any of these blocks is documentation, not a field.
     if defaults and "source" not in session:
-        for key, value in (defaults.get("session") or {}).items():
-            session.setdefault(key, value)
-        for key, value in (defaults.get("program") or {}).items():
-            program.setdefault(key, value)
-        for key, value in (defaults.get("environment") or {}).items():
-            environment.setdefault(key, value)
-        for key, value in (defaults.get("location") or {}).items():
-            location.setdefault(key, value)
+        for target, block in ((session, "session"), (program, "program"),
+                              (environment, "environment"), (location, "location")):
+            for key, value in (defaults.get(block) or {}).items():
+                if not key.startswith("_"):
+                    target.setdefault(key, value)
 
     if "date" not in session and filename:
         session["date"] = Path(filename).stem[:10]
@@ -471,7 +505,13 @@ def _order_session(session: dict) -> dict:
 
 
 def parse_program(value: str) -> dict:
-    """`strength/peaking w21 d4/4 meet=2026-10-24 name="My Program"`"""
+    """`strength/peaking w21 d4/4 meet=2026-10-24 cycle=weekly name="My Program"`
+
+    `cycle` is how `program: next` counts: `weekly` (the default - `d4/4` is day 4 of
+    a 4-day training week and the week number ticks over) or `block` (`d9/21` is day 9
+    of a 21-day block, no weeks). Set it once in config/defaults.json; write it here
+    only to override for one program.
+    """
     program = {}
     rest = value
     for field in ("name", "block", "phase", "meet_date"):
@@ -626,6 +666,8 @@ def encode(doc: dict, use_defaults: bool = True) -> str:
             parts.append(f"meet={program['meet_date']}")
         for key, value in program.items():
             if key not in ("block", "phase", "week", "day", "total_days", "meet_date", "name"):
+                if use_defaults and d_program.get(key) == value:
+                    continue  # `cycle=weekly` when that is already the default
                 parts.append(f'{key}="{value}"' if " " in str(value) else f"{key}={value}")
         if program.get("name") and program.get("name") != d_program.get("name"):
             parts.append(f'name="{program["name"]}"')
@@ -690,6 +732,8 @@ def encode(doc: dict, use_defaults: bool = True) -> str:
             header.append(" ".join("@" + item["id"] for item in items))
         if exercise.get("equipment") and (not items or exercise["equipment"] != equipment_label(items)):
             header.append(("equipment: " if items else "") + exercise["equipment"])
+        if exercise.get("pacing_sec"):
+            header.append("pace: " + fmt_pace(int(exercise["pacing_sec"])))
         if exercise.get("emphasis"):
             header.append("emphasis: " + exercise["emphasis"])
         if exercise.get("gear"):

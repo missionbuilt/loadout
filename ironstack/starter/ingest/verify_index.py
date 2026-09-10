@@ -98,6 +98,8 @@ EXPECTED = {
         "exercise.equipment_names": "keyword",
         "exercise.equipment_kinds": "keyword",
         "exercise.bar_weight_lb": "float",
+        "exercise.pacing_sec": "integer",
+        "program.cycle": "keyword",
         "weight_each_lb": "float",
         "each_side": "boolean",
         "scheme": "keyword",

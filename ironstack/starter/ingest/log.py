@@ -57,27 +57,102 @@ def previous_session(before: str):
     return json.loads(best[1].read_text()) if best else None
 
 
+CYCLES = ("weekly", "block")
+
+
 def resolve_program(doc: dict) -> None:
-    """`program: next` -> the previous session's program, one day further in."""
+    """`program: next` -> the previous session's program, one day further in.
+
+    Two ways to count, chosen by `cycle` (config/defaults.json, or on the line):
+
+      weekly  `d3/4` is day 3 of a 4-day training week; past day 4 the day wraps to
+              1 and `week` ticks over. The default, and what most programs are.
+      block   `d9/21` is day 9 of a 21-day block; no weeks. Past the last day the
+              command refuses rather than inventing block 2 - the next block starts
+              with an explicit `program:` line.
+
+    What may override the previous session: the line itself, always; and the
+    program's identity from defaults.json (`name`, `cycle`, `meet_date`) - change the
+    program in the config and the next log follows it, remove the meet and it stops
+    counting down. The counters (`day`, `week`, `total_days`, `block`, `phase`) come
+    from the previous session unless the line says otherwise, and `total_days` comes
+    from defaults only when the previous session was counting a different cycle.
+
+    The bug this replaces: decode() merges defaults.json into the program before this
+    runs, and the old code let every one of those merged values override the previous
+    session. Sept 7 2026 said `d1/21`; defaults said `total_days: 4`; Sept 8's `next`
+    came out "day 2 of 4". Nothing the lifter wrote had changed.
+    """
     program = doc["session"].get("program") or {}
-    if program.get("block") != "next" and not program.pop("_advance", False):
+    mode = program.get("block") if program.get("block") in ("next", "same") else None
+    if mode is None and program.pop("_advance", False):
+        mode = "next"
+    if mode is None:
         return
     program.pop("block", None)
     previous = previous_session(doc["session"]["date"])
     if not previous:
-        raise SystemExit("program: next needs an earlier session to count from")
+        raise SystemExit(f"program: {mode} needs an earlier session to count from")
     base = dict(previous["session"].get("program") or {})
+    if mode == "same":
+        # An extra session inside the same program day - a recovery-day arm blitz on
+        # the Wednesday of a Mon/Tue/Thu/Fri week. The counter must not move, or
+        # Thursday becomes day 4 and the week ends a day early.
+        d_program = shorthand.load_defaults().get("program") or {}
+        for key in ("name", "meet_date"):
+            base.pop(key, None)
+            if d_program.get(key):
+                base[key] = d_program[key]
+        base.update({k: v for k, v in program.items()
+                     if v is not None and d_program.get(k) != v})
+        doc["session"]["program"] = base
+        return
+    d_program = shorthand.load_defaults().get("program") or {}
+    explicit = {k: v for k, v in program.items()
+                if v is not None and d_program.get(k) != v}
+
+    cycle = explicit.get("cycle") or d_program.get("cycle") or base.get("cycle") or "weekly"
+    if cycle not in CYCLES:
+        raise SystemExit(f"program cycle {cycle!r} is not one of {', '.join(CYCLES)}")
+    same_cycle = base.get("cycle", "weekly" if base.get("week") is not None else None) == cycle
+    if "total_days" in explicit:
+        total = explicit["total_days"]
+    elif same_cycle and base.get("total_days"):
+        total = base["total_days"]
+    else:
+        total = d_program.get("total_days") or base.get("total_days")
+
     day = (base.get("day") or 0) + 1
-    total = base.get("total_days")
     week = base.get("week")
-    if total and day > total:
-        day = 1
-        if week is not None:
-            week += 1
+    if not same_cycle and base.get("day") is not None:
+        # Counting a different way than the previous session did is a new start, not
+        # day 22 of a 4-day week.
+        day, week = 1, 1
+    if cycle == "weekly":
+        week = week or 1
+        if total and day > total:
+            day, week = 1, week + 1
+    else:
+        week = None
+        if total and day > total:
+            label = "/".join(str(base[k]) for k in ("block", "phase") if base.get(k)) or "block"
+            raise SystemExit(
+                f"program: next - the {total}-day block ended on {previous['session']['date']} "
+                f"(day {total}). Start the next one explicitly: program: {label} d1/{total}")
+
+    for key in ("name", "meet_date"):
+        base.pop(key, None)
+        if d_program.get(key):
+            base[key] = d_program[key]
+    base["cycle"] = cycle
     base["day"] = day
     if week is not None:
         base["week"] = week
-    base.update({k: v for k, v in program.items() if v is not None})
+    else:
+        base.pop("week", None)
+    if total:
+        base["total_days"] = total
+    base.update(explicit)
     doc["session"]["program"] = base
 
 

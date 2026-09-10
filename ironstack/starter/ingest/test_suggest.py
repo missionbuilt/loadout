@@ -70,7 +70,17 @@ print("\nEvery alias the taxonomy already has is offered")
 # "Single-leg Glute Bridge" is second. difflib does not know "SL" expands to "single-leg".
 # It IS offered - which is the claim that has to hold - and the person picking from five
 # names will pick right.
-KNOWN_NOT_FIRST = {"Incline DB Press", "SL Glute Bridge"}
+# "Russian Twists (Medicine Ball)" -> "MB Russian Twists" joined the list on Sept 8 2026:
+# offered, but "Russian Twists" (the two-word name) wins on ratio.
+KNOWN_NOT_FIRST = {"Incline DB Press", "SL Glute Bridge", "Russian Twists (Medicine Ball)"}
+
+# The first alias the lexical matcher cannot offer AT ALL, logged Sept 8 2026 and
+# resolved by hand: "Barbell Overhead Press (Standing)" -> "Strict Press" share no word.
+# This is the semantic miss the comment above said would be the evidence for a
+# semantic index; it lives here as an assertion so that the day the matcher (or an
+# abbreviation-table entry) starts offering it, this line fails and gets removed rather
+# than the miss being quietly absorbed.
+KNOWN_NOT_OFFERED = {"Barbell Overhead Press (Standing)"}
 
 not_first = []
 for alias, entry in sorted(RAW.items()):
@@ -78,6 +88,10 @@ for alias, entry in sorted(RAW.items()):
     if not truth:
         continue
     offered = [name for name, _ in suggest.candidates(alias, RAW, limit=5)]
+    if alias in KNOWN_NOT_OFFERED:
+        check(f"{alias!r} -> {truth!r} is the known semantic miss (still not offered)",
+              truth in offered, False)
+        continue
     check(f"{alias!r} -> {truth!r} is offered", truth in offered, True)
     if not offered or offered[0] != truth:
         not_first.append(alias)
@@ -85,8 +99,8 @@ for alias, entry in sorted(RAW.items()):
 check("the misses are the ones we know about", sorted(not_first),
       sorted(KNOWN_NOT_FIRST))
 check("and the rest rank first",
-      len([a for a, e in RAW.items() if e.get("alias_of")]) - len(not_first),
-      len([a for a, e in RAW.items() if e.get("alias_of")]) - len(KNOWN_NOT_FIRST))
+      len([a for a, e in RAW.items() if e.get("alias_of")]) - len(KNOWN_NOT_OFFERED) - len(not_first),
+      len([a for a, e in RAW.items() if e.get("alias_of")]) - len(KNOWN_NOT_OFFERED) - len(KNOWN_NOT_FIRST))
 
 print("\nThe brief's own example")
 check("'competitive squat'", suggest.candidates("competitive squat", RAW)[0][0], "Comp Squat")

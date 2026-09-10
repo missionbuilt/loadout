@@ -114,6 +114,14 @@
             "name": {
               "type": "string"
             },
+            "cycle": {
+              "type": "string",
+              "enum": [
+                "weekly",
+                "block"
+              ],
+              "description": "How `program: next` counts. `weekly`: day N of a training week of `total_days`, and `week` ticks over past the last day - the default and the common case. `block`: day N of a `total_days`-day block, no weeks; the next block starts with an explicit program line. Set once in config/defaults.json."
+            },
             "block": {
               "type": "string"
             },
@@ -173,7 +181,7 @@
         },
         "source": {
           "type": "string",
-          "description": "Where the log came from when it wasn't logged live \u2014 e.g. 'juggernautai-export'. Absent means logged in the moment."
+          "description": "Where the log came from when it wasn't logged live — e.g. 'juggernautai-export'. Absent means logged in the moment."
         }
       }
     },
@@ -201,6 +209,11 @@
           },
           "equipment": {
             "type": "string"
+          },
+          "pacing_sec": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Seconds between set starts when the program paces the exercise - E3:00 is 180. Written as `pace: E3:00` on the exercise header; the indexer carries it onto every set. Absent when the exercise was rested by feel."
           },
           "emphasis": {
             "type": "string",

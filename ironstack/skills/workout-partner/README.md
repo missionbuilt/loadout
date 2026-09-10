@@ -28,13 +28,18 @@ Claude.ai: upload this folder as a user skill.
 
 ## Run
 
-Start talking about your session: "warming up for bench", "just hit 315 for 3", "logging
-yesterday's squat day". The skill keeps a running `.iron` file, asks for the four things
-only you can supply (start time, duration, bodyweight, sleep), and finishes with:
+Ask "what's today?" and it reads `ingest/today.py` and `ingest/last.py` — your program day,
+the last time on each lift, the things you said to watch — before you touch a bar. Then
+talk about the session: "warming up for bench", "just hit 315 for 3", the whole day in one
+message afterward. The skill writes the `.iron` file, asks the five things only you can
+supply in one message (start time, duration, bodyweight, sleep, and whether you were home),
+never logs a guess, and finishes with:
 
 ```bash
 python ingest/log.py workouts/2026/2026-09-04.iron --push
 ```
+
+The day stays open until that command has run — say goodnight first and it reminds you.
 
 ## Files
 
@@ -51,8 +56,8 @@ python ingest/log.py workouts/2026/2026-09-04.iron --push
 Any weight the skill suggests is bounded by the rule in [CEILING.md](../../CEILING.md),
 which the Ironstack Coach obeys too. The skill cannot read `est_e1rm` — that is computed at
 index time and lives in Elasticsearch — so the check that works from the repo is
-`python ingest/ceiling.py "<lift>"`. **That script is specified in `CEILING.md` and not yet
-implemented**; until it is, the skill says it could not check rather than implying it did.
+`python ingest/ceiling.py "<lift>"`, which ships in the starter. Every suggested number
+names the ceiling it sat under and the session it came from.
 
 ## Caveat
 

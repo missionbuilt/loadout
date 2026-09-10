@@ -199,6 +199,9 @@ def render(doc: dict) -> str:
         lines.append(f"### {heading}")
         subtitle = [exercise.get("equipment"), exercise.get("emphasis")]  # equipment is the readable line
         subtitle = [s for s in subtitle if s]
+        if exercise.get("pacing_sec"):
+            secs = int(exercise["pacing_sec"])
+            subtitle.append(f"every {secs // 60}:{secs % 60:02d}")
         if exercise.get("gear"):
             subtitle.append("gear: " + ", ".join(exercise["gear"]))
         if subtitle:
