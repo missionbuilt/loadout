@@ -18,6 +18,15 @@ on:
       - ".github/workflows/index.yml"
   workflow_dispatch: {}
 
+# One indexer at a time. Three logs pushed a minute apart on Sept 10 2026 ran as three
+# concurrent jobs, each rebuilding the cluster from its own commit's tree; the one that
+# finished last had the oldest tree, and verify_index found a week's signals and a
+# watch note from a commit that was already superseded. Queue them instead - and never
+# cancel a run in progress, because a half-finished bulk index is worse than a late one.
+concurrency:
+  group: index-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   index:
     runs-on: ubuntu-latest
