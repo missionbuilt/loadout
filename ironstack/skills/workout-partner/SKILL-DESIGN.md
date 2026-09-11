@@ -18,10 +18,11 @@ file and putting it out of sync with the `.iron` that produced it.
 
 A gap in the format is a reason to fix the format, not a reason to write JSON by hand.
 
-## Ask for the four things nobody else can supply
+## Ask for the two things nobody else can supply
 
-Start time, duration, bodyweight, sleep. Everything else is defaulted (`config/defaults.json`)
-or looked up (weather from the coordinates). `log.py` prints a `missing:` line, so the skill
+Bodyweight and sleep. Start time and duration come off the clock when the session is
+reported live (see below); everything else is defaulted (`config/defaults.json`) or looked
+up (weather from the coordinates). `log.py` prints a `missing:` line, so the skill
 reads the command's output rather than interrogating the lifter up front, and asks for a gap
 while the session is still fresh.
 
@@ -71,15 +72,25 @@ the log. A missing value is a question while the lifter is still there, and an e
 when they are not. The rule is stated as a rule because the temptation is structural: the
 skill is asked to write a complete file and a gap looks like a failure to do so.
 
-## Five facts, one message, before feedback
+## Three facts, one message, before feedback
 
-Start time, duration, bodyweight and sleep were "asked whenever it fits", and two real
-sessions shipped without bodyweight or sleep: `log.py` printed `missing:` both nights and
-nobody acted on it. Asking at a "natural moment" is asking never. So the questions are one
-message, sent after the sets and before any feedback, every session, and the five facts are
-asked even when some were volunteered. The fifth — *home gym?* — is there because location
-was defaulted and never asked, so a travel session had no path into the log except the
-lifter thinking to mention it. Feedback waits until the answers are in, because the
+Bodyweight and sleep were "asked whenever it fits", and two real sessions shipped without
+them: `log.py` printed `missing:` both nights and nobody acted on it. Asking at a "natural
+moment" is asking never. So the questions are one message, sent after the sets and before
+any feedback, every session, and the facts are asked even when some were volunteered. The
+third — *home gym?* — is there because location was defaulted and never asked, so a travel
+session had no path into the log except the lifter thinking to mention it.
+
+## The clock is not a question
+
+Start time and duration were the first two of five facts until a live session made the
+lifter answer "you can get that yourself." When the session is reported as it happens, the
+partner is already there for the first set and the last, so the time is on the clock:
+`date` when they say they are starting, `date` when they say they are done. Asking a
+lifter to look at their watch for something the agent watched happen is a form to fill
+in, and the whole point of the one message is that it holds only what nobody else can
+supply. The two questions come back only for a session reported after the fact, where the
+message timestamps mean nothing. Feedback waits until the answers are in, because the
 questions are the only thing the lifter has to do and the feedback is the reward for it.
 
 ## The day stays open until it is pushed

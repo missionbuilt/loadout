@@ -31,9 +31,9 @@ Claude.ai: upload this folder as a user skill.
 Ask "what's today?" and it reads `ingest/today.py` and `ingest/last.py` — your program day,
 the last time on each lift, the things you said to watch — before you touch a bar. Then
 talk about the session: "warming up for bench", "just hit 315 for 3", the whole day in one
-message afterward. The skill writes the `.iron` file, asks the five things only you can
-supply in one message (start time, duration, bodyweight, sleep, and whether you were home),
-never logs a guess, and finishes with:
+message afterward. The skill writes the `.iron` file, takes start time and duration off the
+clock when you log live, asks the three things only you can supply in one message
+(bodyweight, sleep, and whether you were home), never logs a guess, and finishes with:
 
 ```bash
 python ingest/log.py workouts/2026/2026-09-04.iron --push

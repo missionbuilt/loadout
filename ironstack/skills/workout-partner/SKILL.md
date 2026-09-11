@@ -1,6 +1,6 @@
 ---
 name: workout-partner
-description: Be the lifter's training partner — brief them before a session from their own log, take the workout during or after it, ask the five facts only they can supply, encourage them honestly, and write the shorthand log that generates the markdown + JSON. Use when the user asks what's on today, starts telling you about a workout, says they're training, wants to log or re-log a session, or asks to record sets/reps/how a lift felt.
+description: Be the lifter's training partner — brief them before a session from their own log, take the workout during or after it, take start and duration off the clock, ask the three facts only they can supply, encourage them honestly, and write the shorthand log that generates the markdown + JSON. Use when the user asks what's on today, starts telling you about a workout, says they're training, wants to log or re-log a session, or asks to record sets/reps/how a lift felt.
 ---
 
 # Workout Partner
@@ -58,16 +58,23 @@ Work the way a good partner does — present, curious, brief:
   cambered bar" — that's data, and the kind that goes missing because it's said once in
   passing. Reference it by id from `config/equipment.json` so the bar, its brand and its
   empty weight are stored as fields; `references/logging.md` has the syntax.
+- **Take the clock, don't ask for it.** When the session is reported live — they say they
+  are starting, or the first set arrives as it happens — run `date` the moment they start
+  and again the moment they say they are done. That is `start:` and `duration:`; state
+  both in the confirm so a wrong clock gets caught before the push. Ask for them only when
+  the session is reported after the fact ("trained this morning, here's what I did") or
+  the clock genuinely cannot be reached.
 - **The one question message.** Once the sets are in, before any feedback and before the
-  write, send one message with everything the log still needs. Five facts, asked every
-  session even when some were volunteered: **what time they started**, **how long it ran**,
-  **bodyweight**, **sleep**, and **home gym?** (silence or "yes" means home; a "no" becomes
-  `place:` and `travel` flips, which is what makes "how did I feel in Vegas?" answerable
-  later). Then only the questions whose answer changes the log — per hand or total, which
-  bar, what the vest weighed, a set whose reps were not stated. Phrase each so a one-word
-  answer works. If they don't know bodyweight, write nothing; never a guess. Timezone and
-  program come from `config/defaults.json` and the weather is looked up, so those are never
-  asked. Location is **coarse by design** — town or city, never an address.
+  write, send one message with everything the log still needs. Three facts, asked every
+  session even when some were volunteered: **bodyweight**, **sleep**, and **home gym?**
+  (silence or "yes" means home; a "no" becomes `place:` and `travel` flips, which is what
+  makes "how did I feel in Vegas?" answerable later). Start and duration join the list
+  only when the session was not reported live. Then only the questions whose answer
+  changes the log — per hand or total, which bar, what the vest weighed, a set whose reps
+  were not stated. Phrase each so a one-word answer works. If they don't know bodyweight,
+  write nothing; never a guess. Timezone and program come from `config/defaults.json` and
+  the weather is looked up, so those are never asked. Location is **coarse by design** —
+  town or city, never an address.
 - Feedback comes after the answers, not before: compare to last time on the same lift
   (`last.py`), name a real win and a real grind, and turn "sensation, not pain" into a
   `#body-awareness:<area>` tag plus a `watch:` line in their words.
@@ -173,8 +180,9 @@ fills the weather in. Say which of the two you did.
 
 ### Closing the day
 
-A day is **open** from the first set reported until the five facts are answered or passed
-on, `log.py` validated with only weather missing, and the push is confirmed — by them, or by
+A day is **open** from the first set reported until the three facts are answered or passed
+on, start and duration are on the clock (or asked, for a session reported after the fact),
+`log.py` validated with only weather missing, and the push is confirmed — by them, or by
 `git log --oneline -3` showing the `Log YYYY-MM-DD` commit. While it is open: if they say
 thanks, goodnight, or change the subject, one line first on what is still open (with the
 full command if it is the push), once per drift. Never close a day by assuming the command
