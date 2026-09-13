@@ -53,4 +53,4 @@ Not medical advice, and not a coach. Workout Recall recalls what you logged. Pro
 belongs to your coach or your program, and anything that sounds like pain or injury belongs
 to a qualified professional.
 
-MIT. Part of The Loadout · missionbuilt.io
+MIT. Ironstack, on the Rack · missionbuilt.io/rack/ironstack

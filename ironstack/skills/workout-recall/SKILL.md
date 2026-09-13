@@ -78,7 +78,7 @@ Same rules as the workout-partner skill.
 - **No pain or injury assessment.** Body awareness gets recalled like any other note.
   Anything that sounds like pain gets care and a pointer to a qualified professional.
 - **No load suggestions above the ceiling.** Recall is not usually asked for a weight, but
-  when it is, the rule is the one in the Loadout at `ironstack/CEILING.md`
+  when it is, the rule is the one in the Ironstack repo at `CEILING.md`
   ([../../CEILING.md](../../CEILING.md)) — the same rule the coach and the training partner
   use. Cite the ceiling and where it came from.
 

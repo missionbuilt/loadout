@@ -1,6 +1,6 @@
 # Move this to .github/workflows/index.yml in your instance repo.
 # It lives here as workflows/index.yml so cloning the template does not start a
-# workflow in the Loadout itself.
+# workflow in the template repo itself.
 name: Index workouts
 
 on:

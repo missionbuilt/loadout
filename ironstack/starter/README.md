@@ -1,14 +1,14 @@
 # Ironstack starter — your private instance
 
-This folder is the plumbing for your own workout log: the schema, the indexing scripts, the analytics layer, and the GitHub Action. Copy it into a new **private** repo — that repo becomes the source of truth for your training data. It never goes back into the Loadout.
+This folder is the plumbing for your own workout log: the schema, the indexing scripts, the analytics layer, and the GitHub Action. Copy it into a new **private** repo — that repo becomes the source of truth for your training data. It never goes back into the public repo.
 
 ## Set it up
 
 ```bash
-# from the loadout repo root
+# from the ironstack repo root
 NEW=~/Projects/my-workout-log        # name it whatever you like
 mkdir -p "$NEW"
-cp -R ironstack/starter/. "$NEW"/
+cp -R starter/. "$NEW"/
 cd "$NEW"
 mkdir -p .github/workflows
 mv workflows/index.yml .github/workflows/index.yml && rmdir workflows
@@ -60,7 +60,7 @@ Pass file paths to either indexer to index a subset. `--validate` checks files a
 
 ## Log a workout
 
-Use the **workout-partner** skill (in the Loadout at `ironstack/skills/`) — tell Claude
+Use the **workout-partner** skill (in the Ironstack repo at `skills/`) — tell Claude
 about your session and it writes one shorthand file:
 
 ```
@@ -87,7 +87,7 @@ the prep blocks, and `config/equipment.json` holds the gym — name a bar as `@o
 and the log stores its id, name and empty weight — so a normal session is a dozen lines.
 `program: next` counts the block forward from the previous session.
 
-A complete example lives in the Loadout at `ironstack/examples/`.
+A complete example lives in the Ironstack repo at `examples/`.
 
 The `program` block is what ties sessions into the dashboards: `block`, `phase`
 (hypertrophy, strength, peaking), `week`, `day` of `total_days`, and `meet_date`. The
@@ -130,7 +130,7 @@ indexer globs `meets/*.json`, so nothing here is read until you rename a file to
 
 ## How heavy is too heavy
 
-`ironstack/CEILING.md` in the Loadout is the one rule for the largest load either
+`CEILING.md` in the Ironstack repo is the one rule for the largest load either
 suggesting surface may name for a lift. `ingest/ceiling.py` is that rule, runnable here
 with no cluster and no credentials:
 
@@ -183,7 +183,7 @@ Three things defend it, and all three are load-bearing:
 If you add a signal, add its fields to the mapping as `keyword` whatever they hold, and
 run `setup_indices.py`.
 
-## Staying in step with the Loadout
+## Staying in step with the template
 
 The files in this template that are copies of a working instance's pipeline are listed
 once, in `sync-manifest.json`, with the reason for every file that is deliberately not
@@ -191,9 +191,9 @@ shared. `sync_check.py` reads that list and compares two checkouts:
 
 ```bash
 # from your instance repo, against a checkout of the public template
-python /path/to/loadout/ironstack/starter/sync_check.py \
+python /path/to/ironstack/starter/sync_check.py \
     --instance . \
-    --starter /path/to/loadout/ironstack/starter
+    --starter /path/to/ironstack/starter
 ```
 
 It compares two different checkouts and refuses to run if you point both at the same
@@ -202,7 +202,7 @@ one. That refusal matters: `--starter` defaults to the folder the script lives i
 then reported your workout logs as having "leaked" into the template, with instructions
 to copy them into a public repo. Give it both paths.
 
-The Loadout's own instance runs this in CI, so a fix that lands there and never reaches
+The author's own instance runs this in CI, so a fix that lands there and never reaches
 here fails while someone is still holding the change. If you have customized the
 pipeline, expect it to report your changes — that is what it is for.
 
@@ -240,7 +240,7 @@ config/exercises.json           the exercise taxonomy: patterns, muscles, aliase
 templates/prep/                 named prep blocks, referenced as `prep: <name>`
 docs/shorthand.md               the format reference
 
-sync-manifest.json              which files here are copies of the Loadout's instance
+sync-manifest.json              which files here are copies of the author's instance
 sync_check.py                   compares this template against an instance
 workflows/index.yml             the GitHub Action, move to .github/workflows/index.yml
 workouts/                       your logs live here

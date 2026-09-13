@@ -7,7 +7,7 @@ would read, for all three competition lifts, plus the coverage stats that decide
 a rank-based or a delta-based sentence is honest.
 
     cd /path/to/your-workout-log && set -a && source .env && set +a
-    python ~/Projects/loadout/ironstack/kibana/probe_lift.py
+    python ~/Projects/ironstack/kibana/probe_lift.py
 
 Paste the whole output back into the session.
 

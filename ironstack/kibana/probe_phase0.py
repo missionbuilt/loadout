@@ -35,10 +35,10 @@ Read the results in the browser, in a NEW TAB:
         they were concatenated. The other lines print candidate names for a second
         result set; whichever is non-empty is the name.
 
-    cd ~/Projects/loadout
+    cd ~/Projects/ironstack
     set -a; source ~/Projects/ironstack-log/.env; set +a
-    python3 ironstack/kibana/probe_phase0.py            # create + import
-    python3 ironstack/kibana/probe_phase0.py --clean    # remove it (or Stack Management)
+    python3 kibana/probe_phase0.py            # create + import
+    python3 kibana/probe_phase0.py --clean    # remove it (or Stack Management)
 
 Writes one dashboard, ironstack-probe-phase0. Touches nothing else. P3 reads two rows
 from workout-sessions and three from workout-meets and prints only their counts and a

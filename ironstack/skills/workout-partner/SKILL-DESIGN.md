@@ -60,8 +60,8 @@ picks and the skill surfaces.
 
 `SKILL.md` is the judgement and the boundaries. `references/` is the lookup: the write
 path's mechanics, the equipment syntax, the redundancy table, a complete example session.
-The example lives here rather than in the Loadout's `examples/` folder because the skill's
-working directory is the instance repo, where a Loadout path does not resolve.
+The example lives here rather than in the repo's `examples/` folder because the skill's
+working directory is the instance repo, where a path into this repo does not resolve.
 
 ## Never log an assumption
 

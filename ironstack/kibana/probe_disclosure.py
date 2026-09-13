@@ -25,10 +25,10 @@ Read the result in the browser:
     D works  -> hover the dotted text and the OS tooltip appears after a beat.
     E only   -> the sanitizer allows none of them; shorten the copy instead.
 
-    cd ~/Projects/loadout
+    cd ~/Projects/ironstack
     set -a; source /path/to/your-workout-log/.env; set +a
-    python3 ironstack/kibana/probe_disclosure.py            # create + import
-    python3 ironstack/kibana/probe_disclosure.py --clean    # remove it
+    python3 kibana/probe_disclosure.py            # create + import
+    python3 kibana/probe_disclosure.py --clean    # remove it
 
 Writes one dashboard, ironstack-probe-disclosure. Touches nothing else. Read-only
 against your data: the panel carries no query at all, so no Liquid runs and nothing is

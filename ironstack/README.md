@@ -2,6 +2,8 @@
 
 **Train with a partner. Own your data. See everything.**
 
+*Page: [missionbuilt.io/rack/ironstack](https://missionbuilt.io/rack/ironstack). Ironstack lived inside the [Loadout](https://github.com/missionbuilt/loadout) repo until September 2026; it has its own repo now, with its history.*
+
 Ironstack turns Claude into your training partner and Elasticsearch + Kibana into your
 training log. You log sessions conversationally — Claude asks the questions a good partner
 asks, writes the log, and keeps you honest and motivated. Your data lands in **your own**
@@ -14,7 +16,7 @@ Then you can ask it things:
 > *"How did I feel when I was traveling in Las Vegas?"*
 > *"What cue fixed my bench setup last block?"*
 
-Like the rest of [The Loadout](../README.md), the skills are plain markdown — no installer,
+Like the skills in [The Loadout](https://github.com/missionbuilt/loadout), the skills here are plain markdown — no installer,
 no API key, no telemetry. And like Floodlight, Ironstack keeps your data where it belongs:
 **every rep you log lives in your own private repo and your own Elasticsearch.** Nothing
 here phones home.
@@ -44,7 +46,7 @@ ironstack/
 └── CEILING.md       ← the load ceiling, written once for every surface that suggests a weight
 ```
 
-**Skills are shared and public.** They live here in the Loadout. **Your data is private.**
+**Skills are shared and public.** They live here, in this repo. **Your data is private.**
 It lives in a repo you create from `starter/`, plus your own Elasticsearch. The two meet in
 your Claude session.
 
@@ -205,8 +207,8 @@ coach.
 
 ## License
 
-MIT, like the rest of The Loadout. Fork it, learn from it, make it yours.
+MIT, like the Loadout skills. Fork it, learn from it, make it yours.
 
 ---
 
-*Part of [The Loadout](../README.md) · [Mission Built](https://missionbuilt.io). Real strength is lifting others.*
+*On [The Rack](https://missionbuilt.io/rack/ironstack) · [Mission Built](https://missionbuilt.io). Real strength is lifting others.*

@@ -12,7 +12,7 @@ their doctor.
 ## Prerequisites
 
 This skill writes files into an Ironstack instance repo, made from `starter/` in the
-Loadout. It needs both of:
+Ironstack repo. It needs both of:
 
 - **That repo as the working directory.** Every path below is inside it: `workouts/`,
   `config/`, `templates/prep/`, `docs/shorthand.md`, `ingest/log.py`.
@@ -121,7 +121,7 @@ ribs-to-pelvis cue sorted this").
 
 Where you help with a number — a starting weight, a warm-up ladder, an alternative exercise
 when the rack is taken — the ceiling is what the journal already contains. The rule is
-defined once, in the Loadout at [`ironstack/CEILING.md`](../../CEILING.md), and the coach
+defined once, in the Ironstack repo at [`CEILING.md`](../../CEILING.md), and the coach
 obeys the same one. Do not restate it and do not invent a variant.
 
 Be honest about what you can check from here:

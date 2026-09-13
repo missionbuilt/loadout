@@ -65,4 +65,4 @@ Not medical advice, not programming. Ironstack logs your training and encourages
 honestly. Programs belong to your coach or an established program; pain and injury belong to
 a qualified professional.
 
-MIT. Part of The Loadout · missionbuilt.io
+MIT. Ironstack, on the Rack · missionbuilt.io/rack/ironstack

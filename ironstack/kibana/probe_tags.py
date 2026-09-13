@@ -20,7 +20,7 @@ printed at the end say which way. If 1 and 3 disagree, the index is stale and a
 reindex is the answer. Writes nothing, indexes nothing, touches no saved object.
 
     cd /path/to/your-workout-log && set -a && source .env && set +a
-    python ~/Projects/loadout/ironstack/kibana/probe_tags.py
+    python ~/Projects/ironstack/kibana/probe_tags.py
 
 Paste the whole output back into the session.
 """

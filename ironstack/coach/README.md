@@ -59,7 +59,7 @@ literally, no cluster privileges.
 ### 5. Point the dashboards at it
 
 Copy the agent's URL out of Agent Builder, then rebuild and reimport from your instance
-repo's checkout of the Loadout:
+repo's checkout of the Ironstack repo:
 
 ```bash
 export IRONSTACK_COACH_URL="https://<your-kibana>/app/agent_builder/conversations/new?agentId=<id>"

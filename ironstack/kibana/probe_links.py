@@ -22,10 +22,10 @@ at once: does the link work, and does the button look right.
 The coach link also carries ?q= so clicking it answers the second unknown — whether
 Agent Builder accepts a pre-filled question in the URL.
 
-    cd ~/Projects/loadout
+    cd ~/Projects/ironstack
     set -a; source /path/to/your-workout-log/.env; set +a
-    python3 ironstack/kibana/probe_links.py            # create + import
-    python3 ironstack/kibana/probe_links.py --clean    # remove it
+    python3 kibana/probe_links.py            # create + import
+    python3 kibana/probe_links.py --clean    # remove it
 
 Writes one dashboard, ironstack-probe-links. Touches nothing else. COACH_URL is read
 from the environment and never printed.

@@ -763,7 +763,7 @@ class Dashboard:
 # cost of a tight one is a lift silently missing from a lifter's own dashboard.
 #
 # A constant rather than a read of config/exercises.json, deliberately: the build runs
-# from the loadout checkout and would read the TEMPLATE taxonomy rather than the
+# from the ironstack checkout and would read the TEMPLATE taxonomy rather than the
 # reader's, so a derived number would look responsive and be wrong.
 COMP_LIFT_LIMIT = 8
 

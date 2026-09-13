@@ -15,10 +15,10 @@ Creates a 3-doc scratch index with NO date field, and a scratch dashboard with t
 custom-content cards side by side: one reading the scratch index, one reading
 workout-sessions as the control. Narrow the picker and watch which one changes.
 
-    cd ~/Projects/loadout
+    cd ~/Projects/ironstack
     set -a; source /path/to/your-workout-log/.env; set +a
-    python3 ironstack/kibana/probe_notime.py            # create + import
-    python3 ironstack/kibana/probe_notime.py --clean    # delete both, leave no trace
+    python3 kibana/probe_notime.py            # create + import
+    python3 kibana/probe_notime.py --clean    # delete both, leave no trace
 
 Writes one index named ironstack-probe-notime and one dashboard with the same id.
 Touches nothing else. `prune.py --only ironstack-` WOULD match the dashboard, so

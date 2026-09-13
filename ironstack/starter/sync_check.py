@@ -2,7 +2,7 @@
 """Does the public template still match the instance it was forked from?
 
     python sync_check.py --instance /path/to/your-workout-log
-    python sync_check.py --instance . --starter ./loadout/ironstack/starter
+    python sync_check.py --instance . --starter ./ironstack/starter
 
 The template in this folder is a copy of a working private instance's pipeline.
 Copies drift. For several days this one did: `ironstack-signals` was added to the
@@ -106,7 +106,7 @@ def main(argv: list) -> int:
             "       checkout of the public template. Give it both:\n"
             "\n"
             "         python sync_check.py --instance . \\\n"
-            "             --starter /path/to/loadout/ironstack/starter\n"
+            "             --starter /path/to/ironstack/starter\n"
         )
     manifest = json.loads((starter / "sync-manifest.json").read_text())
 
@@ -199,8 +199,8 @@ def main(argv: list) -> int:
     print(f"""
 What to do, from the instance repo root:
 
-  git clone --depth 1 https://github.com/{manifest['upstream']['public_repo']}.git /tmp/loadout
-  STARTER=/tmp/loadout/{manifest['upstream']['starter_path']}
+  git clone --depth 1 https://github.com/{manifest['upstream']['public_repo']}.git /tmp/ironstack
+  STARTER=/tmp/ironstack/{manifest['upstream']['starter_path']}
 
   # copy each file named above back out, keeping the same relative path:
   cp <file> "$STARTER"/<file>

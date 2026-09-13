@@ -12,8 +12,8 @@
     "A redaction rule names the line by a substring that contains none of the private value - the point of the exercise is that this file is public, so the thing being removed must not be written down in it. `contains` selects the matching lines, `of` is how many lines are expected to match, `nth` picks which one (1-based, default 1), and `public` is the whole replacement line. When `of` no longer holds, the check fails as stale rather than guessing: the upstream file changed around the redaction and a person has to decide whether the public line changes too."
   ],
   "upstream": {
-    "public_repo": "missionbuilt/loadout",
-    "starter_path": "ironstack/starter",
+    "public_repo": "missionbuilt/ironstack",
+    "starter_path": "starter",
     "instance_note": "The private instance has this template's layout at its own repo root: ingest/, schema/, config/, docs/."
   },
   "verbatim": [

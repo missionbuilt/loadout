@@ -6,7 +6,7 @@ needed to pick band thresholds from Mike's own history rather than inventing
 them. Writes nothing, indexes nothing, touches no saved object.
 
     cd /path/to/your-workout-log && set -a && source .env && set +a
-    python ~/Projects/loadout/ironstack/kibana/probe_signal.py
+    python ~/Projects/ironstack/kibana/probe_signal.py
 
 Paste the whole output back into the session.
 """

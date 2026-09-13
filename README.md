@@ -50,13 +50,9 @@ It's a starting overview, not a CISO — no maturity grade, no peer benchmark, n
 
 → [Read Floodlight's documentation](floodlight/README.md)
 
-### [Ironstack](ironstack/)
+### Ironstack has moved
 
-Train with a partner. Own your data. See everything. Ironstack turns Claude into your training partner and Elasticsearch + Kibana into your training log. You log sessions conversationally — Claude asks the questions a good partner asks, records every set and how it felt, and keeps you honest and motivated (earned encouragement, never hype). Kibana dashboards show your training from every angle, and the **workout-recall** skill lets you ask your history anything: *“What did I squat a couple weeks ago? How did I feel when I was traveling in Las Vegas?”*
-
-The skills are public; your data never is. Your logs live in your own private repo and your own Elasticsearch — free self-hosted or Elastic Cloud Serverless — with semantic search over your training notes where available. Ironstack logs and motivates; it does not build programs or give injury advice — it is not a doctor substitute.
-
-→ [Read Ironstack's documentation](ironstack/README.md)
+Ironstack, the training partner (two Claude skills, seven Kibana dashboards and a coach over an Elasticsearch you own), lived here until September 2026. It is the barbell half of the book rather than the boardroom half, so it now has its own repo, with its history: **[missionbuilt/ironstack](https://github.com/missionbuilt/ironstack)**, and its page is [missionbuilt.io/rack/ironstack](https://missionbuilt.io/rack/ironstack). MealStack, the other tool on the Rack, opens its source with 1.0.
 
 ## See it in action
 
