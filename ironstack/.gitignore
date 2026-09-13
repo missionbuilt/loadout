@@ -1,7 +1,0 @@
-__pycache__/
-*.pyc
-.env
-.DS_Store
-
-# Restore point written by kibana/prune.py before it deletes anything.
-kibana/pruned-backup*.ndjson
