@@ -2,7 +2,7 @@
 name: loadout-dev
 description: >
   Expert development partner for The Loadout — the Mission Built MCP server
-  (mcp.missionbuilt.io) that powers The Warmup and The Spotter skills. Use this
+  (mcp.missionbuilt.io) that powers The Warmup, The Spotter, and The Approach skills. Use this
   skill any time you are working on the Loadout project: adding or editing a skill,
   modifying warmup-template.html or spotter-template.html, changing index.ts tools,
   bumping versions, editing SKILL.md files, running a tech lead review, or preparing

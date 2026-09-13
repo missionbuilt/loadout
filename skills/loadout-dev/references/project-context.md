@@ -55,17 +55,17 @@
 ## Version constants — `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.1.0";
-export const WARMUP_VERSION        = "0.8.0";
-export const WARMUP_ENGINE_VERSION = "v0.8.0";
-export const SPOTTER_VERSION       = "0.7.17";
-export const THE_APPROACH_VERSION  = "0.1.4";
-export const TOOL_COUNT            = 23;
+export const SERVER_VERSION        = "1.4.0";
+export const WARMUP_VERSION        = "0.9.5";
+export const WARMUP_ENGINE_VERSION = "v0.9.5";
+export const SPOTTER_VERSION       = "1.2.0";
+export const THE_APPROACH_VERSION  = "0.3.2";
+export const TOOL_COUNT            = 18;
 ```
 
 ---
 
-## Tool inventory (23 tools total)
+## Tool inventory (18 tools total)
 
 ### Shared (2)
 | Tool | What it does |

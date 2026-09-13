@@ -1551,8 +1551,11 @@ function buildTrackerCell(area, idx) {
 }
 
 function buildAreaHtml(area, idx) {
-  var id = area.id || ('a' + String(idx + 1).padStart(2, '0'));
-  var num = area.num || String(idx + 1).padStart(2, '0');
+  // area.id lands in an id attribute and is used as a fragment target, so it is
+  // slugged rather than escaped — anything outside [A-Za-z0-9_-] is dropped and
+  // an empty result falls back to the positional id.
+  var id = String(area.id || '').replace(/[^A-Za-z0-9_-]/g, '') || ('a' + String(idx + 1).padStart(2, '0'));
+  var num = esc(area.num || String(idx + 1).padStart(2, '0'));
   var pipsHtml = (area.pips || ['r','r','r']).map(function(p) {
     var cls = p === 'w' ? ' w' : p === 'r' ? ' r' : '';
     return '<span class="pip' + cls + '"></span>';

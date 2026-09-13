@@ -86,12 +86,12 @@ Both counts must match.
 **File:** `missionbuilt-mcp/src/constants.ts`
 
 ```typescript
-export const SERVER_VERSION        = "1.1.0";   // Worker deploy version
-export const WARMUP_VERSION        = "0.8.0";   // bump when warmup SKILL.md or shell changes
-export const WARMUP_ENGINE_VERSION = "v0.8.0";  // bump when warmup-shell.rawjs changes
-export const SPOTTER_VERSION       = "0.7.17";  // bump when Spotter SKILL.md changes
-export const THE_APPROACH_VERSION  = "0.1.4";   // bump when Approach SKILL.md changes
-export const TOOL_COUNT            = 23;        // update when adding/removing tools
+export const SERVER_VERSION        = "1.4.0";   // Worker deploy version
+export const WARMUP_VERSION        = "0.9.5";   // bump when warmup SKILL.md or shell changes
+export const WARMUP_ENGINE_VERSION = "v0.9.5";  // bump when warmup-shell.rawjs changes
+export const SPOTTER_VERSION       = "1.2.0";  // bump when Spotter SKILL.md changes
+export const THE_APPROACH_VERSION  = "0.3.2";   // bump when Approach SKILL.md changes
+export const TOOL_COUNT            = 18;        // update when adding/removing tools
 ```
 
 **Bump rules:**
@@ -386,12 +386,13 @@ If you add a new tool that returns large content, add a section/area parameter s
 
 ---
 
-## Current versions (as of v0.3.17)
+## Current versions (as of v1.4.0)
 
-- `SERVER_VERSION = "1.0.1"`
-- `WARMUP_VERSION = "0.3.17"`
-- `WARMUP_ENGINE_VERSION = "v0.3.17"`
-- `SPOTTER_VERSION = "0.6.0"`
-- `TOOL_COUNT = 17`
+- `SERVER_VERSION = "1.4.0"`
+- `WARMUP_VERSION = "0.9.5"`
+- `WARMUP_ENGINE_VERSION = "v0.9.5"`
+- `SPOTTER_VERSION = "1.2.0"`
+- `THE_APPROACH_VERSION = "0.3.2"`
+- `TOOL_COUNT = 18`
 
 Tools: `loadout_whoami`, `loadout_get_brand_css`, `warmup_get_skill`, `warmup_list_modes`, `warmup_get_template`, `warmup_setup`, `warmup_run`, `warmup_config`, `spotter_get_skill`, `spotter_list_areas`, `spotter_get_examples`, `spotter_get_calibration_epic`, `spotter_get_calibration_epics`, `spotter_get_template`, `spotter_review`, `spotter_build`, `spotter_iterate`

@@ -24,4 +24,12 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Cowork drops delivered files here — screenshots, preview HTML, scratch.
+# None of it is source, and some of it is a picture of personal data.
+Claude outputs/
+
+# Ironstack moved to github.com/missionbuilt/ironstack in September 2026.
+# This is the leftover working copy; it is not part of this repo.
+/ironstack/
+
 # Local safety net, not a build artifact.

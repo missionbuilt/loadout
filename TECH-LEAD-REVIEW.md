@@ -1,4 +1,7 @@
 # Tech Lead Review — The Loadout · Warmup PATH B, Blank Artifact, Performance
+
+> **Superseded:** This is a dated review snapshot from 2026-05-18, kept for history, not current guidance. Its findings were addressed and the version numbers it cites (e.g. `WARMUP_VERSION` around 0.7.1) are long out of date — current versions live in `missionbuilt-mcp/src/constants.ts`.
+
 **Stack:** TypeScript · Cloudflare Workers (Durable Objects) · MCP SDK · Zod · Wrangler
 **Files reviewed:** `missionbuilt-mcp/src/index.ts`, `warmup-shell.rawjs` (lines 770–940), `skill-content/warmup/SKILL.md` (Path B + schema sections), `constants.ts`, session transcript `local_a95c12d9`
 **Date:** 2026-05-18

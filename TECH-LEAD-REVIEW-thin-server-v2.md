@@ -1,4 +1,7 @@
 # Tech Lead Review — Loadout thin-server v2 + Spotter standalone
+
+> **Superseded:** This is a dated review snapshot from 2026-06-13, kept for history, not current guidance. Its findings were addressed and the version numbers it cites are long out of date — current versions live in `missionbuilt-mcp/src/constants.ts`.
+
 **Stack:** TypeScript · Cloudflare Workers + Durable Objects · MCP SDK · Zod · OAuth 2.1 (Google)
 **Files reviewed:** `index.ts`, `auth.ts`, `constants.ts`, `wrangler.toml`, `landing.ts`, `skill-content/{spotter,warmup,the-approach}/*`, `spotter/*` (standalone), `spotter/scripts/inject.py`
 **Scope:** the uncommitted W1 (Spotter standalone) + W2 (thin-server) change surface.

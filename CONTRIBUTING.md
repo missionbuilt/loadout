@@ -6,7 +6,7 @@ The Loadout is open source under MIT. Improvements to existing skills, new skill
 
 ## Quick orientation
 
-The Loadout lives at [github.com/missionbuilt/loadout](https://github.com/missionbuilt/loadout). Each skill is a self-contained subdirectory at the top level — `spotter/`, `warmup/`, and others to come. Each skill carries its own `SKILL.md`, `README.md`, `ATTRIBUTION.md`, and `examples/` or reference folder.
+The Loadout lives at [github.com/missionbuilt/loadout](https://github.com/missionbuilt/loadout). Each skill is a self-contained subdirectory at the top level — `spotter/`, `warmup/`, and others to come. Each skill carries its own `SKILL.md`, `README.md`, and `examples/` or reference folder, plus an `ATTRIBUTION.md` where it borrows from outside material.
 
 When a Claude Code or Cowork user installs a skill, they copy a single subdirectory into their `.claude/skills/`. The directory structure mirrors that contract.
 
@@ -24,7 +24,7 @@ When a Claude Code or Cowork user installs a skill, they copy a single subdirect
    - `<skill>/SKILL.md` — the skill itself (criteria, modes, output formats)
    - `<skill>/examples/area-examples.md` (or equivalent) — the worked examples that teach the criteria
    - `<skill>/README.md` — install and use documentation
-   - `<skill>/ATTRIBUTION.md` — credits and inspiration sources
+   - `<skill>/ATTRIBUTION.md` (where present) — credits and inspiration sources
 3. **Make your change.** Keep the diff minimal — don't reformat surrounding text.
 4. **Submit a pull request** with a short description of what you changed and why. Reference any related issue.
 
