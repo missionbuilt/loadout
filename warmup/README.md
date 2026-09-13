@@ -1,4 +1,4 @@
-# The Warmup — Self-Contained Edition (v0.9.4)
+# The Warmup — Self-Contained Edition (v0.9.6)
 
 A daily intelligence brief for the first coffee. This is the fully local
 edition of The Warmup: no MCP server, no KV store, no network dependency

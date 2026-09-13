@@ -10,7 +10,7 @@ description: >
   "research for my call", "build the approach", "the approach for", "run approach".
 license: MIT
 author: H. Michael Nichols
-version: 0.2.4
+version: 0.3.2
 part_of: The Loadout
 ---
 

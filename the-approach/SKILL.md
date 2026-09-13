@@ -3,7 +3,7 @@ name: the-approach
 description: "The Approach. A pre-call intelligence brief for sellers and technical sellers, with MEDDPICC, opener, and demo plan. Triggers: \"run the approach\", \"brief me on\", \"prep me for my call with\"."
 license: MIT
 author: H. Michael Nichols
-version: 0.3.1
+version: 0.3.2
 part_of: The Loadout
 ---
 

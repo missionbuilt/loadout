@@ -1,4 +1,4 @@
-# The Approach — Self-Contained Edition (v0.3.1)
+# The Approach — Self-Contained Edition (v0.3.2)
 
 A pre-call intelligence brief for sellers and technical sellers. This is the
 fully local edition of The Approach: no MCP server, no network dependency

@@ -3,7 +3,7 @@ name: warmup
 description: "The Warmup. A daily intelligence brief for the first coffee, in CISO, Product Leader, or Custom mode. Triggers: \"run my warmup\", \"warmup\", \"set up my warmup\", \"what's in the brief today\"."
 license: MIT
 author: H. Michael Nichols
-version: 0.9.4
+version: 0.9.6
 part_of: The Loadout
 ---
 

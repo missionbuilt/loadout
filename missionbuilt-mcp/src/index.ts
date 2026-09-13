@@ -990,7 +990,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "warmup-skill",
       "loadout://warmup/skill",
       {
-        name: "The Warmup — SKILL.md",
+        title: "The Warmup — SKILL.md",
         description: "Full framework: philosophy, three modes, setup flow, source tiers, section structure, output format, safety protocol.",
         mimeType: "text/markdown",
       },
@@ -1003,7 +1003,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter-skill",
       "loadout://spotter/skill",
       {
-        name: "The Spotter — SKILL.md",
+        title: "The Spotter — SKILL.md",
         description: "Full framework: philosophy, modes, nine review areas, sub-checks, output formats, anti-patterns, structured output schema.",
         mimeType: "text/markdown",
       },
@@ -1016,7 +1016,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter-examples",
       "loadout://spotter/examples",
       {
-        name: "The Spotter — Area Examples",
+        title: "The Spotter — Area Examples",
         description: "64 worked examples across nine review areas with teaching notes.",
         mimeType: "text/markdown",
       },
@@ -1029,7 +1029,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter-calibration-2",
       "loadout://spotter/calibration/2",
       {
-        name: "The Spotter — Calibration Epic 2",
+        title: "The Spotter — Calibration Epic 2",
         description: "Synthetic B2B security epic: MITRE ATT&CK Coverage Insights. Well-formed epic for grading range calibration.",
         mimeType: "text/markdown",
       },
@@ -1042,7 +1042,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "spotter-calibration-3",
       "loadout://spotter/calibration/3",
       {
-        name: "The Spotter — Calibration Epic 3",
+        title: "The Spotter — Calibration Epic 3",
         description: "Synthetic B2B security epic: Adversary-Informed Vulnerability Prioritization. Well-formed epic for grading range calibration.",
         mimeType: "text/markdown",
       },
@@ -1055,7 +1055,7 @@ export class MissionBuiltMCP extends McpAgent<Env, UserProps> {
       "brand-css",
       "loadout://brand-css",
       {
-        name: "Mission Built — Brand CSS",
+        title: "Mission Built — Brand CSS",
         description: "The Mission Built design system as a CSS stylesheet.",
         mimeType: "text/css",
       },

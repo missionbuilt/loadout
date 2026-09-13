@@ -21,7 +21,7 @@ description: >
   "remove source from warmup", "show my warmup sources".
 license: MIT
 author: H. Michael Nichols
-version: 0.7.2
+version: 0.9.6
 part_of: The Loadout
 ---
 
